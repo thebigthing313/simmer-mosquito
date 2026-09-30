@@ -8,6 +8,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -431,27 +432,29 @@ function MissionResults({
 	}
 
 	return (
-		<ul className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-4">
-			{missions.map((mission) => (
-				<MissionRow
-					assigneeName={
-						mission.assignedToProfileId === null
-							? null
-							: (nameById.get(mission.assignedToProfileId) ?? null)
-					}
-					counts={countsById.get(mission.id) ?? null}
-					isSelected={mission.id === selectedId}
-					key={mission.id}
-					methodName={
-						mission.plannedMethodId === null
-							? null
-							: (methodNameById.get(mission.plannedMethodId) ?? null)
-					}
-					mission={mission}
-					onSelect={onSelect}
-				/>
-			))}
-		</ul>
+		<ScrollArea className="min-h-0 flex-1" type="auto">
+			<ul className="m-0 list-none space-y-2 p-4">
+				{missions.map((mission) => (
+					<MissionRow
+						assigneeName={
+							mission.assignedToProfileId === null
+								? null
+								: (nameById.get(mission.assignedToProfileId) ?? null)
+						}
+						counts={countsById.get(mission.id) ?? null}
+						isSelected={mission.id === selectedId}
+						key={mission.id}
+						methodName={
+							mission.plannedMethodId === null
+								? null
+								: (methodNameById.get(mission.plannedMethodId) ?? null)
+						}
+						mission={mission}
+						onSelect={onSelect}
+					/>
+				))}
+			</ul>
+		</ScrollArea>
 	);
 }
 

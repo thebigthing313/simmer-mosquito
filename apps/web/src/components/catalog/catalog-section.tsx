@@ -1,4 +1,5 @@
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import {
 	Table,
 	TableBody,
@@ -44,12 +45,16 @@ export function CatalogSection({
 					{emptyLabel}
 				</p>
 			) : (
-				<div className="overflow-x-auto rounded-md border border-border/50">
+				<ScrollArea
+					className="rounded-md border border-border/50"
+					orientation="horizontal"
+					type="auto"
+				>
 					<Table className="table-fixed">
 						<TableHeader>{columns}</TableHeader>
 						<TableBody>{children}</TableBody>
 					</Table>
-				</div>
+				</ScrollArea>
 			)}
 		</section>
 	);

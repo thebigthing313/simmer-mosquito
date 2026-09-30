@@ -291,6 +291,65 @@
 }
 
 /*
+ * A native scrollbar drawn like the `ScrollArea` thumb: a thin bar in the
+ * `--border` colour over a transparent track. It is for a scroller that
+ * `ScrollArea` cannot wrap, either because other code holds a ref to the
+ * element and depends on it scrolling, or because it sits in a generated
+ * shadcn component under `components/ui` that is not edited by hand.
+ *
+ * The colour is `var(--border)` because that is what the thumb's `bg-border`
+ * compiles to through `@theme inline`, and
+ * `src/tests/unit/scrollbar-subtle.test.ts` fails if the two stop agreeing.
+ *
+ * Only the two standard properties are set. Firefox 64 and later and Chromium
+ * 121 and later draw the thin bar in this colour. Safari reads
+ * `scrollbar-width` from 18.2 and `scrollbar-color` from 26.2, so 18.2 to 26.1
+ * draws a thin bar in the system colour and anything older draws its default.
+ * An overlay scrollbar, the macOS default, ignores both and stays the system's.
+ * There are no `::-webkit-scrollbar` rules: Chromium ignores them once either
+ * standard property is set, so they would only reach Safari before 26.2, and
+ * a thin system-coloured bar there is close enough not to need a second rule.
+ */
+@utility scrollbar-subtle {
+	scrollbar-width: thin;
+	scrollbar-color: var(--border) transparent;
+}
+
+/*
+ * The generated components that scroll, drawing the same bar. Their files under
+ * `components/ui` are regenerated from the registry, which would drop a class
+ * added there by hand, so the rule is keyed on each scroller's `data-slot`
+ * here instead. The Autocomplete is not from the registry, so its list carries
+ * a slot written by hand. `src/tests/unit/generated-scrollers.test.ts` fails
+ * when a slot is renamed or a selector goes missing.
+ *
+ * The Select is left out on purpose (#1290). Radix hides its viewport's
+ * scrollbar because the up and down buttons do the scrolling, and drawing the
+ * bar as well put three scroll controls on one list: the bar, the browser's
+ * stepper arrow at its foot, and the Radix button. The same suite fails if the
+ * viewport comes back into this list.
+ *
+ * The rule sits in the components layer. It used to be unlayered, because
+ * Radix injects its Select style unlayered and a layered rule loses to that
+ * whatever its specificity. Nothing injects a scrollbar style on the slots left
+ * here, so a layer is enough to apply the bar, and a utility at a call site can
+ * now override it where an unlayered rule would have beaten every utility.
+ */
+@layer components {
+	[data-slot="dropdown-menu-content"],
+	[data-slot="context-menu-content"],
+	[data-slot="command-list"],
+	[data-slot="combobox-list"],
+	[data-slot="autocomplete-list"],
+	[data-slot="sheet-content"],
+	[data-slot="drawer-content"],
+	[data-slot="sidebar-content"],
+	[data-slot="table-container"] {
+		@apply scrollbar-subtle;
+	}
+}
+
+/*
  * The loading hairline that runs across the top of a region still resolving. It
  * is the one moving part of a skeleton surface, and it carries state rather than
  * decoration: the skeletons say what is coming, and this says work is still in

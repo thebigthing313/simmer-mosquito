@@ -100,7 +100,7 @@ function perType<T>(values: readonly T[]): Readonly<Record<OverviewRecordType, T
 interface Scope {
 	readonly organizationId: string;
 	readonly timeZone: string;
-	readonly window: { readonly from: string | null; readonly to: string };
+	readonly window: { readonly from: string; readonly to: string };
 }
 
 /**
@@ -230,13 +230,11 @@ async function readDailyRows(
 	scope: Scope,
 ): Promise<readonly OverviewDailyRow[]> {
 	const source = typeSource(type, scope.timeZone);
-	const lowerBound =
-		scope.window.from === null ? sql`` : sql`and ${source.date} >= ${scope.window.from}::date`;
 	const result = await sql<OverviewDailyRow>`
 		select ${source.date}::text as day, count(*)::int as count ${ratioColumns(type)}
 		from ${source.from}
 		where ${source.live(scope.organizationId)}
-			${lowerBound}
+			and ${source.date} >= ${scope.window.from}::date
 			and ${source.date} <= ${scope.window.to}::date
 		group by 1
 		order by 1

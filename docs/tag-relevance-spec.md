@@ -225,6 +225,12 @@ A modal over the whole catalog, not a popover checklist and no widen control: th
 full catalog is on screen from the start, and relevance orders it rather than
 filtering it.
 
+#1266 moved the control. The button is gone and the picker opens from an
+`Edit tags` item in the header's `...`, after the page's own actions and above
+Delete, with no count, since the chips beside the name already show the Tags.
+The chips and their `x` stay where they were. The rest of this section is the
+decision as #1207 made it.
+
 ### What it lists
 
 Settled in #1208. Two sections, always both, each row a checkbox with the tag
@@ -407,8 +413,8 @@ Editing a Tag's relevant record types is `updateTag`, so manager-and-above, and
 it is drawn where the rest of the catalog editor is drawn.
 
 Assigning and unassigning stay collector-and-above, gated where the control is
-drawn with `WriteOnly`: the counted button, the checkboxes and the header chip's
-`x`. The chips themselves draw for everyone.
+drawn: the `Edit tags` item in the header's `...`, the checkboxes and the header
+chip's `x`. The chips themselves draw for everyone.
 
 ## Surfaces that do not get the picker
 

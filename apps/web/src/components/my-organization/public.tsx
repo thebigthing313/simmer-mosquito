@@ -1,6 +1,7 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
 import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Drawer,
@@ -12,6 +13,7 @@ import {
 	DrawerTitle,
 	DrawerTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/drawer';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import {
 	Table,
 	TableBody,
@@ -228,7 +230,7 @@ function NotificationTypeTable({
 	readonly notificationTypes: readonly DescribedCatalogRecord[];
 }) {
 	return (
-		<div className="overflow-x-auto rounded-md border border-border/40">
+		<ScrollArea className="rounded-md border border-border/40" orientation="horizontal" type="auto">
 			<Table>
 				<TableHeader>
 					<TableRow>
@@ -263,7 +265,7 @@ function NotificationTypeTable({
 					))}
 				</TableBody>
 			</Table>
-		</div>
+		</ScrollArea>
 	);
 }
 
@@ -335,53 +337,57 @@ function NotificationTypeDrawer({
 						</DrawerDescription>
 					</DrawerHeader>
 					<form.AppForm>
-						<form
-							className="grid min-h-0 gap-3.5 overflow-y-auto px-4"
-							onSubmit={(event) => {
-								event.preventDefault();
-								void form.handleSubmit();
-							}}
-						>
-							<form.FormErrorAlert />
-							<form.AppField
-								name="name"
-								validators={{
-									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? 'Notification type is required.' : undefined,
+						{/* As in `CatalogRecordDrawer`, the body shrinks to the height the
+						    drawer header leaves. */}
+						<ScrollBody gutter={false} height="shrink">
+							<form
+								className="grid gap-3.5 px-4"
+								onSubmit={(event) => {
+									event.preventDefault();
+									void form.handleSubmit();
 								}}
 							>
-								{(field) => (
-									<field.TextField
-										label="Notification type"
-										disabled={!canManage}
-										placeholder="e.g. Phone call"
-									/>
-								)}
-							</form.AppField>
-							<form.AppField name="description">
-								{(field) => (
-									<field.TextareaField
-										label="Description"
-										disabled={!canManage}
-										className="min-h-24"
-									/>
-								)}
-							</form.AppField>
-							<form.AppField name="isActive">
-								{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
-							</form.AppField>
-							<DrawerFooter className="px-0">
-								<form.FormActions>
-									<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
-									<DrawerClose asChild>
-										<Button type="button" variant="outline">
-											<CloseIcon data-icon="inline-start" aria-hidden="true" />
-											Cancel
-										</Button>
-									</DrawerClose>
-								</form.FormActions>
-							</DrawerFooter>
-						</form>
+								<form.FormErrorAlert />
+								<form.AppField
+									name="name"
+									validators={{
+										onSubmit: ({ value }) =>
+											value.trim().length === 0 ? 'Notification type is required.' : undefined,
+									}}
+								>
+									{(field) => (
+										<field.TextField
+											label="Notification type"
+											disabled={!canManage}
+											placeholder="e.g. Phone call"
+										/>
+									)}
+								</form.AppField>
+								<form.AppField name="description">
+									{(field) => (
+										<field.TextareaField
+											label="Description"
+											disabled={!canManage}
+											className="min-h-24"
+										/>
+									)}
+								</form.AppField>
+								<form.AppField name="isActive">
+									{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
+								</form.AppField>
+								<DrawerFooter className="px-0">
+									<form.FormActions>
+										<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
+										<DrawerClose asChild>
+											<Button type="button" variant="outline">
+												<CloseIcon data-icon="inline-start" aria-hidden="true" />
+												Cancel
+											</Button>
+										</DrawerClose>
+									</form.FormActions>
+								</DrawerFooter>
+							</form>
+						</ScrollBody>
 					</form.AppForm>
 				</DrawerContent>
 			</Drawer>

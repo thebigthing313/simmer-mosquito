@@ -1,5 +1,11 @@
 # @simmer-mosquito/admin
 
+## 0.7.3 — 2026-09-30
+
+### Patch Changes
+
+- Changed: pages, menus, sidebars and lists scroll with a thin scrollbar in place of the browser's default bar.
+
 ## 0.7.2 — 2026-09-24
 
 ### Patch Changes

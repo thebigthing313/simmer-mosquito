@@ -173,6 +173,24 @@ describe('ContactRegistrations', () => {
 		expect(screen.getByText('Ana Reyes')).toBeTruthy();
 	});
 
+	it('scrolls the list and the form inside the styled viewport, under a contact that stays put', () => {
+		renderPage();
+
+		const list = screen.getByText('Area').closest('[data-slot="scroll-area-viewport"]');
+		expect(list).not.toBeNull();
+		expect(list?.parentElement?.getAttribute('class')?.split(/\s+/)).toEqual(
+			expect.arrayContaining(['min-h-0', 'flex-1']),
+		);
+		// The split page's own column is a scroll area too, held to the pane's
+		// height, so the contact sits in that one and not in the list's.
+		expect(list?.contains(screen.getByText('Ana Reyes'))).toBe(false);
+
+		fireEvent.click(screen.getByRole('button', { name: 'Add Registration' }));
+		expect(
+			screen.getByText('Registration form').closest('[data-slot="scroll-area-viewport"]'),
+		).toBe(list);
+	});
+
 	it('lists only the registrations this contact holds', () => {
 		listings = [
 			listing({ id: 'mine' }),

@@ -365,6 +365,8 @@ export interface CommentsTable {
 	updated_at: TimestampWithDefault;
 	deleted_at: NullableTimestampWithDefault;
 	deleted_by_profile_id: string | null;
+	edited_at: NullableTimestampWithDefault;
+	edited_by_profile_id: string | null;
 }
 
 export interface ContactsTable {
@@ -1305,7 +1307,9 @@ export interface ServerOwnedColumns {
 		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
-		| 'deleted_at';
+		| 'deleted_at'
+		| 'edited_at'
+		| 'edited_by_profile_id';
 	contacts:
 		| 'organization_id'
 		| 'created_by_profile_id'

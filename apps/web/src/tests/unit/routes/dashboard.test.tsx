@@ -47,6 +47,9 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
 }));
 
 const { DashboardPage } = await import('../../../components/dashboard/dashboard-page');
+const { ACTIVITY_STRIP_CHANGE_MODE_KEY } = await import(
+	'../../../hooks/dashboard/use-activity-strip-change-mode'
+);
 
 /** Noon in New York on 2026-09-15, so `today` is fixed for every age below. */
 const NOW = new Date('2026-09-15T16:00:00Z');
@@ -92,6 +95,13 @@ const EMPTY: DashboardResponse = {
 	},
 };
 
+/** One inspection this week and two the week before: `-1` as a count, `-50%` as a percentage. */
+const WEEK_ON_WEEK = [
+	{ id: 'i-now', habitat_id: 'h1', inspection_date: '2026-09-14' },
+	{ id: 'i-prior-1', habitat_id: 'h1', inspection_date: '2026-09-02' },
+	{ id: 'i-prior-2', habitat_id: 'h1', inspection_date: '2026-09-03' },
+];
+
 beforeEach(() => {
 	vi.useFakeTimers({ toFake: ['Date'] });
 	vi.setSystemTime(NOW);
@@ -107,6 +117,8 @@ beforeEach(() => {
 afterEach(() => {
 	cleanup();
 	vi.useRealTimers();
+	vi.restoreAllMocks();
+	globalThis.localStorage.clear();
 });
 
 /** The panel whose heading reads `title`, so an assertion is scoped to it. */
@@ -309,6 +321,46 @@ describe('the Dashboard', () => {
 		expect(stripCell('Samples').textContent).toBe('00Samples');
 		expect(screen.queryByLabelText(/^(Up|Down)$/)).toBeNull();
 		expect(screen.getByText('Nothing logged yet today.')).toBeTruthy();
+	});
+
+	it('opens the strip on the change mode this browser last picked', async () => {
+		seedRows(inspections, WEEK_ON_WEEK);
+		renderDashboard();
+		await waitFor(() => expect(stripCell('Inspections').textContent).toBe('1-1Inspections'));
+		fireEvent.click(screen.getByRole('radio', { name: 'Change as a percentage' }));
+		expect(stripCell('Inspections').textContent).toBe('1-50%Inspections');
+
+		// A second visit: the page mounts again and the choice is still there.
+		cleanup();
+		renderDashboard();
+		await waitFor(() => expect(stripCell('Inspections').textContent).toBe('1-50%Inspections'));
+		expect(
+			screen.getByRole('radio', { name: 'Change as a percentage' }).getAttribute('aria-checked'),
+		).toBe('true');
+	});
+
+	it('draws the strip on the count when browser storage throws', async () => {
+		vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+			throw new Error('SecurityError');
+		});
+		const write = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new Error('SecurityError');
+		});
+		seedRows(inspections, WEEK_ON_WEEK);
+		renderDashboard();
+		await waitFor(() => expect(stripCell('Inspections').textContent).toBe('1-1Inspections'));
+
+		// The toggle still works for this visit; only remembering it is lost.
+		fireEvent.click(screen.getByRole('radio', { name: 'Change as a percentage' }));
+		expect(write).toHaveBeenCalled();
+		expect(stripCell('Inspections').textContent).toBe('1-50%Inspections');
+	});
+
+	it('reads a stored value it does not know as the count', async () => {
+		globalThis.localStorage.setItem(ACTIVITY_STRIP_CHANGE_MODE_KEY, 'ratio');
+		seedRows(inspections, WEEK_ON_WEEK);
+		renderDashboard();
+		await waitFor(() => expect(stripCell('Inspections').textContent).toBe('1-1Inspections'));
 	});
 
 	it('says which sections are unavailable when the server read fails', async () => {

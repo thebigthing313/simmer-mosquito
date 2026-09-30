@@ -1,5 +1,6 @@
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Drawer,
@@ -202,49 +203,57 @@ function CollectionLureDrawer({
 						</DrawerDescription>
 					</DrawerHeader>
 					<form.AppForm>
-						<form
-							className="grid min-h-0 gap-3.5 overflow-y-auto px-4"
-							onSubmit={(event) => {
-								event.preventDefault();
-								void form.handleSubmit();
-							}}
-						>
-							<form.FormErrorAlert />
-							<form.AppField
-								name="name"
-								validators={{
-									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? 'Lure name is required.' : undefined,
+						{/* As in `CatalogRecordDrawer`, the body shrinks to the height the
+						    drawer header leaves. */}
+						<ScrollBody gutter={false} height="shrink">
+							<form
+								className="grid gap-3.5 px-4"
+								onSubmit={(event) => {
+									event.preventDefault();
+									void form.handleSubmit();
 								}}
 							>
-								{(field) => (
-									<field.TextField label="Lure name" disabled={!canManage} placeholder="e.g. CO2" />
-								)}
-							</form.AppField>
-							<form.AppField name="description">
-								{(field) => (
-									<field.TextareaField
-										label="Description"
-										disabled={!canManage}
-										className="min-h-24"
-									/>
-								)}
-							</form.AppField>
-							<form.AppField name="isActive">
-								{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
-							</form.AppField>
-							<DrawerFooter className="px-0">
-								<form.FormActions>
-									<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
-									<DrawerClose asChild>
-										<Button type="button" variant="outline">
-											<CloseIcon data-icon="inline-start" aria-hidden="true" />
-											Cancel
-										</Button>
-									</DrawerClose>
-								</form.FormActions>
-							</DrawerFooter>
-						</form>
+								<form.FormErrorAlert />
+								<form.AppField
+									name="name"
+									validators={{
+										onSubmit: ({ value }) =>
+											value.trim().length === 0 ? 'Lure name is required.' : undefined,
+									}}
+								>
+									{(field) => (
+										<field.TextField
+											label="Lure name"
+											disabled={!canManage}
+											placeholder="e.g. CO2"
+										/>
+									)}
+								</form.AppField>
+								<form.AppField name="description">
+									{(field) => (
+										<field.TextareaField
+											label="Description"
+											disabled={!canManage}
+											className="min-h-24"
+										/>
+									)}
+								</form.AppField>
+								<form.AppField name="isActive">
+									{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
+								</form.AppField>
+								<DrawerFooter className="px-0">
+									<form.FormActions>
+										<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
+										<DrawerClose asChild>
+											<Button type="button" variant="outline">
+												<CloseIcon data-icon="inline-start" aria-hidden="true" />
+												Cancel
+											</Button>
+										</DrawerClose>
+									</form.FormActions>
+								</DrawerFooter>
+							</form>
+						</ScrollBody>
 					</form.AppForm>
 				</DrawerContent>
 			</Drawer>

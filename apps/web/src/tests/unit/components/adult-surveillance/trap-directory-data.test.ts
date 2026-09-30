@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type {
+	CollectionYear,
 	DirectoryCollection,
 	DirectorySpecies,
 } from '../../../../components/adult-surveillance/trap-directory-data';
 import {
 	groupByYear,
 	specimenTotals,
+	splitSeasons,
 	summaryLabel,
 	UNDATED_GROUP_KEY,
 } from '../../../../components/adult-surveillance/trap-directory-data';
@@ -205,6 +207,30 @@ describe('specimenTotals', () => {
 		]);
 
 		expect(totals).toEqual({ specimens: 7, species: 1 });
+	});
+});
+
+describe('splitSeasons', () => {
+	function seasons(keys: readonly string[]): readonly CollectionYear[] {
+		return keys.map((key) => ({ key, label: key, collections: [] }));
+	}
+
+	it('keeps the three most recent seasons as tabs and lists the rest', () => {
+		const { recent, older } = splitSeasons(seasons(['2026', '2025', '2024', '2023', '2022']));
+		expect(recent.map((year) => year.key)).toEqual(['2026', '2025', '2024']);
+		expect(older.map((year) => year.key)).toEqual(['2023', '2022']);
+	});
+
+	it('does not count the undated group against the three', () => {
+		const { recent, older } = splitSeasons(
+			seasons([UNDATED_GROUP_KEY, '2026', '2025', '2024', '2023']),
+		);
+		expect(recent.map((year) => year.key)).toEqual([UNDATED_GROUP_KEY, '2026', '2025', '2024']);
+		expect(older.map((year) => year.key)).toEqual(['2023']);
+	});
+
+	it('lists nothing for a trap with three seasons or fewer', () => {
+		expect(splitSeasons(seasons(['2026', '2025'])).older).toEqual([]);
 	});
 });
 

@@ -1,6 +1,7 @@
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
@@ -412,7 +413,11 @@ function AddStopBar({
 			) : null}
 
 			{open ? (
-				<div className="max-h-64 overflow-y-auto rounded-lg border border-border/60 bg-card">
+				<ScrollBody
+					className="rounded-lg border border-border/60 bg-card"
+					gutter={false}
+					height={{ cap: '16rem' }}
+				>
 					{isFetching && results.length === 0 ? (
 						<p className="flex items-center gap-2 px-3 py-3 text-muted-foreground text-sm">
 							<Loader2Icon aria-hidden="true" className="size-3.5 animate-spin" />
@@ -451,7 +456,7 @@ function AddStopBar({
 							})}
 						</ul>
 					)}
-				</div>
+				</ScrollBody>
 			) : null}
 		</div>
 	);
@@ -490,7 +495,6 @@ function EditStopList({
 
 	return (
 		<StopList
-			className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-3"
 			empty={{
 				title: 'No Stops Yet',
 				description: 'Search habitats above and add them in the order crews should visit.',

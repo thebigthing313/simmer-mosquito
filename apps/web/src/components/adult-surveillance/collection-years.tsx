@@ -1,5 +1,4 @@
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Empty,
 	EmptyDescription,
@@ -7,14 +6,14 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { type ReactNode, useState } from 'react';
-import { formatCount } from '../../lib/format-count';
+import { type ReactNode, useId, useState } from 'react';
 import { CollectionRow } from './collection-row';
-import type { CollectionYear } from './trap-directory-data';
-import { DirectoryTab, DirectoryTabsList } from './trap-directory-tabs';
+import { SeasonPicker } from './season-picker';
+import { type CollectionYear, splitSeasons } from './trap-directory-data';
 
 const CollectionIcon = iconRegistry.entities.collection.icon;
 
@@ -42,6 +41,8 @@ export function CollectionYears({
 	// re-anchors on the first group whenever the trap changes.
 	const [openYear, setOpenYear] = useState<string | null>(null);
 	const active = years.find((year) => year.key === openYear) ?? years[0];
+	const menuTriggerId = useId();
+	const isTabbed = splitSeasons(years).recent.some((year) => year.key === active?.key);
 
 	if (isError) {
 		return (
@@ -84,25 +85,13 @@ export function CollectionYears({
 			<HistoryFrame
 				header={header}
 				tabs={
-					<div className="flex items-center gap-2">
-						<div className="min-w-0 flex-1">
-							<DirectoryTabsList label="Season">
-								{years.map((year) => (
-									<DirectoryTab key={year.key} value={year.key}>
-										{year.label}
-										<span className="text-muted-foreground text-xs tabular-nums">
-											{formatCount(year.collections.length)}
-										</span>
-									</DirectoryTab>
-								))}
-							</DirectoryTabsList>
-						</div>
-						{onLoadEarlier === undefined ? null : (
-							<Button className="shrink-0" onClick={onLoadEarlier} size="sm" variant="ghost">
-								Earlier Seasons
-							</Button>
-						)}
-					</div>
+					<SeasonPicker
+						menuTriggerId={menuTriggerId}
+						onLoadEarlier={onLoadEarlier}
+						onOpen={setOpenYear}
+						openKey={active.key}
+						years={years}
+					/>
 				}
 			>
 				{/*
@@ -110,7 +99,12 @@ export function CollectionYears({
 				 * anyway, so rendering the other years' panels would build markup no one
 				 * can see and re-run every species roll-up behind it.
 				 */}
-				<TabsContent value={active.key}>
+				<TabsContent
+					value={active.key}
+					// An older season has no tab to name its panel, so the menu trigger
+					// showing it does.
+					{...(isTabbed ? {} : { 'aria-labelledby': menuTriggerId })}
+				>
 					<ul className="grid list-none gap-0 divide-y divide-border/40 overflow-hidden rounded-md border border-border/50 p-0">
 						{active.collections.map((collection) => (
 							<CollectionRow
@@ -143,7 +137,9 @@ function HistoryFrame({
 				{header}
 				{tabs}
 			</div>
-			<div className="min-h-0 flex-1 overflow-y-auto px-5 pt-3 pb-6">{children}</div>
+			<ScrollArea className="min-h-0 flex-1" type="auto">
+				<div className="px-5 pt-3 pb-6">{children}</div>
+			</ScrollArea>
 		</div>
 	);
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	isServiceRequestTab,
 	mapFamiliesForTab,
+	NEARBY_TABS,
 	SERVICE_REQUEST_TAB_CODECS,
 	SERVICE_REQUEST_TAB_LABEL,
 	SERVICE_REQUEST_TABS,
@@ -10,12 +11,13 @@ import {
 import { searchValidator } from '../../../../../lib/search-filters';
 
 describe('the service request tab register', () => {
-	it('names five tabs, Details first and Comments last', () => {
+	it('names six tabs, Details first, the other requests after Control, and Comments last', () => {
 		expect(SERVICE_REQUEST_TABS).toEqual([
 			'details',
 			'infrastructure',
 			'surveillance',
 			'control',
+			'serviceRequests',
 			'comments',
 		]);
 		expect(SERVICE_REQUEST_TABS.map((tab) => SERVICE_REQUEST_TAB_LABEL[tab])).toEqual([
@@ -23,7 +25,28 @@ describe('the service request tab register', () => {
 			'Infrastructure',
 			'Surveillance',
 			'Control',
+			'Service Requests',
 			'Comments',
+		]);
+	});
+
+	it('lists the four nearby tabs with the family each one reads', () => {
+		expect(NEARBY_TABS.map(({ tab, family }) => [tab, family])).toEqual([
+			['infrastructure', 'infrastructure'],
+			['surveillance', 'surveillance'],
+			['control', 'control'],
+			['serviceRequests', 'publicEngagement'],
+		]);
+	});
+
+	// The empty state names what the tab lists, and a request is not a record
+	// of a family the way a trap is Infrastructure.
+	it('names what each nearby tab lists when nothing fell inside the radius', () => {
+		expect(NEARBY_TABS.map(({ emptyDescription }) => emptyDescription)).toEqual([
+			'No infrastructure records fell within this radius and time window.',
+			'No surveillance records fell within this radius and time window.',
+			'No control records fell within this radius and time window.',
+			'No service requests fell within this radius and time window.',
 		]);
 	});
 
@@ -39,6 +62,10 @@ describe('the tab search param', () => {
 	it('keeps a family tab in the URL and leaves Details out', () => {
 		expect(validate({ tab: 'surveillance' })).toEqual({ tab: 'surveillance' });
 		expect(validate({ tab: 'details' })).toEqual({});
+	});
+
+	it('keeps the Service Requests tab in the URL', () => {
+		expect(validate({ tab: 'serviceRequests' })).toEqual({ tab: 'serviceRequests' });
 	});
 
 	// A hand-edited or truncated link lands on Details rather than on an error.
@@ -58,8 +85,13 @@ describe('what the map is handed per tab', () => {
 		expect([...mapFamiliesForTab(family)]).toEqual([family]);
 	});
 
+	it('draws the other service requests, and nothing else, on the Service Requests tab', () => {
+		expect(tabFamily('serviceRequests')).toBe('publicEngagement');
+		expect([...mapFamiliesForTab('serviceRequests')]).toEqual(['publicEngagement']);
+	});
+
 	// The other requests around this one are drawn beside the request's own
-	// facts and its thread, and no tab lists them (#1090).
+	// facts and its thread too (#1090), which the Service Requests tab lists.
 	it.each([
 		'details',
 		'comments',

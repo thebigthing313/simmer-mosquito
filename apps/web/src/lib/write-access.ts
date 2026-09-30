@@ -189,3 +189,59 @@ export async function isBelowRole(
 ): Promise<boolean> {
 	return !hasAtLeastRole(await context.auth.load(), minimum);
 }
+
+/**
+ * How long a Collector may correct or remove their own comment.
+ *
+ * The server's `COMMENT_CORRECTION_WINDOW_DAYS` in
+ * `apps/server/src/command-ownership.ts`, written twice for the reason
+ * {@link ROLE_RANK} is.
+ */
+const COMMENT_CORRECTION_WINDOW_DAYS = 30;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The controls a comment thread offers on one comment. */
+export interface CommentControls {
+	readonly pin: boolean;
+	readonly edit: boolean;
+	readonly remove: boolean;
+}
+
+/** What {@link commentControls} reads off a comment. */
+interface CommentAuthorship {
+	readonly commentedByProfileId: string | null;
+	readonly commentedAt: Date;
+}
+
+/**
+ * Which controls the signed-in membership gets on one comment.
+ *
+ * The server's two rules, read the same way. Pin and unpin are Manager and
+ * above. Correcting and removing are the author rule: Manager and above on any
+ * comment, and a Collector on their own while it is inside the correction
+ * window, which counts elapsed days and admits exactly thirty. A Viewer, and a
+ * session whose Profile has not resolved, get nothing.
+ *
+ * `now` is an argument so the window has one clock per render and a suite can
+ * stand on either side of it.
+ */
+export function commentControls(
+	auth: AuthMe | null,
+	comment: CommentAuthorship,
+	now: Date,
+): CommentControls {
+	const profileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
+	if (profileId === null || !canWriteRecords(auth)) {
+		return { pin: false, edit: false, remove: false };
+	}
+	if (hasAtLeastRole(auth, 'manager')) {
+		return { pin: true, edit: true, remove: true };
+	}
+
+	const elapsedDays = (now.getTime() - comment.commentedAt.getTime()) / DAY_MS;
+	// A time that reads as NaN fails the comparison, so it closes the window.
+	const corrects =
+		comment.commentedByProfileId === profileId && elapsedDays <= COMMENT_CORRECTION_WINDOW_DAYS;
+	return { pin: false, edit: corrects, remove: corrects };
+}

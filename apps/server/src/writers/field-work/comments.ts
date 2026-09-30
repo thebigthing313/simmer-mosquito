@@ -1,4 +1,4 @@
-import { checkedValues } from '@simmer-mosquito/db';
+import { checkedValues, sql } from '@simmer-mosquito/db';
 import { type FieldWorkCommand, toDbEntityType } from '@simmer-mosquito/domain';
 import { returnColumns } from '../../return-columns.js';
 import { type CommentRow, type FieldWorkTransaction, softDelete, updateRow } from './shared.js';
@@ -44,6 +44,10 @@ export async function writeCommentCommand(
 				{
 					comment_text: command.payload.commentText,
 					updated_by_profile_id: command.payload.actorProfileId,
+					// The edit marker the thread draws. Only this command writes it, because
+					// a pin moves `updated_at` too and is not a change to anybody's words.
+					edited_at: sql`now()`,
+					edited_by_profile_id: command.payload.actorProfileId,
 				},
 				returnColumns.comments,
 			);

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { KeyEntryDialog } from '../../../../components/key-entry/key-entry-dialog';
 import type { TallyEntry } from '../../../../hooks/key-entry/use-key-entry-tally';
 import type { SpeciesKeyBindingsView } from '../../../../hooks/use-species-key-bindings';
+import { scrollBodyCap } from '../../scroll-body-cap';
 
 /**
  * The dialog's orchestration — the idle-flush timer, overlapping commits, and the
@@ -24,30 +25,6 @@ const BINDINGS: SpeciesKeyBindingsView = {
 	keyBySpeciesId: new Map([[AEGYPTI, 'a']]),
 	hasBindings: true,
 };
-
-// jsdom ships none of the layout/pointer APIs Radix reaches for. Stubs are enough:
-// these tests assert behaviour, never geometry.
-function installDomStubs(): void {
-	globalThis.ResizeObserver ??= class {
-		observe() {}
-		unobserve() {}
-		disconnect() {}
-	} as unknown as typeof ResizeObserver;
-	Element.prototype.scrollIntoView ??= () => {};
-	Element.prototype.hasPointerCapture ??= () => false;
-	Element.prototype.setPointerCapture ??= () => {};
-	Element.prototype.releasePointerCapture ??= () => {};
-	globalThis.matchMedia ??= ((query: string) => ({
-		matches: false,
-		media: query,
-		onchange: null,
-		addEventListener: () => {},
-		removeEventListener: () => {},
-		addListener: () => {},
-		removeListener: () => {},
-		dispatchEvent: () => false,
-	})) as unknown as typeof matchMedia;
-}
 
 function deferred<T = void>() {
 	let resolve!: (value: T) => void;
@@ -148,7 +125,6 @@ function commitCounts(onCommit: CommitMock, index: number): readonly (readonly [
 }
 
 beforeEach(() => {
-	installDomStubs();
 	vi.useFakeTimers();
 	globalThis.localStorage.clear();
 });
@@ -353,3 +329,34 @@ describe('key entry dialog — presses', () => {
 		expect(onCommit).not.toHaveBeenCalled();
 	});
 });
+
+describe('key entry dialog — scrolling', () => {
+	it('scrolls the body, the key sheet and the tally each in a capped viewport', async () => {
+		setAutoSave(false);
+		renderDialog(vi.fn(async () => {}));
+		press('a');
+		await settle();
+
+		const body = viewportOf(screen.getByText('Keys'));
+		expect(scrollBodyCap(body)).toBe('calc(90vh - 13rem)');
+		expect(viewportOf(screen.getByRole('heading', { name: 'Key Entry' }))).toBeNull();
+		expect(viewportOf(screen.getByText('Undo last'))).toBeNull();
+
+		// The key sheet's row is the one drawing the key beside the species.
+		const sheetRow = screen
+			.getAllByText('Aedes aegypti', { selector: 'li span' })
+			.find((name) => name.closest('li')?.querySelector('kbd') !== null);
+		const sheet = sheetRow === undefined ? null : viewportOf(sheetRow);
+		expect(scrollBodyCap(sheet)).toBe('24rem');
+		expect(body?.contains(sheet ?? null)).toBe(true);
+
+		const tally = viewportOf(screen.getByRole('button', { name: 'Remove one Aedes aegypti' }));
+		expect(scrollBodyCap(tally)).toBe('16rem');
+		expect(body?.contains(tally ?? null)).toBe(true);
+	});
+});
+
+/** The Radix viewport a node scrolls inside, or null when it scrolls with the page. */
+function viewportOf(node: Element): Element | null {
+	return node.closest('[data-slot="scroll-area-viewport"]');
+}

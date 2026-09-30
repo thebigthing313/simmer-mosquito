@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
 	currentOverviewPeriod,
+	OVERVIEW_TREND_YEARS,
 	overviewPeriodSpan,
 	overviewScanWindow,
+	overviewTrendYears,
 	parseOverviewPeriod,
 } from '../../../index.js';
 
@@ -73,10 +75,38 @@ describe('overviewScanWindow', () => {
 		});
 	});
 
-	it('has no lower bound on the year grain, because the series is the whole history', () => {
-		expect(overviewScanWindow('year', '2020', TODAY)).toEqual({ from: null, to: TODAY });
+	// The chart's ten years run 2017 to 2026 and the average reaches back to
+	// 2015, so the average sets the bound.
+	it('reaches back to the average column on the year grain when it starts before the chart', () => {
+		expect(overviewScanWindow('year', '2020', TODAY)).toEqual({ from: '2015-01-01', to: TODAY });
 	});
 
+	it('reaches back to the chart window on the year grain when it starts before the average', () => {
+		expect(overviewScanWindow('year', '2026', TODAY)).toEqual({ from: '2017-01-01', to: TODAY });
+	});
+
+	it('ends at the chart window on the year grain when the picked year is more than nine back', () => {
+		expect(overviewScanWindow('year', '2010', TODAY)).toEqual({
+			from: '2005-01-01',
+			to: '2019-12-31',
+		});
+	});
+});
+
+describe('overviewTrendYears', () => {
+	it('is the ten years ending at the current year when the picked year is inside them', () => {
+		expect(OVERVIEW_TREND_YEARS).toBe(10);
+		expect(overviewTrendYears(2026, TODAY)).toEqual({ from: 2017, to: 2026 });
+		expect(overviewTrendYears(2017, TODAY)).toEqual({ from: 2017, to: 2026 });
+	});
+
+	it('starts at the picked year and runs ten forward when the picked year is older', () => {
+		expect(overviewTrendYears(2016, TODAY)).toEqual({ from: 2016, to: 2025 });
+		expect(overviewTrendYears(1990, TODAY)).toEqual({ from: 1990, to: 1999 });
+	});
+});
+
+describe('currentOverviewPeriod', () => {
 	it('names the current period at each grain', () => {
 		expect(currentOverviewPeriod('month', '2026-01-05')).toBe('2026-01');
 	});

@@ -1,8 +1,6 @@
 import type { TagTarget, TagTargetType } from '@simmer-mosquito/domain';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { TagIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { useState } from 'react';
+import { XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { toast } from 'sonner';
 import { useRecordTagMutations } from '../../hooks/mutations/use-record-tag-mutations';
 import type { AssignedTag } from '../../hooks/queries/tag-view';
@@ -13,54 +11,60 @@ import { WriteOnly } from '../write-only';
 import { TagPickerDialog } from './tag-picker-dialog';
 
 /**
- * The record's Tags, and the control that changes them.
+ * The record's Tags, as chips at the right end of the detail header.
  *
- * One component for all six taggable record types. `DetailPageHeader` draws the
- * row for address, region, trap and contact, and `habitat-detail.tsx` and
- * `service-request-detail-header.tsx` reach it through the same header, so a Tag
- * is put on a record the same way whichever page you are on.
+ * One component for all six taggable record types, drawn by `DetailPageHeader`
+ * for every one of them. The chips draw for every role; the picker that changes
+ * them is {@link RecordTagPicker}, opened from the header's `...`.
  *
  * A sibling query rather than something the page passes down: it is keyed on the
  * record id the header already has, and `tag_items.entity_id` is globally
- * unique, so the read needs no entity type. The *write* does, which is what the
- * record type is for here.
+ * unique, so the read needs no entity type.
  *
- * A record with no Tags draws the button with no count rather than nothing. The
- * row used to be hidden when it was empty, which is the right answer for a row
- * of chips and the wrong one for a row holding the only way to add one.
- *
- * Every control is `WriteOnly`: assigning is collector-and-above, so a viewer
- * sees the chips and no button and no `x`. The `x` appears on hover and the
- * dialog does the same job without a pointer, so nothing is reachable by hover
- * alone.
+ * The `x` on a chip is `WriteOnly`, since taking a Tag off is collector and
+ * above. It appears on hover, and the picker does the same job without a
+ * pointer, so nothing is reachable by hover alone.
  */
-export function RecordTags({
-	recordId,
-	recordType,
-}: {
-	readonly recordId: string;
-	readonly recordType: TagTargetType;
-}) {
+export function RecordTags({ recordId }: { readonly recordId: string }) {
 	const tags = useRecordTags(recordId);
-	const [open, setOpen] = useState(false);
-	const target: TagTarget = { type: recordType, id: recordId };
-
 	return (
 		<>
 			{tags.map((tag) => (
 				<AssignedTagChip key={tag.id} tag={tag} />
 			))}
-			<WriteOnly>
-				<Button onClick={() => setOpen(true)} size="sm" type="button" variant="outline">
-					<TagIcon aria-hidden="true" />
-					Tags
-					{tags.length === 0 ? null : <Badge variant="secondary">{tags.length}</Badge>}
-				</Button>
-				{open ? (
-					<TagPickerDialog assigned={tags} onOpenChange={setOpen} open={open} target={target} />
-				) : null}
-			</WriteOnly>
 		</>
+	);
+}
+
+/**
+ * The tag picker over one record, with the Tags it holds now.
+ *
+ * The header mounts this beside its menu rather than inside it, because a
+ * dialog inside a menu item is unmounted by the click that opens it. It reads
+ * the record's Tags itself so the header needs no second copy of them, and it
+ * mounts the dialog only while it is open, so a closed picker holds no catalog
+ * query and a reopened one starts with an empty search.
+ *
+ * The record type is what the *write* needs: `assignTag` names both columns.
+ */
+export function RecordTagPicker({
+	onOpenChange,
+	open,
+	recordId,
+	recordType,
+}: {
+	readonly onOpenChange: (open: boolean) => void;
+	readonly open: boolean;
+	readonly recordId: string;
+	readonly recordType: TagTargetType;
+}) {
+	const tags = useRecordTags(recordId);
+	if (!open) {
+		return null;
+	}
+	const target: TagTarget = { type: recordType, id: recordId };
+	return (
+		<TagPickerDialog assigned={tags} onOpenChange={onOpenChange} open={open} target={target} />
 	);
 }
 

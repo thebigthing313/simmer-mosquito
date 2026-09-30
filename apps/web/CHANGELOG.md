@@ -1,5 +1,35 @@
 # @simmer-mosquito/web
 
+## 0.11.0 — 2026-09-30
+
+### Minor Changes
+
+- Added: the Comments heading and tab show how many comments a record has, before the tab is opened.
+
+- Changed: Managers, Admins and Owners can edit and delete any comment, and an edited comment shows who edited it. Collectors no longer see Pin or edit controls on comments they cannot change.
+
+- Added: a service request page has a Service Requests tab listing the other requests nearby in the same time window, nearest first. Picking one shows it on the map.
+
+- Added: every trend chart on Today, Monthly and Annual has a zoom button that opens it at full screen, where clicking a bar opens that period. Annual draws at most 10 years, and the left axis no longer cuts off the first digit of a count like 38,000.
+
+### Patch Changes
+
+- Changed: the Dashboard's last 7 days strip remembers whether you picked `#` or `%`.
+
+- Changed: mission and assignment pages use the same header as other record pages, with Start, Complete, Cancel, Reopen and Delete in the menu beside the name. An assignment can now be deleted from its own page. A mission's notifications have their own tab beside Stops and Comments.
+
+- Fixed: a Region import reads "Importing regions…" instead of "Importing regions()…".
+
+- Changed: pages, menus, dialogs, drawers, lists, tables and map cards scroll with a thin scrollbar in place of the browser's default bar, and a dialog keeps its heading and buttons in view while its body scrolls.
+
+- Fixed: Service Request Activity on the Public Engagement overview names who received each request, on its request date, instead of "Someone opened".
+
+- Changed: on a record page, Edit tags is in the menu beside the record's name instead of a Tags button in the header.
+
+- Changed: on the Trap Directory, a Trap shows its three latest seasons as tabs and lists older ones under an Earlier Seasons menu.
+
+- Fixed: the Untreated filter on the habitats map and table no longer takes several seconds on every map move.
+
 ## 0.10.0 — 2026-09-24
 
 ### Minor Changes

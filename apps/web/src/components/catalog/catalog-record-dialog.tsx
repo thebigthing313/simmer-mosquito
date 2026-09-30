@@ -1,3 +1,4 @@
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Dialog,
@@ -59,7 +60,13 @@ export function CatalogRecordDialog({
 						onSubmit();
 					}}
 				>
-					<div className="grid min-h-0 flex-1 gap-3.5 overflow-y-auto px-6 py-4">{children}</div>
+					{/*
+					 * The dialog caps its height with `max-h` alone, so the body shrinks to
+					 * what the header and the actions leave. The fields pad themselves.
+					 */}
+					<ScrollBody className="flex-1" gutter={false} height="shrink">
+						<div className="grid gap-3.5 px-6 py-4">{children}</div>
+					</ScrollBody>
 					<DialogFooter className="border-border/60 border-t px-6 py-4">{actions}</DialogFooter>
 				</form>
 			</DialogContent>

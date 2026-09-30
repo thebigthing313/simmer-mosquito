@@ -1,8 +1,7 @@
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { CheckCircle2Icon, CircleIcon } from '@simmer-mosquito/ui-web/icons/registry';
 
-// Shared presentational bits for the public-engagement routes. Dash-prefixed so
-// TanStack Router ignores this file as a route.
+// Shared presentational bits for the public-engagement routes.
 
 /**
  * Open/closed status pill for a service request. Open wears the attention

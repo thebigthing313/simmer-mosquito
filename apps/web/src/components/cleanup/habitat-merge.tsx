@@ -1,9 +1,11 @@
 import { type ProximitySearchUnit, proximityLabel } from '@simmer-mosquito/domain';
 import { ListEmpty, ListLoading } from '@simmer-mosquito/ui-web/components/page/list-states';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { ItemGroup } from '@simmer-mosquito/ui-web/components/ui/item';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useQueryClient } from '@tanstack/react-query';
@@ -140,18 +142,20 @@ export function HabitatMerge({
 						<KeptHabitat target={target} />
 					</div>
 
-					<div className="min-h-0 flex-1 overflow-y-auto p-3">
-						<CandidateList
-							candidates={candidates}
-							isError={nearby.isError}
-							isPending={nearby.isPending}
-							onRetry={() => void nearby.refetch()}
-							onToggle={toggle}
-							radius={radius}
-							selected={selected}
-							unit={unit}
-						/>
-					</div>
+					<ScrollArea className="min-h-0 flex-1" type="auto">
+						<div className="p-3">
+							<CandidateList
+								candidates={candidates}
+								isError={nearby.isError}
+								isPending={nearby.isPending}
+								onRetry={() => void nearby.refetch()}
+								onToggle={toggle}
+								radius={radius}
+								selected={selected}
+								unit={unit}
+							/>
+						</div>
+					</ScrollArea>
 
 					<MergeFooter
 						canSubmit={canSubmit}
@@ -278,9 +282,11 @@ function KeptHabitat({ target }: { readonly target: DuplicateRecord | undefined 
 			 * turn-by-turn directions, and at full height it pushes the radius off the
 			 * card that is the only control on the page.
 			 */}
-			<p className="max-h-28 overflow-y-auto whitespace-pre-line text-muted-foreground text-sm">
-				{description ?? 'No description recorded.'}
-			</p>
+			<ScrollBody height={{ cap: '7rem' }}>
+				<p className="m-0 whitespace-pre-line text-muted-foreground text-sm">
+					{description ?? 'No description recorded.'}
+				</p>
+			</ScrollBody>
 		</div>
 	);
 }

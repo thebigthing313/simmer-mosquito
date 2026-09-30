@@ -15,20 +15,6 @@ import {
  * map that will not respond.
  */
 
-// jsdom ships none of the pointer APIs Radix reaches for. These assert behaviour,
-// never geometry.
-function installDomStubs(): void {
-	globalThis.ResizeObserver ??= class {
-		observe() {}
-		unobserve() {}
-		disconnect() {}
-	} as unknown as typeof ResizeObserver;
-	Element.prototype.scrollIntoView ??= () => {};
-	Element.prototype.hasPointerCapture ??= () => false;
-	Element.prototype.setPointerCapture ??= () => {};
-	Element.prototype.releasePointerCapture ??= () => {};
-}
-
 const GEOCODER_RESULTS = {
 	results: [
 		{
@@ -68,7 +54,6 @@ async function openGeocoderDialog(): Promise<void> {
 
 describe('NewAddressForm — manual placement from the geocoder dialog', () => {
 	beforeEach(() => {
-		installDomStubs();
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async () => new Response(JSON.stringify(GEOCODER_RESULTS), { status: 200 })),

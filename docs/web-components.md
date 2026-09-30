@@ -73,6 +73,28 @@ The open year is component state rather than a search param. It belongs to the
 trap in view, and a year that is meaningful for one trap need not exist for the
 next, so the pane re-anchors on the first group whenever the trap changes.
 
+#### SeasonPicker
+
+A trap can carry fifteen or twenty seasons, and a tab per season made a strip
+that scrolled sideways inside half the header with nothing saying more tabs
+existed, and the open season could sit scrolled out of view (#1262). So the tabs
+stop at the three most recent seasons and everything older is a menu under
+Earlier Seasons, which keeps the row one width however much history there is.
+The undated group stays a tab and does not count against the three, because it
+is the unfinished work an operator came looking for. `splitSeasons` in
+`trap-directory-data.ts` is that cut.
+
+An older season is open with no tab selected, since the history's `Tabs` value
+is a key no trigger carries. The menu trigger shows that season and its count
+and draws the tab's underline, and the radio item under it is checked, so the
+open season reads as selected in both places. Radix labels a panel by its tab's
+id, which does not exist for an older season, so `CollectionYears` points the
+panel at the menu trigger instead.
+
+The shared `TabStrip` in `packages/ui-web` is unchanged. Every other strip in
+the app has a fixed set of tabs, so the bound belongs to the one surface whose
+length comes from years of data.
+
 #### trap-directory-data
 
 Undated collections sort ahead of the years because work that is not finished
@@ -424,6 +446,24 @@ PATCH and is a display rule now. `canRecordWork` is wider than the progress
 gate because sharing it made auto-start unreachable: the crew had to press
 Start first, which is the tap auto-start exists to remove.
 
+#### AssignmentDetailHeader
+
+The assignment run page draws `DetailPageHeader` in the `panel` frame (#1269),
+following every choice `MissionDetailHeader` makes: the lifecycle items come
+from `worklistLifecycleActions`, the progress bar, the pending-stops hint and
+the cancellation reason sit under the bar, and the hint shows to every role.
+The page's own lifecycle rules stay where they were, `canStartAssignment` and
+`canCompleteAssignment` deciding the two preconditions and the route's
+`useCommandRunner` turning a refusal into a toast.
+
+Two things differ from the mission. Reopen opens no dialog, because
+`fieldWork.reopenAssignment` carries no reason, so choosing it is the write.
+And Delete is new on this page: it was reachable only from the danger-zone card
+on the plan edit page, which is left where it is. The route holds the
+acknowledged-write dialog rather than the header, because the delete is
+optimistic and the header unmounts the moment the row goes, which is also what
+lands the page on Assignment Not Found.
+
 #### AssignmentFormPage
 
 A due time fills an empty due date once and never follows a later
@@ -495,6 +535,36 @@ back to null would reopen a finished mission. `scheduledAt` is anchored to the
 organization's zone because a dispatcher scheduling a 6am muster from another
 zone was writing their own 6am.
 
+#### MissionDetailHeader
+
+The mission page used to draw a bar of its own: a back link, the name with an
+outlined Edit button, a row of lifecycle buttons, and a danger-zone card at the
+foot of the rail. It draws `DetailPageHeader` in the `panel` frame now (#1267),
+the same bar the service request page draws beside its map, and the lifecycle
+commands and the delete are in the `...`.
+
+The progress bar, the pending-stops hint and the cancellation reason sit under
+the bar rather than in its subtitle, because the subtitle is capped at a line
+measure and the progress bar is a control-width element. The hint is drawn to
+everyone now rather than to writers only: it is a count of the mission's own
+stops, and it is what a disabled Complete in the menu cannot say.
+
+The page draws its map from the stops before the mission row arrives, so the
+header skeleton is drawn at `panel` too, and the bar keeps its measure when the
+mission lands. That is the jump `DetailHeaderFrame`'s docblock accepts for the
+service request page, which cannot draw its split before its record.
+
+#### worklistLifecycleActions and PendingStopsHint
+
+One builder for the four lifecycle items a worklist's `...` holds, so the
+mission page and the assignment page (#1269) offer the same items at the same
+floors. Start and Complete are disabled rather than hidden when their
+precondition fails: "why can't I finish this?" is a question about the work,
+and the answer is the counts under the bar. Hiding them would leave a Collector
+on a mission with pending stops looking at no menu at all. Each page maps its
+own status onto `WorklistPhase`, because a mission says `scheduled` where an
+assignment says `notStarted`.
+
 #### MissionNotificationsCard
 
 The list is on the card rather than in a toast because the generation's most
@@ -515,7 +585,18 @@ has to go on Source Reduction on Aug 4" inside a sentence (#676).
 #### WorklistTabs
 
 The stop list and the comment thread take turns in the one column beside the
-map rather than stacking two long scrolls in a narrow column.
+map rather than stacking two long scrolls in a narrow column. Each tab label
+carries its count, so the one that is closed still says how much is behind
+it; the Comments count is `useCommentCount`'s, for the reason that hook's
+heading gives.
+
+`extraTab` is the one option for a third tab, and only the mission page passes
+it, for its notifications (#1268). They used to sit in a card under the tabs,
+which took the bottom of the rail away from the stop list on every mission
+whether anyone was reading them or not. The tab carries its own count the way
+Comments does, `MissionNotificationCount`, so a mission with nobody on the list
+reads as one before the click. The assignment page passes nothing and keeps
+exactly Stops and Comments.
 
 ### overview
 
@@ -549,7 +630,7 @@ strength, the alternative of the picked bar at full strength and the rest a
 step down not being taken. The period bar draws left of the comparison bar,
 the order the legend reads in. A bar click reads the group back by the index
 Recharts hands the handler, since the rectangle it hands is not the row.
-Annual's is one bar per year over the whole history, the current year a
+Annual's is one bar per year over at most ten years, the current year a
 partial year drawn whole beside full years, which the reference line and the
 table's caption are what say; the series never carries the cut, because
 cutting every earlier period would turn Annual into a year-to-date chart.
@@ -564,6 +645,33 @@ point over a zero denominator is `null` with `connectNulls` off, so a day
 with no inspections is a gap and never `0%`. Clicking the plot opens the
 period under the pointer through `periodDestination` and `navigate`; there is
 no `Link` inside an SVG, so the destination is asserted on that function.
+The plot height is the caller's, `height="panel"` for the fixed `h-52` every
+trend panel draws at and `height="fill"` for the zoom overlay, which takes the
+parent's height and drops `ChartContainer`'s `aspect-video`, since with only a
+width set that class would size the plot off the overlay's width.
+The value axis is `width="auto"`, which Recharts 3.8 implements by measuring
+the drawn tick labels in a layout effect and resizing the axis to the widest,
+from a 60px first guess. It replaced a fixed 44px that shaved the first digit
+off `38,000` in the panel and cut it to a sliver in the overlay, whose ticks
+are a size up (#1324). A width computed from the formatted ticks and a font
+size per height was the fallback and was not needed; jsdom measures every
+tick at zero, so the suite asserts the prop rather than a pixel.
+
+#### OverviewChartZoom
+
+The zoom button in each trend panel's `actions` slot and the overlay it opens,
+one per panel, so the three pages get it through `TrendSection` with nothing
+per grain. It is the shadcn `Dialog` stretched to the viewport less a 1rem
+gutter (1.5rem from `sm`), and the gutter is deliberate: a dialog covering the
+whole viewport leaves no backdrop to click, and a click on the backdrop is one
+of the three ways out. Radix gives focus back to the trigger on every close,
+including the one a bar click causes. That bar click closes the overlay and
+then hands the period to the page's own `onOpenPeriod`, so the overlay and the
+panel open one destination. The open state is the component's and never the
+URL's, because a shared link should land on the page rather than on one chart
+of it. The axis is the panel's: Today keeps one tick per month in the overlay,
+drawn at `text-sm` rather than `text-xs`. Monthly's overlay carries its own
+`OverviewLegend`, because the one on the trend heading is behind the backdrop.
 
 #### OverviewTable
 
@@ -700,18 +808,28 @@ is what `habitat-detail.tsx` and `service-request-detail-header.tsx` reach
 through too. A Tag assignable on four of the six is not a rule anybody would
 state.
 
-An untagged record draws the counted button with no count rather than nothing.
-Hiding the row when it was empty is the right answer for a row of chips and the
-wrong one for a row holding the only way to add one.
+It draws chips and nothing else since #1266. The picker opens from `Edit tags`
+in the header's `...`, after the page's own actions and above Delete, and
+`RecordTagPicker` beside the chips is what the header mounts for it. The counted
+`Tags` button it replaced sat a thousand pixels from the record's name on a wide
+screen, and the header already has one place for what can be done to the
+record. The item carries no count, since the chips beside it show the Tags.
+
+The picker is mounted beside the menu, not inside the item, because a dialog in
+a menu item is unmounted by the click that opens it. That is the reason Delete
+was already a sibling, and `DetailAction` now has a `dialog` shape so the next
+menu item needing one takes the same path rather than a third hand-written
+flag.
 
 The read is keyed on the record id alone, because `tag_items.entity_id` is
 globally unique. The write needs the record type as well, which is why the
 header's `tags` prop carries it, and the picker's `For habitats` heading reads
 the same key off `RECORD_NOUNS`.
 
-Every control is `WriteOnly`: the button, the checkboxes and the chip's `x`. The
-`x` appears on hover and the dialog does the same job without a pointer, so
-nothing is reachable by hover alone.
+Every control is behind the Collector floor: the menu item, the checkboxes and
+the chip's `x`. A Viewer sees the chips and, on a page with nothing else in the
+menu, no `...` at all. The `x` appears on hover and the dialog does the same job
+without a pointer, so nothing is reachable by hover alone.
 
 #### TagPickerDialog
 
@@ -738,3 +856,50 @@ set up for this record type. With text in the box the line does not apply, so an
 empty section drops out, and when both drop out one line says nothing matches.
 
 `docs/tag-relevance-spec.md` is the rest.
+
+## packages/ui-web
+
+Shared parts both apps draw. These live outside `components/ui`, which the
+shadcn registry regenerates.
+
+### scrolling
+
+#### ScrollBody
+
+A vertical scroll region with a height rule, and the part to reach for before a
+bare `ScrollArea`. The scrollbar series (#1254 to #1261) moved every scroller
+onto `ScrollArea` and wrote the same three class strings at about thirty sites.
+This part owns them (#1283).
+
+The cap goes on the viewport, never on the root. Radix scrolls an inner
+viewport whose `h-full` resolves against the root, and a root with only a
+`max-height` has no definite height to resolve against. So a capped root clips
+its content and nothing scrolls. `height={{ cap }}` writes the cap to
+`--scroll-body-cap` on the root and points the viewport's `max-height` at it. It
+is a custom property rather than a class so a caller can pass any CSS length,
+`55vh` and `calc(90vh - 13rem)` among them, without a class string Tailwind has
+to find in the source.
+
+`height="shrink"` is for a body whose parent caps the height with `max-h`, such
+as a dialog, a drawer or the map card. There is no definite height anywhere in
+that chain, so the root and the viewport are flex items with `min-h-0`, and the
+flex column hands the viewport what the header and footer leave. #1282 checked
+this in Chrome against a copy of the dialog capped at 300px holding 1000px of
+content: with the chain the viewport came out at 249px and scrolled, and
+without it the viewport grew to 1000px and never scrolled. The part leaves
+`flex-1` to the caller, because a drawer or a map card without it keeps its
+actions right under a short body.
+
+`height="fill"` is `SplitPage`'s column. The root already has a height, and
+most callers put a full-height flex column inside it that scrolls a region of
+its own, so Radix's content wrapper is held to the viewport height. Without
+that the caller's column grows to its content.
+
+The bar draws over the content rather than beside it, so the viewport takes
+`pr-3` by default. `gutter={false}` is for content whose own right padding is
+at least the bar's width, such as a form with `px-4`. Every site that wrote
+`pr-3` by hand in #1282 and #1284 now gets it from the default.
+
+A pane with a definite height of its own, a `min-h-0 flex-1` list in a split
+page, needs no height rule and still scrolls in a bare `ScrollArea`. So does a
+table that scrolls sideways, through `orientation="horizontal"`.

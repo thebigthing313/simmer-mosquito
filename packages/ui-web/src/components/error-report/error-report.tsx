@@ -1,3 +1,4 @@
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Fragment, useEffect, useState } from 'react';
@@ -47,9 +48,16 @@ export function ErrorReport({ error, info, reset, title, version }: ErrorReportP
 					<span className="font-bold text-muted-foreground text-xs uppercase tracking-wide">
 						{details.name}
 					</span>
-					<p className="m-0 max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/50 px-3 py-2.5 font-mono text-foreground text-sm leading-relaxed">
-						{details.message}
-					</p>
+					{/* Both scrollers here pad their text, so neither reserves a gutter. */}
+					<ScrollBody
+						className="rounded-md border border-border bg-muted/50"
+						gutter={false}
+						height={{ cap: '10rem' }}
+					>
+						<p className="m-0 whitespace-pre-wrap break-words px-3 py-2.5 font-mono text-foreground text-sm leading-relaxed">
+							{details.message}
+						</p>
+					</ScrollBody>
 				</div>
 
 				<ErrorFacts version={version} />
@@ -140,9 +148,11 @@ function ErrorStack({ text }: { readonly text: string }) {
 				/>
 				Technical details
 			</summary>
-			<pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-words border-border border-t px-3 py-2.5 font-mono text-muted-foreground text-xs leading-relaxed">
-				{text}
-			</pre>
+			<ScrollBody className="border-border border-t" gutter={false} height={{ cap: '16rem' }}>
+				<pre className="m-0 whitespace-pre-wrap break-words px-3 py-2.5 font-mono text-muted-foreground text-xs leading-relaxed">
+					{text}
+				</pre>
+			</ScrollBody>
 		</details>
 	);
 }

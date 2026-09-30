@@ -4,6 +4,7 @@ import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -162,11 +163,13 @@ function RecentCollectionsPanel({ since }: { readonly since: string }) {
 				wrap="none"
 			>
 				{(rows) => (
-					<div className="max-h-[32rem] divide-y divide-border/60 overflow-y-auto">
-						{rows.map((group) => (
-							<DayGroupBlock group={group} key={group.day} />
-						))}
-					</div>
+					<ScrollBody gutter={false} height={{ cap: '32rem' }}>
+						<div className="divide-y divide-border/60">
+							{rows.map((group) => (
+								<DayGroupBlock group={group} key={group.day} />
+							))}
+						</div>
+					</ScrollBody>
 				)}
 			</PanelRows>
 		</Panel>

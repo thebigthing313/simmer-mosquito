@@ -123,9 +123,14 @@ export function OutletShell({
 						 * the skeleton. Tailwind ships no utility for the property, so it
 						 * is written as an arbitrary property here rather than as a rule
 						 * in the stylesheet keyed on this element.
+						 *
+						 * It stays a native scroller rather than a `ScrollArea`, because the
+						 * ref, the skip link and the gutter all need this element to be the
+						 * one that scrolls, and `scrollbar-subtle` draws its bar like the
+						 * `ScrollArea` thumb (#1261).
 						 */}
 						<main
-							className="relative min-h-0 flex-1 overflow-y-auto bg-(--app-stage) outline-none [scrollbar-gutter:stable]"
+							className="scrollbar-subtle relative min-h-0 flex-1 overflow-y-auto bg-(--app-stage) outline-none [scrollbar-gutter:stable]"
 							id="main-content"
 							ref={mainRef}
 							tabIndex={-1}

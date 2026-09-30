@@ -7,7 +7,7 @@
  * none of them. The noun rule is here too, because a dialog offering areas and
  * lines alike has no specific word to use.
  */
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GeometryImportDialog } from '../../../../components/map/geometry-import-dialog';
 import {
@@ -16,6 +16,7 @@ import {
 	importSkippedCount,
 	importSkippedSentence,
 } from '../../../../components/map/import-notes';
+import { scrollBodyCap } from '../../scroll-body-cap';
 
 afterEach(cleanup);
 
@@ -137,5 +138,32 @@ describe('GeometryImportDialog', () => {
 
 		expect(screen.getByText('Import a Geometry')).toBeDefined();
 		expect(screen.getByText('Use This Geometry')).toBeDefined();
+	});
+	it('scrolls the shapes of a file in a capped viewport, with the actions outside it', async () => {
+		open(['Point']);
+		const point = (name: string) => ({
+			type: 'Feature',
+			properties: { name },
+			geometry: { type: 'Point', coordinates: [-74.4, 40.5] },
+		});
+		const file = new File(
+			[JSON.stringify({ type: 'FeatureCollection', features: [point('North'), point('South')] })],
+			'points.geojson',
+			{ type: 'application/geo+json' },
+		);
+		const input = document.querySelector('input[type="file"]');
+		if (input === null) {
+			throw new Error('the dialog draws no file input');
+		}
+		fireEvent.change(input, { target: { files: [file] } });
+
+		const shape = (await screen.findByText('North')).closest('button');
+		const viewport = shape?.closest('[data-slot="scroll-area-viewport"]');
+		expect(scrollBodyCap(viewport)).toBe('18rem');
+		expect(
+			screen
+				.getByRole('button', { name: 'Use This Point' })
+				.closest('[data-slot="scroll-area-viewport"]'),
+		).toBeNull();
 	});
 });

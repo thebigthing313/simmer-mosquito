@@ -7,6 +7,7 @@
 
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import {
 	Table,
 	TableBody,
@@ -40,7 +41,7 @@ export function InsecticideTable({
 	const columnCount = 7 + (canManage ? 1 : 0);
 
 	return (
-		<div className="overflow-x-auto rounded-md border border-border/50">
+		<ScrollArea className="rounded-md border border-border/50" orientation="horizontal" type="auto">
 			<Table>
 				<TableHeader>
 					<TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -71,7 +72,7 @@ export function InsecticideTable({
 					))}
 				</TableBody>
 			</Table>
-		</div>
+		</ScrollArea>
 	);
 }
 

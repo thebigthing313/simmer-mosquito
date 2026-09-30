@@ -20,10 +20,12 @@ import { CollectionMapCard } from '../../../components/adult-surveillance/collec
 import { TrapMapCard } from '../../../components/adult-surveillance/trap-map-card';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { CommentCount } from '../../../components/comment-count';
 import { CommentsSection } from '../../../components/comments-section';
 import { ApplicationMapCard } from '../../../components/control-operations/application-map-card';
 import { BiocontrolMapCard } from '../../../components/control-operations/biocontrol-map-card';
 import { SourceReductionMapCard } from '../../../components/control-operations/source-reduction-map-card';
+import { LabelCount } from '../../../components/label-count';
 import { HabitatMapCard } from '../../../components/larval-surveillance/habitats/habitat-map-card';
 import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
 import { MapCanvas } from '../../../components/map';
@@ -41,7 +43,6 @@ import {
 	buildNearbyMapData,
 	countNearbyByFamily,
 	formatRadiusLabel,
-	NEARBY_FAMILIES,
 	type NearbyCategory,
 	type NearbyFamily,
 	type NearbyItem,
@@ -56,6 +57,7 @@ import { NearbyResultList } from '../../../components/public-engagement/service-
 import {
 	isServiceRequestTab,
 	mapFamiliesForTab,
+	NEARBY_TABS,
 	SERVICE_REQUEST_TAB_CODECS,
 	SERVICE_REQUEST_TAB_DEFAULTS,
 	SERVICE_REQUEST_TAB_LABEL,
@@ -184,6 +186,9 @@ function ServiceRequestDetailContent({
 		profiles.find((profile) => profile.id === request.receivedByProfileId)?.displayName ?? null;
 
 	const countsByFamily = countNearbyByFamily(nearby.data?.items ?? []);
+	// One target for the tab's count and the thread it opens, so the two read
+	// the same query.
+	const commentTarget = { type: 'serviceRequest', id: request.id } as const;
 
 	const selectTab = (value: string) => {
 		if (isServiceRequestTab(value)) {
@@ -214,7 +219,11 @@ function ServiceRequestDetailContent({
 								return (
 									<TabStripTab key={value} value={value}>
 										{SERVICE_REQUEST_TAB_LABEL[value]}
-										{family === null ? null : <TabCount count={countsByFamily[family]} />}
+										{family !== null ? (
+											<LabelCount count={countsByFamily[family]} />
+										) : value === 'comments' ? (
+											<CommentCount target={commentTarget} />
+										) : null}
 									</TabStripTab>
 								);
 							})}
@@ -236,11 +245,11 @@ function ServiceRequestDetailContent({
 						</TabBody>
 					</TabsContent>
 
-					{NEARBY_FAMILIES.map((family) => (
-						<TabsContent className={TAB_CONTENT_CLASS} key={family.key} value={family.key}>
+					{NEARBY_TABS.map((nearbyTab) => (
+						<TabsContent className={TAB_CONTENT_CLASS} key={nearbyTab.tab} value={nearbyTab.tab}>
 							<NearbyFamilyTab
-								families={mapFamiliesForTab(family.key)}
-								label={family.label}
+								emptyDescription={nearbyTab.emptyDescription}
+								families={mapFamiliesForTab(nearbyTab.tab)}
 								lookups={lookups}
 								nearby={nearby}
 								onSelect={setSelectedKey}
@@ -251,7 +260,7 @@ function ServiceRequestDetailContent({
 
 					<TabsContent className={TAB_CONTENT_CLASS} value="comments">
 						<TabBody>
-							<CommentsSection target={{ type: 'serviceRequest', id: request.id }} />
+							<CommentsSection target={commentTarget} />
 						</TabBody>
 					</TabsContent>
 				</Tabs>
@@ -265,13 +274,6 @@ function ServiceRequestDetailContent({
  * the rail's or `TabBody`'s, is what scrolls rather than the tab.
  */
 const TAB_CONTENT_CLASS = 'flex min-h-0 flex-col';
-
-/** How many records a family tab lists, beside its label; nothing for none. */
-function TabCount({ count }: { readonly count: number }) {
-	return count === 0 ? null : (
-		<span className="text-muted-foreground text-xs tabular-nums">{count}</span>
-	);
-}
 
 /**
  * The scrolling body of a tab whose content is cards rather than a rail.
@@ -297,14 +299,14 @@ function TabBody({ children }: { readonly children: ReactNode }) {
  */
 function NearbyFamilyTab({
 	families,
-	label,
+	emptyDescription,
 	nearby,
 	selectedKey,
 	onSelect,
 	lookups,
 }: {
 	readonly families: ReadonlySet<NearbyFamily>;
-	readonly label: string;
+	readonly emptyDescription: string;
 	readonly nearby: NearbyRead;
 	readonly selectedKey: string | null;
 	readonly onSelect: (key: string | null) => void;
@@ -316,7 +318,7 @@ function NearbyFamilyTab({
 				{nearbySummary(nearby.data)}
 			</p>
 			<NearbyResultList
-				emptyDescription={`No ${label.toLowerCase()} records fell within this radius and time window.`}
+				emptyDescription={emptyDescription}
 				emptyTitle="Nothing Nearby"
 				families={families}
 				lookups={lookups}

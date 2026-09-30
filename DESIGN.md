@@ -481,6 +481,27 @@ scrolls beneath the header, which on the map frame's result panel is true
 because the rows scroll inside their own `ScrollArea` below it. Anywhere content
 passes under a pinned header, the rule stands as written.
 
+### Scrollbars
+
+Every scroll container draws one bar: thin, in the Border colour, over a
+transparent track. A region that scrolls is a `ScrollArea`, whose thumb is that
+bar. A capped region, or one that shrinks inside a capped dialog or drawer, is a
+`ScrollBody` from `packages/ui-web`, which holds the cap on the viewport and
+keeps the bar off the content (#1283). A scroller `ScrollArea` cannot wrap takes the `scrollbar-subtle` utility
+from `packages/ui-web/src/styles.css` instead, which draws the native bar in
+the same colour. Two kinds of scroller need it. One is an element other code
+depends on scrolling, which is the shell's `main`: it holds the focus ref and
+reserves its gutter for #1053. The other is a scroller inside a generated
+shadcn component under `components/ui`, which a regeneration would strip of a
+hand-added class, so the stylesheet reaches those by `data-slot` instead
+(#1261). A new generated scroller joins that selector list and the suite beside
+it, `generated-scrollers.test.ts`, rather than a class in the generated file.
+
+The Select is the one scroller that draws no bar. Radix hides its viewport's
+scrollbar and scrolls the list with its own up and down buttons, and adding the
+bar beside them put three scroll controls on one list (#1290). So the Select
+stays out of that selector list, and the suite fails if it comes back.
+
 ### Inputs / fields
 - **Style:** Surface background, Border Strong stroke, 8px radius, 40px minimum
   height, 9px by 11px padding. The stroke owes 3:1 against its surface; it is a

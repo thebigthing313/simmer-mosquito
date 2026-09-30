@@ -1,6 +1,7 @@
 import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
 import { PanelRows, type PanelRowsReading } from '@simmer-mosquito/ui-web/components/panel-rows';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -35,6 +36,7 @@ import {
 	NativeSelectOption,
 } from '@simmer-mosquito/ui-web/components/ui/native-select';
 import { Progress } from '@simmer-mosquito/ui-web/components/ui/progress';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Separator } from '@simmer-mosquito/ui-web/components/ui/separator';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
@@ -83,6 +85,11 @@ const buttonVariants = ['default', 'secondary', 'outline', 'ghost', 'destructive
 const badgeTones = ['success', 'warning', 'info', 'catalog', 'danger', 'neutral'] as const;
 /** Enough tabs to run past the column, which is the case the strip exists for. */
 const PREVIEW_SEASONS = ['2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'] as const;
+/** Enough traps to run past both a short list's height and a column's width. */
+const PREVIEW_TRAPS = Array.from(
+	{ length: 12 },
+	(_, index) => `BG Sentinel ${String(index + 1).padStart(2, '0')}`,
+);
 
 /**
  * The two series roles the period-in-review charts paint, named the way
@@ -384,6 +391,63 @@ function KitchenSinkPage() {
 			<section className="preview-section">
 				<div className="preview-section-header">
 					<div>
+						<p className="preview-eyebrow">Layout</p>
+						<h2>Scroll Area</h2>
+					</div>
+					<p>
+						Vertical by default, where a long row truncates instead of widening the list. Horizontal
+						for content wider than its column, which scrolls sideways under its own bar. The last is
+						a native scroller with scrollbar-subtle, for a container Scroll Area cannot wrap.
+					</p>
+				</div>
+				<div className="component-grid">
+					<ScrollArea className="h-40 rounded-md border">
+						<PreviewTrapRows />
+					</ScrollArea>
+					<ScrollArea className="rounded-md border" orientation="horizontal">
+						<div className="flex w-max gap-2 p-3">
+							{PREVIEW_TRAPS.map((trap) => (
+								<Badge key={trap} tone="neutral" variant="outline">
+									{trap}
+								</Badge>
+							))}
+						</div>
+					</ScrollArea>
+					<div className="scrollbar-subtle h-40 overflow-y-auto rounded-md border">
+						<PreviewTrapRows />
+					</div>
+				</div>
+			</section>
+
+			<section className="preview-section">
+				<div className="preview-section-header">
+					<div>
+						<p className="preview-eyebrow">Layout</p>
+						<h2>Scroll Body</h2>
+					</div>
+					<p>
+						A scroll area with a height rule. The first is capped at 10rem. The second shrinks
+						inside a card capped with max-h, so its header and footer stay put. Both keep the bar
+						off rows that run to the right edge.
+					</p>
+				</div>
+				<div className="component-grid">
+					<ScrollBody className="rounded-md border" height={{ cap: '10rem' }}>
+						<PreviewEdgeRows />
+					</ScrollBody>
+					<div className="flex max-h-48 flex-col rounded-md border">
+						<p className="m-0 border-b px-3 py-2 font-medium text-sm">Traps</p>
+						<ScrollBody height="shrink">
+							<PreviewEdgeRows />
+						</ScrollBody>
+						<p className="m-0 border-t px-3 py-2 text-muted-foreground text-sm">End of list</p>
+					</div>
+				</div>
+			</section>
+
+			<section className="preview-section">
+				<div className="preview-section-header">
+					<div>
 						<p className="preview-eyebrow">Forms</p>
 						<h2>Date Picker</h2>
 					</div>
@@ -575,6 +639,44 @@ function KitchenSinkPage() {
 				</div>
 			</section>
 		</div>
+	);
+}
+
+/**
+ * A dozen trap rows long enough to scroll, drawn in both the `ScrollArea` and
+ * the native `scrollbar-subtle` scroller so the two bars sit over the same list.
+ */
+function PreviewTrapRows() {
+	return (
+		<ul className="grid gap-1 p-3 text-sm">
+			{PREVIEW_TRAPS.map((trap) => (
+				<li className="flex min-w-0 items-center gap-2" key={trap}>
+					<span className="truncate">{trap}, checked weekly along the access road</span>
+					<Badge className="ml-auto shrink-0" tone="success" variant="outline">
+						Ready
+					</Badge>
+				</li>
+			))}
+		</ul>
+	);
+}
+
+/**
+ * Trap rows whose status badge sits against the right edge, for `ScrollBody`
+ * to keep its bar off.
+ */
+function PreviewEdgeRows() {
+	return (
+		<ul className="grid gap-1 py-2 pl-3 text-sm">
+			{PREVIEW_TRAPS.map((trap) => (
+				<li className="flex min-w-0 items-center gap-2" key={trap}>
+					<span className="truncate">{trap}</span>
+					<Badge className="ml-auto shrink-0" tone="success" variant="outline">
+						Ready
+					</Badge>
+				</li>
+			))}
+		</ul>
 	);
 }
 

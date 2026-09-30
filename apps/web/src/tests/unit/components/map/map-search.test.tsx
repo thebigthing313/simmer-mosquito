@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MapboxSearchResult } from '../../../../components/map/mapbox-search-client';
+import { scrollBodyCap } from '../../scroll-body-cap';
 
 /**
  * The place search's two resets, which used to be effects and are now read off
@@ -30,10 +31,6 @@ const { MapSearch } = await import('../../../../components/map/map-search');
 function place(id: string): MapboxSearchResult {
 	return { id, label: `Place ${id}`, description: 'Somewhere' };
 }
-
-// jsdom draws nothing, so the scroll that keeps the highlight on screen has
-// nothing to do here.
-Element.prototype.scrollIntoView ??= () => {};
 
 beforeEach(() => {
 	suggestions = [];
@@ -119,5 +116,36 @@ describe('the suggestions', () => {
 		});
 		expect(screen.queryAllByRole('option')).toHaveLength(0);
 		expect(input().getAttribute('aria-expanded')).toBe('false');
+	});
+});
+
+describe('the results list', () => {
+	it('scrolls inside the styled viewport, capped there rather than on the root', async () => {
+		render(<MapSearch map={null} />);
+		await typeAndSettle('north', [place('a'), place('b')]);
+
+		const listbox = screen.getByRole('listbox', { name: 'Search results' });
+		const viewport = listbox.closest('[data-slot="scroll-area-viewport"]');
+		expect(viewport).not.toBeNull();
+		expect(scrollBodyCap(viewport)).toBe('18rem');
+		expect(listbox.className).not.toContain('overflow-y-auto');
+	});
+
+	it('brings the highlighted option into view as the arrow keys move', async () => {
+		const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
+		try {
+			render(<MapSearch map={null} />);
+			await typeAndSettle('north', [place('a'), place('b')]);
+
+			fireEvent.keyDown(input(), { key: 'ArrowDown' });
+			fireEvent.keyDown(input(), { key: 'ArrowDown' });
+
+			const option = selectedOption();
+			expect(option?.textContent).toContain('Place b');
+			expect(scrolled.mock.contexts.at(-1)).toBe(option);
+			expect(scrolled).toHaveBeenLastCalledWith({ block: 'nearest' });
+		} finally {
+			scrolled.mockRestore();
+		}
 	});
 });

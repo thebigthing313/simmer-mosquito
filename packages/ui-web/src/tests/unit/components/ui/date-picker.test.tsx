@@ -15,16 +15,6 @@ import { DatePicker } from '../../../../components/ui/date-picker';
  * at the days.
  */
 
-// Radix's popper measures on open, and jsdom ships neither observer.
-class NoopResizeObserver {
-	observe() {}
-	unobserve() {}
-	disconnect() {}
-}
-globalThis.ResizeObserver ??= NoopResizeObserver as unknown as typeof ResizeObserver;
-// `scrollIntoView` is what `Calendar` calls on the focused day.
-Element.prototype.scrollIntoView ??= () => {};
-
 /** A day in the middle of a decade, so a page boundary is never what a case is measuring. */
 const SEPTEMBER_10_2026 = new Date(2026, 8, 10);
 

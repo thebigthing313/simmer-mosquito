@@ -1,3 +1,4 @@
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import {
 	Popover,
@@ -360,46 +361,46 @@ function SearchResults({
 		// Options, not buttons. A button inside a listbox is a second interactive
 		// thing for a screen reader to describe, and the tab stop it brings is the
 		// one that used to close this list before anybody reached it.
-		<div
-			aria-label="Search results"
-			className="grid max-h-72 gap-1 overflow-y-auto"
-			id={listId}
-			role="listbox"
-		>
-			{results.map((result, index) => (
-				// The keyboard half of this control is on the combobox input, which is
-				// where focus stays. Enter there selects the active option; an option's
-				// own key handler would never fire, because an option never holds focus.
-				// biome-ignore lint/a11y/useKeyWithClickEvents: keyboard is on the input.
-				<div
-					aria-selected={index === activeIndex}
-					className={cn(
-						'grid min-h-11 w-full min-w-0 cursor-default gap-0.5 rounded-sm px-2.5 py-2 text-left text-sm outline-hidden',
-						index === activeIndex && 'bg-accent/60 text-accent-foreground',
-						selectingId !== null && 'pointer-events-none opacity-60',
-					)}
-					id={optionId(index)}
-					key={result.id}
-					onClick={() => onSelect(result)}
-					onMouseMove={() => onHover(index)}
-					role="option"
-					// Not in the tab order: the input is the combobox's only tab stop and
-					// `aria-activedescendant` is what moves.
-					tabIndex={-1}
-				>
-					<span className="flex min-w-0 items-center gap-2">
-						<span className="truncate font-semibold">{result.label}</span>
-						{selectingId === result.id ? (
-							<Loader2Icon
-								aria-hidden="true"
-								className="size-3.5 shrink-0 animate-spin text-muted-foreground"
-							/>
-						) : null}
-					</span>
-					<span className="truncate text-muted-foreground text-xs">{result.description}</span>
-				</div>
-			))}
-		</div>
+		//
+		// `scrollIntoView` on the active option finds the scroll area's viewport as
+		// its scroller, so the arrow keys still bring it into view.
+		<ScrollBody height={{ cap: '18rem' }}>
+			<div aria-label="Search results" className="grid gap-1" id={listId} role="listbox">
+				{results.map((result, index) => (
+					// The keyboard half of this control is on the combobox input, which is
+					// where focus stays. Enter there selects the active option; an option's
+					// own key handler would never fire, because an option never holds focus.
+					// biome-ignore lint/a11y/useKeyWithClickEvents: keyboard is on the input.
+					<div
+						aria-selected={index === activeIndex}
+						className={cn(
+							'grid min-h-11 w-full min-w-0 cursor-default gap-0.5 rounded-sm px-2.5 py-2 text-left text-sm outline-hidden',
+							index === activeIndex && 'bg-accent/60 text-accent-foreground',
+							selectingId !== null && 'pointer-events-none opacity-60',
+						)}
+						id={optionId(index)}
+						key={result.id}
+						onClick={() => onSelect(result)}
+						onMouseMove={() => onHover(index)}
+						role="option"
+						// Not in the tab order: the input is the combobox's only tab stop and
+						// `aria-activedescendant` is what moves.
+						tabIndex={-1}
+					>
+						<span className="flex min-w-0 items-center gap-2">
+							<span className="truncate font-semibold">{result.label}</span>
+							{selectingId === result.id ? (
+								<Loader2Icon
+									aria-hidden="true"
+									className="size-3.5 shrink-0 animate-spin text-muted-foreground"
+								/>
+							) : null}
+						</span>
+						<span className="truncate text-muted-foreground text-xs">{result.description}</span>
+					</div>
+				))}
+			</div>
+		</ScrollBody>
 	);
 }
 

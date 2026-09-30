@@ -111,20 +111,23 @@ collection is from 2023-09-05 and a Manager wants to know that.
 
 The first build drew a warning row under the queues, `5 untreated habitats`,
 linking to `/larval-surveillance/habitats?untreated=true`. It is gone from the
-page. Its read was a correlated subquery per Habitat, `untreatedInspectionDateSql`
-in `habitats.ts` run for every live Habitat the Organization has, and on the
-production clone it took 4.7 seconds while every other read on the endpoint
-took under 100 ms, so the whole page waited on it. The rule and the fragment
-stay where the explorer reads them: **untreated** is still a derived state in
-`CONTEXT.md` (#991) and still the habitats explorer's `untreated` filter, and
-the rule is the docblock on `untreatedInspectionDateSql` in `habitats.ts`: the
+page. Its read was a correlated subquery per Habitat in `habitats.ts`, run for
+every live Habitat the Organization has, and on the production clone it took
+4.7 seconds while every other read on the endpoint took under 100 ms, so the
+whole page waited on it. The rule and the fragment stay where the explorer
+reads them: **untreated** is still a derived state in `CONTEXT.md` (#991) and
+still the habitats explorer's `untreated` filter, and the rule is the docblock
+on `untreatedHabitatSql` in `habitats.ts`: the
 Habitat's latest live inspection in the 7 days ending today reads `heavy` or
 `very_heavy`, no application, source reduction or biocontrol action dated on
 or after it names the Habitat or the inspection, and no open Requested Control
-Action names the Habitat. Bringing the banner back is a question of that
-read's cost first, an index on `inspections (habitat_id, inspection_date desc,
-created_at desc)` and a set-based rewrite of the fragment, and only then of
-the page.
+Action names the Habitat. The read's cost is settled: #1212 rewrote the
+fragment to start from the Organization's inspections in the window, which
+took the habitats tile with `untreated=true` from 4.9 seconds to 1.5 ms on the
+clone. Bringing the banner back is a question about the page now, with one
+thing to know first: the fragment is a predicate over `habitats h`, so a count
+is `count(*)` over the live habitats it keeps and the age of the oldest needs
+the reading's date selected out of the same set.
 
 ## Last 7 days
 
@@ -141,8 +144,9 @@ tone for up and the `warning` tone for down, which read a rise as good and a
 fall as bad; neither is, since a dry week drops inspections and a storm raises
 service requests. The toggle restates every cell as a count, the difference, or as a
 percentage of the 7 days before, rounded to whole points; a rise from a prior
-of zero has no base and reads `from 0`. The toggle is page state and starts on
-the count.
+of zero has no base and reads `from 0`. The toggle is remembered per browser,
+so a person who reads percentages picks `%` once rather than on every visit; it
+starts on the count where nothing is stored or the browser blocks storage.
 
 The window is the 7 days ending today in the Organization's zone and the prior
 window is the 7 before it. The client computes both from the same `today` the

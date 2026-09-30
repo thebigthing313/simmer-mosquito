@@ -1,4 +1,5 @@
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Drawer,
@@ -10,6 +11,7 @@ import {
 	DrawerTitle,
 	DrawerTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/drawer';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import {
 	Table,
 	TableBody,
@@ -110,7 +112,7 @@ function ControlMethodTable({
 }) {
 	const config = controlMethodListConfigs[collectionKey];
 	return (
-		<div className="overflow-x-auto rounded-md border border-border/40">
+		<ScrollArea className="rounded-md border border-border/40" orientation="horizontal" type="auto">
 			<Table>
 				<TableHeader>
 					<TableRow>
@@ -149,7 +151,7 @@ function ControlMethodTable({
 					))}
 				</TableBody>
 			</Table>
-		</div>
+		</ScrollArea>
 	);
 }
 
@@ -228,50 +230,57 @@ function ControlMethodDrawer({
 						</DrawerDescription>
 					</DrawerHeader>
 					<form.AppForm>
-						<form
-							className="grid min-h-0 gap-3.5 overflow-y-auto px-4"
-							onSubmit={(event) => {
-								event.preventDefault();
-								void form.handleSubmit();
-							}}
-						>
-							<form.FormErrorAlert />
-							<form.AppField
-								name="name"
-								validators={{
-									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? `${config.fieldLabel} is required.` : undefined,
+						{/* As in `CatalogRecordDrawer`, the body shrinks to the height the
+						    drawer header leaves. */}
+						<ScrollBody gutter={false} height="shrink">
+							<form
+								className="grid gap-3.5 px-4"
+								onSubmit={(event) => {
+									event.preventDefault();
+									void form.handleSubmit();
 								}}
 							>
-								{(field) => (
-									<field.TextField
-										label={config.fieldLabel}
-										disabled={!canSubmit}
-										placeholder={config.placeholder}
-									/>
-								)}
-							</form.AppField>
-							{/* The lifecycle switch stays at the admin floor even inside an edit a
+								<form.FormErrorAlert />
+								<form.AppField
+									name="name"
+									validators={{
+										onSubmit: ({ value }) =>
+											value.trim().length === 0 ? `${config.fieldLabel} is required.` : undefined,
+									}}
+								>
+									{(field) => (
+										<field.TextField
+											label={config.fieldLabel}
+											disabled={!canSubmit}
+											placeholder={config.placeholder}
+										/>
+									)}
+								</form.AppField>
+								{/* The lifecycle switch stays at the admin floor even inside an edit a
 							    manager may make: flipping it emits `deactivate*Method` /
 							    `reactivate*Method`, which the server holds at `ADMIN`. */}
-							<form.AppField name="isActive">
-								{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
-							</form.AppField>
-							<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
-								{(field) => <field.JsonSchemaField label="Custom Fields" disabled={!canSubmit} />}
-							</form.AppField>
-							<DrawerFooter className="px-0">
-								<form.FormActions>
-									<form.SubmitButton disabled={!canSubmit || !mutations.canWrite} />
-									<DrawerClose asChild>
-										<Button type="button" variant="outline">
-											<CloseIcon data-icon="inline-start" aria-hidden="true" />
-											Cancel
-										</Button>
-									</DrawerClose>
-								</form.FormActions>
-							</DrawerFooter>
-						</form>
+								<form.AppField name="isActive">
+									{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
+								</form.AppField>
+								<form.AppField
+									name="customSchema"
+									validators={{ onSubmit: validateJsonSchemaValue }}
+								>
+									{(field) => <field.JsonSchemaField label="Custom Fields" disabled={!canSubmit} />}
+								</form.AppField>
+								<DrawerFooter className="px-0">
+									<form.FormActions>
+										<form.SubmitButton disabled={!canSubmit || !mutations.canWrite} />
+										<DrawerClose asChild>
+											<Button type="button" variant="outline">
+												<CloseIcon data-icon="inline-start" aria-hidden="true" />
+												Cancel
+											</Button>
+										</DrawerClose>
+									</form.FormActions>
+								</DrawerFooter>
+							</form>
+						</ScrollBody>
 					</form.AppForm>
 				</DrawerContent>
 			</Drawer>

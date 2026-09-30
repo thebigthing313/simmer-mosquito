@@ -21,6 +21,7 @@ import {
 	useMissionNotifications,
 } from '../../../hooks/queries/use-mission-notifications';
 import { errorMessageForSave } from '../../../lib/save-error';
+import { LabelCount } from '../../label-count';
 import { WriteOnly } from '../../write-only';
 
 /**
@@ -37,6 +38,15 @@ import { WriteOnly } from '../../write-only';
  */
 function addedNotifications(count: number): string {
 	return `Added ${count} ${count === 1 ? 'notification' : 'notifications'}.`;
+}
+
+/**
+ * How many notifications a mission holds, for the Notifications tab label.
+ * Draws nothing at zero and nothing before the list has loaded.
+ */
+export function MissionNotificationCount({ missionId }: { readonly missionId: string }) {
+	const { notifications } = useMissionNotifications(missionId);
+	return <LabelCount count={notifications.length} />;
 }
 
 export function MissionNotificationsCard({ missionId }: { readonly missionId: string }) {

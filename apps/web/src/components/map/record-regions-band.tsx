@@ -1,3 +1,4 @@
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Card, CardContent } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -116,11 +117,13 @@ export function RecordRegionsBand({
 			    without limit, so a large folder set cannot push the rest of the page
 			    down. Measured on the prototype at ten folders and thirteen regions:
 			    208px visible against 352px of content. */}
-			<div className="grid max-h-52 gap-2 overflow-y-auto">
-				{data.groups.map((group) => (
-					<FolderRow group={group} key={group.folderId ?? '__unfiled'} />
-				))}
-			</div>
+			<ScrollBody height={{ cap: '13rem' }}>
+				<div className="grid gap-2">
+					{data.groups.map((group) => (
+						<FolderRow group={group} key={group.folderId ?? '__unfiled'} />
+					))}
+				</div>
+			</ScrollBody>
 		</BandShell>
 	);
 }

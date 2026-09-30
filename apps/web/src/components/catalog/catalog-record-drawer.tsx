@@ -1,3 +1,4 @@
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -95,7 +96,14 @@ export function CatalogRecordDrawer({
 						onSubmit();
 					}}
 				>
-					<div className="grid min-h-0 gap-3.5 overflow-y-auto px-4 py-3.5">{children}</div>
+					{/*
+					 * No `flex-1`, so a short form keeps its actions under the last field
+					 * rather than at the foot of the drawer. The body shrinks to the height
+					 * left once the header and the actions are drawn.
+					 */}
+					<ScrollBody gutter={false} height="shrink">
+						<div className="grid gap-3.5 px-4 py-3.5">{children}</div>
+					</ScrollBody>
 					<DrawerFooter>
 						{destructiveAction === undefined ? (
 							actions

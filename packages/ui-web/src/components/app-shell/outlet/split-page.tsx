@@ -1,3 +1,4 @@
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type React from 'react';
 
@@ -42,7 +43,19 @@ export function SplitPage({
 					className,
 				)}
 			>
-				<div className="@container/fields min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</div>
+				{/*
+				 * The column's root is the `fields` container, being the element whose
+				 * width is the column's. It fills the pane because most callers pass an
+				 * `h-full` column that scrolls a region of its own, and that column pads
+				 * itself, so there is no gutter.
+				 */}
+				<ScrollBody
+					className="@container/fields min-h-0 min-w-0 flex-1"
+					gutter={false}
+					height="fill"
+				>
+					{children}
+				</ScrollBody>
 				<div
 					className={cn(
 						'relative order-first h-[min(38svh,22rem)] min-h-0 min-w-0 shrink-0 border-border/40 border-b',

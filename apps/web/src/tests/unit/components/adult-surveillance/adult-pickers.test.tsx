@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { TrapPicker } from '../../../../components/adult-surveillance/adult-pickers';
 
 /**
@@ -16,19 +16,6 @@ import { TrapPicker } from '../../../../components/adult-surveillance/adult-pick
  * retired traps in its predicate, so nothing here changes for them. Nothing
  * pinned either half before this file.
  */
-
-// jsdom ships none of the pointer APIs Radix's popover reaches for.
-function installDomStubs(): void {
-	globalThis.ResizeObserver ??= class {
-		observe() {}
-		unobserve() {}
-		disconnect() {}
-	} as unknown as typeof ResizeObserver;
-	Element.prototype.scrollIntoView ??= () => {};
-	Element.prototype.hasPointerCapture ??= () => false;
-	Element.prototype.setPointerCapture ??= () => {};
-	Element.prototype.releasePointerCapture ??= () => {};
-}
 
 const RUNNING = {
 	id: '11111111-1111-4111-8111-111111111111',
@@ -59,7 +46,6 @@ function openPicker(traps: readonly (typeof RUNNING)[]) {
 }
 
 describe('the trap picker', () => {
-	beforeEach(installDomStubs);
 	afterEach(cleanup);
 
 	it('offers a retired trap alongside a running one', () => {

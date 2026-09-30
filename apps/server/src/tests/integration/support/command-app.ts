@@ -6,8 +6,8 @@
  * and are gone (#634), so the door is the same for all of them now and there is
  * one helper rather than seven.
  *
- * The session is an Owner, because these suites are about what the writers do
- * rather than about who may ask. `role-floors.test.ts` and
+ * The session is an Owner by default, because these suites are about what the
+ * writers do rather than about who may ask. `role-floors.test.ts` and
  * `command-permissions.test.ts` are where the ladder is asserted.
  *
  * `ownerSession` is exported on its own because two suites register a surface
@@ -20,6 +20,7 @@
  */
 
 import type { Kysely, SimmerDatabase } from '@simmer-mosquito/db';
+import type { SimmerRole } from '@simmer-mosquito/domain';
 import { Hono, type MiddlewareHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import type { AuthContext } from '../../../auth-context.js';
@@ -30,11 +31,19 @@ type SessionMiddleware = MiddlewareHandler<{ Variables: AuthVariables }>;
 
 /** An Owner of `organizationId`, writing as `profileId`. */
 export function ownerSession(organizationId: string, profileId: string): SessionMiddleware {
+	return memberSession(organizationId, profileId, 'owner');
+}
+
+function memberSession(
+	organizationId: string,
+	profileId: string,
+	role: SimmerRole,
+): SessionMiddleware {
 	return createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
 		context.set('authContext', {
 			organization: { id: organizationId },
 			profile: { id: profileId },
-			role: 'owner',
+			role,
 		} as AuthContext);
 		await next();
 	});
@@ -65,12 +74,20 @@ function surfaceApp(
 	return app;
 }
 
+/**
+ * The command surface for one Profile of `organizationId`.
+ *
+ * An Owner unless `role` says otherwise. A suite passes a lower role when the
+ * rule it asserts is one the ladder decides inside the write, such as a
+ * Manager correcting a comment somebody else wrote.
+ */
 export function commandApp(
 	db: Kysely<SimmerDatabase>,
 	organizationId: string,
 	profileId: string,
+	role: SimmerRole = 'owner',
 ): Hono<{ Variables: AuthVariables }> {
-	const session = ownerSession(organizationId, profileId);
+	const session = memberSession(organizationId, profileId, role);
 	return surfaceApp(db, session, session);
 }
 

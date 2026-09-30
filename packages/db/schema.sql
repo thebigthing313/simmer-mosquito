@@ -397,7 +397,9 @@ CREATE TABLE public.comments (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     deleted_at timestamp with time zone,
-    deleted_by_profile_id uuid
+    deleted_by_profile_id uuid,
+    edited_at timestamp with time zone,
+    edited_by_profile_id uuid
 );
 
 
@@ -4945,6 +4947,14 @@ ALTER TABLE ONLY public.comments
 
 
 --
+-- Name: comments comments_edited_by_profile_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.comments
+    ADD CONSTRAINT comments_edited_by_profile_id_fkey FOREIGN KEY (edited_by_profile_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+
+--
 -- Name: comments comments_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6700,6 +6710,7 @@ ALTER TABLE ONLY public.weather_summaries
 -- PostgreSQL database dump complete
 --
 
+
 --
 -- Dbmate schema migrations
 --
@@ -6738,4 +6749,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('202609030001'),
     ('202609220001'),
     ('202609230001'),
-    ('202609240001');
+    ('202609240001'),
+    ('202609290001');

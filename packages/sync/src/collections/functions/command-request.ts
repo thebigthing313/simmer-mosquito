@@ -174,6 +174,8 @@ const serverOwnedColumns: ReadonlySet<string> = new Set([
 	'updated_at',
 	'created_by_profile_id',
 	'updated_by_profile_id',
+	'edited_at',
+	'edited_by_profile_id',
 ]);
 
 function withoutServerOwnedColumns(source: object): CommandBody {

@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PersonListing } from '../../../../hooks/queries/use-people-directory';
 
 /**
@@ -45,16 +45,6 @@ const INVITED_PERSON = {
 } as unknown as PersonListing;
 
 const OWNER = signedInSnapshotAs('owner');
-
-beforeAll(() => {
-	// jsdom ships none of the layout APIs Radix reaches for. These assert copy,
-	// never geometry.
-	globalThis.ResizeObserver ??= class {
-		observe() {}
-		unobserve() {}
-		disconnect() {}
-	} as unknown as typeof ResizeObserver;
-});
 
 beforeEach(() => {
 	vi.clearAllMocks();

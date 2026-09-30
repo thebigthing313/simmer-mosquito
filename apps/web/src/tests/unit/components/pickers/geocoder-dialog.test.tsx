@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { cleanup, render, screen } from '@testing-library/react';
 import { act } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	GeocoderDialog,
 	type GeocoderResult,
@@ -10,6 +10,7 @@ import {
 	geocoderResultKey,
 	pointFromGeocoderResult,
 } from '../../../../components/pickers/geocoder-dialog';
+import { scrollBodyCap } from '../../scroll-body-cap';
 
 /**
  * The dialog is now one component behind two address forms, and this is the
@@ -24,25 +25,12 @@ import {
  * than through either caller.
  */
 
-function installDomStubs(): void {
-	globalThis.ResizeObserver ??= class {
-		observe() {}
-		unobserve() {}
-		disconnect() {}
-	} as unknown as typeof ResizeObserver;
-	Element.prototype.scrollIntoView ??= () => {};
-	Element.prototype.hasPointerCapture ??= () => false;
-	Element.prototype.setPointerCapture ??= () => {};
-	Element.prototype.releasePointerCapture ??= () => {};
-}
-
 const RESULT: GeocoderResult = {
 	formatted_address: '12 Marsh Rd, Edison NJ 08817',
 	location: { lat: 40.52, lng: -74.41 },
 };
 
 describe('GeocoderDialog', () => {
-	beforeEach(installDomStubs);
 	afterEach(cleanup);
 
 	it('offers manual placement, and says so, only when the caller has a map', async () => {
@@ -98,6 +86,32 @@ describe('GeocoderDialog', () => {
 		);
 
 		expect(screen.getByText('No geocoder results returned.')).toBeTruthy();
+	});
+
+	it('scrolls the results in a capped viewport, with the heading and footer outside it', () => {
+		render(
+			<GeocoderDialog
+				onOpenChange={() => undefined}
+				onSelect={() => undefined}
+				onUseManualCoordinates={() => undefined}
+				open
+				results={[RESULT]}
+			/>,
+		);
+
+		const result = screen.getByRole('button', { name: /12 Marsh Rd/ });
+		const viewport = result.closest('[data-slot="scroll-area-viewport"]');
+		expect(scrollBodyCap(viewport)).toBe('20rem');
+		expect(
+			screen.getByText('Choose Geocoder Result').closest('[data-slot="scroll-area-viewport"]'),
+		).toBeNull();
+		expect(
+			screen
+				.getByRole('button', { name: /use manual coordinates/i })
+				.closest('[data-slot="scroll-area-viewport"]'),
+		).toBeNull();
+		// Opening the dialog puts focus on the first result, inside the scrolled body.
+		expect(document.activeElement).toBe(result);
 	});
 });
 

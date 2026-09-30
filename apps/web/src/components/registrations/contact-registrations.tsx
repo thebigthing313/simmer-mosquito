@@ -10,6 +10,7 @@ import {
 	ItemGroup,
 	ItemTitle,
 } from '@simmer-mosquito/ui-web/components/ui/item';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import { Link } from '@tanstack/react-router';
@@ -129,33 +130,35 @@ export function ContactRegistrations({ contactId }: { readonly contactId: string
 					<ContactBrief contact={contact} />
 				</div>
 
-				<div className="min-h-0 flex-1 overflow-y-auto p-3">
-					{draft === null ? (
-						<RegistrationList
-							onEdit={(registrationId) => setDraft({ kind: 'edit', registrationId })}
-							registrations={roster.registrations}
-							unitsById={roster.unitsById}
-						/>
-					) : (
-						<RegistrationDraft
-							askSave={askSave}
-							contactId={contactId}
-							draft={draft}
-							// Keyed, so switching drafts remounts the form. Both
-							// `useAppForm` and the location controller seed once, and a
-							// reused instance would hold the previous registration's
-							// values and its shape.
-							key={draft.registrationId}
-							map={map}
-							onCancel={() => setDraft(null)}
-							onSaved={(message) => {
-								setDraft(null);
-								toast.success(message);
-							}}
-							toolbarSlot={toolbarSlot}
-						/>
-					)}
-				</div>
+				<ScrollArea className="min-h-0 flex-1" type="auto">
+					<div className="p-3">
+						{draft === null ? (
+							<RegistrationList
+								onEdit={(registrationId) => setDraft({ kind: 'edit', registrationId })}
+								registrations={roster.registrations}
+								unitsById={roster.unitsById}
+							/>
+						) : (
+							<RegistrationDraft
+								askSave={askSave}
+								contactId={contactId}
+								draft={draft}
+								// Keyed, so switching drafts remounts the form. Both
+								// `useAppForm` and the location controller seed once, and a
+								// reused instance would hold the previous registration's
+								// values and its shape.
+								key={draft.registrationId}
+								map={map}
+								onCancel={() => setDraft(null)}
+								onSaved={(message) => {
+									setDraft(null);
+									toast.success(message);
+								}}
+								toolbarSlot={toolbarSlot}
+							/>
+						)}
+					</div>
+				</ScrollArea>
 
 				{draft === null ? (
 					<WriteOnly minimum="manager">

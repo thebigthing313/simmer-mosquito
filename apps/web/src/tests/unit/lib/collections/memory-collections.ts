@@ -32,7 +32,10 @@ export type MemoryRow = Record<string, unknown> & { readonly id: string };
 /** What a collection's sync function is handed, narrowed to what a test drives. */
 interface SyncControls {
 	readonly begin: () => void;
-	readonly write: (message: { readonly type: 'insert'; readonly value: MemoryRow }) => void;
+	readonly write: (message: {
+		readonly type: 'insert' | 'delete';
+		readonly value: MemoryRow;
+	}) => void;
 	readonly commit: () => void;
 	readonly markReady: () => void;
 }
@@ -253,6 +256,26 @@ export function seedRows<TRow extends SyncedRow>(
 	}
 	controls.commit();
 	if (!held.has(collection.declaration.table)) controls.markReady();
+}
+
+/**
+ * Take rows out of a collection as though a shape had streamed their deletion.
+ *
+ * The other half of {@link seedRows}, for a suite asking whether a live read
+ * follows a row leaving. An optimistic delete through the collection would not
+ * do it: the memory source's handlers resolve without touching the synced
+ * rows, so the row comes back the moment the write settles.
+ */
+export function removeRows<TRow extends SyncedRow>(
+	collection: CollectionResolver<TRow>,
+	rows: readonly MemoryRow[],
+): void {
+	const controls = controlsFor(collection);
+	controls.begin();
+	for (const row of rows) {
+		controls.write({ type: 'delete', value: row });
+	}
+	controls.commit();
 }
 
 /**

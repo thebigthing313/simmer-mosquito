@@ -7,6 +7,7 @@ import {
 	isWgs84Geometry,
 	readImportFileText,
 } from '@simmer-mosquito/mapping';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -261,27 +262,29 @@ function ImportShapeList({
 					{count} {count === 1 ? noun.one : noun.many}
 				</Badge>
 			</div>
-			<div className="grid max-h-72 gap-1 overflow-y-auto">
-				{parsed.shapes.map((shape) => (
-					<button
-						className={cn(
-							'flex min-h-11 w-full min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm outline-hidden hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
-							shape.id === selectedId ? 'border-primary/50 bg-primary/5' : 'border-border/50',
-						)}
-						key={shape.id}
-						onClick={() => onSelect(shape.id)}
-						type="button"
-					>
-						<span className="min-w-0 flex-1">
-							<span className="block truncate font-medium">{shape.name}</span>
-							<span className="block truncate text-muted-foreground text-xs">
-								{importRowSummary(shape.geometry, shape.note)}
+			<ScrollBody height={{ cap: '18rem' }}>
+				<div className="grid gap-1">
+					{parsed.shapes.map((shape) => (
+						<button
+							className={cn(
+								'flex min-h-11 w-full min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm outline-hidden hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+								shape.id === selectedId ? 'border-primary/50 bg-primary/5' : 'border-border/50',
+							)}
+							key={shape.id}
+							onClick={() => onSelect(shape.id)}
+							type="button"
+						>
+							<span className="min-w-0 flex-1">
+								<span className="block truncate font-medium">{shape.name}</span>
+								<span className="block truncate text-muted-foreground text-xs">
+									{importRowSummary(shape.geometry, shape.note)}
+								</span>
 							</span>
-						</span>
-						{shape.id === selectedId ? <CheckIcon aria-hidden="true" /> : null}
-					</button>
-				))}
-			</div>
+							{shape.id === selectedId ? <CheckIcon aria-hidden="true" /> : null}
+						</button>
+					))}
+				</div>
+			</ScrollBody>
 			{parsed.truncated ? (
 				<p className="m-0 text-muted-foreground text-xs">
 					Only the first {MAX_CANDIDATES} shapes in this file are listed.

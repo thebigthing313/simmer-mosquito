@@ -11,6 +11,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -241,20 +242,22 @@ function RouteResults({
 	}
 
 	return (
-		<ul className="flex-1 overflow-y-auto p-3">
-			<li className="grid gap-2">
-				{routes.map((route) => (
-					<RouteListRow
-						isSelected={route.id === selectedId}
-						key={route.id}
-						onSelect={onSelect}
-						route={route}
-						stopCount={countsLoading ? null : (countByRouteId.get(route.id) ?? 0)}
-						surface={surface}
-					/>
-				))}
-			</li>
-		</ul>
+		<ScrollArea className="min-h-0 flex-1" type="auto">
+			<ul className="p-3">
+				<li className="grid gap-2">
+					{routes.map((route) => (
+						<RouteListRow
+							isSelected={route.id === selectedId}
+							key={route.id}
+							onSelect={onSelect}
+							route={route}
+							stopCount={countsLoading ? null : (countByRouteId.get(route.id) ?? 0)}
+							surface={surface}
+						/>
+					))}
+				</li>
+			</ul>
+		</ScrollArea>
 	);
 }
 

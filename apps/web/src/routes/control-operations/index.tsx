@@ -4,6 +4,7 @@ import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
@@ -196,11 +197,13 @@ function DailyControlActionsPanel({ today }: { readonly today: string }) {
 					// A busy day can hold hundreds of actions; keep the panel a fixed,
 					// internally scrolling height so the page stays balanced beside the
 					// shorter right column instead of stretching to full document length.
-					<div className="max-h-[32rem] divide-y divide-border/60 overflow-y-auto">
-						{rows.map((group) => (
-							<CrewGroupBlock group={group} key={group.key} />
-						))}
-					</div>
+					<ScrollBody gutter={false} height={{ cap: '32rem' }}>
+						<div className="divide-y divide-border/60">
+							{rows.map((group) => (
+								<CrewGroupBlock group={group} key={group.key} />
+							))}
+						</div>
+					</ScrollBody>
 				)}
 			</PanelRows>
 		</Panel>

@@ -1,3 +1,4 @@
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Card } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -71,7 +72,14 @@ export function Panel({
 				</div>
 				{actions ? <div className="shrink-0">{actions}</div> : null}
 			</div>
-			<div className={cn('min-w-0', scrollBody && 'max-h-[19rem] overflow-y-auto')}>{children}</div>
+			{scrollBody ? (
+				// The rows pad themselves, so the body reserves no gutter for the bar.
+				<ScrollBody className="min-w-0" gutter={false} height={{ cap: '19rem' }}>
+					{children}
+				</ScrollBody>
+			) : (
+				<div className="min-w-0">{children}</div>
+			)}
 			{footer ? (
 				<div className="border-border/60 border-t px-4 py-2.5 text-sm">{footer}</div>
 			) : null}

@@ -10,9 +10,10 @@
  * file holds is the part of that the header's own suite cannot: which items the
  * `...` offers per state of the request, that choosing one opens the reason
  * dialog and hands the mutation the reason, that Delete is last and opens the
- * delete dialog, that the pencil and the menu hide below the manager floor, and
- * that none of the retired controls are drawn. The second half is the tabs
- * under it (#1089). Five sit in the product's strip, and the active one is
+ * delete dialog, that the pencil and the lifecycle items hide below the manager
+ * floor while `Edit tags` stays for a Collector, and that none of the retired
+ * controls are drawn. The second half is the tabs
+ * under it (#1089). Six sit in the product's strip, and the active one is
  * read from and written to `?tab=`. Details holds the record and Comments the
  * thread. Each family tab lists its family's nearby records as the results
  * rail's own rows (#1087), with the distance in its slot. A row click hands
@@ -21,6 +22,7 @@
  * in for the bespoke ones the page drew. Details and Comments hand the map the
  * other service requests in the radius and window instead, and a pin click
  * there opens the service request map card, which is the third part (#1090).
+ * The Service Requests tab lists those same requests as rows (#1264).
  *
  * What is faked is what `write-attribution.test.tsx` fakes, for the reasons its
  * docblock gives: the route module's `Route` hands back the params a match
@@ -43,6 +45,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { type ReactNode, Suspense } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NearbyLayerConfig } from '../../../../../hooks/map/use-nearby-layer';
+import { comments } from '../../../../../lib/collections/comments';
 import { habitat_types } from '../../../../../lib/collections/habitat_types';
 import { organizations } from '../../../../../lib/collections/organizations';
 import { service_requests } from '../../../../../lib/collections/service_requests';
@@ -309,27 +312,24 @@ describe('the service request detail page header', () => {
 
 		await screen.findByText('Priority');
 		const bar = screen.getByRole('banner');
-		// Three: the status flag, the Tag's own chip, and the count on the button
-		// that opens the picker.
-		expect(bar.querySelectorAll('[data-slot="badge"]')).toHaveLength(3);
-		expect(screen.getByRole('button', { name: /Tags/ })).toBeTruthy();
+		// Two: the status flag and the Tag's own chip. The picker opens from the
+		// `...` rather than from a counted button beside them (#1266).
+		expect(bar.querySelectorAll('[data-slot="badge"]')).toHaveLength(2);
+		expect(screen.queryByRole('button', { name: /^Tags/ })).toBeNull();
 	});
 
-	// The status flag is the one badge in the bar. An untagged record draws the
-	// button with no count rather than nothing, because the row holds the only way
-	// to put a Tag on.
-	it('draws the picker button and no chips for an untagged request', async () => {
+	it('draws no chips for an untagged request', async () => {
 		await renderPage();
 
 		const bar = screen.getByRole('banner');
 		expect(bar.querySelectorAll('[data-slot="badge"]')).toHaveLength(1);
-		expect(screen.getByRole('button', { name: /Tags/ })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /^Tags/ })).toBeNull();
 	});
 
-	it('offers Close on an open request, with Delete last', async () => {
+	it('offers Close on an open request, then Edit tags, with Delete last', async () => {
 		await renderPage();
 
-		expect(await openMenu()).toEqual(['Close Request', 'Delete service request']);
+		expect(await openMenu()).toEqual(['Close Request', 'Edit tags', 'Delete service request']);
 		expect(screen.getByRole('separator')).toBeTruthy();
 	});
 
@@ -337,7 +337,15 @@ describe('the service request detail page header', () => {
 		await renderPage(new Date('2026-08-10T15:00:00Z'));
 
 		expect(screen.getByText('Closed')).toBeTruthy();
-		expect(await openMenu()).toEqual(['Reopen Request', 'Delete service request']);
+		expect(await openMenu()).toEqual(['Reopen Request', 'Edit tags', 'Delete service request']);
+	});
+
+	it('opens the tag picker from Edit tags', async () => {
+		await renderPage();
+		await choose('Edit tags');
+
+		expect(await screen.findByRole('button', { name: 'Done' })).toBeTruthy();
+		expect(screen.queryByRole('menu')).toBeNull();
 	});
 
 	it('closes with the reason the dialog collected', async () => {
@@ -377,10 +385,25 @@ describe('the service request detail page header', () => {
 		);
 	});
 
-	it('hides the pencil and the menu below the manager floor', async () => {
+	// A Collector may tag a request and do nothing else from the bar, so the
+	// menu holds the one item.
+	it('leaves a Collector only Edit tags', async () => {
 		harness.role = 'collector';
 		await renderPage();
 
+		expect(screen.queryByLabelText('Edit')).toBeNull();
+		expect(await openMenu()).toEqual(['Edit tags']);
+	});
+
+	it('draws a Viewer the chips and no menu', async () => {
+		harness.role = 'viewer';
+		seedRows(tags, [{ id: 't1', tag_name: 'Priority', color: null, description: null }]);
+		seedRows(tag_items, [
+			{ id: 'i1', entity_id: REQUEST_ID, entity_type: 'service_request', tag_id: 't1' },
+		]);
+		await renderPage();
+
+		expect(await screen.findByText('Priority')).toBeTruthy();
 		expect(screen.queryByLabelText('Edit')).toBeNull();
 		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
 	});
@@ -451,11 +474,12 @@ function activeTab(): string | undefined {
 }
 
 describe('the tabs on the service request detail page', () => {
-	it('draws the five tabs in the strip, with a count on each family that has records', async () => {
+	it('draws the six tabs in the strip, with a count on each nearby tab that has records', async () => {
 		harness.nearby = [
 			nearbyItem({ id: 'habitat-1', category: 'habitat', label: 'Elm St basin' }),
 			nearbyItem({ id: 'inspection-1', placeName: 'Elm St basin' }),
 			nearbyItem({ id: 'inspection-2', placeName: 'Oak St basin' }),
+			nearbyItem({ id: 'sr-2', category: 'serviceRequest', family: 'publicEngagement' }),
 		];
 		await renderPage();
 
@@ -465,12 +489,33 @@ describe('the tabs on the service request detail page', () => {
 				'Infrastructure1',
 				'Surveillance2',
 				'Control',
+				'Service Requests1',
 				'Comments',
 			]),
 		);
 		expect(screen.getByRole('tablist', { name: 'Service request sections' })).toBeTruthy();
 		// The family toggle chips are gone: the tab is the toggle.
 		expect(screen.queryByRole('button', { name: /Surveillance/ })).toBeNull();
+	});
+
+	it("draws the thread's count on the Comments tab before it is opened (#1265)", async () => {
+		const onRequest = (id: string, entityId = REQUEST_ID) => ({
+			id,
+			organization_id: 'org-1',
+			entity_type: 'service_request',
+			entity_id: entityId,
+			comment_text: 'Resident asked for a call back.',
+			commented_by_profile_id: null,
+			commented_at: new Date('2026-08-05T12:00:00Z'),
+			is_pinned: false,
+			edited_at: null,
+			edited_by_profile_id: null,
+		});
+		seedRows(comments, [onRequest('c1'), onRequest('c2'), onRequest('c3', 'sr-2')]);
+		await renderPage();
+
+		await waitFor(() => expect(tabNames().at(-1)).toBe('Comments2'));
+		expect(screen.getByRole('tab', { selected: true }).textContent).toBe('Details');
 	});
 
 	it('opens on Details, holding the record and the regions band', async () => {
@@ -507,6 +552,13 @@ describe('the tabs on the service request detail page', () => {
 		await renderPage();
 
 		expect(activeTab()).toBe('Control');
+	});
+
+	it('lands on the Service Requests tab the URL names', async () => {
+		harness.search = { tab: 'serviceRequests' };
+		await renderPage();
+
+		expect(activeTab()).toBe('Service Requests');
 	});
 
 	it('falls back to Details for a tab the URL misnames', async () => {
@@ -546,25 +598,6 @@ describe('the tabs on the service request detail page', () => {
 		await renderPage();
 
 		await waitFor(() => expect(mapRoles()).toEqual(['ring', 'center']));
-	});
-
-	// The requests are a map layer and not a list: the strip counts none of
-	// them and the column never names them.
-	it('lists the other requests nowhere and counts them on no tab', async () => {
-		harness.nearby = [
-			nearbyItem({ id: 'sr-2', category: 'serviceRequest', family: 'publicEngagement' }),
-		];
-		await renderPage();
-
-		await waitFor(() => expect(mapPinKeys()).toEqual(['serviceRequest:sr-2']));
-		expect(tabNames()).toEqual([
-			'Details',
-			'Infrastructure',
-			'Surveillance',
-			'Control',
-			'Comments',
-		]);
-		expect(screen.queryByRole('button', { name: /on the map$/ })).toBeNull();
 	});
 
 	// The outreach the same family carries is nobody's here: not a pin, not a row.
@@ -875,5 +908,114 @@ describe('the nearby list on a family tab', () => {
 		expect(screen.getByText('Could not load results')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
 		expect(screen.queryByText('Nothing Nearby')).toBeNull();
+	});
+});
+
+// The other requests in the radius and window, as a list of their own (#1264).
+describe('the nearby list on the Service Requests tab', () => {
+	function seedOtherRequests(): void {
+		seedRows(service_requests, [
+			{
+				id: 'sr-2',
+				organization_id: 'org-1',
+				display_name: 13,
+				intake_type: 'phone',
+				request_date: '2026-08-06',
+				details: 'Mosquitoes over the pool.',
+				contact_id: 'contact-1',
+				address_id: 'address-1',
+				received_by_profile_id: null,
+				closed_at: null,
+				lat: 30.001,
+				lng: -90.001,
+			},
+		]);
+	}
+
+	const OTHER_REQUESTS = [
+		nearbyItem({
+			id: 'sr-far',
+			category: 'serviceRequest',
+			family: 'publicEngagement',
+			label: '#14',
+			distanceMeters: 400,
+		}),
+		nearbyItem({
+			id: 'sr-2',
+			category: 'serviceRequest',
+			family: 'publicEngagement',
+			label: '#13',
+			distanceMeters: 40,
+		}),
+	];
+
+	it('lists the other requests nearest first, and no operational record', async () => {
+		harness.nearby = [
+			nearbyItem({ id: 'inspection-1', placeName: 'Elm St basin', distanceMeters: 10 }),
+			...OTHER_REQUESTS,
+		];
+		harness.search = { tab: 'serviceRequests' };
+		await renderPage();
+
+		expect(await screen.findByRole('button', { name: 'Show #13 on the map' })).toBeTruthy();
+		expect(screen.getByLabelText('View details for #13')).toBeTruthy();
+		const distances = screen.getAllByText(/^\d+ m$/).map((node) => node.textContent);
+		expect(distances).toEqual(['40 m', '400 m']);
+		expect(
+			screen.getAllByRole('img', { name: recordNoun('serviceRequest').titleMany }),
+		).toHaveLength(2);
+		expect(screen.queryByRole('button', { name: 'Show Elm St basin on the map' })).toBeNull();
+	});
+
+	it('hands the map exactly the requests it lists', async () => {
+		harness.nearby = [
+			nearbyItem({ id: 'inspection-1', placeName: 'Elm St basin' }),
+			nearbyItem({ id: 'talk-1', category: 'outreach', family: 'publicEngagement' }),
+			...OTHER_REQUESTS,
+		];
+		harness.search = { tab: 'serviceRequests' };
+		await renderPage();
+
+		await screen.findByRole('button', { name: 'Show #13 on the map' });
+		expect(mapPinKeys()).toEqual(['serviceRequest:sr-far', 'serviceRequest:sr-2']);
+		expect(mapPinFamilies()).toEqual(['publicEngagement', 'publicEngagement']);
+	});
+
+	it('selects the pin and opens the service request card from a row', async () => {
+		seedOtherRequests();
+		harness.nearby = OTHER_REQUESTS;
+		harness.search = { tab: 'serviceRequests' };
+		await renderPage();
+
+		fireEvent.click(await screen.findByRole('button', { name: 'Show #13 on the map' }));
+		await waitFor(() => expect(harness.nearbyLayer?.selectedIds).toEqual(['serviceRequest:sr-2']));
+		expect(await screen.findByRole('heading', { name: '#13' })).toBeTruthy();
+		expect(screen.getByText('Mosquitoes over the pool.')).toBeTruthy();
+	});
+
+	it('selects the row the map click names', async () => {
+		harness.nearby = OTHER_REQUESTS;
+		harness.search = { tab: 'serviceRequests' };
+		await renderPage();
+
+		await screen.findByRole('button', { name: 'Show #14 on the map' });
+		act(() => harness.nearbyLayer?.onSelectFeature?.('serviceRequest:sr-far'));
+
+		await waitFor(() =>
+			expect(
+				screen.getByRole('button', { name: 'Show #14 on the map' }).getAttribute('aria-pressed'),
+			).toBe('true'),
+		);
+	});
+
+	it("draws the rail's empty state, naming the requests, when none fell inside the radius", async () => {
+		harness.nearby = [nearbyItem({ id: 'inspection-1', placeName: 'Elm St basin' })];
+		harness.search = { tab: 'serviceRequests' };
+		await renderPage();
+
+		expect(await screen.findByText('Nothing Nearby')).toBeTruthy();
+		expect(
+			screen.getByText('No service requests fell within this radius and time window.'),
+		).toBeTruthy();
 	});
 });

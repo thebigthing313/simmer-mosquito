@@ -8,6 +8,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -340,22 +341,24 @@ function AssignmentResults({
 	}
 
 	return (
-		<ul className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-4">
-			{assignments.map((assignment) => (
-				<AssignmentRow
-					assignment={assignment}
-					assigneeName={
-						assignment.assignedToProfileId === null
-							? null
-							: (nameById.get(assignment.assignedToProfileId) ?? null)
-					}
-					counts={countsById.get(assignment.id) ?? null}
-					isSelected={assignment.id === selectedId}
-					key={assignment.id}
-					onSelect={onSelect}
-				/>
-			))}
-		</ul>
+		<ScrollArea className="min-h-0 flex-1" type="auto">
+			<ul className="m-0 list-none space-y-2 p-4">
+				{assignments.map((assignment) => (
+					<AssignmentRow
+						assignment={assignment}
+						assigneeName={
+							assignment.assignedToProfileId === null
+								? null
+								: (nameById.get(assignment.assignedToProfileId) ?? null)
+						}
+						counts={countsById.get(assignment.id) ?? null}
+						isSelected={assignment.id === selectedId}
+						key={assignment.id}
+						onSelect={onSelect}
+					/>
+				))}
+			</ul>
+		</ScrollArea>
 	);
 }
 

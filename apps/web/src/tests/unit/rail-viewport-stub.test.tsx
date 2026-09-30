@@ -5,16 +5,6 @@ import { ResultRows } from '../../components/explorer/result-list';
 import { STUB_ROW_HEIGHT, stubRailViewportHeight } from './rail-viewport-stub';
 import { stubPanelLayout } from './routes/explorer-route-harness';
 
-// Radix's ScrollArea constructs a ResizeObserver on mount and jsdom has none.
-// The stub is about height and leaves the observer to the suite, so this is the
-// same no-op `result-list.test.tsx` installs.
-class NoopResizeObserver {
-	observe() {}
-	unobserve() {}
-	disconnect() {}
-}
-globalThis.ResizeObserver ??= NoopResizeObserver as unknown as typeof ResizeObserver;
-
 afterEach(cleanup);
 
 const ROWS = Array.from({ length: 8 }, (_, index) => ({ id: `row-${index}` }));

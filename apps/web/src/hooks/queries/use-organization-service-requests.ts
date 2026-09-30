@@ -45,8 +45,7 @@ export interface RequestListing {
 	readonly addressId: string;
 	readonly latitude: number;
 	readonly longitude: number;
-	readonly createdAt: Date;
-	readonly createdByProfileId: string | null;
+	readonly receivedByProfileId: string | null;
 	readonly closedAt: Date | null;
 	readonly closedByProfileId: string | null;
 }
@@ -73,8 +72,7 @@ export function useOrganizationServiceRequests(): {
 					addressId: request.address_id,
 					latitude: request.lat,
 					longitude: request.lng,
-					createdAt: request.created_at,
-					createdByProfileId: request.created_by_profile_id,
+					receivedByProfileId: request.received_by_profile_id,
 					closedAt: request.closed_at,
 					closedByProfileId: request.closed_by_profile_id,
 				})),

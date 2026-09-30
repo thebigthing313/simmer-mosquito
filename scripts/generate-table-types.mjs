@@ -43,6 +43,7 @@ import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { dumpedVersions } from './lib/schema-dump.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCHEMA_FILE = join(ROOT, 'packages/db/schema.sql');
@@ -99,6 +100,10 @@ const CENTROID_FUNCTION = 'public.set_owned_centroid()';
  * - `created_by_profile_id` and `updated_by_profile_id` are who made the row and
  *   who last touched it, both resolved from the session. Every write that sets
  *   the second takes it from `actorProfileId`, never off a body.
+ * - `edited_at` and `edited_by_profile_id` are when a comment's text was last
+ *   corrected and by whom. `fieldWork.updateComment` stamps both from the
+ *   session, and a pin writes neither, which is the whole reason they are not
+ *   `updated_at` and `updated_by_profile_id` (#1251).
  * - `geom` is geometry, snapshotted from a domain location source. Geometry
  *   never syncs, so a body carries `locationSource` or `geometry` instead.
  *
@@ -130,6 +135,8 @@ const SERVER_OWNED = new Set([
 	'created_at',
 	'created_by_profile_id',
 	'deleted_at',
+	'edited_at',
+	'edited_by_profile_id',
 	'geom',
 	'organization_id',
 	'updated_at',
@@ -143,9 +150,6 @@ const REGISTER_FILE = join(ROOT, 'packages/domain/src/column-vocabularies.ts');
 // Reading the dump.
 // ---------------------------------------------------------------------------
 
-/** `('202605120001'),` in the `schema_migrations` insert dbmate appends. */
-const DUMPED_VERSION = /^\s*\('(\d+)'\)[,;]$/gm;
-
 /** A migration filename is `<version>_<name>.sql`. Anything else is not one. */
 const MIGRATION_FILE = /^(\d+)_.+\.sql$/;
 
@@ -158,7 +162,7 @@ const MIGRATION_FILE = /^(\d+)_.+\.sql$/;
  * does not exist.
  */
 function requireDumpMatchesMigrations(sql) {
-	const dumped = [...sql.matchAll(DUMPED_VERSION)].map((match) => match[1]).sort();
+	const dumped = dumpedVersions(sql);
 	const onDisk = readdirSync(MIGRATIONS_DIR)
 		.map((file) => MIGRATION_FILE.exec(file))
 		.filter((match) => match !== null)

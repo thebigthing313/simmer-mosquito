@@ -1,6 +1,7 @@
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import {
 	Table,
 	TableBody,
@@ -196,7 +197,7 @@ function FormulationTable({
 	const columnCount = 5 + (catalog.canManage ? 1 : 0);
 
 	return (
-		<div className="overflow-x-auto rounded-md border border-border/50">
+		<ScrollArea className="rounded-md border border-border/50" orientation="horizontal" type="auto">
 			<Table>
 				<TableHeader>
 					<TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -226,7 +227,7 @@ function FormulationTable({
 					))}
 				</TableBody>
 			</Table>
-		</div>
+		</ScrollArea>
 	);
 }
 
@@ -556,7 +557,11 @@ function FormulationComponentPanel({
 					A mix needs at least one product before it can be applied.
 				</CatalogNote>
 			) : (
-				<div className="overflow-x-auto rounded-md border border-border/40">
+				<ScrollArea
+					className="rounded-md border border-border/40"
+					orientation="horizontal"
+					type="auto"
+				>
 					<Table>
 						<TableHeader>
 							<TableRow>
@@ -622,7 +627,7 @@ function FormulationComponentPanel({
 							})}
 						</TableBody>
 					</Table>
-				</div>
+				</ScrollArea>
 			)}
 		</CatalogDetailPanel>
 	);

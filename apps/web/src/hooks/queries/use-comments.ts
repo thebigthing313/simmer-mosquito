@@ -39,6 +39,14 @@ export interface RecordComment {
 	readonly authorName: string | null;
 	readonly commentedAt: Date;
 	readonly isPinned: boolean;
+	/**
+	 * When the text was last corrected, and `null` on a comment nobody corrected.
+	 * A pin does not set it, which is why this is not `updated_at`.
+	 */
+	readonly editedAt: Date | null;
+	readonly editedByProfileId: string | null;
+	/** The corrector's name, read the way {@link RecordComment.authorName} is. */
+	readonly editorName: string | null;
 }
 
 export interface CommentsResult {
@@ -66,8 +74,15 @@ export function useComments(target: CommentTarget): CommentsResult {
 					({ comment, author }) => eq(comment.commented_by_profile_id, author.id),
 					'left',
 				)
+				// The same join again for whoever last corrected the text, `left` for the
+				// same reason.
+				.join(
+					{ editor: profiles() },
+					({ comment, editor }) => eq(comment.edited_by_profile_id, editor.id),
+					'left',
+				)
 				.orderBy(({ comment }) => comment.commented_at, 'desc')
-				.select(({ comment, author }) => ({
+				.select(({ comment, author, editor }) => ({
 					id: comment.id,
 					commentText: comment.comment_text,
 					commentedByProfileId: comment.commented_by_profile_id,
@@ -80,6 +95,13 @@ export function useComments(target: CommentTarget): CommentsResult {
 					),
 					commentedAt: comment.commented_at,
 					isPinned: comment.is_pinned,
+					editedAt: comment.edited_at,
+					editedByProfileId: comment.edited_by_profile_id,
+					editorName: caseWhen(
+						isNull(comment.edited_by_profile_id),
+						null,
+						coalesce(editor.display_name, 'Unknown'),
+					),
 				})),
 	});
 

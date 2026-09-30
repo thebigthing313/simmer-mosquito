@@ -4,6 +4,7 @@
  */
 
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	Table,
@@ -117,10 +118,12 @@ function InsecticideBatchList({
 	}
 
 	return (
-		<div
+		<ScrollArea
 			aria-disabled={disabled}
-			className="overflow-x-auto rounded-md border border-border/40 data-[disabled=true]:bg-muted/30"
+			className="rounded-md border border-border/40 data-[disabled=true]:bg-muted/30"
 			data-disabled={disabled}
+			orientation="horizontal"
+			type="auto"
 		>
 			<Table>
 				<TableHeader>
@@ -156,7 +159,7 @@ function InsecticideBatchList({
 					))}
 				</TableBody>
 			</Table>
-		</div>
+		</ScrollArea>
 	);
 }
 

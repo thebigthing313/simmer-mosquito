@@ -24,20 +24,18 @@ export function ActivityLog({
 	}
 
 	return (
-		<>
-			<ol className="grid gap-1 p-3">
-				{families.map((group) => (
-					<ActivityFamilySection
-						group={group}
-						key={group.family}
-						lookups={lookups}
-						onSelect={onSelect}
-						selectedKey={selectedKey}
-						timeZone={timeZone}
-					/>
-				))}
-			</ol>
-		</>
+		<ol className="grid gap-1 p-3">
+			{families.map((group) => (
+				<ActivityFamilySection
+					group={group}
+					key={group.family}
+					lookups={lookups}
+					onSelect={onSelect}
+					selectedKey={selectedKey}
+					timeZone={timeZone}
+				/>
+			))}
+		</ol>
 	);
 }
 

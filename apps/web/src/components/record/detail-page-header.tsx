@@ -19,6 +19,7 @@ import {
 	iconRegistry,
 	MoreHorizontalIcon,
 	type RegistryIcon,
+	TagIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link, type LinkProps } from '@tanstack/react-router';
 import { Fragment, type ReactNode, useState } from 'react';
@@ -32,7 +33,7 @@ import {
 	type RecordDeleteProps,
 	type RecordDeleteTarget,
 } from '../record-delete-dialog';
-import { RecordTags } from './record-tags';
+import { RecordTagPicker, RecordTags } from './record-tags';
 
 /**
  * The bar every record detail page opens with.
@@ -58,12 +59,16 @@ import { RecordTags } from './record-tags';
  * right, because the far right of a page that now fills a 2560 screen is a
  * thousand pixels from the thing being acted on.
  *
- * Right: the record's flags and its Tags. Both are facts about the record that
- * a reader wants without scrolling, and both are the record's own state rather
- * than an action, so they read as the far end of the bar rather than as
- * controls somebody has to look past.
+ * Right: the record's flags and its Tag chips. Both are facts about the record
+ * that a reader wants without scrolling, and both are the record's own state
+ * rather than an action, so they read as the far end of the bar rather than as
+ * controls somebody has to look past. The control that changes the Tags is not
+ * there: it is `Edit tags` in the `...`, after the page's own actions and above
+ * Delete, since changing the Tags is something done to the record like
+ * everything else in that menu (#1266). A chip's own `x` stays as the shortcut
+ * for taking one Tag off.
  *
- * Both controls carry a `Tooltip` rather than a `title` attribute. The
+ * The pencil and the `...` carry a `Tooltip` rather than a `title` attribute. The
  * `aria-label` is what names them, and `title` was never doing that job: support
  * for it as a name source varies by browser and screen reader, and it is
  * invisible to a touch device. What it did do was draw the browser's own
@@ -136,7 +141,7 @@ export function DetailPageHeader(props: DetailPageHeaderProps) {
 						{title}
 					</h1>
 					{edit === undefined ? null : <EditControl edit={edit} />}
-					<ActionsMenu actions={actions ?? NO_ACTIONS} remove={deletionOf(props)} />
+					<ActionsMenu actions={menuActions(actions, tags)} remove={deletionOf(props)} />
 				</div>
 				{subtitle === undefined ? null : (
 					<div className="max-w-[68ch] text-pretty text-muted-foreground text-sm leading-snug">
@@ -146,9 +151,7 @@ export function DetailPageHeader(props: DetailPageHeaderProps) {
 			</div>
 			<div className="flex flex-wrap items-center justify-end gap-1.5">
 				{flags}
-				{tags === undefined ? null : (
-					<RecordTags recordId={tags.recordId} recordType={tags.recordType} />
-				)}
+				{tags === undefined ? null : <RecordTags recordId={tags.recordId} />}
 			</div>
 		</DetailHeaderBar>
 	);
@@ -171,14 +174,21 @@ interface DetailPageHeaderBase {
 	readonly flags?: ReactNode;
 	/**
 	 * The record's id and type, for the six kinds `TAG_TARGET_TYPES` allows.
+	 * Passing it draws the chips and puts `Edit tags` in the `...`; a record type
+	 * that cannot be tagged omits it and gets neither.
 	 *
 	 * The type is what the *write* needs: `tag_items.entity_id` is globally
 	 * unique so the read gets by without one, and `assignTag` names both columns.
 	 * It is also what the picker's `For habitats` heading reads off the register.
 	 */
-	readonly tags?: { readonly recordId: string; readonly recordType: TagTargetType };
+	readonly tags?: DetailPageTags;
 	/** The box the bar is measured in. Defaults to `page`. See {@link DetailHeaderFrame}. */
 	readonly frame?: DetailHeaderFrame;
+}
+
+interface DetailPageTags {
+	readonly recordId: string;
+	readonly recordType: TagTargetType;
 }
 
 /**
@@ -198,7 +208,9 @@ interface DetailPageHeaderBase {
  * context, and one the Suspense swap then destroys, which is the `isMapLive`
  * trap over again. A grey block that swaps for the map when the request
  * arrives moves more of the screen than the bar does. A page beside a map
- * that can draw its split before its record arrives is what reopens this.
+ * that can draw its split before its record arrives has no jump to accept,
+ * and the mission page is one: its map needs only the stops, so it draws the
+ * skeleton at `panel` and the bar keeps its measure when the mission lands.
  *
  * `panel` is a column that already has a measure of its own, the 40% the
  * service request page keeps beside its map. The `record` measure would be no
@@ -295,6 +307,7 @@ interface DetailActionLink extends DetailActionBase {
 	 */
 	readonly search?: Readonly<Record<string, string>>;
 	readonly onSelect?: undefined;
+	readonly dialog?: undefined;
 }
 
 /** An action that writes from here: resolving a request, collecting a trap. */
@@ -302,6 +315,26 @@ interface DetailActionCommand extends DetailActionBase {
 	readonly onSelect: () => void;
 	readonly disabled?: boolean;
 	readonly to?: undefined;
+	readonly dialog?: undefined;
+}
+
+/**
+ * An action that opens a dialog, such as the tag picker.
+ *
+ * The menu mounts the dialog beside itself and the item only opens it, the way
+ * Delete does, because a dialog rendered inside a menu item is unmounted by the
+ * click that opens it. `dialog` is handed whether it is open and the setter, and
+ * may draw nothing while it is closed.
+ */
+interface DetailActionDialog extends DetailActionBase {
+	readonly dialog: (control: DetailDialogControl) => ReactNode;
+	readonly to?: undefined;
+	readonly onSelect?: undefined;
+}
+
+interface DetailDialogControl {
+	readonly open: boolean;
+	readonly onOpenChange: (open: boolean) => void;
 }
 
 /**
@@ -311,9 +344,43 @@ interface DetailActionCommand extends DetailActionBase {
  * link and a command and leave the reader of the call site guessing which one
  * the click does.
  */
-export type DetailAction = DetailActionLink | DetailActionCommand;
+export type DetailAction = DetailActionLink | DetailActionCommand | DetailActionDialog;
 
 const NO_ACTIONS: readonly DetailAction[] = [];
+
+/**
+ * The page's own actions, then `Edit tags` for a record that can be tagged.
+ *
+ * Last among the actions, and so above the Delete rule. Its floor is
+ * `collector`, the floor for assigning a Tag, which is what hides it from a
+ * Viewer and leaves a Viewer's menu empty when it held nothing else.
+ */
+function menuActions(
+	actions: readonly DetailAction[] | undefined,
+	tags: DetailPageTags | undefined,
+): readonly DetailAction[] {
+	const own = actions ?? NO_ACTIONS;
+	if (tags === undefined) {
+		return own;
+	}
+	return [
+		...own,
+		{
+			id: 'edit-tags',
+			label: 'Edit tags',
+			icon: TagIcon,
+			minimum: 'collector',
+			dialog: ({ open, onOpenChange }) => (
+				<RecordTagPicker
+					onOpenChange={onOpenChange}
+					open={open}
+					recordId={tags.recordId}
+					recordType={tags.recordType}
+				/>
+			),
+		},
+	];
+}
 
 const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
@@ -321,9 +388,9 @@ const DeleteIcon = iconRegistry.actions.delete.icon;
 /**
  * The bar's chrome and measure, shared with {@link DetailPageHeaderSkeleton} so
  * the pinned bar is the same height before the record arrives and the content
- * below it does not jump. The same height and not the same width: the skeleton
- * is always at `page`, and {@link DetailHeaderFrame} says what that costs on
- * the one page whose bar arrives at `panel`. The bar names its frame in
+ * below it does not jump. The skeleton draws at `page` unless the page hands it
+ * a frame, and {@link DetailHeaderFrame} says what that costs on the one page
+ * whose bar arrives at `panel` without handing it one. The bar names its frame in
  * `data-frame`, so a suite can pin which one a page draws in without reading
  * the padding classes back.
  */
@@ -354,10 +421,19 @@ function DetailHeaderBar({
 	);
 }
 
-/** The bar before the record, in the frame's skeleton. */
-export function DetailPageHeaderSkeleton() {
+/**
+ * The bar before the record, in the frame's skeleton. `frame` defaults to
+ * `page`; a page that draws its map column before the record arrives, which
+ * the mission page does, passes `panel` so the bar does not change measure
+ * when the record lands.
+ */
+export function DetailPageHeaderSkeleton({
+	frame = 'page',
+}: {
+	readonly frame?: DetailHeaderFrame;
+}) {
 	return (
-		<DetailHeaderBar frame="page">
+		<DetailHeaderBar frame={frame}>
 			<div className="flex min-w-0 flex-col gap-1.5">
 				<Skeleton className="h-4 w-24" />
 				<Skeleton className="h-8 w-64" />
@@ -396,9 +472,9 @@ function EditControl({ edit }: { readonly edit: DetailEditLink }) {
  * than no `...` at all.
  *
  * Delete is always last, under a rule, and it is the only item that is not in
- * `actions`: it needs a dialog, and a dialog rendered inside a menu item is
- * unmounted by the click that opens it. So the dialog is a sibling of the menu
- * and the item only sets the flag.
+ * `actions`. A dialog rendered inside a menu item is unmounted by the click that
+ * opens it, so every dialog the menu opens, Delete's and each `dialog` action's,
+ * is a sibling of the menu and the item only sets which one is open.
  */
 function ActionsMenu({
 	actions,
@@ -409,6 +485,7 @@ function ActionsMenu({
 }) {
 	const auth = useAuthSnapshot();
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
+	const [openDialog, setOpenDialog] = useState<string | null>(null);
 	const visible = actions.filter(
 		(action) => action.hidden !== true && hasAtLeastRole(auth, action.minimum ?? 'collector'),
 	);
@@ -433,7 +510,7 @@ function ActionsMenu({
 					{visible.map((action, index) => (
 						<Fragment key={action.id}>
 							{action.separatorBefore === true && index > 0 ? <DropdownMenuSeparator /> : null}
-							<ActionItem action={action} />
+							<ActionItem action={action} onOpenDialog={setOpenDialog} />
 						</Fragment>
 					))}
 					{canDelete && remove !== undefined ? (
@@ -447,6 +524,16 @@ function ActionsMenu({
 					) : null}
 				</DropdownMenuContent>
 			</DropdownMenu>
+			{visible.map((action) =>
+				action.dialog === undefined ? null : (
+					<Fragment key={action.id}>
+						{action.dialog({
+							open: openDialog === action.id,
+							onOpenChange: (open) => setOpenDialog(open ? action.id : null),
+						})}
+					</Fragment>
+				),
+			)}
 			{remove === undefined ? null : (
 				<RecordDeleteDialog
 					{...remove}
@@ -458,8 +545,22 @@ function ActionsMenu({
 	);
 }
 
-function ActionItem({ action }: { readonly action: DetailAction }) {
+function ActionItem({
+	action,
+	onOpenDialog,
+}: {
+	readonly action: DetailAction;
+	readonly onOpenDialog: (id: string) => void;
+}) {
 	const ActionIcon = action.icon;
+	if (action.dialog !== undefined) {
+		return (
+			<DropdownMenuItem onSelect={() => onOpenDialog(action.id)}>
+				<ActionIcon aria-hidden="true" />
+				{action.label}
+			</DropdownMenuItem>
+		);
+	}
 	if (action.to === undefined) {
 		return (
 			<DropdownMenuItem disabled={action.disabled ?? false} onSelect={action.onSelect}>

@@ -1,4 +1,5 @@
 import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
@@ -131,38 +132,40 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 				 * that agrees to something irreversible must not be the part that
 				 * scrolls out of sight.
 				 */}
-				<div className="grid max-h-[55vh] gap-4 overflow-y-auto pr-1 text-sm">
-					<RetiredList config={props.config} sources={props.sources} />
-					{rows.length === 0 ? null : (
-						<MergeRecordBuilder
+				<ScrollBody height={{ cap: '55vh' }}>
+					<div className="grid gap-4 text-sm">
+						<RetiredList config={props.config} sources={props.sources} />
+						{rows.length === 0 ? null : (
+							<MergeRecordBuilder
+								config={props.config}
+								onChange={(column, value) =>
+									setSelections((current) => ({ ...current, [column]: value }))
+								}
+								rows={rows}
+								selections={selections}
+								sources={props.sources}
+								target={props.target}
+							/>
+						)}
+						<EmptyFieldAlert config={props.config} problems={problems} />
+
+						{failure === null ? null : (
+							<Alert variant="destructive">
+								<AlertTitle>The merge did not run</AlertTitle>
+								<AlertDescription>{failure}</AlertDescription>
+							</Alert>
+						)}
+
+						<Acknowledgement
+							checked={acknowledged}
 							config={props.config}
-							onChange={(column, value) =>
-								setSelections((current) => ({ ...current, [column]: value }))
-							}
-							rows={rows}
-							selections={selections}
-							sources={props.sources}
-							target={props.target}
+							id={acknowledgementId}
+							onChange={setAcknowledged}
+							sourceCount={props.sources.length}
+							targetLabel={targetLabel}
 						/>
-					)}
-					<EmptyFieldAlert config={props.config} problems={problems} />
-
-					{failure === null ? null : (
-						<Alert variant="destructive">
-							<AlertTitle>The merge did not run</AlertTitle>
-							<AlertDescription>{failure}</AlertDescription>
-						</Alert>
-					)}
-
-					<Acknowledgement
-						checked={acknowledged}
-						config={props.config}
-						id={acknowledgementId}
-						onChange={setAcknowledged}
-						sourceCount={props.sources.length}
-						targetLabel={targetLabel}
-					/>
-				</div>
+					</div>
+				</ScrollBody>
 
 				<AlertDialogFooter>
 					<AlertDialogCancel disabled={isMerging}>Cancel</AlertDialogCancel>

@@ -1009,15 +1009,24 @@ jobs:
     services:
       # Matches Railway staging exactly (PostgreSQL 17.5, PostGIS 3.5.2), so the
       # job cannot be green on a version no environment actually runs, and the
-      # same image the local compose file uses.
+      # same image the local compose file uses. Pinned by digest to the image
+      # the `17-3.5` tag named on 2026-09-30, PG_VERSION 17.5: the schema dump
+      # step below dumps through this container, and `packages/db/schema.sql`
+      # is what pg_dump 17.0 to 17.5 writes, so a rebuild of the tag on 17.6
+      # would fail that step on every branch at once. `docker-compose.yml` and
+      # `schema-drift.yml` carry the same digest; move all three together
+      # (CLAUDE.md, Database).
       postgres:
-        image: postgis/postgis:17-3.5
+        image: postgis/postgis:17-3.5@sha256:01a6a70e41e6c4467c8f55f6063555ed72db2d6662cd0d571040d42eadaeb6f6
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: simmer_test
+        # 55432 is the port the compose file publishes, and the one
+        # `scripts/db-migrate.mjs` looks for when it falls back to the
+        # container's `pg_dump`, which the schema dump step below relies on.
         ports:
-          - 5432:5432
+          - 55432:5432
         # The suites skip themselves when they cannot reach a database, so the
         # job waits for the container to accept connections rather than racing it.
         options: >-
@@ -1027,7 +1036,7 @@ jobs:
           --health-retries 20
 
     env:
-      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/simmer_test?sslmode=disable
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:55432/simmer_test?sslmode=disable
       # The container is destroyed with the job, so no `simmer_test_*` schema can
       # outlive the run and the harness skips its abandoned-schema sweep. The
       # sweep stays on for local and staging runs, where a Ctrl-C still litters.
@@ -1070,6 +1079,7 @@ jobs:
       # on the second one's `search_path`. Every extension any migration creates
       # belongs on this list.
       - name: Prepare the database
+        id: prepare
         run: |
           psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -c 'create extension if not exists postgis' \
@@ -1092,3 +1102,38 @@ jobs:
           test -n "$TEST_DATABASE_URL"
           pnpm --filter @simmer-mosquito/db test
           pnpm --filter @simmer-mosquito/server test
+
+      # Nothing else in CI writes `packages/db/schema.sql` or compares its
+      # bytes: every other dbmate call passes `--no-dump-schema`, and
+      # `check:table-types` reads only the versions the dump names and the
+      # types it yields. So a hand edit, a dump from the wrong `pg_dump`, or a
+      # migration committed without its dump passed every gate (#1316).
+      #
+      # This migrates a database of its own in the service container, never
+      # the one the suites use, through `scripts/db-migrate.mjs`, the command
+      # a contributor runs. The wrapper adds `search_path=public` to the URL
+      # and takes only `pg_dump` 17.0 to 17.5. The runner's own client is not
+      # that, so the wrapper dumps through the service container's, which is
+      # 17.5, and says so in the log. The checked-in file is copied aside
+      # first because the wrapper writes over it, and the step fails on any
+      # difference, printing it.
+      #
+      # It runs after the suites whatever they did, so one failure does not
+      # hide the other, and only once the database was prepared.
+      - name: Compare a fresh schema dump with schema.sql
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        env:
+          DUMP_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:55432/simmer_schema_dump?sslmode=disable
+        run: |
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c 'create database simmer_schema_dump'
+          psql "$DUMP_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -c 'create extension postgis' \
+            -c 'create extension pgcrypto' \
+            -c 'create extension pg_trgm' \
+            -c 'create extension btree_gin'
+          cp packages/db/schema.sql "$RUNNER_TEMP/schema.sql"
+          node scripts/db-migrate.mjs up --url "$DUMP_DATABASE_URL"
+          if ! diff -u "$RUNNER_TEMP/schema.sql" packages/db/schema.sql; then
+            echo "::error file=packages/db/schema.sql::schema.sql is not what pg_dump 17.5 writes after every migration is applied. The diff above runs from the checked-in file to the fresh dump. Run pnpm db:migrate, or node scripts/db-migrate.mjs dump, and commit the file it writes."
+            exit 1
+          fi

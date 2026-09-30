@@ -527,7 +527,7 @@ function RecordSection({
 					{disabledReason ?? emptyMessage}
 				</p>
 			) : (
-				<div className="max-h-72 overflow-y-auto">
+				<div className="scrollbar-subtle max-h-72 overflow-y-auto">
 					<CatalogList>
 						{items.map((item) => (
 							<CatalogRow
