@@ -20,7 +20,7 @@ import type * as React from 'react';
  */
 export type ScrollBodyHeight = { readonly cap: string } | 'shrink' | 'fill';
 
-type ScrollBodyProps = Omit<
+export type ScrollBodyProps = Omit<
 	React.ComponentProps<typeof ScrollArea>,
 	'type' | 'orientation' | 'children'
 > & {
