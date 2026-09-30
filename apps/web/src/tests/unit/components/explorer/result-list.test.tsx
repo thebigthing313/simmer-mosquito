@@ -3,16 +3,6 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ResultBody, ResultList } from '../../../../components/explorer/result-list';
 
-// The rows arrive inside a Radix ScrollArea, which measures itself on mount.
-// jsdom has no ResizeObserver, and a list that never reports a size is still a
-// list: the assertions here are about what it says, not how tall it is.
-class NoopResizeObserver {
-	observe() {}
-	unobserve() {}
-	disconnect() {}
-}
-globalThis.ResizeObserver ??= NoopResizeObserver as unknown as typeof ResizeObserver;
-
 afterEach(cleanup);
 
 const ROWS = [{ id: 'a', name: 'Culvert 12' }] as const;

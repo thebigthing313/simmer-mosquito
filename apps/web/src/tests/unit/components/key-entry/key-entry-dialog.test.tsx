@@ -28,11 +28,6 @@ const BINDINGS: SpeciesKeyBindingsView = {
 // jsdom ships none of the layout/pointer APIs Radix reaches for. Stubs are enough:
 // these tests assert behaviour, never geometry.
 function installDomStubs(): void {
-	globalThis.ResizeObserver ??= class {
-		observe() {}
-		unobserve() {}
-		disconnect() {}
-	} as unknown as typeof ResizeObserver;
 	Element.prototype.scrollIntoView ??= () => {};
 	Element.prototype.hasPointerCapture ??= () => false;
 	Element.prototype.setPointerCapture ??= () => {};

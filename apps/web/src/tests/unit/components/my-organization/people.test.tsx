@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SimmerRole } from '../../../../components/my-organization/types';
 import type { PersonListing } from '../../../../hooks/queries/use-people-directory';
 import { signedInSnapshotWith } from '../../routes/route-mock-stand-ins';
@@ -75,14 +75,6 @@ const OWNER = signedInSnapshotWith({
 });
 
 const MEASURE = `.${CSS.escape('max-w-[46rem]')}`;
-
-beforeAll(() => {
-	globalThis.ResizeObserver ??= class {
-		observe() {}
-		unobserve() {}
-		disconnect() {}
-	} as unknown as typeof ResizeObserver;
-});
 
 afterEach(cleanup);
 

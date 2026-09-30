@@ -17,14 +17,6 @@ import { afterEach, describe, expect, it } from 'vitest';
  * behind sign-in.
  */
 
-// jsdom has no ResizeObserver, and Radix's popper measures on open.
-class NoopResizeObserver {
-	observe() {}
-	unobserve() {}
-	disconnect() {}
-}
-globalThis.ResizeObserver ??= NoopResizeObserver as unknown as typeof ResizeObserver;
-
 describe('SignedOutEnvironmentBanner', () => {
 	afterEach(cleanup);
 

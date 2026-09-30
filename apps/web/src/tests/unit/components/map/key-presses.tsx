@@ -33,11 +33,6 @@ import { pressKeyIn } from './fake-map';
  */
 
 // jsdom ships none of the pointer APIs Radix's select and menu reach for.
-globalThis.ResizeObserver ??= class {
-	observe() {}
-	unobserve() {}
-	disconnect() {}
-} as unknown as typeof ResizeObserver;
 Element.prototype.scrollIntoView ??= () => {};
 Element.prototype.hasPointerCapture ??= () => false;
 Element.prototype.setPointerCapture ??= () => {};

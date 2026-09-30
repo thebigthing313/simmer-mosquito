@@ -15,11 +15,6 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 }));
 
 // jsdom ships none of the pointer or layout APIs Radix's menu reaches for.
-globalThis.ResizeObserver ??= class {
-	observe() {}
-	unobserve() {}
-	disconnect() {}
-} as unknown as typeof ResizeObserver;
 Element.prototype.scrollIntoView ??= () => {};
 Element.prototype.hasPointerCapture ??= () => false;
 Element.prototype.setPointerCapture ??= () => {};

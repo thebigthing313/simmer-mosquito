@@ -18,11 +18,6 @@ import {
 // jsdom ships none of the pointer APIs Radix reaches for. These assert behaviour,
 // never geometry.
 function installDomStubs(): void {
-	globalThis.ResizeObserver ??= class {
-		observe() {}
-		unobserve() {}
-		disconnect() {}
-	} as unknown as typeof ResizeObserver;
 	Element.prototype.scrollIntoView ??= () => {};
 	Element.prototype.hasPointerCapture ??= () => false;
 	Element.prototype.setPointerCapture ??= () => {};

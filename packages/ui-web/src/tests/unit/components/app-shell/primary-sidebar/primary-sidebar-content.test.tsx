@@ -17,14 +17,6 @@ import type { ShellDomain } from '../../../../../components/app-shell/types';
 import { TooltipProvider } from '../../../../../components/ui/tooltip';
 import { iconRegistry } from '../../../../../icons/registry';
 
-/** Radix's scrollbar measures its viewport, and jsdom ships no observer. */
-class NoopResizeObserver {
-	observe() {}
-	unobserve() {}
-	disconnect() {}
-}
-globalThis.ResizeObserver ??= NoopResizeObserver as unknown as typeof ResizeObserver;
-
 const ORGANIZATION = { id: 'org-1', name: 'Kern' };
 
 function domain(id: string, label: string): ShellDomain {

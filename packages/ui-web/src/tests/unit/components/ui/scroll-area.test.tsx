@@ -20,14 +20,6 @@ import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ScrollArea } from '../../../../components/ui/scroll-area';
 
-/** Radix's scrollbar measures its viewport, and jsdom ships no observer. */
-class NoopResizeObserver {
-	observe() {}
-	unobserve() {}
-	disconnect() {}
-}
-globalThis.ResizeObserver ??= NoopResizeObserver as unknown as typeof ResizeObserver;
-
 afterEach(cleanup);
 
 const classesOf = (element: Element | null): string[] =>
