@@ -5,6 +5,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/page-container';
 import { stickyFooter } from '@simmer-mosquito/ui-web/components/sticky-footer';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, type LinkProps } from '@tanstack/react-router';
@@ -29,8 +30,8 @@ import type { ReactNode } from 'react';
  * `MapCanvas`, and the operator console passes a geometry-file preview.
  *
  * Which box scrolls depends on the branch. A split form scrolls its field
- * region, because the `SplitPage` beside a full-height map is `h-full` and
- * never scrolls itself. A column form scrolls in the shell's `main`, which
+ * region inside the shared `ScrollArea`, because the `SplitPage` beside a
+ * full-height map is `h-full` and never scrolls itself. A column form scrolls in the shell's `main`, which
  * reserves its scrollbar gutter so the page and the route-loading skeleton
  * share one frame (#1053): a scroller of its own inside that `main` would
  * reserve a second gutter and land the form one scrollbar narrower than the
@@ -143,7 +144,9 @@ export function RecordFormPage({
 			}}
 		>
 			<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>{heading}</header>
-			<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">{fields}</div>
+			<ScrollArea className="min-h-0 flex-1" type="auto">
+				<div className="px-5 py-5">{fields}</div>
+			</ScrollArea>
 			<footer className={stickyFooter({ padding: 'roomy' })}>{actions}</footer>
 		</form>
 	) : (

@@ -1,4 +1,5 @@
 import { Card } from '@simmer-mosquito/ui-web/components/ui/card';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
@@ -71,7 +72,21 @@ export function Panel({
 				</div>
 				{actions ? <div className="shrink-0">{actions}</div> : null}
 			</div>
-			<div className={cn('min-w-0', scrollBody && 'max-h-[19rem] overflow-y-auto')}>{children}</div>
+			{scrollBody ? (
+				/*
+				 * The cap is on the viewport, not the root. Radix scrolls the viewport,
+				 * and its `h-full` resolves to nothing against a root with no height of
+				 * its own, so a capped root would clip the list instead of scrolling it.
+				 */
+				<ScrollArea
+					className="min-w-0 [&>[data-slot=scroll-area-viewport]]:max-h-[19rem]"
+					type="auto"
+				>
+					{children}
+				</ScrollArea>
+			) : (
+				<div className="min-w-0">{children}</div>
+			)}
 			{footer ? (
 				<div className="border-border/60 border-t px-4 py-2.5 text-sm">{footer}</div>
 			) : null}
