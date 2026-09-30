@@ -1,7 +1,8 @@
 /**
  * What the three refusal suites under operations share: the state their mocks
  * close over, the bodies of the three mocks every one of them declares, the
- * render and the reset.
+ * render and the reset, and the steps that drive a `DetailPageHeader`'s `...`,
+ * which the mission and assignment suites both take.
  *
  * Not a suite. `request-detail-refusal.test.tsx` and
  * `assignment-run-refusal.test.tsx` each wrote this block out, and
@@ -27,7 +28,7 @@
 import type { SimmerRole } from '@simmer-mosquito/domain';
 import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { type ReactNode, Suspense } from 'react';
 import { expect, type Mock, vi } from 'vitest';
 import { organizations } from '../../../../lib/collections/organizations';
@@ -125,11 +126,66 @@ export async function renderRefusalPage(Page: () => ReactNode, heading: string):
 	await screen.findByRole('heading', { level: 1, name: heading });
 }
 
-/** Press a lifecycle button and let the write settle, so the busy flag clears inside `act`. */
-export async function press(name: string): Promise<void> {
-	const button = screen.getByRole('button', { name });
-	expect((button as HTMLButtonElement).disabled).toBe(false);
+/** Open a `DetailPageHeader`'s `...` and read what it holds, in order. */
+export async function openMenu(): Promise<readonly string[]> {
+	fireEvent.pointerDown(
+		screen.getByRole('button', { name: 'More Actions' }),
+		new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
+	);
+	await screen.findAllByRole('menuitem');
+	return screen.getAllByRole('menuitem').map((item) => item.textContent ?? '');
+}
+
+/**
+ * Choose an item from the `...` and let the write settle, so the busy flag
+ * clears inside `act`. Radix selects on the pointer-up half of a click and on
+ * a key, and the key is the one jsdom can deliver whole.
+ */
+export async function choose(name: string): Promise<void> {
+	await openMenu();
+	const item = screen.getByRole('menuitem', { name });
+	expect(item.getAttribute('aria-disabled')).toBeNull();
 	await act(async () => {
-		fireEvent.click(button);
+		fireEvent.keyDown(item, { key: 'Enter' });
 	});
+}
+
+/**
+ * Choose an item that opens a `ReasonDialog`, then its confirm. The confirm is
+ * found rather than pressed straight away, because the dialog mounts its
+ * content on open.
+ */
+export async function chooseThroughDialog(name: string, confirmLabel: string): Promise<void> {
+	await choose(name);
+	const confirm = await screen.findByRole('button', { name: confirmLabel });
+	expect((confirm as HTMLButtonElement).disabled).toBe(false);
+	await act(async () => {
+		fireEvent.click(confirm);
+	});
+}
+
+/**
+ * Choose the header's Delete item and confirm the dialog it opens, whose
+ * heading names the record and whose confirm names its type.
+ */
+export async function chooseDelete(
+	item: string,
+	heading: string,
+	confirmLabel: string,
+): Promise<void> {
+	await choose(item);
+	expect(await screen.findByRole('heading', { name: heading })).toBeTruthy();
+	const confirm = await screen.findByRole('button', { name: confirmLabel });
+	await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(false));
+	await act(async () => {
+		fireEvent.click(confirm);
+	});
+}
+
+/** The two halves of the rule: the toast says `message`, and nothing on the page does. */
+export async function expectRefusalToast(message: string): Promise<void> {
+	await waitFor(() => expect(refusalHarness.toastError).toHaveBeenCalledWith(message));
+	expect(refusalHarness.toastError).toHaveBeenCalledTimes(1);
+	expect(screen.queryByRole('alert')).toBeNull();
+	expect(screen.queryByText(message)).toBeNull();
 }

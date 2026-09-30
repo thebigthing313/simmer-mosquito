@@ -31,7 +31,10 @@ export interface WorklistLifecycle {
 	readonly onComplete: () => void;
 	/** Opens the cancel reason dialog. */
 	readonly onCancel: () => void;
-	/** Opens the reopen reason dialog. */
+	/**
+	 * Opens the reopen reason dialog on a mission. An assignment's reopen takes
+	 * no reason, so there it is the write.
+	 */
 	readonly onReopen: () => void;
 }
 

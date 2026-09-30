@@ -446,6 +446,24 @@ PATCH and is a display rule now. `canRecordWork` is wider than the progress
 gate because sharing it made auto-start unreachable: the crew had to press
 Start first, which is the tap auto-start exists to remove.
 
+#### AssignmentDetailHeader
+
+The assignment run page draws `DetailPageHeader` in the `panel` frame (#1269),
+following every choice `MissionDetailHeader` makes: the lifecycle items come
+from `worklistLifecycleActions`, the progress bar, the pending-stops hint and
+the cancellation reason sit under the bar, and the hint shows to every role.
+The page's own lifecycle rules stay where they were, `canStartAssignment` and
+`canCompleteAssignment` deciding the two preconditions and the route's
+`useCommandRunner` turning a refusal into a toast.
+
+Two things differ from the mission. Reopen opens no dialog, because
+`fieldWork.reopenAssignment` carries no reason, so choosing it is the write.
+And Delete is new on this page: it was reachable only from the danger-zone card
+on the plan edit page, which is left where it is. The route holds the
+acknowledged-write dialog rather than the header, because the delete is
+optimistic and the header unmounts the moment the row goes, which is also what
+lands the page on Assignment Not Found.
+
 #### AssignmentFormPage
 
 A due time fills an empty due date once and never follows a later

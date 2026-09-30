@@ -1,4 +1,3 @@
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Empty,
@@ -24,25 +23,22 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { CollectCollectionDialog } from '../../../components/collect-collection-dialog';
 import {
 	type AssignmentStopView,
-	type AssignmentView,
 	assignmentStopTone,
-	canCompleteAssignment,
 	canProgressItems,
 	canRecordStopWork,
-	canStartAssignment,
 	type ItemAction,
 	itemActionsFor,
 } from '../../../components/operations/assignments/assignment-data';
+import { AssignmentDetailHeader } from '../../../components/operations/assignments/assignment-detail-header';
 import {
-	AssignmentStatusBadge,
 	ItemProgressBadge,
 	TargetLink,
 	TargetTypePill,
 } from '../../../components/operations/assignments/assignment-display';
-import { StopProgressSummary } from '../../../components/operations/operations-display';
 import { WorklistMap } from '../../../components/operations/worklist-map';
 import { WorklistTabs } from '../../../components/operations/worklist-tabs';
 import { ReasonDialog } from '../../../components/reason-dialog';
+import { DetailPageHeaderSkeleton } from '../../../components/record/detail-page-header';
 import { OrdinalBadge } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
 import { useAssignmentItemMutations } from '../../../hooks/mutations/use-assignment-item-mutations';
@@ -52,17 +48,14 @@ import { useAssigneeOptions } from '../../../hooks/operations/use-assignee-optio
 import { useAssignment } from '../../../hooks/operations/use-assignment';
 import { useAssignmentStops } from '../../../hooks/operations/use-assignment-stops';
 import { useCommandRunner } from '../../../hooks/operations/use-command-runner';
-import {
-	assignmentDisplayName,
-	formatAssignmentDate,
-	formatDueAt,
-	type ProgressCounts,
-} from '../../../hooks/queries/assignment-view';
+import { assignmentDisplayName } from '../../../hooks/queries/assignment-view';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
+import {
+	ASSIGNMENT_DELETE_REFUSALS,
+	STOP_RECORD_REFUSALS,
+} from '../../../lib/acknowledgement-copy';
 import { operationalDayAsTimestamp, todayInTimeZone } from '../../../lib/local-date';
-import { recordNoun } from '../../../lib/record-nouns';
 
 const AssignmentIcon = iconRegistry.entities.vehicle.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
@@ -89,13 +82,21 @@ function AssignmentRunRoute() {
 	const { assignment, isReady } = useAssignment(id);
 	const { stops, features, counts, isLoading } = useAssignmentStops(id);
 	const { nameById } = useAssigneeOptions();
-	const timeZone = useOrganizationTimeZone();
 
 	const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 	const [highlightId, setHighlightId] = useState<string | null>(null);
 	const [skipTarget, setSkipTarget] = useState<AssignmentStopView | null>(null);
 	const [cancelOpen, setCancelOpen] = useState(false);
 	const { busy, run } = useCommandRunner();
+	// Held here rather than in the header, and rendered here too. The delete is
+	// optimistic, so the assignment leaves the collection the moment it is
+	// confirmed and the header unmounts before a refusal comes back. This
+	// component survives it: the row going is what makes it render
+	// `AssignmentNotFound` instead.
+	const { run: askDelete, dialog: deleteDialog } = useAcknowledgedWrite({
+		askable: ASSIGNMENT_DELETE_REFUSALS,
+		ask: true,
+	});
 
 	const assigneeName =
 		assignment?.assignedToProfileId == null
@@ -138,7 +139,12 @@ function AssignmentRunRoute() {
 	};
 
 	if (isReady && assignment === null) {
-		return <AssignmentNotFound />;
+		return (
+			<>
+				<AssignmentNotFound />
+				{deleteDialog}
+			</>
+		);
 	}
 
 	const itemsEnabled = assignment !== null && canProgressItems(assignment.status) && !busy;
@@ -162,76 +168,25 @@ function AssignmentRunRoute() {
 				}
 			>
 				<div className="flex h-full min-h-0 flex-col">
-					<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
-						<Link
-							className="inline-flex w-fit items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-							to="/operations/assignments"
-						>
-							<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-							{recordNoun('assignment').titleMany}
-						</Link>
-
-						{assignment === null ? (
-							<div className="grid gap-2">
-								<Skeleton className="h-6 w-56" />
-								<Skeleton className="h-4 w-40" />
-							</div>
-						) : (
-							<>
-								<div className="flex items-start justify-between gap-3">
-									<div className="min-w-0">
-										<h1 className="flex items-center gap-2 font-semibold text-foreground text-lg leading-tight">
-											<AssignmentIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-											<span className="min-w-0 truncate">{displayName}</span>
-										</h1>
-										<p className="m-0 mt-0.5 text-muted-foreground text-sm">
-											{formatAssignmentDate(assignment.assignmentDate)} ·{' '}
-											{assigneeName ?? 'Unassigned'}
-											{formatDueAt(assignment.dueAt, timeZone) === null
-												? ''
-												: ` · due ${formatDueAt(assignment.dueAt, timeZone)}`}
-										</p>
-									</div>
-									<div className="flex shrink-0 items-center gap-2">
-										<AssignmentStatusBadge status={assignment.status} />
-										<WriteOnly minimum="manager">
-											<Button asChild size="sm" variant="outline">
-												<Link params={{ id }} to="/operations/assignments/$id/edit">
-													<EditIcon aria-hidden="true" />
-													Edit Plan
-												</Link>
-											</Button>
-										</WriteOnly>
-									</div>
-								</div>
-
-								<StopProgressSummary
-									counts={counts}
-									emptyLabel="No stops on this assignment yet."
-								/>
-
-								<WriteOnly>
-									<LifecycleControls
-										assignment={assignment}
-										busy={busy}
-										counts={counts}
-										onCancel={() => setCancelOpen(true)}
-										onComplete={() =>
-											void run(() => complete(id), 'Unable to complete this assignment.')
-										}
-										onReopen={() => void run(() => reopen(id), 'Unable to reopen this assignment.')}
-										onStart={() => void run(() => start(id), 'Unable to start this assignment.')}
-									/>
-								</WriteOnly>
-
-								{assignment.status === 'cancelled' && assignment.cancellationReason !== null ? (
-									<p className="m-0 text-muted-foreground text-sm">
-										Cancelled: {assignment.cancellationReason}
-									</p>
-								) : null}
-							</>
-						)}
-					</div>
+					{assignment === null || displayName === null ? (
+						<DetailPageHeaderSkeleton frame="panel" />
+					) : (
+						<AssignmentDetailHeader
+							askDelete={askDelete}
+							assigneeName={assigneeName}
+							assignment={assignment}
+							counts={counts}
+							lifecycle={{
+								busy,
+								onCancel: () => setCancelOpen(true),
+								onComplete: () =>
+									void run(() => complete(id), 'Unable to complete this assignment.'),
+								onReopen: () => void run(() => reopen(id), 'Unable to reopen this assignment.'),
+								onStart: () => void run(() => start(id), 'Unable to start this assignment.'),
+							}}
+							name={displayName}
+						/>
+					)}
 
 					<WorklistTabs stopCount={stops.length} target={{ type: 'assignment', id }}>
 						<RunStopList
@@ -271,77 +226,8 @@ function AssignmentRunRoute() {
 				required={false}
 				title="Cancel This Assignment?"
 			/>
+			{deleteDialog}
 		</>
-	);
-}
-
-/**
- * The lifecycle controls, one set per state.
- *
- * Start and Complete carry preconditions the server also enforces; they are
- * disabled rather than hidden, because "why can't I finish this?" is a question
- * about the work in front of you, not about your account — and the answer is
- * right there in the counts above.
- */
-function LifecycleControls({
-	assignment,
-	counts,
-	busy,
-	onStart,
-	onComplete,
-	onCancel,
-	onReopen,
-}: {
-	readonly assignment: AssignmentView;
-	readonly counts: ProgressCounts;
-	readonly busy: boolean;
-	readonly onStart: () => void;
-	readonly onComplete: () => void;
-	readonly onCancel: () => void;
-	readonly onReopen: () => void;
-}) {
-	if (assignment.status === 'completed' || assignment.status === 'cancelled') {
-		return (
-			<div className="flex flex-wrap gap-2">
-				<WriteOnly minimum="manager">
-					<Button disabled={busy} onClick={onReopen} size="sm" variant="outline">
-						Reopen
-					</Button>
-				</WriteOnly>
-			</div>
-		);
-	}
-
-	return (
-		<div className="flex flex-wrap gap-2">
-			{assignment.status === 'notStarted' ? (
-				<Button
-					disabled={busy || !canStartAssignment(assignment.status, counts)}
-					onClick={onStart}
-					size="sm"
-				>
-					Start
-				</Button>
-			) : (
-				<Button
-					disabled={busy || !canCompleteAssignment(assignment.status, counts)}
-					onClick={onComplete}
-					size="sm"
-				>
-					Complete
-				</Button>
-			)}
-			<WriteOnly minimum="manager">
-				<Button disabled={busy} onClick={onCancel} size="sm" variant="outline">
-					Cancel
-				</Button>
-			</WriteOnly>
-			{assignment.status === 'inProgress' && counts.pending > 0 ? (
-				<span className="self-center text-muted-foreground text-xs">
-					{counts.pending === 1 ? '1 stop still pending' : `${counts.pending} stops still pending`}
-				</span>
-			) : null}
-		</div>
 	);
 }
 

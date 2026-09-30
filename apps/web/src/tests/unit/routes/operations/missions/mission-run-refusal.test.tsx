@@ -37,7 +37,7 @@
  * Notifications, with the notifications inside their tab and nowhere below it.
  */
 
-import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MissionProgressCounts } from '../../../../../hooks/queries/operations-view';
@@ -45,8 +45,13 @@ import type { MissionRecord } from '../../../../../hooks/queries/use-mission';
 import { recordNoun } from '../../../../../lib/record-nouns';
 import { preloadRouteComponent } from '../../explorer-route-harness';
 import {
+	choose,
+	chooseDelete,
+	chooseThroughDialog,
+	expectRefusalToast,
 	refusalHarness as harness,
 	ORGANIZATION_ID,
+	openMenu,
 	renderRefusalPage,
 	resetRefusalHarness,
 } from '../refusal-harness';
@@ -185,52 +190,6 @@ function completedMission(): MissionRecord {
 async function renderPage(record: MissionRecord) {
 	page.mission = record;
 	await renderRefusalPage(MissionDetail, 'Fog run');
-}
-
-/** Open the `...` and read what it holds, in order. */
-async function openMenu(): Promise<readonly string[]> {
-	fireEvent.pointerDown(
-		screen.getByRole('button', { name: 'More Actions' }),
-		new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
-	);
-	await screen.findAllByRole('menuitem');
-	return screen.getAllByRole('menuitem').map((item) => item.textContent ?? '');
-}
-
-/**
- * Choose an item from the `...` and let the write settle, so the busy flag
- * clears inside `act`. Radix selects on the pointer-up half of a click and on
- * a key, and the key is the one jsdom can deliver whole.
- */
-async function choose(name: string): Promise<void> {
-	await openMenu();
-	const item = screen.getByRole('menuitem', { name });
-	expect(item.getAttribute('aria-disabled')).toBeNull();
-	await act(async () => {
-		fireEvent.keyDown(item, { key: 'Enter' });
-	});
-}
-
-/**
- * Choose an item that opens a `ReasonDialog`, then its confirm. The confirm is
- * found rather than pressed straight away, because the dialog mounts its
- * content on open.
- */
-async function chooseThroughDialog(name: string, confirmLabel: string): Promise<void> {
-	await choose(name);
-	const confirm = await screen.findByRole('button', { name: confirmLabel });
-	expect((confirm as HTMLButtonElement).disabled).toBe(false);
-	await act(async () => {
-		fireEvent.click(confirm);
-	});
-}
-
-/** The two halves of the rule: the toast says `message`, and nothing on the page does. */
-async function expectRefusalToast(message: string): Promise<void> {
-	await waitFor(() => expect(harness.toastError).toHaveBeenCalledWith(message));
-	expect(harness.toastError).toHaveBeenCalledTimes(1);
-	expect(screen.queryByRole('alert')).toBeNull();
-	expect(screen.queryByText(message)).toBeNull();
 }
 
 describe('a refused lifecycle write on the mission page', () => {
@@ -424,13 +383,7 @@ describe('the mission page header', () => {
 		page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
 		await renderPage(mission());
 
-		await choose('Delete mission');
-		expect(await screen.findByRole('heading', { name: 'Delete Fog run?' })).toBeTruthy();
-		const confirm = await screen.findByRole('button', { name: 'Delete Mission' });
-		await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(false));
-		await act(async () => {
-			fireEvent.click(confirm);
-		});
+		await chooseDelete('Delete mission', 'Delete Fog run?', 'Delete Mission');
 
 		await waitFor(() => expect(harness.writes).toEqual(['remove']));
 	});
