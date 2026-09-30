@@ -1,4 +1,3 @@
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -18,37 +17,24 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
+import { MissionDetailHeader } from '../../../components/operations/missions/mission-detail-header';
 import { MissionNotificationsCard } from '../../../components/operations/missions/mission-notifications-card';
 import { MissionStopList } from '../../../components/operations/missions/mission-stops';
 import { RenameStopDialog } from '../../../components/operations/missions/rename-stop-dialog';
 import { RequestStopPicker } from '../../../components/operations/missions/request-stop-picker';
-import { formatOperationalDate } from '../../../components/operations/operations-data';
-import {
-	MissionStatusBadge,
-	StopProgressSummary,
-	stopSummary,
-} from '../../../components/operations/operations-display';
 import { WorklistMap } from '../../../components/operations/worklist-map';
 import { WorklistTabs } from '../../../components/operations/worklist-tabs';
 import { ReasonDialog } from '../../../components/reason-dialog';
-import { WriteOnly } from '../../../components/write-only';
-import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
+import { DetailPageHeaderSkeleton } from '../../../components/record/detail-page-header';
 import { type MissionRun, useMissionRun } from '../../../hooks/operations/use-mission-run';
-import { controlTypeLabel, formatScheduledStart } from '../../../hooks/queries/operations-view';
-import type { MissionRecord } from '../../../hooks/queries/use-mission';
-import { type Acknowledgements, useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { type AskAcknowledged, useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { MISSION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { recordNoun } from '../../../lib/record-nouns';
 
 const MissionIcon = iconRegistry.entities.route.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 
 export const Route = createFileRoute('/operations/missions/$id')({
 	component: MissionDetailRoute,
@@ -111,7 +97,7 @@ function MissionDetailRoute() {
 	);
 }
 
-/** The rail beside the map: what the mission is, its stops, and how to end it. */
+/** The rail beside the map: the header, the stops, and the notifications. */
 function MissionPanel({
 	missionId,
 	run,
@@ -119,32 +105,15 @@ function MissionPanel({
 }: {
 	readonly missionId: string;
 	readonly run: MissionRun;
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 }) {
-	const missionWrites = useMissionMutations();
-
 	return (
 		<div className="flex h-full min-h-0 flex-col">
-			<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
-				<Link
-					className="inline-flex w-fit items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-					to="/operations/missions"
-				>
-					<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-					{recordNoun('mission').titleMany}
-				</Link>
-
-				{run.mission === null ? (
-					<div className="grid gap-2">
-						<Skeleton className="h-6 w-56" />
-						<Skeleton className="h-4 w-40" />
-					</div>
-				) : (
-					<MissionHeader mission={run.mission} run={run} />
-				)}
-			</div>
+			{run.mission === null ? (
+				<DetailPageHeaderSkeleton frame="panel" />
+			) : (
+				<MissionDetailHeader askDelete={askDelete} mission={run.mission} run={run} />
+			)}
 
 			<WorklistTabs
 				stopControls={run.canAddStops ? <AddStopControls missionId={missionId} run={run} /> : null}
@@ -173,19 +142,6 @@ function MissionPanel({
 			{run.mission === null ? null : (
 				<div className="shrink-0 border-border/40 border-t p-3">
 					<MissionNotificationsCard missionId={missionId} />
-				</div>
-			)}
-
-			{run.mission === null ? null : (
-				<div className="shrink-0 border-border/40 border-t p-3">
-					<DangerZoneCard
-						ask={askDelete}
-						name={run.displayName ?? 'this mission'}
-						onDelete={(acknowledgements) => missionWrites.remove(missionId, acknowledgements)}
-						recordId={missionId}
-						recordType="mission"
-						returnTo="/operations/missions"
-					/>
 				</div>
 			)}
 		</div>
@@ -297,120 +253,6 @@ function MissionDialogs({ run }: { readonly run: MissionRun }) {
 				</AlertDialogContent>
 			</AlertDialog>
 		</>
-	);
-}
-
-/** What the mission is and when it runs, over the controls that move it along. */
-function MissionHeader({
-	mission,
-	run,
-}: {
-	readonly mission: MissionRecord;
-	readonly run: MissionRun;
-}) {
-	const timeZone = useOrganizationTimeZone();
-	return (
-		<>
-			<div className="flex items-start justify-between gap-3">
-				<div className="min-w-0">
-					<h1 className="flex items-center gap-2 font-semibold text-foreground text-lg leading-tight">
-						<MissionIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-						<span className="min-w-0 truncate">{run.displayName}</span>
-					</h1>
-					<p className="m-0 mt-0.5 text-muted-foreground text-sm">
-						{controlTypeLabel(mission.controlType)}
-						{run.methodName === null ? '' : ` · ${run.methodName}`}
-						{` · ${formatScheduledStart(mission.scheduledStartAt, timeZone)}`}
-					</p>
-					<p className="m-0 mt-0.5 text-muted-foreground text-sm">
-						{run.assigneeName ?? 'Unassigned'} · {stopSummary(run.counts)}
-						{mission.rainDate === null
-							? ''
-							: ` · rain date ${formatOperationalDate(mission.rainDate)}`}
-					</p>
-				</div>
-				<div className="flex shrink-0 items-center gap-2">
-					<MissionStatusBadge status={mission.status} />
-					<WriteOnly minimum="manager">
-						<Button asChild size="sm" variant="outline">
-							<Link params={{ id: mission.id }} to="/operations/missions/$id/edit">
-								<EditIcon aria-hidden="true" />
-								Edit
-							</Link>
-						</Button>
-					</WriteOnly>
-				</div>
-			</div>
-
-			<StopProgressSummary counts={run.counts} emptyLabel="No stops on this mission yet." />
-
-			<WriteOnly>
-				<MissionLifecycleControls mission={mission} run={run} />
-			</WriteOnly>
-
-			{mission.status === 'cancelled' && mission.cancellationReason !== null ? (
-				<p className="m-0 text-muted-foreground text-sm">Cancelled: {mission.cancellationReason}</p>
-			) : null}
-		</>
-	);
-}
-
-/**
- * The lifecycle controls, one set per state.
- *
- * Start and Complete carry preconditions the server enforces too; they are
- * disabled rather than hidden, because "why can't I finish this?" is a question
- * about the work in front of you, not about your account — and the answer is
- * right there in the counts above.
- */
-function MissionLifecycleControls({
-	mission,
-	run,
-}: {
-	readonly mission: MissionRecord;
-	readonly run: MissionRun;
-}) {
-	if (mission.status === 'completed' || mission.status === 'cancelled') {
-		return (
-			<div className="flex flex-wrap gap-2">
-				<WriteOnly minimum="manager">
-					<Button disabled={run.busy} onClick={run.reopen} size="sm" variant="outline">
-						Reopen
-					</Button>
-				</WriteOnly>
-			</div>
-		);
-	}
-
-	return (
-		<div className="flex flex-wrap gap-2">
-			{mission.status === 'scheduled' ? (
-				<Button disabled={run.busy || !run.canStart} onClick={run.start} size="sm">
-					Start
-				</Button>
-			) : (
-				<Button disabled={run.busy || !run.canComplete} onClick={run.complete} size="sm">
-					Complete
-				</Button>
-			)}
-			<WriteOnly minimum="manager">
-				<Button
-					disabled={run.busy}
-					onClick={() => run.setCancelOpen(true)}
-					size="sm"
-					variant="outline"
-				>
-					Cancel
-				</Button>
-			</WriteOnly>
-			{mission.status === 'inProgress' && run.counts.pending > 0 ? (
-				<span className="self-center text-muted-foreground text-xs">
-					{run.counts.pending === 1
-						? '1 stop still pending'
-						: `${run.counts.pending} stops still pending`}
-				</span>
-			) : null}
-		</div>
 	);
 }
 

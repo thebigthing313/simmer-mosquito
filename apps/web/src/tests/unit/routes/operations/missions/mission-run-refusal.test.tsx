@@ -1,21 +1,22 @@
 /** @vitest-environment jsdom */
 
 /**
- * What the mission page does with a refused lifecycle write.
+ * What the mission page does with a refused lifecycle write, and the header
+ * those writes are chosen from.
  *
- * Start, Complete, Cancel and Reopen sit in the page's own header, and the
- * server refuses each on its preconditions: a Complete on a mission whose
+ * Start, Complete, Cancel and Reopen are items in the `...` of the shared
+ * `DetailPageHeader` (#1267), and the server refuses each on its preconditions: a Complete on a mission whose
  * stops were reopened from another device, a Start on one cancelled since the
  * page loaded. The page was one of the three under operations that used to
  * hold a refusal in a destructive `Alert` (#1100), and it reaches the same
  * `useCommandRunner` as the other two through `useMissionRun`, whose four
  * lifecycle actions each pass a fallback sentence. Only the hook's own suite
- * covered that; nothing rendered the route and pressed the buttons. So this
+ * covered that; nothing rendered the route and chose the commands. So this
  * asserts both halves of the rule `DetailPageHeader`'s docblock carries, per
  * action: the toast is raised with the server's sentence, or the page's
  * fallback when the refusal carries none, and no `Alert` is drawn.
  *
- * Cancel and Reopen are two presses, because each opens a `ReasonDialog` and
+ * Cancel and Reopen are two choices, because each opens a `ReasonDialog` and
  * the write is the dialog's confirm. The reason is optional on both, so the
  * case confirms with the box empty and the hook sends the plain fact.
  *
@@ -26,6 +27,11 @@
  * from stand-ins for the data hooks, and the mutation hook is a recorder whose
  * refusal the case chooses. The notifications card and the comments column
  * are stand-ins because neither is in the question.
+ *
+ * The second half is the header itself: which items the `...` holds per state
+ * and per role, that Start and Complete stay in it disabled when their
+ * preconditions fail, that Delete is last and reaches the mission's write, and
+ * that the back link, the button row and the danger-zone card are gone.
  */
 
 import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
@@ -33,11 +39,11 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MissionProgressCounts } from '../../../../../hooks/queries/operations-view';
 import type { MissionRecord } from '../../../../../hooks/queries/use-mission';
+import { recordNoun } from '../../../../../lib/record-nouns';
 import { preloadRouteComponent } from '../../explorer-route-harness';
 import {
 	refusalHarness as harness,
 	ORGANIZATION_ID,
-	press,
 	renderRefusalPage,
 	resetRefusalHarness,
 } from '../refusal-harness';
@@ -88,7 +94,7 @@ vi.mock('../../../../../hooks/mutations/use-mission-mutations', async () => {
 			complete: lifecycleWrite('complete'),
 			cancel: lifecycleWrite('cancel'),
 			reopen: lifecycleWrite('reopen'),
-			remove: async () => {},
+			remove: lifecycleWrite('remove'),
 			moveStops: async () => {},
 			canWrite: true,
 		}),
@@ -177,13 +183,37 @@ async function renderPage(record: MissionRecord) {
 	await renderRefusalPage(MissionDetail, 'Fog run');
 }
 
+/** Open the `...` and read what it holds, in order. */
+async function openMenu(): Promise<readonly string[]> {
+	fireEvent.pointerDown(
+		screen.getByRole('button', { name: 'More Actions' }),
+		new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
+	);
+	await screen.findAllByRole('menuitem');
+	return screen.getAllByRole('menuitem').map((item) => item.textContent ?? '');
+}
+
 /**
- * Press a header button that opens a `ReasonDialog`, then its confirm. The
- * confirm is found rather than pressed straight away, because the dialog
- * mounts its content on open.
+ * Choose an item from the `...` and let the write settle, so the busy flag
+ * clears inside `act`. Radix selects on the pointer-up half of a click and on
+ * a key, and the key is the one jsdom can deliver whole.
  */
-async function pressThroughDialog(name: string, confirmLabel: string): Promise<void> {
-	await press(name);
+async function choose(name: string): Promise<void> {
+	await openMenu();
+	const item = screen.getByRole('menuitem', { name });
+	expect(item.getAttribute('aria-disabled')).toBeNull();
+	await act(async () => {
+		fireEvent.keyDown(item, { key: 'Enter' });
+	});
+}
+
+/**
+ * Choose an item that opens a `ReasonDialog`, then its confirm. The confirm is
+ * found rather than pressed straight away, because the dialog mounts its
+ * content on open.
+ */
+async function chooseThroughDialog(name: string, confirmLabel: string): Promise<void> {
+	await choose(name);
 	const confirm = await screen.findByRole('button', { name: confirmLabel });
 	expect((confirm as HTMLButtonElement).disabled).toBe(false);
 	await act(async () => {
@@ -206,7 +236,7 @@ describe('a refused lifecycle write on the mission page', () => {
 			page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
 			await renderPage(mission());
 
-			await press('Start');
+			await choose('Start Mission');
 
 			await waitFor(() => expect(harness.writes).toEqual(['start']));
 			await expectRefusalToast('This mission has been cancelled.');
@@ -217,7 +247,7 @@ describe('a refused lifecycle write on the mission page', () => {
 			page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
 			await renderPage(mission());
 
-			await press('Start');
+			await choose('Start Mission');
 
 			await waitFor(() => expect(harness.writes).toEqual(['start']));
 			await expectRefusalToast('Unable to start this mission.');
@@ -232,7 +262,7 @@ describe('a refused lifecycle write on the mission page', () => {
 			harness.refusal = new Error('Some stops are still pending.');
 			await renderPage(runningMission());
 
-			await press('Complete');
+			await choose('Complete Mission');
 
 			await waitFor(() => expect(harness.writes).toEqual(['complete']));
 			await expectRefusalToast('Some stops are still pending.');
@@ -242,7 +272,7 @@ describe('a refused lifecycle write on the mission page', () => {
 			harness.refusal = 'refused';
 			await renderPage(runningMission());
 
-			await press('Complete');
+			await choose('Complete Mission');
 
 			await waitFor(() => expect(harness.writes).toEqual(['complete']));
 			await expectRefusalToast('Unable to complete this mission.');
@@ -254,7 +284,7 @@ describe('a refused lifecycle write on the mission page', () => {
 			harness.refusal = new Error('This mission has already been completed.');
 			await renderPage(runningMission());
 
-			await pressThroughDialog('Cancel', 'Cancel Mission');
+			await chooseThroughDialog('Cancel Mission', 'Cancel Mission');
 
 			await waitFor(() => expect(harness.writes).toEqual(['cancel']));
 			await expectRefusalToast('This mission has already been completed.');
@@ -264,7 +294,7 @@ describe('a refused lifecycle write on the mission page', () => {
 			harness.refusal = 'refused';
 			await renderPage(mission());
 
-			await pressThroughDialog('Cancel', 'Cancel Mission');
+			await chooseThroughDialog('Cancel Mission', 'Cancel Mission');
 
 			await waitFor(() => expect(harness.writes).toEqual(['cancel']));
 			await expectRefusalToast('Unable to cancel this mission.');
@@ -276,7 +306,7 @@ describe('a refused lifecycle write on the mission page', () => {
 			harness.refusal = new Error('This mission is already in progress.');
 			await renderPage(completedMission());
 
-			await pressThroughDialog('Reopen', 'Reopen Mission');
+			await chooseThroughDialog('Reopen Mission', 'Reopen Mission');
 
 			await waitFor(() => expect(harness.writes).toEqual(['reopen']));
 			await expectRefusalToast('This mission is already in progress.');
@@ -286,7 +316,7 @@ describe('a refused lifecycle write on the mission page', () => {
 			harness.refusal = 'refused';
 			await renderPage(completedMission());
 
-			await pressThroughDialog('Reopen', 'Reopen Mission');
+			await chooseThroughDialog('Reopen Mission', 'Reopen Mission');
 
 			await waitFor(() => expect(harness.writes).toEqual(['reopen']));
 			await expectRefusalToast('Unable to reopen this mission.');
@@ -297,10 +327,107 @@ describe('a refused lifecycle write on the mission page', () => {
 		page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
 		await renderPage(mission());
 
-		await press('Start');
+		await choose('Start Mission');
 
 		await waitFor(() => expect(harness.writes).toEqual(['start']));
 		expect(harness.toastError).not.toHaveBeenCalled();
 		expect(screen.queryByRole('alert')).toBeNull();
+	});
+});
+
+describe('the mission page header', () => {
+	it('draws the shared bar and none of the controls it replaced', async () => {
+		page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
+		await renderPage(mission());
+
+		expect(screen.getByRole('banner').getAttribute('data-frame')).toBe('panel');
+		expect(screen.getByText(recordNoun('mission').title)).toBeTruthy();
+		expect(screen.getByText('Scheduled')).toBeTruthy();
+		// The stand-in `Link` is an anchor, so the pencil is found by its name.
+		expect(screen.getByLabelText('Edit')).toBeTruthy();
+		expect(screen.queryByRole('link', { name: recordNoun('mission').titleMany })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Start' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+		expect(screen.queryByText(/Delete This/)).toBeNull();
+	});
+
+	it('offers Start and Cancel on a scheduled mission, with Delete last', async () => {
+		page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
+		await renderPage(mission());
+
+		expect(await openMenu()).toEqual(['Start Mission', 'Cancel Mission', 'Delete mission']);
+		expect(screen.getByRole('separator')).toBeTruthy();
+	});
+
+	it('offers Complete and Cancel on a running mission', async () => {
+		await renderPage(runningMission());
+
+		expect(await openMenu()).toEqual(['Complete Mission', 'Cancel Mission', 'Delete mission']);
+	});
+
+	it('offers Reopen on a mission that has ended', async () => {
+		await renderPage(completedMission());
+
+		expect(await openMenu()).toEqual(['Reopen Mission', 'Delete mission']);
+	});
+
+	// Disabled rather than hidden: the counts under the bar say why, and a
+	// missing item would say nothing at all.
+	it('keeps Start in the menu, disabled, on a mission with no stops', async () => {
+		await renderPage(mission());
+
+		await openMenu();
+		const start = screen.getByRole('menuitem', { name: 'Start Mission' });
+		expect(start.getAttribute('aria-disabled')).toBe('true');
+	});
+
+	it('keeps Complete in the menu, disabled, while a stop is pending', async () => {
+		page.counts = { total: 2, completed: 1, skipped: 0, pending: 1, handled: 1 };
+		await renderPage(
+			mission({ status: 'inProgress', startedAt: new Date('2026-08-04T11:05:00Z') }),
+		);
+
+		expect(screen.getByText('1 stop still pending')).toBeTruthy();
+		await openMenu();
+		const complete = screen.getByRole('menuitem', { name: 'Complete Mission' });
+		expect(complete.getAttribute('aria-disabled')).toBe('true');
+	});
+
+	it('leaves a Collector the progress command and nothing a manager holds', async () => {
+		harness.role = 'collector';
+		await renderPage(runningMission());
+
+		expect(screen.queryByLabelText('Edit')).toBeNull();
+		expect(await openMenu()).toEqual(['Complete Mission']);
+	});
+
+	it('draws no menu for a Collector on a mission that has ended', async () => {
+		harness.role = 'collector';
+		await renderPage(completedMission());
+
+		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+	});
+
+	it('draws no menu for a Viewer', async () => {
+		harness.role = 'viewer';
+		await renderPage(runningMission());
+
+		expect(screen.queryByLabelText('Edit')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+	});
+
+	it('deletes the mission from the last item', async () => {
+		page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
+		await renderPage(mission());
+
+		await choose('Delete mission');
+		expect(await screen.findByRole('heading', { name: 'Delete Fog run?' })).toBeTruthy();
+		const confirm = await screen.findByRole('button', { name: 'Delete Mission' });
+		await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(false));
+		await act(async () => {
+			fireEvent.click(confirm);
+		});
+
+		await waitFor(() => expect(harness.writes).toEqual(['remove']));
 	});
 });

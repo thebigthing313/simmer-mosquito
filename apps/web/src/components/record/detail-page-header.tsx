@@ -208,7 +208,9 @@ interface DetailPageTags {
  * context, and one the Suspense swap then destroys, which is the `isMapLive`
  * trap over again. A grey block that swaps for the map when the request
  * arrives moves more of the screen than the bar does. A page beside a map
- * that can draw its split before its record arrives is what reopens this.
+ * that can draw its split before its record arrives has no jump to accept,
+ * and the mission page is one: its map needs only the stops, so it draws the
+ * skeleton at `panel` and the bar keeps its measure when the mission lands.
  *
  * `panel` is a column that already has a measure of its own, the 40% the
  * service request page keeps beside its map. The `record` measure would be no
@@ -386,9 +388,9 @@ const DeleteIcon = iconRegistry.actions.delete.icon;
 /**
  * The bar's chrome and measure, shared with {@link DetailPageHeaderSkeleton} so
  * the pinned bar is the same height before the record arrives and the content
- * below it does not jump. The same height and not the same width: the skeleton
- * is always at `page`, and {@link DetailHeaderFrame} says what that costs on
- * the one page whose bar arrives at `panel`. The bar names its frame in
+ * below it does not jump. The skeleton draws at `page` unless the page hands it
+ * a frame, and {@link DetailHeaderFrame} says what that costs on the one page
+ * whose bar arrives at `panel` without handing it one. The bar names its frame in
  * `data-frame`, so a suite can pin which one a page draws in without reading
  * the padding classes back.
  */
@@ -419,10 +421,19 @@ function DetailHeaderBar({
 	);
 }
 
-/** The bar before the record, in the frame's skeleton. */
-export function DetailPageHeaderSkeleton() {
+/**
+ * The bar before the record, in the frame's skeleton. `frame` defaults to
+ * `page`; a page that draws its map column before the record arrives, which
+ * the mission page does, passes `panel` so the bar does not change measure
+ * when the record lands.
+ */
+export function DetailPageHeaderSkeleton({
+	frame = 'page',
+}: {
+	readonly frame?: DetailHeaderFrame;
+}) {
 	return (
-		<DetailHeaderBar frame="page">
+		<DetailHeaderBar frame={frame}>
 			<div className="flex min-w-0 flex-col gap-1.5">
 				<Skeleton className="h-4 w-24" />
 				<Skeleton className="h-8 w-64" />

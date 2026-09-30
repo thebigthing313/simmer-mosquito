@@ -517,6 +517,36 @@ back to null would reopen a finished mission. `scheduledAt` is anchored to the
 organization's zone because a dispatcher scheduling a 6am muster from another
 zone was writing their own 6am.
 
+#### MissionDetailHeader
+
+The mission page used to draw a bar of its own: a back link, the name with an
+outlined Edit button, a row of lifecycle buttons, and a danger-zone card at the
+foot of the rail. It draws `DetailPageHeader` in the `panel` frame now (#1267),
+the same bar the service request page draws beside its map, and the lifecycle
+commands and the delete are in the `...`.
+
+The progress bar, the pending-stops hint and the cancellation reason sit under
+the bar rather than in its subtitle, because the subtitle is capped at a line
+measure and the progress bar is a control-width element. The hint is drawn to
+everyone now rather than to writers only: it is a count of the mission's own
+stops, and it is what a disabled Complete in the menu cannot say.
+
+The page draws its map from the stops before the mission row arrives, so the
+header skeleton is drawn at `panel` too, and the bar keeps its measure when the
+mission lands. That is the jump `DetailHeaderFrame`'s docblock accepts for the
+service request page, which cannot draw its split before its record.
+
+#### worklistLifecycleActions and PendingStopsHint
+
+One builder for the four lifecycle items a worklist's `...` holds, so the
+mission page and the assignment page (#1269) offer the same items at the same
+floors. Start and Complete are disabled rather than hidden when their
+precondition fails: "why can't I finish this?" is a question about the work,
+and the answer is the counts under the bar. Hiding them would leave a Collector
+on a mission with pending stops looking at no menu at all. Each page maps its
+own status onto `WorklistPhase`, because a mission says `scheduled` where an
+assignment says `notStarted`.
+
 #### MissionNotificationsCard
 
 The list is on the card rather than in a toast because the generation's most
