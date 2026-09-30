@@ -1,3 +1,4 @@
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Dialog,
@@ -9,7 +10,6 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type { ReactNode } from 'react';
 
@@ -61,18 +61,12 @@ export function CatalogRecordDialog({
 					}}
 				>
 					{/*
-					 * The dialog caps its height with `max-h` alone, so nothing above the
-					 * scroll area has a definite height for the viewport's `h-full` to
-					 * resolve against. The root and the viewport are flex items instead,
-					 * each free to shrink below its content, and the flex column hands the
-					 * viewport what the header and the actions leave.
+					 * The dialog caps its height with `max-h` alone, so the body shrinks to
+					 * what the header and the actions leave. The fields pad themselves.
 					 */}
-					<ScrollArea
-						className="flex min-h-0 flex-1 flex-col [&>[data-slot=scroll-area-viewport]]:min-h-0 [&>[data-slot=scroll-area-viewport]]:flex-1"
-						type="auto"
-					>
+					<ScrollBody className="flex-1" gutter={false} height="shrink">
 						<div className="grid gap-3.5 px-6 py-4">{children}</div>
-					</ScrollArea>
+					</ScrollBody>
 					<DialogFooter className="border-border/60 border-t px-6 py-4">{actions}</DialogFooter>
 				</form>
 			</DialogContent>

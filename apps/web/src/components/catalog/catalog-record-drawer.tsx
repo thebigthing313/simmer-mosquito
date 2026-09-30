@@ -1,3 +1,4 @@
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -10,7 +11,6 @@ import {
 	DrawerTitle,
 	DrawerTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/drawer';
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import {
 	Tooltip,
 	TooltipContent,
@@ -97,17 +97,13 @@ export function CatalogRecordDrawer({
 					}}
 				>
 					{/*
-					 * No `flex-1` on the root, so a short form keeps its actions under the
-					 * last field rather than at the foot of the drawer. The viewport is a
-					 * flex item that may shrink below its content, which is what hands it
-					 * the height left once the header and the actions are drawn.
+					 * No `flex-1`, so a short form keeps its actions under the last field
+					 * rather than at the foot of the drawer. The body shrinks to the height
+					 * left once the header and the actions are drawn.
 					 */}
-					<ScrollArea
-						className="flex min-h-0 flex-col [&>[data-slot=scroll-area-viewport]]:min-h-0 [&>[data-slot=scroll-area-viewport]]:flex-1"
-						type="auto"
-					>
+					<ScrollBody gutter={false} height="shrink">
 						<div className="grid gap-3.5 px-4 py-3.5">{children}</div>
-					</ScrollArea>
+					</ScrollBody>
 					<DrawerFooter>
 						{destructiveAction === undefined ? (
 							actions

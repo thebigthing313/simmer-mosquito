@@ -262,7 +262,7 @@ describe('ExplorerMapPage', () => {
 		// The card is capped with `max-h-full` alone, so the root and the viewport
 		// shrink as flex items rather than resolving a percentage height.
 		expect(viewport?.parentElement?.getAttribute('class')?.split(/\s+/)).toEqual(
-			expect.arrayContaining(['min-h-0', '[&>[data-slot=scroll-area-viewport]]:min-h-0']),
+			expect.arrayContaining(['flex-col', 'min-h-0']),
 		);
 		expect(
 			screen

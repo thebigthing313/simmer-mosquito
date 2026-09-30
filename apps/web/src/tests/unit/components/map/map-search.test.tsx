@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MapboxSearchResult } from '../../../../components/map/mapbox-search-client';
+import { scrollBodyCap } from '../../scroll-body-cap';
 
 /**
  * The place search's two resets, which used to be effects and are now read off
@@ -130,9 +131,7 @@ describe('the results list', () => {
 		const listbox = screen.getByRole('listbox', { name: 'Search results' });
 		const viewport = listbox.closest('[data-slot="scroll-area-viewport"]');
 		expect(viewport).not.toBeNull();
-		expect(viewport?.parentElement?.getAttribute('class')?.split(/\s+/)).toContain(
-			'[&>[data-slot=scroll-area-viewport]]:max-h-72',
-		);
+		expect(scrollBodyCap(viewport)).toBe('18rem');
 		expect(listbox.className).not.toContain('overflow-y-auto');
 	});
 

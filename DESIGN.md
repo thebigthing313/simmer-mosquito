@@ -485,7 +485,9 @@ passes under a pinned header, the rule stands as written.
 
 Every scroll container draws one bar: thin, in the Border colour, over a
 transparent track. A region that scrolls is a `ScrollArea`, whose thumb is that
-bar. A scroller `ScrollArea` cannot wrap takes the `scrollbar-subtle` utility
+bar. A capped region, or one that shrinks inside a capped dialog or drawer, is a
+`ScrollBody` from `packages/ui-web`, which holds the cap on the viewport and
+keeps the bar off the content (#1283). A scroller `ScrollArea` cannot wrap takes the `scrollbar-subtle` utility
 from `packages/ui-web/src/styles.css` instead, which draws the native bar in
 the same colour. Two kinds of scroller need it. One is an element other code
 depends on scrolling, which is the shell's `main`: it holds the focus ref and

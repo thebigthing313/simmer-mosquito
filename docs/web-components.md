@@ -849,3 +849,50 @@ set up for this record type. With text in the box the line does not apply, so an
 empty section drops out, and when both drop out one line says nothing matches.
 
 `docs/tag-relevance-spec.md` is the rest.
+
+## packages/ui-web
+
+Shared parts both apps draw. These live outside `components/ui`, which the
+shadcn registry regenerates.
+
+### scrolling
+
+#### ScrollBody
+
+A vertical scroll region with a height rule, and the part to reach for before a
+bare `ScrollArea`. The scrollbar series (#1254 to #1261) moved every scroller
+onto `ScrollArea` and wrote the same three class strings at about thirty sites.
+This part owns them (#1283).
+
+The cap goes on the viewport, never on the root. Radix scrolls an inner
+viewport whose `h-full` resolves against the root, and a root with only a
+`max-height` has no definite height to resolve against. So a capped root clips
+its content and nothing scrolls. `height={{ cap }}` writes the cap to
+`--scroll-body-cap` on the root and points the viewport's `max-height` at it. It
+is a custom property rather than a class so a caller can pass any CSS length,
+`55vh` and `calc(90vh - 13rem)` among them, without a class string Tailwind has
+to find in the source.
+
+`height="shrink"` is for a body whose parent caps the height with `max-h`, such
+as a dialog, a drawer or the map card. There is no definite height anywhere in
+that chain, so the root and the viewport are flex items with `min-h-0`, and the
+flex column hands the viewport what the header and footer leave. #1282 checked
+this in Chrome against a copy of the dialog capped at 300px holding 1000px of
+content: with the chain the viewport came out at 249px and scrolled, and
+without it the viewport grew to 1000px and never scrolled. The part leaves
+`flex-1` to the caller, because a drawer or a map card without it keeps its
+actions right under a short body.
+
+`height="fill"` is `SplitPage`'s column. The root already has a height, and
+most callers put a full-height flex column inside it that scrolls a region of
+its own, so Radix's content wrapper is held to the viewport height. Without
+that the caller's column grows to its content.
+
+The bar draws over the content rather than beside it, so the viewport takes
+`pr-3` by default. `gutter={false}` is for content whose own right padding is
+at least the bar's width, such as a form with `px-4`. Every site that wrote
+`pr-3` by hand in #1282 and #1284 now gets it from the default.
+
+A pane with a definite height of its own, a `min-h-0 flex-1` list in a split
+page, needs no height rule and still scrolls in a bare `ScrollArea`. So does a
+table that scrolls sideways, through `orientation="horizontal"`.

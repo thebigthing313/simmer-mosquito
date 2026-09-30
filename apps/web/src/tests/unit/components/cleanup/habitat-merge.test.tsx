@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NearbyHabitats } from '../../../../hooks/merge-candidate-view';
 import type { MinimumRole } from '../../../../lib/write-access';
+import { scrollBodyCap } from '../../scroll-body-cap';
 
 /**
  * The habitat merge page, which asks the question the other way round.
@@ -287,13 +288,10 @@ describe('HabitatMerge', () => {
 		expect(candidates).not.toBe(column);
 		expect(column?.contains(candidates ?? null)).toBe(true);
 
-		// The kept habitat's description is capped on the viewport, since the root
-		// has no height of its own for the viewport to fill.
+		// The kept habitat's description scrolls under a cap of its own.
 		const description = viewportOf(screen.getByText('Roadside ditch'));
 		expect(description).not.toBe(column);
-		expect(classesOf(description?.parentElement)).toContain(
-			'[&>[data-slot=scroll-area-viewport]]:max-h-28',
-		);
+		expect(scrollBodyCap(description)).toBe('7rem');
 	});
 
 	it('scrolls the confirm body and keeps the title and the actions out of it', async () => {
@@ -306,9 +304,7 @@ describe('HabitatMerge', () => {
 		const acknowledgement = within(dialog).getByRole('checkbox');
 		const body = viewportOf(acknowledgement);
 		expect(body).not.toBeNull();
-		expect(classesOf(body?.parentElement)).toContain(
-			'[&>[data-slot=scroll-area-viewport]]:max-h-[55vh]',
-		);
+		expect(scrollBodyCap(body)).toBe('55vh');
 		expect(viewportOf(within(dialog).getByRole('heading', { name: /^Merge 1 into/ }))).toBeNull();
 		expect(viewportOf(within(dialog).getByRole('button', { name: 'Merge' }))).toBeNull();
 		expect(viewportOf(within(dialog).getByRole('button', { name: 'Cancel' }))).toBeNull();
@@ -318,8 +314,4 @@ describe('HabitatMerge', () => {
 /** The Radix viewport a node scrolls inside, or null when it scrolls with the page. */
 function viewportOf(node: Element): Element | null {
 	return node.closest('[data-slot="scroll-area-viewport"]');
-}
-
-function classesOf(element: Element | null | undefined): string[] {
-	return (element?.getAttribute('class') ?? '').split(/\s+/);
 }

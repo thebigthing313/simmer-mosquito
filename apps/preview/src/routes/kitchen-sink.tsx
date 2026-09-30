@@ -1,6 +1,7 @@
 import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
 import { PanelRows, type PanelRowsReading } from '@simmer-mosquito/ui-web/components/panel-rows';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -421,6 +422,32 @@ function KitchenSinkPage() {
 			<section className="preview-section">
 				<div className="preview-section-header">
 					<div>
+						<p className="preview-eyebrow">Layout</p>
+						<h2>Scroll Body</h2>
+					</div>
+					<p>
+						A scroll area with a height rule. The first is capped at 10rem. The second shrinks
+						inside a card capped with max-h, so its header and footer stay put. Both keep the bar
+						off rows that run to the right edge.
+					</p>
+				</div>
+				<div className="component-grid">
+					<ScrollBody className="rounded-md border" height={{ cap: '10rem' }}>
+						<PreviewEdgeRows />
+					</ScrollBody>
+					<div className="flex max-h-48 flex-col rounded-md border">
+						<p className="m-0 border-b px-3 py-2 font-medium text-sm">Traps</p>
+						<ScrollBody height="shrink">
+							<PreviewEdgeRows />
+						</ScrollBody>
+						<p className="m-0 border-t px-3 py-2 text-muted-foreground text-sm">End of list</p>
+					</div>
+				</div>
+			</section>
+
+			<section className="preview-section">
+				<div className="preview-section-header">
+					<div>
 						<p className="preview-eyebrow">Forms</p>
 						<h2>Date Picker</h2>
 					</div>
@@ -625,6 +652,25 @@ function PreviewTrapRows() {
 			{PREVIEW_TRAPS.map((trap) => (
 				<li className="flex min-w-0 items-center gap-2" key={trap}>
 					<span className="truncate">{trap}, checked weekly along the access road</span>
+					<Badge className="ml-auto shrink-0" tone="success" variant="outline">
+						Ready
+					</Badge>
+				</li>
+			))}
+		</ul>
+	);
+}
+
+/**
+ * Trap rows whose status badge sits against the right edge, for `ScrollBody`
+ * to keep its bar off.
+ */
+function PreviewEdgeRows() {
+	return (
+		<ul className="grid gap-1 py-2 pl-3 text-sm">
+			{PREVIEW_TRAPS.map((trap) => (
+				<li className="flex min-w-0 items-center gap-2" key={trap}>
+					<span className="truncate">{trap}</span>
 					<Badge className="ml-auto shrink-0" tone="success" variant="outline">
 						Ready
 					</Badge>

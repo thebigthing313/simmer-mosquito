@@ -1,5 +1,6 @@
 import { type ProximitySearchUnit, proximityLabel } from '@simmer-mosquito/domain';
 import { ListEmpty, ListLoading } from '@simmer-mosquito/ui-web/components/page/list-states';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -279,14 +280,13 @@ function KeptHabitat({ target }: { readonly target: DuplicateRecord | undefined 
 			{/*
 			 * Capped and scrollable. A habitat description is often a paragraph of
 			 * turn-by-turn directions, and at full height it pushes the radius off the
-			 * card that is the only control on the page. The cap is on the viewport,
-			 * because a capped root would clip the text rather than scroll it.
+			 * card that is the only control on the page.
 			 */}
-			<ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-28" type="auto">
-				<p className="m-0 whitespace-pre-line pr-3 text-muted-foreground text-sm">
+			<ScrollBody height={{ cap: '7rem' }}>
+				<p className="m-0 whitespace-pre-line text-muted-foreground text-sm">
 					{description ?? 'No description recorded.'}
 				</p>
-			</ScrollArea>
+			</ScrollBody>
 		</div>
 	);
 }

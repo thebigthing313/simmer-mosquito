@@ -1,6 +1,7 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
 import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Drawer,
@@ -336,12 +337,9 @@ function NotificationTypeDrawer({
 						</DrawerDescription>
 					</DrawerHeader>
 					<form.AppForm>
-						{/* The same flex chain as `CatalogRecordDrawer`: the viewport shrinks as
-						    a flex item to the height the drawer header leaves. */}
-						<ScrollArea
-							className="flex min-h-0 flex-col [&>[data-slot=scroll-area-viewport]]:min-h-0 [&>[data-slot=scroll-area-viewport]]:flex-1"
-							type="auto"
-						>
+						{/* As in `CatalogRecordDrawer`, the body shrinks to the height the
+						    drawer header leaves. */}
+						<ScrollBody gutter={false} height="shrink">
 							<form
 								className="grid gap-3.5 px-4"
 								onSubmit={(event) => {
@@ -389,7 +387,7 @@ function NotificationTypeDrawer({
 									</form.FormActions>
 								</DrawerFooter>
 							</form>
-						</ScrollArea>
+						</ScrollBody>
 					</form.AppForm>
 				</DrawerContent>
 			</Drawer>

@@ -10,6 +10,7 @@ import {
 	geocoderResultKey,
 	pointFromGeocoderResult,
 } from '../../../../components/pickers/geocoder-dialog';
+import { scrollBodyCap } from '../../scroll-body-cap';
 
 /**
  * The dialog is now one component behind two address forms, and this is the
@@ -108,10 +109,7 @@ describe('GeocoderDialog', () => {
 
 		const result = screen.getByRole('button', { name: /12 Marsh Rd/ });
 		const viewport = result.closest('[data-slot="scroll-area-viewport"]');
-		// The cap is on the viewport: a capped root would clip the list rather than scroll it.
-		expect(viewport?.parentElement?.getAttribute('class')?.split(/\s+/)).toContain(
-			'[&>[data-slot=scroll-area-viewport]]:max-h-80',
-		);
+		expect(scrollBodyCap(viewport)).toBe('20rem');
 		expect(
 			screen.getByText('Choose Geocoder Result').closest('[data-slot="scroll-area-viewport"]'),
 		).toBeNull();

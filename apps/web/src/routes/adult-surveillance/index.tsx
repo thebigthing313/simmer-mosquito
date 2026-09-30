@@ -4,8 +4,8 @@ import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -163,13 +163,13 @@ function RecentCollectionsPanel({ since }: { readonly since: string }) {
 				wrap="none"
 			>
 				{(rows) => (
-					<ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-[32rem]" type="auto">
+					<ScrollBody gutter={false} height={{ cap: '32rem' }}>
 						<div className="divide-y divide-border/60">
 							{rows.map((group) => (
 								<DayGroupBlock group={group} key={group.day} />
 							))}
 						</div>
-					</ScrollArea>
+					</ScrollBody>
 				)}
 			</PanelRows>
 		</Panel>
