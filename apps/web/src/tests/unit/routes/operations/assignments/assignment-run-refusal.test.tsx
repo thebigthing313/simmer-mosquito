@@ -1,19 +1,24 @@
 /** @vitest-environment jsdom */
 
 /**
- * What the assignment run page does with a refused lifecycle write.
+ * What the assignment run page does with a refused lifecycle write, and the
+ * header those writes are chosen from.
  *
- * Start, Complete, Cancel and Reopen are buttons in the page's own header bar,
- * and the server refuses each on its preconditions: a Complete on an
- * assignment somebody else has already completed, a Start on one that has
- * been cancelled since the page loaded. The page used to hold that refusal in
- * a destructive `Alert` under the bar, and it was one of three pages under
- * operations doing so while every other record page reported one as a toast
- * (#1100). A refused start on a worklist is no more
- * correctable in place than a refused close from a record's menu, so it
- * follows the rule `DetailPageHeader`'s docblock carries, and what this
- * asserts is both halves: the toast is raised with the server's sentence, or
- * the page's fallback when the refusal carries none, and no `Alert` is drawn.
+ * Start, Complete, Cancel and Reopen are items in the `...` of the shared
+ * `DetailPageHeader` (#1269), and the server refuses each on its
+ * preconditions: a Complete on an assignment somebody else has already
+ * completed, a Start on one that has been cancelled since the page loaded. The
+ * page used to hold that refusal in a destructive `Alert` under the bar, and
+ * it was one of three pages under operations doing so while every other record
+ * page reported one as a toast (#1100). So this asserts both halves of the
+ * rule `DetailPageHeader`'s docblock carries, per action: the toast is raised
+ * with the server's sentence, or the page's fallback when the refusal carries
+ * none, and no `Alert` is drawn.
+ *
+ * Cancel opens a `ReasonDialog` and the write is the dialog's confirm; the
+ * reason is optional, so the case confirms with the box empty. Reopen takes no
+ * reason on an assignment, because `fieldWork.reopenAssignment` carries none,
+ * so choosing it is the write.
  *
  * What is faked is what `write-attribution.test.tsx` fakes for this route: the
  * `Route` hands back the params a match would, the role comes from a variable,
@@ -21,6 +26,11 @@
  * Mapbox GL has no jsdom. The assignment and its stops come from stand-ins for
  * the data hooks, and the mutation hook is a recorder whose refusal the case
  * chooses.
+ *
+ * The second half is the header itself: which items the `...` holds per state
+ * and per role, that Start and Complete stay in it disabled when their
+ * preconditions fail, that Delete is last and leaves the page on Assignment
+ * Not Found, and that the back link and the button row are gone.
  */
 
 import { cleanup, screen, waitFor } from '@testing-library/react';
@@ -28,10 +38,15 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AssignmentView } from '../../../../../components/operations/assignments/assignment-data';
 import type { ProgressCounts } from '../../../../../hooks/queries/assignment-view';
+import { recordNoun } from '../../../../../lib/record-nouns';
 import { preloadRouteComponent } from '../../explorer-route-harness';
 import {
+	choose,
+	chooseDelete,
+	chooseThroughDialog,
+	expectRefusalToast,
 	refusalHarness as harness,
-	press,
+	openMenu,
 	renderRefusalPage,
 	resetRefusalHarness,
 } from '../refusal-harness';
@@ -41,6 +56,8 @@ const page = vi.hoisted(() => ({
 	assignment: null as AssignmentView | null,
 	/** Where the stops stand, which decides whether Start and Complete are enabled. */
 	counts: { total: 0, completed: 0, skipped: 0, pending: 0, handled: 0 } as ProgressCounts,
+	/** What redraws when the assignment is taken away. */
+	listeners: new Set<() => void>(),
 }));
 
 vi.mock('sonner', async () => {
@@ -58,14 +75,23 @@ vi.mock('../../../../../hooks/use-auth-snapshot', async () => {
 	return authSnapshotStandIn();
 });
 
-vi.mock('../../../../../hooks/operations/use-assignment', () => ({
-	useAssignment: () => ({
-		assignment: page.assignment,
-		isLoading: false,
-		isReady: true,
-		isError: false,
-	}),
-}));
+// Read through a store so a delete that takes the row away redraws the page,
+// the way the collection does for the real hook.
+vi.mock('../../../../../hooks/operations/use-assignment', async () => {
+	const { useSyncExternalStore } = await import('react');
+	const subscribe = (listener: () => void) => {
+		page.listeners.add(listener);
+		return () => page.listeners.delete(listener);
+	};
+	return {
+		useAssignment: () => ({
+			assignment: useSyncExternalStore(subscribe, () => page.assignment),
+			isLoading: false,
+			isReady: true,
+			isError: false,
+		}),
+	};
+});
 
 vi.mock('../../../../../hooks/operations/use-assignment-stops', () => ({
 	useAssignmentStops: () => ({
@@ -82,12 +108,22 @@ vi.mock('../../../../../hooks/operations/use-assignee-options', () => ({
 
 vi.mock('../../../../../hooks/mutations/use-assignment-mutations', async () => {
 	const { lifecycleWrite } = await import('../refusal-harness');
+	const recordRemove = lifecycleWrite('remove');
 	return {
 		useAssignmentMutations: () => ({
 			start: lifecycleWrite('start'),
 			complete: lifecycleWrite('complete'),
 			cancel: lifecycleWrite('cancel'),
 			reopen: lifecycleWrite('reopen'),
+			// The real delete is optimistic, so the row leaves the collection the
+			// moment it is confirmed; the stand-in takes it off the page the same way.
+			remove: async () => {
+				await recordRemove();
+				page.assignment = null;
+				for (const listener of page.listeners) {
+					listener();
+				}
+			},
 			canWrite: true,
 		}),
 	};
@@ -145,55 +181,231 @@ function assignment(overrides: Partial<AssignmentView> = {}): AssignmentView {
 	};
 }
 
+/** An assignment with one stop left to work, so Start is enabled. */
+function readyAssignment(): AssignmentView {
+	page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
+	return assignment();
+}
+
+/** An assignment that is running, with every stop handled, so Complete is enabled. */
+function runningAssignment(): AssignmentView {
+	page.counts = { total: 2, completed: 2, skipped: 0, pending: 0, handled: 2 };
+	return assignment({ status: 'inProgress', startedAt: new Date('2026-08-04T11:05:00Z') });
+}
+
+/** An assignment that has ended, so the header offers Reopen and nothing else. */
+function completedAssignment(): AssignmentView {
+	page.counts = { total: 2, completed: 2, skipped: 0, pending: 0, handled: 2 };
+	return assignment({
+		status: 'completed',
+		startedAt: new Date('2026-08-04T11:05:00Z'),
+		completedAt: new Date('2026-08-04T13:00:00Z'),
+	});
+}
+
 async function renderPage(record: AssignmentView) {
 	page.assignment = record;
 	await renderRefusalPage(AssignmentRun, 'North loop');
 }
 
 describe('a refused lifecycle write on the assignment run page', () => {
-	it('is a toast carrying the server sentence, and no Alert', async () => {
-		// A refusal the browser cannot pre-empt: `canCompleteAssignment` already
-		// disables Complete over a pending stop, so the server's answer here is
-		// one about a race the counts on screen do not show.
-		harness.refusal = new Error('This assignment has already been completed.');
-		page.counts = { total: 2, completed: 2, skipped: 0, pending: 0, handled: 2 };
-		await renderPage(assignment({ status: 'inProgress', startedAt: new Date('2026-08-04') }));
+	describe('Start', () => {
+		it('is a toast carrying the server sentence, and no Alert', async () => {
+			harness.refusal = new Error('This assignment has been cancelled.');
+			await renderPage(readyAssignment());
 
-		await press('Complete');
+			await choose('Start Assignment');
 
-		await waitFor(() => expect(harness.writes).toEqual(['complete']));
-		await waitFor(() =>
-			expect(harness.toastError).toHaveBeenCalledWith(
-				'This assignment has already been completed.',
-			),
-		);
-		expect(screen.queryByRole('alert')).toBeNull();
-		expect(screen.queryByText('This assignment has already been completed.')).toBeNull();
+			await waitFor(() => expect(harness.writes).toEqual(['start']));
+			await expectRefusalToast('This assignment has been cancelled.');
+		});
+
+		it('falls back to the page sentence when the refusal carries none', async () => {
+			harness.refusal = 'refused';
+			await renderPage(readyAssignment());
+
+			await choose('Start Assignment');
+
+			await waitFor(() => expect(harness.writes).toEqual(['start']));
+			await expectRefusalToast('Unable to start this assignment.');
+		});
 	});
 
-	it('falls back to the page sentence when the refusal carries none', async () => {
-		harness.refusal = 'refused';
-		page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
-		await renderPage(assignment());
+	describe('Complete', () => {
+		it('is a toast carrying the server sentence, and no Alert', async () => {
+			// A refusal the browser cannot pre-empt: `canCompleteAssignment` already
+			// disables Complete over a pending stop, so the server's answer here is
+			// one about a race the counts on screen do not show.
+			harness.refusal = new Error('This assignment has already been completed.');
+			await renderPage(runningAssignment());
 
-		await press('Start');
+			await choose('Complete Assignment');
 
-		await waitFor(() => expect(harness.writes).toEqual(['start']));
-		await waitFor(() =>
-			expect(harness.toastError).toHaveBeenCalledWith('Unable to start this assignment.'),
-		);
-		expect(screen.queryByRole('alert')).toBeNull();
+			await waitFor(() => expect(harness.writes).toEqual(['complete']));
+			await expectRefusalToast('This assignment has already been completed.');
+		});
+
+		it('falls back to the page sentence when the refusal carries none', async () => {
+			harness.refusal = 'refused';
+			await renderPage(runningAssignment());
+
+			await choose('Complete Assignment');
+
+			await waitFor(() => expect(harness.writes).toEqual(['complete']));
+			await expectRefusalToast('Unable to complete this assignment.');
+		});
+	});
+
+	describe('Cancel', () => {
+		it('is a toast carrying the server sentence, and no Alert', async () => {
+			harness.refusal = new Error('This assignment has already been completed.');
+			await renderPage(runningAssignment());
+
+			await chooseThroughDialog('Cancel Assignment', 'Cancel Assignment');
+
+			await waitFor(() => expect(harness.writes).toEqual(['cancel']));
+			await expectRefusalToast('This assignment has already been completed.');
+		});
+
+		it('falls back to the page sentence when the refusal carries none', async () => {
+			harness.refusal = 'refused';
+			await renderPage(readyAssignment());
+
+			await chooseThroughDialog('Cancel Assignment', 'Cancel Assignment');
+
+			await waitFor(() => expect(harness.writes).toEqual(['cancel']));
+			await expectRefusalToast('Unable to cancel this assignment.');
+		});
+	});
+
+	describe('Reopen', () => {
+		it('is a toast carrying the server sentence, and no Alert', async () => {
+			harness.refusal = new Error('This assignment is already in progress.');
+			await renderPage(completedAssignment());
+
+			await choose('Reopen Assignment');
+
+			await waitFor(() => expect(harness.writes).toEqual(['reopen']));
+			await expectRefusalToast('This assignment is already in progress.');
+		});
+
+		it('falls back to the page sentence when the refusal carries none', async () => {
+			harness.refusal = 'refused';
+			await renderPage(completedAssignment());
+
+			await choose('Reopen Assignment');
+
+			await waitFor(() => expect(harness.writes).toEqual(['reopen']));
+			await expectRefusalToast('Unable to reopen this assignment.');
+		});
 	});
 
 	it('raises no toast when the write goes through', async () => {
-		page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
-		await renderPage(assignment());
+		await renderPage(readyAssignment());
 
-		await press('Start');
+		await choose('Start Assignment');
 
 		await waitFor(() => expect(harness.writes).toEqual(['start']));
 		expect(harness.toastError).not.toHaveBeenCalled();
 		expect(screen.queryByRole('alert')).toBeNull();
+	});
+});
+
+describe('the assignment run page header', () => {
+	it('draws the shared bar and none of the controls it replaced', async () => {
+		await renderPage(readyAssignment());
+
+		expect(screen.getByRole('banner').getAttribute('data-frame')).toBe('panel');
+		expect(screen.getByText(recordNoun('assignment').title)).toBeTruthy();
+		expect(screen.getByText('Not started')).toBeTruthy();
+		// The stand-in `Link` is an anchor, so the pencil is found by its name.
+		expect(screen.getByLabelText('Edit')).toBeTruthy();
+		expect(screen.queryByRole('link', { name: recordNoun('assignment').titleMany })).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Edit Plan' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Start' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+	});
+
+	it('offers Start and Cancel on an assignment not yet started, with Delete last', async () => {
+		await renderPage(readyAssignment());
+
+		expect(await openMenu()).toEqual([
+			'Start Assignment',
+			'Cancel Assignment',
+			'Delete assignment',
+		]);
+		expect(screen.getByRole('separator')).toBeTruthy();
+	});
+
+	it('offers Complete and Cancel on a running assignment', async () => {
+		await renderPage(runningAssignment());
+
+		expect(await openMenu()).toEqual([
+			'Complete Assignment',
+			'Cancel Assignment',
+			'Delete assignment',
+		]);
+	});
+
+	it('offers Reopen on an assignment that has ended', async () => {
+		await renderPage(completedAssignment());
+
+		expect(await openMenu()).toEqual(['Reopen Assignment', 'Delete assignment']);
+	});
+
+	// Disabled rather than hidden: the counts under the bar say why, and a
+	// missing item would say nothing at all.
+	it('keeps Start in the menu, disabled, on an assignment with no stops', async () => {
+		await renderPage(assignment());
+
+		await openMenu();
+		const start = screen.getByRole('menuitem', { name: 'Start Assignment' });
+		expect(start.getAttribute('aria-disabled')).toBe('true');
+	});
+
+	it('keeps Complete in the menu, disabled, while a stop is pending', async () => {
+		page.counts = { total: 2, completed: 1, skipped: 0, pending: 1, handled: 1 };
+		await renderPage(
+			assignment({ status: 'inProgress', startedAt: new Date('2026-08-04T11:05:00Z') }),
+		);
+
+		expect(screen.getByText('1 stop still pending')).toBeTruthy();
+		await openMenu();
+		const complete = screen.getByRole('menuitem', { name: 'Complete Assignment' });
+		expect(complete.getAttribute('aria-disabled')).toBe('true');
+	});
+
+	it('leaves a Collector the progress command and nothing a manager holds', async () => {
+		harness.role = 'collector';
+		await renderPage(runningAssignment());
+
+		expect(screen.queryByLabelText('Edit')).toBeNull();
+		expect(await openMenu()).toEqual(['Complete Assignment']);
+	});
+
+	it('draws no menu for a Collector on an assignment that has ended', async () => {
+		harness.role = 'collector';
+		await renderPage(completedAssignment());
+
+		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+	});
+
+	it('draws no menu for a Viewer', async () => {
+		harness.role = 'viewer';
+		await renderPage(runningAssignment());
+
+		expect(screen.queryByLabelText('Edit')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+	});
+
+	it('deletes the assignment from the last item and lands on Assignment Not Found', async () => {
+		await renderPage(readyAssignment());
+
+		await chooseDelete('Delete assignment', 'Delete North loop?', 'Delete Assignment');
+
+		await waitFor(() => expect(harness.writes).toEqual(['remove']));
+		expect(await screen.findByText('Assignment Not Found')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Back to Assignments' })).toBeTruthy();
 	});
 });
 
