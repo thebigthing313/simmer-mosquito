@@ -196,3 +196,13 @@ describe('a refused lifecycle write on the assignment run page', () => {
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
 });
+
+describe('the assignment run page rail', () => {
+	// The mission page passes a third tab for its notifications (#1268); an
+	// assignment has none to pass.
+	it('draws exactly Stops and Comments', async () => {
+		await renderPage(assignment());
+
+		expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Stops', 'Comments']);
+	});
+});

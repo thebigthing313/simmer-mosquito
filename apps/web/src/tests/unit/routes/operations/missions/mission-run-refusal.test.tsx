@@ -32,6 +32,9 @@
  * and per role, that Start and Complete stay in it disabled when their
  * preconditions fail, that Delete is last and reaches the mission's write, and
  * that the back link, the button row and the danger-zone card are gone.
+ *
+ * The last is the rail under the header (#1268): Stops, Comments and
+ * Notifications, with the notifications inside their tab and nowhere below it.
  */
 
 import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
@@ -115,6 +118,7 @@ vi.mock('../../../../../components/operations/worklist-map', () => ({
 
 vi.mock('../../../../../components/operations/missions/mission-notifications-card', () => ({
 	MissionNotificationsCard: () => <p>notifications</p>,
+	MissionNotificationCount: () => <span>3</span>,
 }));
 
 vi.mock('../../../../../components/comments-section', () => ({
@@ -429,5 +433,30 @@ describe('the mission page header', () => {
 		});
 
 		await waitFor(() => expect(harness.writes).toEqual(['remove']));
+	});
+});
+
+describe('the mission page rail', () => {
+	it('draws Stops, Comments and Notifications, and opens on Stops', async () => {
+		await renderPage(mission());
+
+		expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+			'Stops',
+			'Comments',
+			'Notifications3',
+		]);
+		expect(screen.getByRole('tab', { selected: true }).textContent).toBe('Stops');
+	});
+
+	it('draws the notifications inside their tab and nowhere below it', async () => {
+		await renderPage(mission());
+
+		expect(screen.queryByText('notifications')).toBeNull();
+
+		// Radix switches a tab on the mouse-down half of a click.
+		fireEvent.mouseDown(screen.getByRole('tab', { name: /^Notifications/ }), { button: 0 });
+
+		const card = screen.getByText('notifications');
+		expect(card.closest('[role="tabpanel"]')).not.toBeNull();
 	});
 });
