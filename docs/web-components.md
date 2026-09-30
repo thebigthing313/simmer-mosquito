@@ -73,6 +73,28 @@ The open year is component state rather than a search param. It belongs to the
 trap in view, and a year that is meaningful for one trap need not exist for the
 next, so the pane re-anchors on the first group whenever the trap changes.
 
+#### SeasonPicker
+
+A trap can carry fifteen or twenty seasons, and a tab per season made a strip
+that scrolled sideways inside half the header with nothing saying more tabs
+existed, and the open season could sit scrolled out of view (#1262). So the tabs
+stop at the three most recent seasons and everything older is a menu under
+Earlier Seasons, which keeps the row one width however much history there is.
+The undated group stays a tab and does not count against the three, because it
+is the unfinished work an operator came looking for. `splitSeasons` in
+`trap-directory-data.ts` is that cut.
+
+An older season is open with no tab selected, since the history's `Tabs` value
+is a key no trigger carries. The menu trigger shows that season and its count
+and draws the tab's underline, and the radio item under it is checked, so the
+open season reads as selected in both places. Radix labels a panel by its tab's
+id, which does not exist for an older season, so `CollectionYears` points the
+panel at the menu trigger instead.
+
+The shared `TabStrip` in `packages/ui-web` is unchanged. Every other strip in
+the app has a fixed set of tabs, so the bound belongs to the one surface whose
+length comes from years of data.
+
 #### trap-directory-data
 
 Undated collections sort ahead of the years because work that is not finished

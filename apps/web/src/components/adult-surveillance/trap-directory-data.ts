@@ -125,6 +125,22 @@ export function groupByYear(
 	];
 }
 
+/** How many dated seasons the season picker draws as tabs. */
+const RECENT_SEASON_TABS = 3;
+
+/**
+ * Cut {@link groupByYear}'s output into the groups the picker draws as tabs and
+ * the older ones it lists under Earlier Seasons. The undated group is always a
+ * tab and does not count against the three, because it is the unfinished work.
+ */
+export function splitSeasons(years: readonly CollectionYear[]): {
+	readonly recent: readonly CollectionYear[];
+	readonly older: readonly CollectionYear[];
+} {
+	const tabCount = RECENT_SEASON_TABS + (years[0]?.key === UNDATED_GROUP_KEY ? 1 : 0);
+	return { recent: years.slice(0, tabCount), older: years.slice(tabCount) };
+}
+
 /**
  * What a collection caught. Non-positive counts are ignored, so a zero row
  * neither inflates the total nor claims a species was present.
