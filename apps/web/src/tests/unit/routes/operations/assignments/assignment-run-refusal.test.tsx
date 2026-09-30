@@ -30,10 +30,15 @@
  * The second half is the header itself: which items the `...` holds per state
  * and per role, that Start and Complete stay in it disabled when their
  * preconditions fail, that Delete is last and leaves the page on Assignment
- * Not Found, and that the back link and the button row are gone.
+ * Not Found, and that the back link and the button row are gone. A delete the
+ * server answers with a question asks it from Assignment Not Found, because
+ * the header that opened the delete has gone with the row (#1299).
+ *
+ * The last is Assignment Not Found itself: its title, and the link back to the
+ * index, whose `href` the stand-in `Link` writes out.
  */
 
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AssignmentView } from '../../../../../components/operations/assignments/assignment-data';
@@ -41,6 +46,7 @@ import type { ProgressCounts } from '../../../../../hooks/queries/assignment-vie
 import { recordNoun } from '../../../../../lib/record-nouns';
 import { preloadRouteComponent } from '../../explorer-route-harness';
 import {
+	acknowledgementRefusal,
 	choose,
 	chooseDelete,
 	chooseThroughDialog,
@@ -58,6 +64,8 @@ const page = vi.hoisted(() => ({
 	counts: { total: 0, completed: 0, skipped: 0, pending: 0, handled: 0 } as ProgressCounts,
 	/** What redraws when the assignment is taken away. */
 	listeners: new Set<() => void>(),
+	/** The flags each delete carried, in order. */
+	removals: [] as Readonly<Record<string, boolean>>[],
 }));
 
 vi.mock('sonner', async () => {
@@ -116,13 +124,15 @@ vi.mock('../../../../../hooks/mutations/use-assignment-mutations', async () => {
 			cancel: lifecycleWrite('cancel'),
 			reopen: lifecycleWrite('reopen'),
 			// The real delete is optimistic, so the row leaves the collection the
-			// moment it is confirmed; the stand-in takes it off the page the same way.
-			remove: async () => {
-				await recordRemove();
+			// moment it is confirmed and before the server answers; the stand-in
+			// takes it off the page the same way, and leaves it off on a refusal.
+			remove: async (_id: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
+				page.removals.push(acknowledgements);
 				page.assignment = null;
 				for (const listener of page.listeners) {
 					listener();
 				}
+				await recordRemove();
 			},
 			canWrite: true,
 		}),
@@ -161,6 +171,7 @@ beforeAll(async () => {
 beforeEach(() => {
 	resetRefusalHarness();
 	page.counts = { total: 0, completed: 0, skipped: 0, pending: 0, handled: 0 };
+	page.removals.length = 0;
 });
 
 afterEach(cleanup);
@@ -406,6 +417,43 @@ describe('the assignment run page header', () => {
 		await waitFor(() => expect(harness.writes).toEqual(['remove']));
 		expect(await screen.findByText('Assignment Not Found')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Back to Assignments' })).toBeTruthy();
+	});
+
+	// The page holds the delete's runner above the header for this: the row goes
+	// the moment the delete is confirmed, the header and its dialog unmount with
+	// it, and the question the refusal asks has to be drawn from the page that
+	// is left.
+	it('asks the refusal question from Assignment Not Found, and resends with the flag', async () => {
+		harness.refusal = acknowledgementRefusal('acknowledgedAssignmentItemDeletion');
+		await renderPage(readyAssignment());
+
+		await chooseDelete('Delete assignment', 'Delete North loop?', 'Delete Assignment');
+
+		expect(await screen.findByRole('dialog', { name: 'Delete the stops?' })).toBeTruthy();
+		expect(screen.getByText('Assignment Not Found')).toBeTruthy();
+		expect(harness.toastError).not.toHaveBeenCalled();
+
+		harness.refusal = null;
+		fireEvent.click(screen.getByRole('button', { name: 'Delete them' }));
+
+		await waitFor(() => expect(harness.writes).toEqual(['remove', 'remove']));
+		expect(page.removals).toEqual([
+			{ acknowledgedAssignmentItemDeletion: false },
+			{ acknowledgedAssignmentItemDeletion: true },
+		]);
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(harness.toastError).not.toHaveBeenCalled();
+	});
+});
+
+describe('Assignment Not Found', () => {
+	it('draws the title and a link back to the Assignments index', async () => {
+		page.assignment = null;
+		await renderRefusalPage(AssignmentRun, { text: 'Assignment Not Found' });
+
+		const back = screen.getByRole('link', { name: 'Back to Assignments' });
+		expect(back.getAttribute('href')).toBe('/operations/assignments');
+		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
 	});
 });
 

@@ -98,6 +98,17 @@ export function lifecycleWrite(kind: string): () => Promise<void> {
 	};
 }
 
+/**
+ * A refusal a confirmation can answer: the `acknowledgement_required` body the
+ * delete registry sends, naming `flag`. Set as `refusal`, it is what
+ * `useAcknowledgedWrite` turns into its dialog rather than a toast.
+ */
+export function acknowledgementRefusal(flag: string): Error {
+	return Object.assign(new Error('Acknowledgement required.'), {
+		body: { error: 'acknowledgement_required', flag },
+	});
+}
+
 /** The `beforeEach`: fresh collections with the Organization seeded, and every setting back to its default. */
 export function resetRefusalHarness(): void {
 	installMemoryCollections();
@@ -109,10 +120,21 @@ export function resetRefusalHarness(): void {
 }
 
 /**
- * The preloaded route component under a fresh query client, waited for until
- * the page's `<h1>` reads `heading`, which is when the record is on screen.
+ * What {@link renderRefusalPage} waits for. A string is the page's `<h1>`,
+ * which is when the record is on screen. `{ text }` is any element reading
+ * exactly that, for a state with no `<h1>`: a not-found page draws its title
+ * in `EmptyTitle`, which is a `div`, so a wait on a heading would never end.
  */
-export async function renderRefusalPage(Page: () => ReactNode, heading: string): Promise<void> {
+export type RefusalPageReady = string | { readonly text: string };
+
+/**
+ * The preloaded route component under a fresh query client, waited for until
+ * `ready` is on screen.
+ */
+export async function renderRefusalPage(
+	Page: () => ReactNode,
+	ready: RefusalPageReady,
+): Promise<void> {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	render(
 		<QueryClientProvider client={client}>
@@ -123,7 +145,11 @@ export async function renderRefusalPage(Page: () => ReactNode, heading: string):
 			</TooltipProvider>
 		</QueryClientProvider>,
 	);
-	await screen.findByRole('heading', { level: 1, name: heading });
+	if (typeof ready === 'string') {
+		await screen.findByRole('heading', { level: 1, name: ready });
+	} else {
+		await screen.findByText(ready.text);
+	}
 }
 
 /** Open a `DetailPageHeader`'s `...` and read what it holds, in order. */
