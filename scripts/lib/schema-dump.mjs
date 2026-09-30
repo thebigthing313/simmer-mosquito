@@ -1,7 +1,8 @@
 /**
  * The half of `db-migrate.mjs` that is text in and text out: where `pg_dump`
  * would be found, which versions `packages/db/schema.sql` names, which versions
- * dbmate says it applied, and the two refusals the wrapper prints. The wrapper
+ * dbmate says it applied or rolled back, and the two refusals the wrapper
+ * prints. The wrapper
  * owns dbmate, the streams and the exit code, which is the split
  * `catalog-vacuum.mjs` makes under `vacuum-catalogs.mjs`.
  *
@@ -30,6 +31,9 @@ const DUMPED_VERSION = /^\s*\('(\d+)'\)[,;]\r?$/gm;
 /** `Applying: 202609290001_name.sql`, one line per migration dbmate runs. */
 const APPLYING = /^Applying: (?:.*[\\/])?(\d+)_[^\\/\r\n]*\r?$/gm;
 
+/** `Rolling back: 202609290001_name.sql`, the line dbmate prints before it runs a down block. */
+const ROLLING_BACK = /^Rolling back: (?:.*[\\/])?(\d+)_[^\\/\r\n]*\r?$/gm;
+
 /** Go's own fallback when `PATHEXT` is unset. */
 const DEFAULT_PATHEXT = '.com;.exe;.bat;.cmd';
 
@@ -55,6 +59,11 @@ export function appliedVersions(output) {
 	return [...output.matchAll(APPLYING)].map((match) => match[1]);
 }
 
+/** The versions dbmate printed a `Rolling back:` line for. */
+export function rolledBackVersions(output) {
+	return [...output.matchAll(ROLLING_BACK)].map((match) => match[1]);
+}
+
 /**
  * What is wrong with the dump after a run, or `null` when nothing is.
  *
@@ -64,17 +73,23 @@ export function appliedVersions(output) {
  * 1, dbmate applied all of them, printed no `Writing:` line and exited 0. And a
  * dump that was rewritten can still leave a version out, which is the check
  * `generate-table-types.mjs` makes against the files on disk.
+ *
+ * A rollback is the same question turned round: the dump must have been
+ * rewritten and must no longer name the version. `check:table-types` cannot
+ * ask it, because the rolled-back migration's file is usually still on disk,
+ * so a dump that kept naming it agrees with the files (#1304).
  */
-export function staleDump({ applied, dumped, rewritten }) {
-	if (applied.length === 0) {
+export function staleDump({ applied, rolledBack, dumped, rewritten }) {
+	if (applied.length === 0 && rolledBack.length === 0) {
 		return null;
 	}
 	const named = new Set(dumped);
 	const undumped = applied.filter((version) => !named.has(version));
-	if (rewritten && undumped.length === 0) {
+	const lingering = rolledBack.filter((version) => named.has(version));
+	if (rewritten && undumped.length === 0 && lingering.length === 0) {
 		return null;
 	}
-	return { rewritten, undumped };
+	return { rewritten, undumped, lingering };
 }
 
 /**
@@ -103,19 +118,34 @@ export function findExecutable(name, { platform, path, pathext, isFile }) {
 	return null;
 }
 
-/** Printed before dbmate runs, when `pg_dump` is nowhere on the PATH. */
-export function missingPgDumpMessage() {
+/**
+ * Printed before dbmate runs, when `pg_dump` is nowhere on the PATH. `command`
+ * is the dbmate command the wrapper was about to run, `up` or `rollback`.
+ */
+export function missingPgDumpMessage(command) {
+	const [refused, changed, script] =
+		command === 'rollback'
+			? [
+					'pg_dump is not on the PATH, so nothing was rolled back.',
+					'rolls back a migration, and it ignores a failure there: the rollback would',
+					'`pnpm db:rollback`',
+				]
+			: [
+					'pg_dump is not on the PATH, so no migration was applied.',
+					'applies a migration, and it ignores a failure there: the migration would',
+					'`pnpm db:migrate`',
+				];
 	return [
-		'pg_dump is not on the PATH, so no migration was applied.',
+		refused,
 		'',
-		'dbmate writes packages/db/schema.sql by running pg_dump after it applies a',
-		'migration, and it ignores a failure there: the migration would land in the',
-		'database and schema.sql would stay as it was, which is what',
+		'dbmate writes packages/db/schema.sql by running pg_dump after it',
+		changed,
+		'land in the database and schema.sql would stay as it was, which is what',
 		'`pnpm generate:table-types` reads next.',
 		'',
 		'Install the PostgreSQL client tools and put their bin directory on the PATH',
 		'(on Windows, `C:\\Program Files\\PostgreSQL\\<version>\\bin`), or run',
-		'`pnpm db:migrate` from a shell where `pg_dump --version` answers.',
+		`${script} from a shell where \`pg_dump --version\` answers.`,
 	].join('\n');
 }
 
@@ -131,7 +161,12 @@ export function afterDbmate({ code, checked, output, sql, rewritten }) {
 		return { exitCode: code ?? 1, message: null };
 	}
 	const stale = checked
-		? staleDump({ applied: appliedVersions(output), dumped: dumpedVersions(sql), rewritten })
+		? staleDump({
+				applied: appliedVersions(output),
+				rolledBack: rolledBackVersions(output),
+				dumped: dumpedVersions(sql),
+				rewritten,
+			})
 		: null;
 	return stale === null
 		? { exitCode: 0, message: null }
@@ -139,19 +174,32 @@ export function afterDbmate({ code, checked, output, sql, rewritten }) {
 }
 
 /** Printed after dbmate returns, for what `staleDump` found. */
-export function staleDumpMessage({ rewritten, undumped }) {
-	const found = rewritten
-		? [
-				'dbmate applied migrations that packages/db/schema.sql does not name:',
-				...undumped.map((version) => `  ${version}`),
-			]
-		: ['dbmate applied migrations and did not rewrite packages/db/schema.sql.'];
+export function staleDumpMessage({ rewritten, undumped, lingering }) {
+	const rollback = lingering.length > 0;
+	let found;
+	if (!rewritten) {
+		found = [
+			rollback
+				? 'dbmate rolled back a migration and did not rewrite packages/db/schema.sql.'
+				: 'dbmate applied migrations and did not rewrite packages/db/schema.sql.',
+		];
+	} else if (rollback) {
+		found = [
+			'dbmate rolled back migrations that packages/db/schema.sql still names:',
+			...lingering.map((version) => `  ${version}`),
+		];
+	} else {
+		found = [
+			'dbmate applied migrations that packages/db/schema.sql does not name:',
+			...undumped.map((version) => `  ${version}`),
+		];
+	}
 	return [
 		...found,
 		'',
-		'The migrations are in the database and the dump is stale. dbmate ignores',
-		'a failed pg_dump, so check that pg_dump runs and that its major version is',
-		"at least the server's, then write the dump without applying anything:",
+		'The database has changed and the dump is stale. dbmate ignores a failed',
+		'pg_dump, so check that pg_dump runs and that its major version is at',
+		"least the server's, then write the dump without changing the database:",
 		'',
 		'  pnpm exec dbmate --schema-file packages/db/schema.sql dump',
 	].join('\n');

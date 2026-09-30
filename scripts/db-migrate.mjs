@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * `pnpm db:migrate`: dbmate `up`, refusing to run where it cannot write
- * `packages/db/schema.sql` and failing when it applied a migration the dump
- * does not name.
+ * `pnpm db:migrate` and `pnpm db:rollback`: dbmate `up` or `rollback`,
+ * refusing to run where it cannot write `packages/db/schema.sql` and failing
+ * when the dump it left disagrees with what it did.
  *
  * dbmate discards the error when its `pg_dump` step fails, so without this a
  * machine with no `pg_dump` on the PATH applied the migration, kept the old
@@ -14,9 +14,16 @@
  * an old client refusing a newer server being the usual one. The reading and
  * the messages are `lib/schema-dump.mjs`, where the suite reaches them.
  *
- * Arguments pass through to dbmate ahead of `up`, so `pnpm db:migrate --url
- * <url>` works as it did. A run that opts out of the dump with
- * `--no-dump-schema` or `DBMATE_NO_DUMP_SCHEMA` skips both checks.
+ * A rollback drops the dump the same way, and there the stale dump names a
+ * version the database no longer has, which `check:table-types` cannot see
+ * while the migration's file is still on disk (#1304). So `rollback` takes
+ * the same refusal before dbmate runs, and after it returns a run that printed
+ * a `Rolling back:` line has to have rewritten the dump without that version.
+ *
+ * The first argument is the dbmate command, `up` or `rollback`, which is what
+ * the two package scripts pass. The rest pass through to dbmate ahead of it,
+ * so `pnpm db:migrate --url <url>` works as it did. A run that opts out of the
+ * dump with `--no-dump-schema` or `DBMATE_NO_DUMP_SCHEMA` skips both checks.
  */
 
 import { spawn } from 'node:child_process';
@@ -53,7 +60,15 @@ function modifiedAt(path) {
 	}
 }
 
-const passthrough = process.argv.slice(2);
+const COMMANDS = new Set(['up', 'rollback']);
+
+const [command, ...passthrough] = process.argv.slice(2);
+if (!COMMANDS.has(command)) {
+	console.error(
+		`Usage: node scripts/db-migrate.mjs <up|rollback> [dbmate flags], got ${command ?? 'no command'}.`,
+	);
+	process.exit(2);
+}
 const checked = writesDump(passthrough, process.env);
 
 if (
@@ -65,7 +80,7 @@ if (
 		isFile,
 	}) === null
 ) {
-	console.error(missingPgDumpMessage());
+	console.error(missingPgDumpMessage(command));
 	process.exit(1);
 }
 
@@ -75,12 +90,12 @@ const args = [
 	'--schema-file',
 	SCHEMA_FILE,
 	...passthrough,
-	'up',
+	command,
 ];
 
 const writtenBefore = modifiedAt(SCHEMA_PATH);
 
-// stdout is read for the `Applying:` lines and echoed as it arrives.
+// stdout is read for the `Applying:` and `Rolling back:` lines and echoed as it arrives.
 const child = spawn(resolveBinary(), args, { cwd: ROOT, stdio: ['inherit', 'pipe', 'inherit'] });
 let output = '';
 child.stdout.on('data', (chunk) => {
