@@ -6,6 +6,12 @@
  * (#1254). The `<nav>` landmark stays outside the scroll area with its name,
  * and the active indicator sits in the same scrolled list as the buttons it
  * marks, so it moves with them when the list scrolls.
+ *
+ * The bar is inset from the rail's right edge by the indicator's width, so
+ * the thumb never covers the indicator (#1278). jsdom lays nothing out and
+ * draws no bar for `type="auto"`, so the case reads the classes: the rail's
+ * scroll area carries a margin rule for its own scrollbar slot, and that
+ * margin is the indicator's width.
  */
 
 import { cleanup, render, screen } from '@testing-library/react';
@@ -78,5 +84,20 @@ describe.each([
 		expect((indicator as HTMLElement).style.transform).toBe(
 			`translateY(${2 * PRIMARY_ITEM_PITCH}px)`,
 		);
+	});
+
+	it('insets its scrollbar from the right edge by the width of the active indicator', () => {
+		const { container } = renderContent(collapsed);
+		const root = screen
+			.getByRole('navigation', { name: 'Domains' })
+			.querySelector(':scope > [data-slot="scroll-area"]');
+		const indicator = container.querySelector('span[aria-hidden="true"].absolute');
+		const inset = root?.className.match(
+			/(?:^| )\[&>\[data-slot=scroll-area-scrollbar\]\]:mr-\[(\d+)px\](?: |$)/,
+		);
+		const width = indicator?.className.match(/(?:^| )w-\[(\d+)px\](?: |$)/);
+
+		expect(width?.[1]).toBeDefined();
+		expect(inset?.[1]).toBe(width?.[1]);
 	});
 });
