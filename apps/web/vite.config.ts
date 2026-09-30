@@ -58,7 +58,7 @@ export default defineConfig({
 	 * nothing about production changes.
 	 */
 	test: {
-		setupFiles: ['./src/tests/session-transport.ts'],
+		setupFiles: ['./src/tests/session-transport.ts', './src/tests/resize-observer.ts'],
 	},
 	build: {
 		outDir: 'dist',

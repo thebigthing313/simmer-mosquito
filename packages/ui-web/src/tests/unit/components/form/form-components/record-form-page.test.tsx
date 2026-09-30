@@ -9,7 +9,9 @@
  * the issue swept. These cases hold that branch to a plain block and the split
  * branch to the markup `SplitPage` scrolls today, so neither drifts into the
  * other's shape; #1058 built on the column branch and did not put the inner
- * scroller back.
+ * scroller back. Since #1255 the split branch's two scrollers are the shared
+ * `ScrollArea` rather than plain `overflow-y-auto` boxes, and the column branch
+ * still has none.
  *
  * A column form also draws in the measured frame `pageContainer` defines, at
  * the measure the caller names, so it lands where the route-loading skeleton
@@ -77,6 +79,10 @@ const classListsOf = (markup: string): string[][] =>
 const scrollers = (markup: string): number =>
 	classListsOf(markup).filter((classes) => classes.includes('overflow-y-auto')).length;
 
+/** The shared `ScrollArea` roots, which is where a split form scrolls since #1255. */
+const scrollAreas = (markup: string): number =>
+	[...markup.matchAll(/data-slot="scroll-area"/g)].length;
+
 /**
  * The frame's classes, read off the variant rather than spelled here, so a
  * change to the measure moves the test with it. Padding is not part of the
@@ -93,19 +99,21 @@ const carriesFrame = (markup: string, measure: NonNullable<PageContainerVariants
 
 /**
  * The split branch as it rendered before #1058, captured off `develop` at
- * 19cd6067, and rewritten once since: the split stacks under a 56rem stage
- * and the fields region is the `fields` container the field grids query. The
+ * 19cd6067, and rewritten twice since: the split stacks under a 56rem stage
+ * and the fields region is the `fields` container the field grids query, and
+ * both scrollers are the shared `ScrollArea` (#1255). The
  * frame must leave it alone, so this is an equality and not a class rule; a
  * deliberate change to the split shape rewrites this string.
  */
 const SPLIT_MARKUP =
-	'<div class="@container/split h-full min-h-0 w-full"><div class="flex h-full min-h-0 w-full flex-col overflow-hidden @4xl/split:grid @4xl/split:grid-cols-[2fr_3fr]"><div class="@container/fields min-h-0 min-w-0 flex-1 overflow-y-auto"><form class="flex flex-col h-full min-h-0"><header class="sticky top-0 z-10 border-border/50 border-b bg-background grid gap-2 px-5 py-4"><a class="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground active" href="/" data-status="active" aria-current="page"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-left" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>Back</a><div class="grid gap-1"><h1 class="m-0 font-semibold text-foreground text-xl leading-tight">Edit Contact</h1><p class="m-0 text-muted-foreground text-sm">The record.</p></div></header><div class="min-h-0 flex-1 overflow-y-auto px-5 py-5"><div class="@container/fields grid gap-6"><p>fields</p></div></div><footer class="sticky bottom-0 z-10 border-border/50 border-t bg-background flex flex-wrap items-center justify-end gap-2 px-5 py-4"><button type="submit">Save</button></footer></form></div><div class="relative order-first h-[min(38svh,22rem)] min-h-0 min-w-0 shrink-0 border-border/40 border-b @4xl/split:order-none @4xl/split:h-auto @4xl/split:border-b-0 @4xl/split:border-l"><div>map</div></div></div></div>';
+	'<div class="@container/split h-full min-h-0 w-full"><div class="flex h-full min-h-0 w-full flex-col overflow-hidden @4xl/split:grid @4xl/split:grid-cols-[2fr_3fr]"><div dir="ltr" data-slot="scroll-area" class="relative @container/fields min-h-0 min-w-0 flex-1 [&amp;&gt;[data-slot=scroll-area-viewport]&gt;div]:h-full" style="position:relative;--radix-scroll-area-corner-width:0px;--radix-scroll-area-corner-height:0px"><style>[data-radix-scroll-area-viewport]{scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch;}[data-radix-scroll-area-viewport]::-webkit-scrollbar{display:none}</style><div data-radix-scroll-area-viewport="" data-slot="scroll-area-viewport" class="size-full rounded-[inherit] transition-[color,box-shadow] outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-1 [&amp;&gt;div]:!block" style="overflow-x:hidden;overflow-y:hidden"><div style="min-width:100%;display:table"><form class="flex flex-col h-full min-h-0"><header class="sticky top-0 z-10 border-border/50 border-b bg-background grid gap-2 px-5 py-4"><a class="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground active" href="/" data-status="active" aria-current="page"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-left" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>Back</a><div class="grid gap-1"><h1 class="m-0 font-semibold text-foreground text-xl leading-tight">Edit Contact</h1><p class="m-0 text-muted-foreground text-sm">The record.</p></div></header><div dir="ltr" data-slot="scroll-area" class="relative min-h-0 flex-1" style="position:relative;--radix-scroll-area-corner-width:0px;--radix-scroll-area-corner-height:0px"><style>[data-radix-scroll-area-viewport]{scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch;}[data-radix-scroll-area-viewport]::-webkit-scrollbar{display:none}</style><div data-radix-scroll-area-viewport="" data-slot="scroll-area-viewport" class="size-full rounded-[inherit] transition-[color,box-shadow] outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-1 [&amp;&gt;div]:!block" style="overflow-x:hidden;overflow-y:hidden"><div style="min-width:100%;display:table"><div class="px-5 py-5"><div class="@container/fields grid gap-6"><p>fields</p></div></div></div></div></div><footer class="sticky bottom-0 z-10 border-border/50 border-t bg-background flex flex-wrap items-center justify-end gap-2 px-5 py-4"><button type="submit">Save</button></footer></form></div></div></div><div class="relative order-first h-[min(38svh,22rem)] min-h-0 min-w-0 shrink-0 border-border/40 border-b @4xl/split:order-none @4xl/split:h-auto @4xl/split:border-b-0 @4xl/split:border-l"><div>map</div></div></div></div>';
 
 describe('RecordFormPage', () => {
 	it('scrolls a column form in the shell rather than in a scroller of its own', () => {
 		const markup = render();
 
 		expect(scrollers(markup)).toBe(0);
+		expect(scrollAreas(markup)).toBe(0);
 		expect(classListsOf(markup).some((classes) => classes.includes('h-full'))).toBe(false);
 	});
 
@@ -115,10 +123,11 @@ describe('RecordFormPage', () => {
 		expect(form).toContain('min-h-full');
 	});
 
-	it('leaves a split form on the scroller it had', () => {
+	it('scrolls a split form in the column and the field region, both on the shared scroll area', () => {
 		const markup = render(<div>map</div>);
 
-		expect(scrollers(markup)).toBe(2);
+		expect(scrollAreas(markup)).toBe(2);
+		expect(scrollers(markup)).toBe(0);
 		expect(markup).toContain('grid-cols-[2fr_3fr]');
 	});
 

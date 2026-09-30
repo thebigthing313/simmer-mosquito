@@ -1,4 +1,5 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Fragment, useEffect, useState } from 'react';
 import {
@@ -47,9 +48,18 @@ export function ErrorReport({ error, info, reset, title, version }: ErrorReportP
 					<span className="font-bold text-muted-foreground text-xs uppercase tracking-wide">
 						{details.name}
 					</span>
-					<p className="m-0 max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/50 px-3 py-2.5 font-mono text-foreground text-sm leading-relaxed">
-						{details.message}
-					</p>
+					{/*
+					 * Both scrollers here cap the viewport rather than the root: Radix
+					 * scrolls the viewport, and a capped root would clip the text.
+					 */}
+					<ScrollArea
+						className="rounded-md border border-border bg-muted/50 [&>[data-slot=scroll-area-viewport]]:max-h-40"
+						type="auto"
+					>
+						<p className="m-0 whitespace-pre-wrap break-words px-3 py-2.5 font-mono text-foreground text-sm leading-relaxed">
+							{details.message}
+						</p>
+					</ScrollArea>
 				</div>
 
 				<ErrorFacts version={version} />
@@ -140,9 +150,14 @@ function ErrorStack({ text }: { readonly text: string }) {
 				/>
 				Technical details
 			</summary>
-			<pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-words border-border border-t px-3 py-2.5 font-mono text-muted-foreground text-xs leading-relaxed">
-				{text}
-			</pre>
+			<ScrollArea
+				className="border-border border-t [&>[data-slot=scroll-area-viewport]]:max-h-64"
+				type="auto"
+			>
+				<pre className="m-0 whitespace-pre-wrap break-words px-3 py-2.5 font-mono text-muted-foreground text-xs leading-relaxed">
+					{text}
+				</pre>
+			</ScrollArea>
 		</details>
 	);
 }
