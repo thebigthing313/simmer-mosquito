@@ -11,6 +11,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useId } from 'react';
 import { getServerUrl } from '../../auth';
@@ -143,27 +144,31 @@ export function GeocoderDialog({
 							: 'Select the best match or place the address point manually on the map.'}
 					</DialogDescription>
 				</DialogHeader>
-				<div className="grid max-h-80 gap-2 overflow-y-auto">
-					{results.length === 0 ? (
-						<p className="m-0 rounded-md bg-muted/50 p-3 text-muted-foreground text-sm">
-							No geocoder results returned.
-						</p>
-					) : (
-						results.map((result) => (
-							<button
-								className="grid gap-1 rounded-md border border-border/50 bg-background px-3 py-2 text-left text-sm outline-hidden hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-								key={geocoderResultKey(result)}
-								onClick={() => onSelect(result)}
-								type="button"
-							>
-								<span className="font-medium">{result.formatted_address}</span>
-								<span className="text-muted-foreground text-xs">
-									{geocoderResultCoordinates(result)}
-								</span>
-							</button>
-						))
-					)}
-				</div>
+				{/* The cap is on the viewport, because a capped root would clip the list
+				    rather than scroll it. */}
+				<ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-80" type="auto">
+					<div className="grid gap-2 pr-3">
+						{results.length === 0 ? (
+							<p className="m-0 rounded-md bg-muted/50 p-3 text-muted-foreground text-sm">
+								No geocoder results returned.
+							</p>
+						) : (
+							results.map((result) => (
+								<button
+									className="grid gap-1 rounded-md border border-border/50 bg-background px-3 py-2 text-left text-sm outline-hidden hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+									key={geocoderResultKey(result)}
+									onClick={() => onSelect(result)}
+									type="button"
+								>
+									<span className="font-medium">{result.formatted_address}</span>
+									<span className="text-muted-foreground text-xs">
+										{geocoderResultCoordinates(result)}
+									</span>
+								</button>
+							))
+						)}
+					</div>
+				</ScrollArea>
 				{onUseManualCoordinates === undefined ? null : (
 					<DialogFooter>
 						<Button onClick={onUseManualCoordinates} type="button" variant="outline">

@@ -18,6 +18,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { CheckIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useRef, useState } from 'react';
@@ -261,27 +262,31 @@ function ImportShapeList({
 					{count} {count === 1 ? noun.one : noun.many}
 				</Badge>
 			</div>
-			<div className="grid max-h-72 gap-1 overflow-y-auto">
-				{parsed.shapes.map((shape) => (
-					<button
-						className={cn(
-							'flex min-h-11 w-full min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm outline-hidden hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
-							shape.id === selectedId ? 'border-primary/50 bg-primary/5' : 'border-border/50',
-						)}
-						key={shape.id}
-						onClick={() => onSelect(shape.id)}
-						type="button"
-					>
-						<span className="min-w-0 flex-1">
-							<span className="block truncate font-medium">{shape.name}</span>
-							<span className="block truncate text-muted-foreground text-xs">
-								{importRowSummary(shape.geometry, shape.note)}
+			{/* The cap is on the viewport, because a capped root would clip the list
+			    rather than scroll it. */}
+			<ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-72" type="auto">
+				<div className="grid gap-1 pr-3">
+					{parsed.shapes.map((shape) => (
+						<button
+							className={cn(
+								'flex min-h-11 w-full min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm outline-hidden hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+								shape.id === selectedId ? 'border-primary/50 bg-primary/5' : 'border-border/50',
+							)}
+							key={shape.id}
+							onClick={() => onSelect(shape.id)}
+							type="button"
+						>
+							<span className="min-w-0 flex-1">
+								<span className="block truncate font-medium">{shape.name}</span>
+								<span className="block truncate text-muted-foreground text-xs">
+									{importRowSummary(shape.geometry, shape.note)}
+								</span>
 							</span>
-						</span>
-						{shape.id === selectedId ? <CheckIcon aria-hidden="true" /> : null}
-					</button>
-				))}
-			</div>
+							{shape.id === selectedId ? <CheckIcon aria-hidden="true" /> : null}
+						</button>
+					))}
+				</div>
+			</ScrollArea>
 			{parsed.truncated ? (
 				<p className="m-0 text-muted-foreground text-xs">
 					Only the first {MAX_CANDIDATES} shapes in this file are listed.

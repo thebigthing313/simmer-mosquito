@@ -20,6 +20,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Kbd } from '@simmer-mosquito/ui-web/components/ui/kbd';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { usePersistentFlag } from '@simmer-mosquito/ui-web/hooks/use-persistent-flag';
@@ -334,44 +335,53 @@ export function KeyEntryDialog({
 					</div>
 				</DialogHeader>
 
-				<div className="grid max-h-[calc(90vh-13rem)] gap-4 overflow-y-auto px-5 py-4">
-					{error !== null ? (
-						<Alert variant="destructive">
-							<AlertDescription>{error}</AlertDescription>
-						</Alert>
-					) : null}
+				{/* Each cap in this dialog is on the viewport rather than the root, because
+				    a capped root would clip its content rather than scroll it. */}
+				<ScrollArea
+					className="[&>[data-slot=scroll-area-viewport]]:max-h-[calc(90vh-13rem)]"
+					type="auto"
+				>
+					<div className="grid gap-4 px-5 py-4">
+						{error !== null ? (
+							<Alert variant="destructive">
+								<AlertDescription>{error}</AlertDescription>
+							</Alert>
+						) : null}
 
-					{mode === null ? null : <ModeBar mode={mode} onChange={setVariant} variant={variant} />}
+						{mode === null ? null : <ModeBar mode={mode} onChange={setVariant} variant={variant} />}
 
-					<PressSurface
-						describeVariant={mode?.describe ?? null}
-						hasBindings={bindings.hasBindings}
-						lastEntry={tally.entries.find((entry) => entry.entryKey === tally.lastEntryKey) ?? null}
-						modeSummary={modeSummary}
-						nameFor={(speciesId) => speciesNameFor(bindings, speciesId)}
-						unknownKey={unknownKey}
-					/>
+						<PressSurface
+							describeVariant={mode?.describe ?? null}
+							hasBindings={bindings.hasBindings}
+							lastEntry={
+								tally.entries.find((entry) => entry.entryKey === tally.lastEntryKey) ?? null
+							}
+							modeSummary={modeSummary}
+							nameFor={(speciesId) => speciesNameFor(bindings, speciesId)}
+							unknownKey={unknownKey}
+						/>
 
-					{bindings.hasBindings ? (
-						<div className="grid gap-4 md:grid-cols-2">
-							<BindingSheet bindings={bindings.bindings} />
-							<TallyList
-								countLabel={countLabel}
-								describeVariant={mode?.describe ?? null}
-								entries={tally.entries}
-								nameById={bindings}
-								onSetCount={tally.setCount}
-								total={tally.total}
-							/>
-						</div>
-					) : (
-						<NoBindings />
-					)}
+						{bindings.hasBindings ? (
+							<div className="grid gap-4 md:grid-cols-2">
+								<BindingSheet bindings={bindings.bindings} />
+								<TallyList
+									countLabel={countLabel}
+									describeVariant={mode?.describe ?? null}
+									entries={tally.entries}
+									nameById={bindings}
+									onSetCount={tally.setCount}
+									total={tally.total}
+								/>
+							</div>
+						) : (
+							<NoBindings />
+						)}
 
-					{footnote === undefined ? null : (
-						<div className="text-muted-foreground text-xs">{footnote}</div>
-					)}
-				</div>
+						{footnote === undefined ? null : (
+							<div className="text-muted-foreground text-xs">{footnote}</div>
+						)}
+					</div>
+				</ScrollArea>
 
 				<DialogFooter className="items-center justify-between gap-3 border-border/60 border-t px-5 py-3 sm:justify-between">
 					<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-xs">
@@ -582,21 +592,26 @@ function BindingSheet({ bindings }: { readonly bindings: readonly ResolvedSpecie
 			</div>
 			{/* Two columns of 18 hold the full 36, so the cap is a backstop for short
 			    viewports rather than something a normal organization ever hits. */}
-			<ul className="grid max-h-96 grid-cols-1 gap-x-3 gap-y-0.5 overflow-y-auto rounded-md border border-border/40 p-2 sm:grid-cols-2">
-				{bindings.map((binding) => (
-					<li className="flex items-center gap-1.5 px-1 py-0.5 text-sm" key={binding.key}>
-						<Kbd className="shrink-0">{binding.key}</Kbd>
-						<span
-							className={cn(
-								'min-w-0 flex-1 truncate',
-								binding.speciesName === null ? 'text-muted-foreground' : 'italic',
-							)}
-						>
-							{binding.speciesName ?? 'Species no longer in the taxonomy'}
-						</span>
-					</li>
-				))}
-			</ul>
+			<ScrollArea
+				className="rounded-md border border-border/40 [&>[data-slot=scroll-area-viewport]]:max-h-96"
+				type="auto"
+			>
+				<ul className="grid grid-cols-1 gap-x-3 gap-y-0.5 py-2 pr-3 pl-2 sm:grid-cols-2">
+					{bindings.map((binding) => (
+						<li className="flex items-center gap-1.5 px-1 py-0.5 text-sm" key={binding.key}>
+							<Kbd className="shrink-0">{binding.key}</Kbd>
+							<span
+								className={cn(
+									'min-w-0 flex-1 truncate',
+									binding.speciesName === null ? 'text-muted-foreground' : 'italic',
+								)}
+							>
+								{binding.speciesName ?? 'Species no longer in the taxonomy'}
+							</span>
+						</li>
+					))}
+				</ul>
+			</ScrollArea>
 		</div>
 	);
 }
@@ -631,40 +646,46 @@ function TallyList({
 					Nothing recorded yet.
 				</p>
 			) : (
-				<ul className="grid max-h-64 gap-1 overflow-y-auto rounded-md border border-border/40 p-2">
-					{entries.map((entry) => {
-						const speciesName = speciesNameFor(nameById, entry.speciesId) ?? 'Unknown species';
-						const variantLabel = describeVariant === null ? null : describeVariant(entry.variant);
-						// One species can hold a row per variant, so the variant is part of the name.
-						const rowName = variantLabel === null ? speciesName : `${speciesName}, ${variantLabel}`;
-						return (
-							<li
-								className="flex items-center gap-2 rounded-sm px-1 py-1 text-sm hover:bg-muted/40"
-								key={entry.entryKey}
-							>
-								<span className="min-w-0 flex-1 truncate italic">{speciesName}</span>
-								{variantLabel === null ? null : (
-									<Badge className="shrink-0" tone="neutral" variant="outline">
-										{variantLabel}
-									</Badge>
-								)}
-								<Button
-									aria-label={`Remove one ${rowName}`}
-									className="shrink-0"
-									onClick={() => onSetCount(entry.entryKey, entry.count - 1)}
-									size="icon-xs"
-									type="button"
-									variant="ghost"
+				<ScrollArea
+					className="rounded-md border border-border/40 [&>[data-slot=scroll-area-viewport]]:max-h-64"
+					type="auto"
+				>
+					<ul className="grid gap-1 py-2 pr-3 pl-2">
+						{entries.map((entry) => {
+							const speciesName = speciesNameFor(nameById, entry.speciesId) ?? 'Unknown species';
+							const variantLabel = describeVariant === null ? null : describeVariant(entry.variant);
+							// One species can hold a row per variant, so the variant is part of the name.
+							const rowName =
+								variantLabel === null ? speciesName : `${speciesName}, ${variantLabel}`;
+							return (
+								<li
+									className="flex items-center gap-2 rounded-sm px-1 py-1 text-sm hover:bg-muted/40"
+									key={entry.entryKey}
 								>
-									<XIcon aria-hidden="true" />
-								</Button>
-								<span className="w-10 shrink-0 text-right font-medium tabular-nums">
-									{entry.count}
-								</span>
-							</li>
-						);
-					})}
-				</ul>
+									<span className="min-w-0 flex-1 truncate italic">{speciesName}</span>
+									{variantLabel === null ? null : (
+										<Badge className="shrink-0" tone="neutral" variant="outline">
+											{variantLabel}
+										</Badge>
+									)}
+									<Button
+										aria-label={`Remove one ${rowName}`}
+										className="shrink-0"
+										onClick={() => onSetCount(entry.entryKey, entry.count - 1)}
+										size="icon-xs"
+										type="button"
+										variant="ghost"
+									>
+										<XIcon aria-hidden="true" />
+									</Button>
+									<span className="w-10 shrink-0 text-right font-medium tabular-nums">
+										{entry.count}
+									</span>
+								</li>
+							);
+						})}
+					</ul>
+				</ScrollArea>
 			)}
 		</div>
 	);

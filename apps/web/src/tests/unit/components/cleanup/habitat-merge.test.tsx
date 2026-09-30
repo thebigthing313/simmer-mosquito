@@ -273,4 +273,53 @@ describe('HabitatMerge', () => {
 		expect(screen.getByRole('button', { name: /^Merge \d/ }).hasAttribute('disabled')).toBe(true);
 		expect(merges).not.toHaveBeenCalled();
 	});
+
+	it('scrolls the candidates and the kept description inside scroll areas', () => {
+		renderPage();
+
+		// The page column is a scroll area of its own (`SplitPage`), and the header
+		// above the list sits in that one. Each list scrolls in a viewport nested
+		// inside it.
+		const column = viewportOf(screen.getByText('Keeping'));
+		expect(column).not.toBeNull();
+
+		const candidates = viewportOf(screen.getByRole('checkbox', { name: /CB-41/ }));
+		expect(candidates).not.toBe(column);
+		expect(column?.contains(candidates ?? null)).toBe(true);
+
+		// The kept habitat's description is capped on the viewport, since the root
+		// has no height of its own for the viewport to fill.
+		const description = viewportOf(screen.getByText('Roadside ditch'));
+		expect(description).not.toBe(column);
+		expect(classesOf(description?.parentElement)).toContain(
+			'[&>[data-slot=scroll-area-viewport]]:max-h-28',
+		);
+	});
+
+	it('scrolls the confirm body and keeps the title and the actions out of it', async () => {
+		renderPage();
+
+		fireEvent.click(screen.getByRole('checkbox', { name: /CB-41/ }));
+		fireEvent.click(screen.getByRole('button', { name: 'Merge 1 into Catch basin 41' }));
+		const dialog = await screen.findByRole('alertdialog');
+
+		const acknowledgement = within(dialog).getByRole('checkbox');
+		const body = viewportOf(acknowledgement);
+		expect(body).not.toBeNull();
+		expect(classesOf(body?.parentElement)).toContain(
+			'[&>[data-slot=scroll-area-viewport]]:max-h-[55vh]',
+		);
+		expect(viewportOf(within(dialog).getByRole('heading', { name: /^Merge 1 into/ }))).toBeNull();
+		expect(viewportOf(within(dialog).getByRole('button', { name: 'Merge' }))).toBeNull();
+		expect(viewportOf(within(dialog).getByRole('button', { name: 'Cancel' }))).toBeNull();
+	});
 });
+
+/** The Radix viewport a node scrolls inside, or null when it scrolls with the page. */
+function viewportOf(node: Element): Element | null {
+	return node.closest('[data-slot="scroll-area-viewport"]');
+}
+
+function classesOf(element: Element | null | undefined): string[] {
+	return (element?.getAttribute('class') ?? '').split(/\s+/);
+}

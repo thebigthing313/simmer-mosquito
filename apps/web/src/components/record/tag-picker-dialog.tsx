@@ -13,6 +13,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import { useRecordTagMutations } from '../../hooks/mutations/use-record-tag-mutations';
@@ -93,7 +94,7 @@ export function TagPickerDialog({
 
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>
-			<DialogContent className="max-h-[80vh] gap-3 overflow-hidden">
+			<DialogContent className="flex max-h-[80vh] flex-col gap-3 overflow-hidden">
 				<DialogHeader>
 					<DialogTitle>Tags</DialogTitle>
 					{/* The two headings below say which tags come first, so a line here
@@ -107,35 +108,47 @@ export function TagPickerDialog({
 					placeholder="Search tags"
 					value={search}
 				/>
-				<div className="grid gap-4 overflow-y-auto">
-					{searching && relevant.length === 0 && rest.length === 0 ? (
-						<p className="m-0 text-muted-foreground text-sm">No tags match your search.</p>
-					) : null}
-					{/* Both sections stand while the box is empty, each over a line of its
+				{/*
+				 * The dialog caps its height with `max-h` alone, so the viewport's
+				 * `h-full` has no definite height to resolve against. The dialog is a
+				 * flex column instead, and the root and the viewport are flex items
+				 * that may shrink below their content, which hands the catalog what
+				 * the search and the footer leave.
+				 */}
+				<ScrollArea
+					className="flex min-h-0 flex-1 flex-col [&>[data-slot=scroll-area-viewport]]:min-h-0 [&>[data-slot=scroll-area-viewport]]:flex-1"
+					type="auto"
+				>
+					<div className="grid gap-4 pr-3">
+						{searching && relevant.length === 0 && rest.length === 0 ? (
+							<p className="m-0 text-muted-foreground text-sm">No tags match your search.</p>
+						) : null}
+						{/* Both sections stand while the box is empty, each over a line of its
 					    own when it holds nothing: the empty `For habitats` is what says the
 					    catalog has nothing set up for this record type, and the Tags table
 					    under My organization is where that is fixed. A search is the one
 					    thing that drops a section, because the line under an empty one
 					    would be answering a question nobody asked. */}
-					{searching && relevant.length === 0 ? null : (
-						<TagPickerSection
-							assignedTagIds={new Set(assignedByTagId.keys())}
-							emptyLine={`No tags are suggested for ${noun.many} yet. Set one up under My organization.`}
-							heading={`For ${noun.many}`}
-							onToggle={toggle}
-							tags={relevant}
-						/>
-					)}
-					{searching && rest.length === 0 ? null : (
-						<TagPickerSection
-							assignedTagIds={new Set(assignedByTagId.keys())}
-							emptyLine={`Every active tag is suggested for ${noun.many}.`}
-							heading="Every other tag"
-							onToggle={toggle}
-							tags={rest}
-						/>
-					)}
-				</div>
+						{searching && relevant.length === 0 ? null : (
+							<TagPickerSection
+								assignedTagIds={new Set(assignedByTagId.keys())}
+								emptyLine={`No tags are suggested for ${noun.many} yet. Set one up under My organization.`}
+								heading={`For ${noun.many}`}
+								onToggle={toggle}
+								tags={relevant}
+							/>
+						)}
+						{searching && rest.length === 0 ? null : (
+							<TagPickerSection
+								assignedTagIds={new Set(assignedByTagId.keys())}
+								emptyLine={`Every active tag is suggested for ${noun.many}.`}
+								heading="Every other tag"
+								onToggle={toggle}
+								tags={rest}
+							/>
+						)}
+					</div>
+				</ScrollArea>
 				<DialogFooter className="items-center sm:justify-between">
 					<span className="text-muted-foreground text-sm">
 						{assigned.length} on this {noun.one}

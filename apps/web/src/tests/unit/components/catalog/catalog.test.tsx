@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	CatalogPage,
 	CatalogRecordDialog,
+	CatalogRecordDrawer,
 	CatalogRowActions,
 	CatalogSection,
 } from '../../../../components/catalog';
@@ -288,4 +289,52 @@ describe('CatalogRecordDialog', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 		expect(onSubmit).toHaveBeenCalledTimes(1);
 	});
+
+	it('scrolls the fields inside the scroll area and keeps the header and actions out of it', () => {
+		render(
+			<CatalogRecordDialog
+				actions={<button type="submit">Save</button>}
+				onOpenChange={vi.fn()}
+				onSubmit={vi.fn()}
+				open
+				title="Add Habitat Type"
+			>
+				<input aria-label="Name" />
+			</CatalogRecordDialog>,
+		);
+
+		const field = screen.getByLabelText('Name');
+		expect(viewportOf(field)).not.toBeNull();
+		expect(viewportOf(screen.getByText('Add Habitat Type'))).toBeNull();
+		expect(viewportOf(screen.getByRole('button', { name: 'Save' }))).toBeNull();
+		// Focus moves into the scrolled body on open rather than stopping at the viewport.
+		expect(document.activeElement).toBe(field);
+	});
 });
+
+describe('CatalogRecordDrawer', () => {
+	it('scrolls the fields inside the scroll area and keeps the header and actions out of it', () => {
+		render(
+			<CatalogRecordDrawer
+				actions={<button type="submit">Save</button>}
+				onOpenChange={vi.fn()}
+				onSubmit={vi.fn()}
+				open
+				title="Edit Pesticide Product"
+				trigger={<button type="button">Edit</button>}
+				width="md"
+			>
+				<input aria-label="Name" />
+			</CatalogRecordDrawer>,
+		);
+
+		expect(viewportOf(screen.getByLabelText('Name'))).not.toBeNull();
+		expect(viewportOf(screen.getByText('Edit Pesticide Product'))).toBeNull();
+		expect(viewportOf(screen.getByRole('button', { name: 'Save' }))).toBeNull();
+	});
+});
+
+/** The Radix viewport a node scrolls inside, or null when it scrolls with the page. */
+function viewportOf(node: Element): Element | null {
+	return node.closest('[data-slot="scroll-area-viewport"]');
+}

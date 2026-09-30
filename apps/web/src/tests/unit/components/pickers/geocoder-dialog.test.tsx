@@ -99,6 +99,35 @@ describe('GeocoderDialog', () => {
 
 		expect(screen.getByText('No geocoder results returned.')).toBeTruthy();
 	});
+
+	it('scrolls the results in a capped viewport, with the heading and footer outside it', () => {
+		render(
+			<GeocoderDialog
+				onOpenChange={() => undefined}
+				onSelect={() => undefined}
+				onUseManualCoordinates={() => undefined}
+				open
+				results={[RESULT]}
+			/>,
+		);
+
+		const result = screen.getByRole('button', { name: /12 Marsh Rd/ });
+		const viewport = result.closest('[data-slot="scroll-area-viewport"]');
+		// The cap is on the viewport: a capped root would clip the list rather than scroll it.
+		expect(viewport?.parentElement?.getAttribute('class')?.split(/\s+/)).toContain(
+			'[&>[data-slot=scroll-area-viewport]]:max-h-80',
+		);
+		expect(
+			screen.getByText('Choose Geocoder Result').closest('[data-slot="scroll-area-viewport"]'),
+		).toBeNull();
+		expect(
+			screen
+				.getByRole('button', { name: /use manual coordinates/i })
+				.closest('[data-slot="scroll-area-viewport"]'),
+		).toBeNull();
+		// Opening the dialog puts focus on the first result, inside the scrolled body.
+		expect(document.activeElement).toBe(result);
+	});
 });
 
 describe('geocoder result helpers', () => {
