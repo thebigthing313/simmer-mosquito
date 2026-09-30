@@ -395,21 +395,13 @@ function KitchenSinkPage() {
 					</div>
 					<p>
 						Vertical by default, where a long row truncates instead of widening the list. Horizontal
-						for content wider than its column, which scrolls sideways under its own bar.
+						for content wider than its column, which scrolls sideways under its own bar. The last is
+						a native scroller with scrollbar-subtle, for a container Scroll Area cannot wrap.
 					</p>
 				</div>
 				<div className="component-grid">
 					<ScrollArea className="h-40 rounded-md border">
-						<ul className="grid gap-1 p-3 text-sm">
-							{PREVIEW_TRAPS.map((trap) => (
-								<li className="flex min-w-0 items-center gap-2" key={trap}>
-									<span className="truncate">{trap}, checked weekly along the access road</span>
-									<Badge className="ml-auto shrink-0" tone="success" variant="outline">
-										Ready
-									</Badge>
-								</li>
-							))}
-						</ul>
+						<PreviewTrapRows />
 					</ScrollArea>
 					<ScrollArea className="rounded-md border" orientation="horizontal">
 						<div className="flex w-max gap-2 p-3">
@@ -420,6 +412,9 @@ function KitchenSinkPage() {
 							))}
 						</div>
 					</ScrollArea>
+					<div className="scrollbar-subtle h-40 overflow-y-auto rounded-md border">
+						<PreviewTrapRows />
+					</div>
 				</div>
 			</section>
 
@@ -617,6 +612,25 @@ function KitchenSinkPage() {
 				</div>
 			</section>
 		</div>
+	);
+}
+
+/**
+ * A dozen trap rows long enough to scroll, drawn in both the `ScrollArea` and
+ * the native `scrollbar-subtle` scroller so the two bars sit over the same list.
+ */
+function PreviewTrapRows() {
+	return (
+		<ul className="grid gap-1 p-3 text-sm">
+			{PREVIEW_TRAPS.map((trap) => (
+				<li className="flex min-w-0 items-center gap-2" key={trap}>
+					<span className="truncate">{trap}, checked weekly along the access road</span>
+					<Badge className="ml-auto shrink-0" tone="success" variant="outline">
+						Ready
+					</Badge>
+				</li>
+			))}
+		</ul>
 	);
 }
 
