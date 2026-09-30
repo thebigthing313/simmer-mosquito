@@ -27,7 +27,6 @@ import type { RecordBadgeFacts } from '../../record/record-badges';
 import { formatRequestDate } from '../public-engagement-display';
 
 // Data + display helpers for the service-request map context (nearby records).
-// Dash-prefixed so TanStack Router ignores this file as a route.
 
 /**
  * The families this page asks the endpoint for: all four, since the endpoint's

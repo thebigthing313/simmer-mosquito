@@ -67,11 +67,10 @@ export const Route = createFileRoute('/operations/assignments/$id')({
 /**
  * Working a worklist: start it, mark each stop, close it out.
  *
- * Every control here writes a timestamp and nothing else — the PATCH handler
- * reads which timestamp changed and derives the command from that. Which is
- * also why a stop's buttons follow the server's precedence rather than the
- * intuitive one: `skippedAt` is checked before `completedAt`, so a skipped stop
- * offers Unskip and never Complete.
+ * Every control dispatches a named command through `useAssignmentMutations` or
+ * `useAssignmentItemMutations`, so each write says which transition it means.
+ * Start, Complete, Cancel, Reopen and Delete sit in the header's `...` menu,
+ * and the stop list offers what `itemActionsFor` returns for each stop.
  */
 function AssignmentRunRoute() {
 	const { id } = Route.useParams();
