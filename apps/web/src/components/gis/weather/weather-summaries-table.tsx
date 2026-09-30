@@ -7,6 +7,7 @@ import {
 	EmptyHeader,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	Table,
@@ -110,7 +111,7 @@ function SummariesTable({
 	readonly onRemove: (summary: WeatherSummaryListing) => void;
 }) {
 	return (
-		<div className="overflow-x-auto rounded-md border border-border/40">
+		<ScrollArea className="rounded-md border border-border/40" orientation="horizontal" type="auto">
 			<Table>
 				<TableHeader>
 					<TableRow className="hover:bg-transparent">
@@ -177,7 +178,7 @@ function SummariesTable({
 					))}
 				</TableBody>
 			</Table>
-		</div>
+		</ScrollArea>
 	);
 }
 

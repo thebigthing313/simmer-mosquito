@@ -229,7 +229,7 @@ function NotificationTypeTable({
 	readonly notificationTypes: readonly DescribedCatalogRecord[];
 }) {
 	return (
-		<div className="overflow-x-auto rounded-md border border-border/40">
+		<ScrollArea className="rounded-md border border-border/40" orientation="horizontal" type="auto">
 			<Table>
 				<TableHeader>
 					<TableRow>
@@ -264,7 +264,7 @@ function NotificationTypeTable({
 					))}
 				</TableBody>
 			</Table>
-		</div>
+		</ScrollArea>
 	);
 }
 

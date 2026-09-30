@@ -16,6 +16,7 @@
 import type { OverviewGrain, OverviewResponse } from '@simmer-mosquito/domain';
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, type LinkProps } from '@tanstack/react-router';
@@ -89,7 +90,7 @@ function ComparisonTable({
 }) {
 	const columns = response.columns;
 	return (
-		<div className="overflow-x-auto">
+		<ScrollArea orientation="horizontal" type="auto">
 			<table className="w-full border-collapse text-sm">
 				<thead>
 					<tr className="border-border/60 border-b">
@@ -161,7 +162,7 @@ function ComparisonTable({
 					))}
 				</tbody>
 			</table>
-		</div>
+		</ScrollArea>
 	);
 }
 

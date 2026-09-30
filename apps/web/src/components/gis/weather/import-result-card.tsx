@@ -6,6 +6,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import {
 	Table,
 	TableBody,
@@ -83,7 +84,7 @@ function FailedRows({ rows }: { readonly rows: readonly WeatherImportRowResult[]
 		return null;
 	}
 	return (
-		<div className="overflow-x-auto rounded-md border border-border/40">
+		<ScrollArea className="rounded-md border border-border/40" orientation="horizontal" type="auto">
 			<Table>
 				<TableHeader>
 					<TableRow className="hover:bg-transparent">
@@ -103,6 +104,6 @@ function FailedRows({ rows }: { readonly rows: readonly WeatherImportRowResult[]
 					))}
 				</TableBody>
 			</Table>
-		</div>
+		</ScrollArea>
 	);
 }
