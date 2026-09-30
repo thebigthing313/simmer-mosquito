@@ -3,6 +3,7 @@
 // it.
 
 import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
+import type { ServiceRequestEventKind } from '../../hooks/queries/use-service-request-feed';
 import { countPhrase } from '../../lib/format-count';
 import { calendarDateParts, utcCalendarDay } from '../../lib/local-date';
 import { unreadable } from '../../lib/unreadable-input';
@@ -17,6 +18,34 @@ export function serviceRequestTitle(request: {
 	readonly id: string;
 }): string {
 	return request.displayName === null ? request.id.slice(0, 8) : `#${request.displayName}`;
+}
+
+/** What each kind of Service Request Activity row says was done. */
+const ACTIVITY_VERBS: Readonly<Record<ServiceRequestEventKind, string>> = {
+	received: 'received',
+	commented: 'commented on',
+	closed: 'closed',
+};
+
+/**
+ * The words of one Service Request Activity row: who did what to which request.
+ *
+ * A receipt with nobody recorded as receiving it reads `#1042 received` rather
+ * than naming a placeholder, because Received by is optional on the form and an
+ * empty one says nobody was recorded, not that the feed failed to find someone.
+ * A close and a comment always name somebody in practice, so `Someone` stays for
+ * a row whose profile column is empty all the same.
+ */
+export function serviceRequestActivityLine(
+	kind: ServiceRequestEventKind,
+	actorName: string | null,
+	requestTitle: string,
+): string {
+	const verb = ACTIVITY_VERBS[kind];
+	if (actorName === null && kind === 'received') {
+		return `${requestTitle} ${verb}`;
+	}
+	return `${actorName ?? 'Someone'} ${verb} ${requestTitle}`;
 }
 
 /** A contact's best available display label, in identity-strength order. */

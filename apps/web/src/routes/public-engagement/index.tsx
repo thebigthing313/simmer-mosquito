@@ -13,6 +13,7 @@ import {
 	contactDisplayName,
 	formatAddressLine,
 	formatReach,
+	serviceRequestActivityLine,
 	serviceRequestTitle,
 } from '../../components/public-engagement/public-engagement-display';
 import {
@@ -259,13 +260,11 @@ function RequestParty({
 
 // --- service request activity -----------------------------------------------
 
-/** How each kind of event reads and looks in the feed. */
-const EVENT_PRESENTATION: Readonly<
-	Record<ServiceRequestEventKind, { readonly verb: string; readonly icon: RegistryIcon }>
-> = {
-	created: { verb: 'opened', icon: iconRegistry.actions.add.icon },
-	commented: { verb: 'commented on', icon: iconRegistry.actions.comment.icon },
-	closed: { verb: 'closed', icon: iconRegistry.actions.check.icon },
+/** How each kind of event looks in the feed. */
+const EVENT_ICONS: Readonly<Record<ServiceRequestEventKind, RegistryIcon>> = {
+	received: iconRegistry.actions.add.icon,
+	commented: iconRegistry.actions.comment.icon,
+	closed: iconRegistry.actions.check.icon,
 };
 
 /**
@@ -330,7 +329,6 @@ function ServiceRequestActivityPanel({
 								event={event}
 								key={event.key}
 								requestTitle={titleById.get(event.requestId) ?? 'a service request'}
-								timeZone={timeZone}
 							/>
 						))}
 					</ul>
@@ -344,28 +342,24 @@ function ActivityRow({
 	event,
 	requestTitle,
 	actorName,
-	timeZone,
 }: {
+	/**
+	 * Its `day` is already the Organization's, read in the fold, so the row draws
+	 * it as it stands. Read in UTC, as the row once did, a comment left at the end
+	 * of an Eastern shift files under tomorrow.
+	 */
 	readonly event: ServiceRequestEvent;
 	readonly requestTitle: string;
 	readonly actorName: string | null;
-	/**
-	 * The Organization's, not the reader's. An event carries an instant — the
-	 * request was created, a comment was left, it was closed — and which day that
-	 * fell on is only a fact once a zone says so. Read in UTC, as this was, a
-	 * request logged at the end of an Eastern shift files under tomorrow, and the
-	 * feed disagrees with the date on the request it links to.
-	 */
-	readonly timeZone: string;
 }) {
-	const { verb, icon: KindIcon } = EVENT_PRESENTATION[event.kind];
+	const KindIcon = EVENT_ICONS[event.kind];
 
 	return (
 		<PanelRow
-			date={formatMonthDay(todayInTimeZone(timeZone, event.at))}
+			date={formatMonthDay(event.day)}
 			icon={<KindIcon aria-hidden="true" className="size-4" />}
 			params={{ id: event.requestId }}
-			primary={`${actorName ?? 'Someone'} ${verb} ${requestTitle}`}
+			primary={serviceRequestActivityLine(event.kind, actorName, requestTitle)}
 			secondary={
 				event.text === null ? (
 					<span className="text-muted-foreground">Service request</span>

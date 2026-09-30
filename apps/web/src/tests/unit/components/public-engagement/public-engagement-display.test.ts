@@ -12,6 +12,7 @@ import {
 	formatRequestAge,
 	formatRequestDate,
 	requestAgeOrDate,
+	serviceRequestActivityLine,
 } from '../../../../components/public-engagement/public-engagement-display';
 
 let warn: ReturnType<typeof vi.spyOn>;
@@ -71,5 +72,27 @@ describe('requestAgeOrDate', () => {
 		expect(
 			requestAgeOrDate({ requestDate: '2026-09-12', closedAt: '2026-09-20' }, '2026-09-24'),
 		).toBe('Sep 12, 2026');
+	});
+});
+
+describe('serviceRequestActivityLine', () => {
+	it('names Received by as the one who received the request', () => {
+		expect(serviceRequestActivityLine('received', 'Jane Doe', '#1042')).toBe(
+			'Jane Doe received #1042',
+		);
+	});
+
+	it('drops the actor from a receipt nobody is recorded as receiving', () => {
+		const line = serviceRequestActivityLine('received', null, '#1042');
+
+		expect(line).toBe('#1042 received');
+		expect(line).not.toMatch(/Someone|Unknown profile/);
+	});
+
+	it('names who closed or commented on a request', () => {
+		expect(serviceRequestActivityLine('closed', 'Sam Lee', '#1042')).toBe('Sam Lee closed #1042');
+		expect(serviceRequestActivityLine('commented', 'Sam Lee', '#1042')).toBe(
+			'Sam Lee commented on #1042',
+		);
 	});
 });
