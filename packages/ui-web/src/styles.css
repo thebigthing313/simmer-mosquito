@@ -319,28 +319,34 @@
  * The generated components that scroll, drawing the same bar. Their files under
  * `components/ui` are regenerated from the registry, which would drop a class
  * added there by hand, so the rule is keyed on each scroller's `data-slot`
- * here instead. `src/tests/unit/generated-scrollers.test.ts` fails when a slot
- * is renamed or a selector goes missing.
+ * here instead. The Autocomplete is not from the registry, so its list carries
+ * a slot written by hand. `src/tests/unit/generated-scrollers.test.ts` fails
+ * when a slot is renamed or a selector goes missing.
  *
- * One scroller carries no slot of its own. A Select scrolls in the Radix
- * viewport inside its content, and Radix injects an unlayered style hiding that
- * viewport's scrollbar in favour of its scroll buttons; this rule is unlayered
- * too and one attribute more specific, which is what lets it win. The
- * Autocomplete is not from the registry, so its list carries a slot written by
- * hand. Being unlayered also means a utility at a call site cannot switch the
- * bar off.
+ * The Select is left out on purpose (#1290). Radix hides its viewport's
+ * scrollbar because the up and down buttons do the scrolling, and drawing the
+ * bar as well put three scroll controls on one list: the bar, the browser's
+ * stepper arrow at its foot, and the Radix button. The same suite fails if the
+ * viewport comes back into this list.
+ *
+ * The rule sits in the components layer. It used to be unlayered, because
+ * Radix injects its Select style unlayered and a layered rule loses to that
+ * whatever its specificity. Nothing injects a scrollbar style on the slots left
+ * here, so a layer is enough to apply the bar, and a utility at a call site can
+ * now override it where an unlayered rule would have beaten every utility.
  */
-[data-slot="select-content"] [data-radix-select-viewport],
-[data-slot="dropdown-menu-content"],
-[data-slot="context-menu-content"],
-[data-slot="command-list"],
-[data-slot="combobox-list"],
-[data-slot="autocomplete-list"],
-[data-slot="sheet-content"],
-[data-slot="drawer-content"],
-[data-slot="sidebar-content"],
-[data-slot="table-container"] {
-	@apply scrollbar-subtle;
+@layer components {
+	[data-slot="dropdown-menu-content"],
+	[data-slot="context-menu-content"],
+	[data-slot="command-list"],
+	[data-slot="combobox-list"],
+	[data-slot="autocomplete-list"],
+	[data-slot="sheet-content"],
+	[data-slot="drawer-content"],
+	[data-slot="sidebar-content"],
+	[data-slot="table-container"] {
+		@apply scrollbar-subtle;
+	}
 }
 
 /*
