@@ -21,7 +21,7 @@ CREATE SCHEMA public;
 -- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
 --
 
-COMMENT ON SCHEMA public IS 'standard public schema, edited by hand';
+COMMENT ON SCHEMA public IS 'standard public schema';
 
 
 --
