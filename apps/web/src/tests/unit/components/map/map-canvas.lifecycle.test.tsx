@@ -7,12 +7,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // biome-ignore lint/suspicious/noExplicitAny: react act environment flag
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-// biome-ignore lint/suspicious/noExplicitAny: jsdom has no ResizeObserver
-(globalThis as any).ResizeObserver = class {
-	observe() {}
-	unobserve() {}
-	disconnect() {}
-};
 
 /**
  * A stand-in for the GL runtime that reproduces the one behaviour this suite is

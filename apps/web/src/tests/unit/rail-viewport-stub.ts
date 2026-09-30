@@ -44,8 +44,8 @@
  * ## What it does not do
  *
  * It installs no `ResizeObserver`. Radix's `ScrollArea` constructs one on
- * mount and jsdom has none, so a rail suite still installs a no-op or runs
- * `stubPanelLayout` beside this.
+ * mount and jsdom has none, and `src/tests/resize-observer.ts` installs the
+ * no-op every suite in this app runs with.
  *
  * It is not an export of `router-harness.tsx`, which imports the generated
  * route tree at about 13 seconds, and a rail suite with no link in it should

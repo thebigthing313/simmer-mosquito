@@ -2,7 +2,7 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
 import type { Organization } from '@simmer-mosquito/sync';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TagRecord } from '../../../../hooks/queries/use-tag-catalog';
 
 /**
@@ -69,14 +69,6 @@ const ORGANIZATION = {
 } as unknown as Organization;
 
 const SETTINGS = { unitDefaults: {} } as unknown as OrganizationSettings;
-
-beforeAll(() => {
-	globalThis.ResizeObserver ??= class {
-		observe() {}
-		unobserve() {}
-		disconnect() {}
-	} as unknown as typeof ResizeObserver;
-});
 
 afterEach(cleanup);
 

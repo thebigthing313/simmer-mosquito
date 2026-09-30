@@ -11,14 +11,6 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ErrorReport } from '../../../../components/error-report/error-report';
 
-/** Radix's scrollbar measures its viewport, and jsdom ships no observer. */
-class NoopResizeObserver {
-	observe() {}
-	unobserve() {}
-	disconnect() {}
-}
-globalThis.ResizeObserver ??= NoopResizeObserver as unknown as typeof ResizeObserver;
-
 afterEach(cleanup);
 
 const classesOf = (element: Element | null | undefined): string[] =>

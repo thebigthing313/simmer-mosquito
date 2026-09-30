@@ -19,11 +19,6 @@ import { TrapPicker } from '../../../../components/adult-surveillance/adult-pick
 
 // jsdom ships none of the pointer APIs Radix's popover reaches for.
 function installDomStubs(): void {
-	globalThis.ResizeObserver ??= class {
-		observe() {}
-		unobserve() {}
-		disconnect() {}
-	} as unknown as typeof ResizeObserver;
 	Element.prototype.scrollIntoView ??= () => {};
 	Element.prototype.hasPointerCapture ??= () => false;
 	Element.prototype.setPointerCapture ??= () => {};
