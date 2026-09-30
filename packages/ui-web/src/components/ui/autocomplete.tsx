@@ -202,7 +202,7 @@ export function Autocomplete<TOption extends AutocompleteOption = AutocompleteOp
 				}}
 				onOpenAutoFocus={(event) => event.preventDefault()}
 			>
-				<div className="max-h-64 overflow-y-auto">
+				<div className="max-h-64 overflow-y-auto" data-slot="autocomplete-list">
 					<AutocompleteResults
 						getOptionLabel={getOptionLabel}
 						getOptionValue={getOptionValue}
