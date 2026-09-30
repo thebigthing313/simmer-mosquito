@@ -143,8 +143,10 @@ export function missingPgDumpMessage(command) {
 		'land in the database and schema.sql would stay as it was, which is what',
 		'`pnpm generate:table-types` reads next.',
 		'',
-		'Install the PostgreSQL client tools and put their bin directory on the PATH',
-		'(on Windows, `C:\\Program Files\\PostgreSQL\\<version>\\bin`), or run',
+		'Install the PostgreSQL 17 client tools, at 17.5 or older since 17.6 changes',
+		'the dump, and put their bin directory on the PATH (on Windows,',
+		'`C:\\Program Files\\PostgreSQL\\17\\bin`), or a shim over the compose',
+		"container's pg_dump (CLAUDE.md, Database, says how), or run",
 		`${script} from a shell where \`pg_dump --version\` answers.`,
 	].join('\n');
 }

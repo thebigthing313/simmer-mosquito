@@ -6710,6 +6710,7 @@ ALTER TABLE ONLY public.weather_summaries
 -- PostgreSQL database dump complete
 --
 
+
 --
 -- Dbmate schema migrations
 --
