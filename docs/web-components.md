@@ -649,6 +649,13 @@ The plot height is the caller's, `height="panel"` for the fixed `h-52` every
 trend panel draws at and `height="fill"` for the zoom overlay, which takes the
 parent's height and drops `ChartContainer`'s `aspect-video`, since with only a
 width set that class would size the plot off the overlay's width.
+The value axis is `width="auto"`, which Recharts 3.8 implements by measuring
+the drawn tick labels in a layout effect and resizing the axis to the widest,
+from a 60px first guess. It replaced a fixed 44px that shaved the first digit
+off `38,000` in the panel and cut it to a sliver in the overlay, whose ticks
+are a size up (#1324). A width computed from the formatted ticks and a font
+size per height was the fallback and was not needed; jsdom measures every
+tick at zero, so the suite asserts the prop rather than a pixel.
 
 #### OverviewChartZoom
 

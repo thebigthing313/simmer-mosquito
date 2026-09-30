@@ -170,6 +170,14 @@ const PLOT: Record<OverviewChartHeight, string> = {
 	fill: 'aspect-auto h-full w-full text-sm',
 };
 
+/**
+ * The value axis is as wide as its widest tick label. Recharts measures the
+ * drawn ticks after layout and widens or narrows the axis to fit, so `38,000`
+ * at the overlay's `text-sm` is not clipped and a `36` does not leave a gutter.
+ * A fixed 44px clipped every label of five characters or more (#1324).
+ */
+const Y_AXIS_WIDTH = 'auto';
+
 /** What Recharts hands a click on a cartesian chart: the label under the pointer, when there is one. */
 interface PlotClick {
 	readonly activeLabel?: string | number | undefined;
@@ -229,7 +237,7 @@ function DaysBars({
 						axisLine={false}
 						tickFormatter={format}
 						tickLine={false}
-						width={44}
+						width={Y_AXIS_WIDTH}
 					/>
 					<ChartTooltip
 						content={
@@ -312,7 +320,7 @@ function MonthsBars({
 						axisLine={false}
 						tickFormatter={format}
 						tickLine={false}
-						width={44}
+						width={Y_AXIS_WIDTH}
 					/>
 					<ChartTooltip
 						content={<ChartTooltipContent formatter={tooltipPair(format, year)} />}
@@ -397,7 +405,7 @@ function YearsBars({
 						axisLine={false}
 						tickFormatter={format}
 						tickLine={false}
-						width={44}
+						width={Y_AXIS_WIDTH}
 					/>
 					<ChartTooltip
 						content={<ChartTooltipContent formatter={tooltipRow(format)} />}
