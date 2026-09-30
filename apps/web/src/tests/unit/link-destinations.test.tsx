@@ -41,10 +41,12 @@ import { UpwardLine } from '../../components/overview/overview-upward-line';
 import { ServiceRequestDetailHeader } from '../../components/public-engagement/service-requests/service-request-detail-header';
 import type {
 	NearbyCategory,
+	NearbyFamily,
 	NearbyItem,
 } from '../../components/public-engagement/service-requests/service-request-nearby';
 import { NearbyResultList } from '../../components/public-engagement/service-requests/service-request-nearby-rows';
 import { ServiceRequestSurfaceSwitch } from '../../components/public-engagement/service-requests/service-request-surface-switch';
+import { mapFamiliesForTab } from '../../components/public-engagement/service-requests/service-request-tabs';
 import { sharedServiceRequestSearch } from '../../components/public-engagement/service-requests/service-requests-search';
 import { applications } from '../../lib/collections/applications';
 import { inspections } from '../../lib/collections/inspections';
@@ -855,11 +857,11 @@ describe('the nearby list', () => {
 		serviceRequest: '/public-engagement/service-requests',
 	};
 
-	it('sends each kind to its own detail page', () => {
+	function renderNearby(families: ReadonlySet<NearbyFamily>): void {
 		renderWithRouter(
 			<NearbyResultList
 				emptyTitle="Nothing Nearby"
-				families={new Set(['infrastructure', 'surveillance', 'control', 'publicEngagement'])}
+				families={families}
 				lookups={{ nameById: new Map(), formatQuantity: String, tagById: new Map() }}
 				nearby={{
 					data: {
@@ -882,6 +884,10 @@ describe('the nearby list', () => {
 				selectedKey={null}
 			/>,
 		);
+	}
+
+	it('sends each kind to its own detail page', () => {
+		renderNearby(new Set(['infrastructure', 'surveillance', 'control', 'publicEngagement']));
 
 		expect(linkHrefs()).toEqual(
 			CATEGORIES.flatMap((category, index) => {
@@ -889,6 +895,16 @@ describe('the nearby list', () => {
 				return [href, href];
 			}),
 		);
+	});
+
+	// The Service Requests tab lists the other requests alone, each linking to
+	// its own detail page (#1264).
+	it("sends the Service Requests tab's rows to each request's detail page", () => {
+		renderNearby(mapFamiliesForTab('serviceRequests'));
+
+		const index = CATEGORIES.indexOf('serviceRequest');
+		const href = `/public-engagement/service-requests/serviceRequest-${index}`;
+		expect(linkHrefs()).toEqual([href, href]);
 	});
 });
 

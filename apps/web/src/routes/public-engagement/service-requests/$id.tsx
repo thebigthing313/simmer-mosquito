@@ -41,7 +41,6 @@ import {
 	buildNearbyMapData,
 	countNearbyByFamily,
 	formatRadiusLabel,
-	NEARBY_FAMILIES,
 	type NearbyCategory,
 	type NearbyFamily,
 	type NearbyItem,
@@ -56,6 +55,7 @@ import { NearbyResultList } from '../../../components/public-engagement/service-
 import {
 	isServiceRequestTab,
 	mapFamiliesForTab,
+	NEARBY_TABS,
 	SERVICE_REQUEST_TAB_CODECS,
 	SERVICE_REQUEST_TAB_DEFAULTS,
 	SERVICE_REQUEST_TAB_LABEL,
@@ -236,11 +236,11 @@ function ServiceRequestDetailContent({
 						</TabBody>
 					</TabsContent>
 
-					{NEARBY_FAMILIES.map((family) => (
-						<TabsContent className={TAB_CONTENT_CLASS} key={family.key} value={family.key}>
+					{NEARBY_TABS.map((nearbyTab) => (
+						<TabsContent className={TAB_CONTENT_CLASS} key={nearbyTab.tab} value={nearbyTab.tab}>
 							<NearbyFamilyTab
-								families={mapFamiliesForTab(family.key)}
-								label={family.label}
+								emptyDescription={nearbyTab.emptyDescription}
+								families={mapFamiliesForTab(nearbyTab.tab)}
 								lookups={lookups}
 								nearby={nearby}
 								onSelect={setSelectedKey}
@@ -266,7 +266,7 @@ function ServiceRequestDetailContent({
  */
 const TAB_CONTENT_CLASS = 'flex min-h-0 flex-col';
 
-/** How many records a family tab lists, beside its label; nothing for none. */
+/** How many records a nearby tab lists, beside its label; nothing for none. */
 function TabCount({ count }: { readonly count: number }) {
 	return count === 0 ? null : (
 		<span className="text-muted-foreground text-xs tabular-nums">{count}</span>
@@ -297,14 +297,14 @@ function TabBody({ children }: { readonly children: ReactNode }) {
  */
 function NearbyFamilyTab({
 	families,
-	label,
+	emptyDescription,
 	nearby,
 	selectedKey,
 	onSelect,
 	lookups,
 }: {
 	readonly families: ReadonlySet<NearbyFamily>;
-	readonly label: string;
+	readonly emptyDescription: string;
 	readonly nearby: NearbyRead;
 	readonly selectedKey: string | null;
 	readonly onSelect: (key: string | null) => void;
@@ -316,7 +316,7 @@ function NearbyFamilyTab({
 				{nearbySummary(nearby.data)}
 			</p>
 			<NearbyResultList
-				emptyDescription={`No ${label.toLowerCase()} records fell within this radius and time window.`}
+				emptyDescription={emptyDescription}
 				emptyTitle="Nothing Nearby"
 				families={families}
 				lookups={lookups}
