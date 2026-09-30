@@ -572,6 +572,14 @@ carries its count, so the one that is closed still says how much is behind
 it; the Comments count is `useCommentCount`'s, for the reason that hook's
 heading gives.
 
+`extraTab` is the one option for a third tab, and only the mission page passes
+it, for its notifications (#1268). They used to sit in a card under the tabs,
+which took the bottom of the rail away from the stop list on every mission
+whether anyone was reading them or not. The tab carries its own count the way
+Comments does, `MissionNotificationCount`, so a mission with nobody on the list
+reads as one before the click. The assignment page passes nothing and keeps
+exactly Stops and Comments.
+
 ### overview
 
 One page component at three grains, `OverviewPage`, drawn by `routes/today`,

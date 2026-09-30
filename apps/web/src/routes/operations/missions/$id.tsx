@@ -22,7 +22,10 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MissionDetailHeader } from '../../../components/operations/missions/mission-detail-header';
-import { MissionNotificationsCard } from '../../../components/operations/missions/mission-notifications-card';
+import {
+	MissionNotificationCount,
+	MissionNotificationsCard,
+} from '../../../components/operations/missions/mission-notifications-card';
 import { MissionStopList } from '../../../components/operations/missions/mission-stops';
 import { RenameStopDialog } from '../../../components/operations/missions/rename-stop-dialog';
 import { RequestStopPicker } from '../../../components/operations/missions/request-stop-picker';
@@ -35,6 +38,7 @@ import { type AskAcknowledged, useAcknowledgedWrite } from '../../../hooks/use-a
 import { MISSION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 
 const MissionIcon = iconRegistry.entities.route.icon;
+const NotificationsIcon = iconRegistry.actions.send.icon;
 
 export const Route = createFileRoute('/operations/missions/$id')({
 	component: MissionDetailRoute,
@@ -97,7 +101,10 @@ function MissionDetailRoute() {
 	);
 }
 
-/** The rail beside the map: the header, the stops, and the notifications. */
+/**
+ * The rail beside the map: the header, then Stops, Comments and Notifications
+ * taking turns under it, so the stop list keeps the rail's full height.
+ */
 function MissionPanel({
 	missionId,
 	run,
@@ -116,6 +123,17 @@ function MissionPanel({
 			)}
 
 			<WorklistTabs
+				extraTab={
+					run.mission === null
+						? undefined
+						: {
+								value: 'notifications',
+								label: 'Notifications',
+								icon: <NotificationsIcon aria-hidden="true" />,
+								count: <MissionNotificationCount missionId={missionId} />,
+								content: <MissionNotificationsCard missionId={missionId} />,
+							}
+				}
 				stopControls={run.canAddStops ? <AddStopControls missionId={missionId} run={run} /> : null}
 				stopCount={run.stops.length}
 				target={{ type: 'mission', id: missionId }}
@@ -138,12 +156,6 @@ function MissionPanel({
 					stops={run.stops}
 				/>
 			</WorklistTabs>
-
-			{run.mission === null ? null : (
-				<div className="shrink-0 border-border/40 border-t p-3">
-					<MissionNotificationsCard missionId={missionId} />
-				</div>
-			)}
 		</div>
 	);
 }

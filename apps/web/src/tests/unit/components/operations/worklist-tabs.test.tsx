@@ -8,9 +8,13 @@
  * whether a thread is worth the click. Neither draws a zero. The collections
  * are the memory source, so the count is a real live query following rows as
  * a shape would stream them.
+ *
+ * The strip also takes one more tab as an option (#1268). The mission page
+ * passes its notifications there, and the assignment page passes nothing and
+ * keeps exactly the two.
  */
 
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WorklistTabs } from '../../../../components/operations/worklist-tabs';
 import { comments } from '../../../../lib/collections/comments';
@@ -82,5 +86,46 @@ describe('the worklist tab strip', () => {
 
 		act(() => removeRows(comments, [comment('c1'), comment('c2')]));
 		await waitFor(() => expect(tabName('Comments')).toBe('Comments'));
+	});
+});
+
+function tabLabels(): readonly string[] {
+	return screen.getAllByRole('tab').map((tab) => tab.textContent ?? '');
+}
+
+describe('the extra tab', () => {
+	it('is not drawn when the page passes none', () => {
+		renderTabs();
+
+		expect(tabLabels()).toEqual(['Stops', 'Comments']);
+	});
+
+	it('goes after Comments, with its count, and Stops stays the open one', () => {
+		render(
+			<WorklistTabs
+				extraTab={{
+					value: 'notifications',
+					label: 'Notifications',
+					icon: null,
+					count: <span>5</span>,
+					content: <p>who to warn</p>,
+				}}
+				stopCount={0}
+				target={{ type: 'mission', id: MISSION }}
+			>
+				<p>stop list</p>
+			</WorklistTabs>,
+		);
+
+		expect(tabLabels()).toEqual(['Stops', 'Comments', 'Notifications5']);
+		expect(screen.getByRole('tab', { selected: true }).textContent).toBe('Stops');
+		expect(screen.getByText('stop list')).toBeTruthy();
+		expect(screen.queryByText('who to warn')).toBeNull();
+
+		// Radix switches a tab on the mouse-down half of a click.
+		fireEvent.mouseDown(screen.getByRole('tab', { name: /^Notifications/ }), { button: 0 });
+
+		expect(screen.getByText('who to warn')).toBeTruthy();
+		expect(screen.queryByText('stop list')).toBeNull();
 	});
 });

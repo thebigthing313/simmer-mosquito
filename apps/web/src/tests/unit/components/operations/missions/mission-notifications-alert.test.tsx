@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+	MissionNotificationCount,
 	MissionNotificationsCard,
 	StandingAlert,
 } from '../../../../../components/operations/missions/mission-notifications-card';
@@ -38,8 +39,14 @@ vi.mock('sonner', () => ({
 	toast: { success: vi.fn(), error: (message: string) => errorToast(message) },
 }));
 
+const listed = vi.hoisted(() => ({ notifications: [] as readonly { readonly id: string }[] }));
+
 vi.mock('../../../../../hooks/queries/use-mission-notifications', () => ({
-	useMissionNotifications: () => ({ notifications: [], isReady: true, isError: false }),
+	useMissionNotifications: () => ({
+		notifications: listed.notifications,
+		isReady: true,
+		isError: false,
+	}),
 }));
 
 vi.mock('../../../../../hooks/queries/use-contact-directory', () => ({
@@ -52,6 +59,7 @@ vi.mock('../../../../../hooks/use-can-write', () => ({ useHasRole: () => true })
 
 afterEach(cleanup);
 beforeEach(() => {
+	listed.notifications = [];
 	sessionFetch.mockReset();
 	errorToast.mockReset();
 });
@@ -191,6 +199,22 @@ describe('MissionNotificationsCard', () => {
 		expect(await screen.findByText('This mission is cancelled')).toBeDefined();
 		expect(screen.getByRole('alert')).toBeDefined();
 		expect(errorToast).not.toHaveBeenCalled();
+	});
+});
+
+describe('MissionNotificationCount', () => {
+	// The Notifications tab's count (#1268), read before the tab is opened.
+	it('draws how many notifications the mission holds', () => {
+		listed.notifications = [{ id: 'n1' }, { id: 'n2' }];
+		const { container } = render(<MissionNotificationCount missionId="m1" />);
+
+		expect(container.textContent).toBe('2');
+	});
+
+	it('draws nothing at zero', () => {
+		const { container } = render(<MissionNotificationCount missionId="m1" />);
+
+		expect(container.textContent).toBe('');
 	});
 });
 
