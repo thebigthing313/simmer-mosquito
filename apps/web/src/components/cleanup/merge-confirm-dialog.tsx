@@ -1,4 +1,5 @@
 import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
@@ -12,7 +13,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { useId, useState } from 'react';
 import { useResetOnOpen } from '../../hooks/catalog/use-reset-on-open';
 import type { DuplicateRecord, MergeableRecordType } from '../../hooks/merge-candidate-view';
@@ -130,11 +130,10 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 				 * Scrolls on its own so the title and the acknowledgement stay put. A
 				 * set disagreeing about six fields is a tall dialog, and the control
 				 * that agrees to something irreversible must not be the part that
-				 * scrolls out of sight. The cap is on the viewport, because a capped
-				 * root would clip the body rather than scroll it.
+				 * scrolls out of sight.
 				 */}
-				<ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-[55vh]" type="auto">
-					<div className="grid gap-4 pr-3 text-sm">
+				<ScrollBody height={{ cap: '55vh' }}>
+					<div className="grid gap-4 text-sm">
 						<RetiredList config={props.config} sources={props.sources} />
 						{rows.length === 0 ? null : (
 							<MergeRecordBuilder
@@ -166,7 +165,7 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 							targetLabel={targetLabel}
 						/>
 					</div>
-				</ScrollArea>
+				</ScrollBody>
 
 				<AlertDialogFooter>
 					<AlertDialogCancel disabled={isMerging}>Cancel</AlertDialogCancel>

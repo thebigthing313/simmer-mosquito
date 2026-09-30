@@ -3,9 +3,9 @@ import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -181,15 +181,13 @@ function DailyInspectionsPanel({ today }: { readonly today: string }) {
 					// A busy day can hold hundreds of inspections; keep the panel a fixed,
 					// internally scrolling height so the page stays balanced beside the
 					// shorter right column instead of stretching to full document length.
-					// The cap is on the viewport, because a capped root would clip the
-					// groups rather than scroll them.
-					<ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-[32rem]" type="auto">
+					<ScrollBody gutter={false} height={{ cap: '32rem' }}>
 						<div className="divide-y divide-border/60">
 							{rows.map((group) => (
 								<InspectorGroupBlock group={group} key={group.key} />
 							))}
 						</div>
-					</ScrollArea>
+					</ScrollBody>
 				)}
 			</PanelRows>
 		</Panel>

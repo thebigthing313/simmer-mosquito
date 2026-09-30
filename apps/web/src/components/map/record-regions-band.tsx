@@ -1,7 +1,7 @@
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Card, CardContent } from '@simmer-mosquito/ui-web/components/ui/card';
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
@@ -116,15 +116,14 @@ export function RecordRegionsBand({
 			{/* Scrolls internally past roughly five folders rather than growing
 			    without limit, so a large folder set cannot push the rest of the page
 			    down. Measured on the prototype at ten folders and thirteen regions:
-			    208px visible against 352px of content. The cap is on the viewport,
-			    because a capped root would clip the folders rather than scroll them. */}
-			<ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-52" type="auto">
-				<div className="grid gap-2 pr-3">
+			    208px visible against 352px of content. */}
+			<ScrollBody height={{ cap: '13rem' }}>
+				<div className="grid gap-2">
 					{data.groups.map((group) => (
 						<FolderRow group={group} key={group.folderId ?? '__unfiled'} />
 					))}
 				</div>
-			</ScrollArea>
+			</ScrollBody>
 		</BandShell>
 	);
 }

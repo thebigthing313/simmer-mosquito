@@ -1,5 +1,6 @@
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { RequiredMark } from '@simmer-mosquito/ui-web/components/form/required-mark';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Dialog,
@@ -11,7 +12,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useId } from 'react';
 import { getServerUrl } from '../../auth';
@@ -144,10 +144,8 @@ export function GeocoderDialog({
 							: 'Select the best match or place the address point manually on the map.'}
 					</DialogDescription>
 				</DialogHeader>
-				{/* The cap is on the viewport, because a capped root would clip the list
-				    rather than scroll it. */}
-				<ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-80" type="auto">
-					<div className="grid gap-2 pr-3">
+				<ScrollBody height={{ cap: '20rem' }}>
+					<div className="grid gap-2">
 						{results.length === 0 ? (
 							<p className="m-0 rounded-md bg-muted/50 p-3 text-muted-foreground text-sm">
 								No geocoder results returned.
@@ -168,7 +166,7 @@ export function GeocoderDialog({
 							))
 						)}
 					</div>
-				</ScrollArea>
+				</ScrollBody>
 				{onUseManualCoordinates === undefined ? null : (
 					<DialogFooter>
 						<Button onClick={onUseManualCoordinates} type="button" variant="outline">

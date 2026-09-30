@@ -16,6 +16,7 @@ import {
 	importSkippedCount,
 	importSkippedSentence,
 } from '../../../../components/map/import-notes';
+import { scrollBodyCap } from '../../scroll-body-cap';
 
 afterEach(cleanup);
 
@@ -158,10 +159,7 @@ describe('GeometryImportDialog', () => {
 
 		const shape = (await screen.findByText('North')).closest('button');
 		const viewport = shape?.closest('[data-slot="scroll-area-viewport"]');
-		// The cap is on the viewport: a capped root would clip the list rather than scroll it.
-		expect(viewport?.parentElement?.getAttribute('class')?.split(/\s+/)).toContain(
-			'[&>[data-slot=scroll-area-viewport]]:max-h-72',
-		);
+		expect(scrollBodyCap(viewport)).toBe('18rem');
 		expect(
 			screen
 				.getByRole('button', { name: 'Use This Point' })

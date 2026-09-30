@@ -7,6 +7,7 @@ import {
 	isWgs84Geometry,
 	readImportFileText,
 } from '@simmer-mosquito/mapping';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -18,7 +19,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { CheckIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useRef, useState } from 'react';
@@ -262,10 +262,8 @@ function ImportShapeList({
 					{count} {count === 1 ? noun.one : noun.many}
 				</Badge>
 			</div>
-			{/* The cap is on the viewport, because a capped root would clip the list
-			    rather than scroll it. */}
-			<ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-72" type="auto">
-				<div className="grid gap-1 pr-3">
+			<ScrollBody height={{ cap: '18rem' }}>
+				<div className="grid gap-1">
 					{parsed.shapes.map((shape) => (
 						<button
 							className={cn(
@@ -286,7 +284,7 @@ function ImportShapeList({
 						</button>
 					))}
 				</div>
-			</ScrollArea>
+			</ScrollBody>
 			{parsed.truncated ? (
 				<p className="m-0 text-muted-foreground text-xs">
 					Only the first {MAX_CANDIDATES} shapes in this file are listed.

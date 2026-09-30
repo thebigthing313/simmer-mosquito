@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { KeyEntryDialog } from '../../../../components/key-entry/key-entry-dialog';
 import type { TallyEntry } from '../../../../hooks/key-entry/use-key-entry-tally';
 import type { SpeciesKeyBindingsView } from '../../../../hooks/use-species-key-bindings';
+import { scrollBodyCap } from '../../scroll-body-cap';
 
 /**
  * The dialog's orchestration — the idle-flush timer, overlapping commits, and the
@@ -357,7 +358,7 @@ describe('key entry dialog — scrolling', () => {
 		await settle();
 
 		const body = viewportOf(screen.getByText('Keys'));
-		expect(capOf(body)).toBe('max-h-[calc(90vh-13rem)]');
+		expect(scrollBodyCap(body)).toBe('calc(90vh - 13rem)');
 		expect(viewportOf(screen.getByRole('heading', { name: 'Key Entry' }))).toBeNull();
 		expect(viewportOf(screen.getByText('Undo last'))).toBeNull();
 
@@ -366,11 +367,11 @@ describe('key entry dialog — scrolling', () => {
 			.getAllByText('Aedes aegypti', { selector: 'li span' })
 			.find((name) => name.closest('li')?.querySelector('kbd') !== null);
 		const sheet = sheetRow === undefined ? null : viewportOf(sheetRow);
-		expect(capOf(sheet)).toBe('max-h-96');
+		expect(scrollBodyCap(sheet)).toBe('24rem');
 		expect(body?.contains(sheet ?? null)).toBe(true);
 
 		const tally = viewportOf(screen.getByRole('button', { name: 'Remove one Aedes aegypti' }));
-		expect(capOf(tally)).toBe('max-h-64');
+		expect(scrollBodyCap(tally)).toBe('16rem');
 		expect(body?.contains(tally ?? null)).toBe(true);
 	});
 });
@@ -378,16 +379,4 @@ describe('key entry dialog — scrolling', () => {
 /** The Radix viewport a node scrolls inside, or null when it scrolls with the page. */
 function viewportOf(node: Element): Element | null {
 	return node.closest('[data-slot="scroll-area-viewport"]');
-}
-
-/**
- * The max height a scroll area holds on its viewport. The cap sits on the root
- * as a child selector, because a capped root would clip rather than scroll.
- */
-function capOf(viewport: Element | null): string | undefined {
-	const prefix = '[&>[data-slot=scroll-area-viewport]]:';
-	return (viewport?.parentElement?.getAttribute('class') ?? '')
-		.split(/\s+/)
-		.find((name) => name.startsWith(`${prefix}max-h-`))
-		?.slice(prefix.length);
 }

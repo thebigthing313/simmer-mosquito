@@ -1,10 +1,10 @@
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import {
 	Popover,
 	PopoverAnchor,
 	PopoverContent,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -362,11 +362,10 @@ function SearchResults({
 		// thing for a screen reader to describe, and the tab stop it brings is the
 		// one that used to close this list before anybody reached it.
 		//
-		// The cap is on the viewport, because a capped root would clip the list
-		// rather than scroll it. `scrollIntoView` on the active option finds the
-		// viewport as its scroller, so the arrow keys still bring it into view.
-		<ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-72" type="auto">
-			<div aria-label="Search results" className="grid gap-1 pr-3" id={listId} role="listbox">
+		// `scrollIntoView` on the active option finds the scroll area's viewport as
+		// its scroller, so the arrow keys still bring it into view.
+		<ScrollBody height={{ cap: '18rem' }}>
+			<div aria-label="Search results" className="grid gap-1" id={listId} role="listbox">
 				{results.map((result, index) => (
 					// The keyboard half of this control is on the combobox input, which is
 					// where focus stays. Enter there selects the active option; an option's
@@ -401,7 +400,7 @@ function SearchResults({
 					</div>
 				))}
 			</div>
-		</ScrollArea>
+		</ScrollBody>
 	);
 }
 

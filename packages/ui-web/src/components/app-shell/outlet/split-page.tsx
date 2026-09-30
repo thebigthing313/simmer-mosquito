@@ -1,4 +1,4 @@
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type React from 'react';
 
@@ -44,19 +44,18 @@ export function SplitPage({
 				)}
 			>
 				{/*
-				 * The column scrolls inside the shared ScrollArea. Its root is the
-				 * `fields` container, being the element whose width is the column's.
-				 * Radix wraps the content in a div of its own inside the viewport, and
-				 * that div is held to the viewport's height: most callers pass an
-				 * `h-full` column that scrolls a region of its own, and against an
-				 * auto-height parent it would grow to its content instead.
+				 * The column's root is the `fields` container, being the element whose
+				 * width is the column's. It fills the pane because most callers pass an
+				 * `h-full` column that scrolls a region of its own, and that column pads
+				 * itself, so there is no gutter.
 				 */}
-				<ScrollArea
-					className="@container/fields min-h-0 min-w-0 flex-1 [&>[data-slot=scroll-area-viewport]>div]:h-full"
-					type="auto"
+				<ScrollBody
+					className="@container/fields min-h-0 min-w-0 flex-1"
+					gutter={false}
+					height="fill"
 				>
 					{children}
-				</ScrollArea>
+				</ScrollBody>
 				<div
 					className={cn(
 						'relative order-first h-[min(38svh,22rem)] min-h-0 min-w-0 shrink-0 border-border/40 border-b',

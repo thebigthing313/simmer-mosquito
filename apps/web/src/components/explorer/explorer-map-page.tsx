@@ -1,6 +1,6 @@
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import {
 	FilterIcon,
 	type iconRegistry,
@@ -532,16 +532,12 @@ function FiltersCard({
 			 * overflow itself, since it draws no horizontal bar, and sideways is never
 			 * where a filter column is meant to go.
 			 *
-			 * The card is capped with `max-h-full` alone, so the root and the
-			 * viewport shrink as flex items rather than resolving a percentage
-			 * height. `p-3` already keeps the bar off the controls.
+			 * The card is capped with `max-h-full` alone, so the body shrinks to fit
+			 * it. `p-3` already keeps the bar off the controls.
 			 */}
-			<ScrollArea
-				className="flex min-h-0 flex-col [&>[data-slot=scroll-area-viewport]]:min-h-0 [&>[data-slot=scroll-area-viewport]]:flex-1"
-				type="auto"
-			>
+			<ScrollBody gutter={false} height="shrink">
 				<div className="grid gap-3 p-3 [&>*]:min-w-0">{children}</div>
-			</ScrollArea>
+			</ScrollBody>
 		</div>
 	);
 }

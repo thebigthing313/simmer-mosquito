@@ -188,7 +188,7 @@ describe('the thread', () => {
 		// The root and the viewport shrink as flex items, so a card held to a
 		// height hands the viewport what the composer leaves.
 		expect(viewport?.parentElement?.getAttribute('class')?.split(/\s+/)).toEqual(
-			expect.arrayContaining(['min-h-0', 'flex-1', '[&>[data-slot=scroll-area-viewport]]:min-h-0']),
+			expect.arrayContaining(['flex-col', 'min-h-0', 'flex-1']),
 		);
 		expect(screen.getByRole('textbox').closest('[data-slot="scroll-area-viewport"]')).toBeNull();
 	});

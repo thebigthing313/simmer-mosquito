@@ -1,5 +1,6 @@
 import type { TagTarget } from '@simmer-mosquito/domain';
 import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
@@ -13,7 +14,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import { useRecordTagMutations } from '../../hooks/mutations/use-record-tag-mutations';
@@ -109,17 +109,11 @@ export function TagPickerDialog({
 					value={search}
 				/>
 				{/*
-				 * The dialog caps its height with `max-h` alone, so the viewport's
-				 * `h-full` has no definite height to resolve against. The dialog is a
-				 * flex column instead, and the root and the viewport are flex items
-				 * that may shrink below their content, which hands the catalog what
-				 * the search and the footer leave.
+				 * The dialog caps its height with `max-h` alone and is a flex column, so
+				 * the catalog shrinks to what the search and the footer leave.
 				 */}
-				<ScrollArea
-					className="flex min-h-0 flex-1 flex-col [&>[data-slot=scroll-area-viewport]]:min-h-0 [&>[data-slot=scroll-area-viewport]]:flex-1"
-					type="auto"
-				>
-					<div className="grid gap-4 pr-3">
+				<ScrollBody className="flex-1" height="shrink">
+					<div className="grid gap-4">
 						{searching && relevant.length === 0 && rest.length === 0 ? (
 							<p className="m-0 text-muted-foreground text-sm">No tags match your search.</p>
 						) : null}
@@ -148,7 +142,7 @@ export function TagPickerDialog({
 							/>
 						)}
 					</div>
-				</ScrollArea>
+				</ScrollBody>
 				<DialogFooter className="items-center sm:justify-between">
 					<span className="text-muted-foreground text-sm">
 						{assigned.length} on this {noun.one}

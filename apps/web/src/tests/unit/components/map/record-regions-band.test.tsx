@@ -7,6 +7,7 @@ import type {
 	RecordRegions,
 	RegionMembershipRecordType,
 } from '../../../../hooks/use-record-regions';
+import { scrollBodyCap } from '../../scroll-body-cap';
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@tanstack/react-router')>()),
@@ -80,9 +81,7 @@ describe('RecordRegionsBand', () => {
 
 		const viewport = (await findByText('Districts')).closest('[data-slot="scroll-area-viewport"]');
 		expect(viewport).not.toBeNull();
-		expect(viewport?.parentElement?.getAttribute('class')?.split(/\s+/)).toContain(
-			'[&>[data-slot=scroll-area-viewport]]:max-h-52',
-		);
+		expect(scrollBodyCap(viewport)).toBe('13rem');
 		// The band's heading stays put above the folders.
 		expect(screen.getByText('Regions').closest('[data-slot="scroll-area-viewport"]')).toBeNull();
 	});

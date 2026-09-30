@@ -3,8 +3,8 @@
 /**
  * The message block and the stack scroll inside the shared `ScrollArea`, so a
  * long message or stack draws the styled bar rather than the browser's own
- * (#1255). Each cap is held on the viewport, because a cap on the root clips
- * rather than scrolls.
+ * (#1255). Each is a `ScrollBody` with a cap, which that part holds on the
+ * viewport (#1283).
  */
 
 import { cleanup, render, screen } from '@testing-library/react';
@@ -13,8 +13,8 @@ import { ErrorReport } from '../../../../components/error-report/error-report';
 
 afterEach(cleanup);
 
-const classesOf = (element: Element | null | undefined): string[] =>
-	(element?.getAttribute('class') ?? '').split(/\s+/);
+const capOf = (element: Element | null | undefined): string | undefined =>
+	(element as HTMLElement | null | undefined)?.style.getPropertyValue('--scroll-body-cap');
 
 const scrollAreaAround = (element: Element | null) =>
 	element?.closest('[data-slot="scroll-area-viewport"]')?.closest('[data-slot="scroll-area"]');
@@ -30,8 +30,8 @@ describe('the error report scrollers', () => {
 		const message = scrollAreaAround(screen.getByText('boom'));
 		const stack = scrollAreaAround(container.querySelector('pre'));
 
-		expect(classesOf(message)).toContain('[&>[data-slot=scroll-area-viewport]]:max-h-40');
-		expect(classesOf(stack)).toContain('[&>[data-slot=scroll-area-viewport]]:max-h-64');
+		expect(capOf(message)).toBe('10rem');
+		expect(capOf(stack)).toBe('16rem');
 		expect(container.querySelector('.overflow-y-auto, .overflow-auto')).toBeNull();
 	});
 });

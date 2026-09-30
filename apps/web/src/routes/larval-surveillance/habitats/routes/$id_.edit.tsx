@@ -1,6 +1,7 @@
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
@@ -19,7 +20,6 @@ import {
 	DropdownMenuSeparator,
 } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import {
 	ArrowLeftIcon,
 	ChevronRightIcon,
@@ -413,9 +413,10 @@ function AddStopBar({
 			) : null}
 
 			{open ? (
-				<ScrollArea
-					className="rounded-lg border border-border/60 bg-card [&>[data-slot=scroll-area-viewport]]:max-h-64"
-					type="auto"
+				<ScrollBody
+					className="rounded-lg border border-border/60 bg-card"
+					gutter={false}
+					height={{ cap: '16rem' }}
 				>
 					{isFetching && results.length === 0 ? (
 						<p className="flex items-center gap-2 px-3 py-3 text-muted-foreground text-sm">
@@ -455,7 +456,7 @@ function AddStopBar({
 							})}
 						</ul>
 					)}
-				</ScrollArea>
+				</ScrollBody>
 			) : null}
 		</div>
 	);

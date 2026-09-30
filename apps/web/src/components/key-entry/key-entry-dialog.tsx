@@ -1,5 +1,6 @@
 import { isBindableKey } from '@simmer-mosquito/domain';
 import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
+import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -20,7 +21,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Kbd } from '@simmer-mosquito/ui-web/components/ui/kbd';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { usePersistentFlag } from '@simmer-mosquito/ui-web/hooks/use-persistent-flag';
@@ -335,12 +335,8 @@ export function KeyEntryDialog({
 					</div>
 				</DialogHeader>
 
-				{/* Each cap in this dialog is on the viewport rather than the root, because
-				    a capped root would clip its content rather than scroll it. */}
-				<ScrollArea
-					className="[&>[data-slot=scroll-area-viewport]]:max-h-[calc(90vh-13rem)]"
-					type="auto"
-				>
+				{/* The body pads itself, so it reserves no gutter for the bar. */}
+				<ScrollBody gutter={false} height={{ cap: 'calc(90vh - 13rem)' }}>
 					<div className="grid gap-4 px-5 py-4">
 						{error !== null ? (
 							<Alert variant="destructive">
@@ -381,7 +377,7 @@ export function KeyEntryDialog({
 							<div className="text-muted-foreground text-xs">{footnote}</div>
 						)}
 					</div>
-				</ScrollArea>
+				</ScrollBody>
 
 				<DialogFooter className="items-center justify-between gap-3 border-border/60 border-t px-5 py-3 sm:justify-between">
 					<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-xs">
@@ -592,11 +588,8 @@ function BindingSheet({ bindings }: { readonly bindings: readonly ResolvedSpecie
 			</div>
 			{/* Two columns of 18 hold the full 36, so the cap is a backstop for short
 			    viewports rather than something a normal organization ever hits. */}
-			<ScrollArea
-				className="rounded-md border border-border/40 [&>[data-slot=scroll-area-viewport]]:max-h-96"
-				type="auto"
-			>
-				<ul className="grid grid-cols-1 gap-x-3 gap-y-0.5 py-2 pr-3 pl-2 sm:grid-cols-2">
+			<ScrollBody className="rounded-md border border-border/40" height={{ cap: '24rem' }}>
+				<ul className="grid grid-cols-1 gap-x-3 gap-y-0.5 py-2 pl-2 sm:grid-cols-2">
 					{bindings.map((binding) => (
 						<li className="flex items-center gap-1.5 px-1 py-0.5 text-sm" key={binding.key}>
 							<Kbd className="shrink-0">{binding.key}</Kbd>
@@ -611,7 +604,7 @@ function BindingSheet({ bindings }: { readonly bindings: readonly ResolvedSpecie
 						</li>
 					))}
 				</ul>
-			</ScrollArea>
+			</ScrollBody>
 		</div>
 	);
 }
@@ -646,11 +639,8 @@ function TallyList({
 					Nothing recorded yet.
 				</p>
 			) : (
-				<ScrollArea
-					className="rounded-md border border-border/40 [&>[data-slot=scroll-area-viewport]]:max-h-64"
-					type="auto"
-				>
-					<ul className="grid gap-1 py-2 pr-3 pl-2">
+				<ScrollBody className="rounded-md border border-border/40" height={{ cap: '16rem' }}>
+					<ul className="grid gap-1 py-2 pl-2">
 						{entries.map((entry) => {
 							const speciesName = speciesNameFor(nameById, entry.speciesId) ?? 'Unknown species';
 							const variantLabel = describeVariant === null ? null : describeVariant(entry.variant);
@@ -685,7 +675,7 @@ function TallyList({
 							);
 						})}
 					</ul>
-				</ScrollArea>
+				</ScrollBody>
 			)}
 		</div>
 	);
