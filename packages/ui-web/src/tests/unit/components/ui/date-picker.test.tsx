@@ -15,9 +15,6 @@ import { DatePicker } from '../../../../components/ui/date-picker';
  * at the days.
  */
 
-// `scrollIntoView` is what `Calendar` calls on the focused day.
-Element.prototype.scrollIntoView ??= () => {};
-
 /** A day in the middle of a decade, so a page boundary is never what a case is measuring. */
 const SEPTEMBER_10_2026 = new Date(2026, 8, 10);
 

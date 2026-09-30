@@ -5,13 +5,17 @@ import viteConfig from './vite.config.js';
 /**
  * The shared config, applied on top of this app's vite config.
  *
- * The other ten projects re-export `vitest.shared.js` and stop there, because
- * none of them has a vite config for vitest to find. This app does, and vitest
- * reads `vitest.config.ts` instead of `vite.config.ts` once one exists, so a
- * bare re-export would drop the React plugin, Tailwind, the router plugin and
- * the session-transport setup file, and every suite here would fail on the
- * first piece of JSX. Importing the vite config and merging into it keeps both
- * halves, and `vite build` still reads `vite.config.ts` on its own.
+ * Seven projects re-export `vitest.shared.js` and stop there, and
+ * `apps/server` and `packages/db` re-export its `databaseBackedConfig`. Three
+ * merge something of their own into it: `apps/admin` merges it over its vite
+ * config the way this file does, `apps/mobile` adds the `.web` resolution
+ * order, and `packages/ui-web` adds its jsdom setup files. `apps/preview` has
+ * no vitest config and no suites. This app has a vite config, and vitest reads
+ * `vitest.config.ts` instead of `vite.config.ts` once one exists, so a bare
+ * re-export would drop the React plugin, Tailwind, the router plugin and the
+ * setup files, and every suite here would fail on the first piece of JSX.
+ * Importing the vite config and merging into it keeps both halves, and
+ * `vite build` still reads `vite.config.ts` on its own.
  *
  * With no config at all this app ran on vitest's own defaults, so neither the
  * shared `dist` exclusion nor the shared worker floor reached the largest suite

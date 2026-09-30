@@ -14,12 +14,6 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 	Link: ({ children, ...rest }: { children?: React.ReactNode }) => <a {...rest}>{children}</a>,
 }));
 
-// jsdom ships none of the pointer or layout APIs Radix's menu reaches for.
-Element.prototype.scrollIntoView ??= () => {};
-Element.prototype.hasPointerCapture ??= () => false;
-Element.prototype.setPointerCapture ??= () => {};
-Element.prototype.releasePointerCapture ??= () => {};
-
 const { CollectionYears } = await import(
 	'../../../../components/adult-surveillance/collection-years'
 );
