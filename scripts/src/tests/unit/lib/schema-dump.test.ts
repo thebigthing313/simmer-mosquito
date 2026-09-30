@@ -1,7 +1,7 @@
 /**
  * The half of `db-migrate.mjs` that never touches a database: where `pg_dump`
  * would be found, which versions a dump names, which versions dbmate says it
- * applied, and the two refusals the wrapper prints.
+ * applied or rolled back, and the two refusals the wrapper prints.
  *
  * The wrapper spawns dbmate and cannot be imported without a database in front
  * of it, so everything answerable from text is answered here, the way
@@ -16,6 +16,7 @@ import {
 	dumpedVersions,
 	findExecutable,
 	missingPgDumpMessage,
+	rolledBackVersions,
 	staleDump,
 	staleDumpMessage,
 	writesDump,
@@ -76,6 +77,42 @@ describe('afterDbmate', () => {
 		expect(verdict.message).toContain('202610010001');
 	});
 
+	it('passes a rollback whose rewritten dump no longer names the version', () => {
+		expect(
+			afterDbmate({
+				code: 0,
+				checked: true,
+				output: 'Rolling back: 202609300001_b.sql\nRolled back: 202609300001_b.sql in 2ms\n',
+				sql: DUMP_TAIL,
+				rewritten: true,
+			}),
+		).toEqual({ exitCode: 0, message: null });
+	});
+
+	it('fails a rollback that left the dump alone', () => {
+		const verdict = afterDbmate({
+			code: 0,
+			checked: true,
+			output: 'Rolling back: 202609290001_a.sql\n',
+			sql: DUMP_TAIL,
+			rewritten: false,
+		});
+		expect(verdict.exitCode).toBe(1);
+		expect(verdict.message).toContain('did not rewrite packages/db/schema.sql');
+	});
+
+	it('fails a rewritten dump that still names the rolled-back version', () => {
+		const verdict = afterDbmate({
+			code: 0,
+			checked: true,
+			output: 'Rolling back: 202609290001_a.sql\n',
+			sql: DUMP_TAIL,
+			rewritten: true,
+		});
+		expect(verdict.exitCode).toBe(1);
+		expect(verdict.message).toContain('202609290001');
+	});
+
 	it('passes a run that opted out of the dump', () => {
 		expect(
 			afterDbmate({ code: 0, checked: false, output: applied, sql: '', rewritten: false }),
@@ -131,29 +168,71 @@ describe('appliedVersions', () => {
 	});
 });
 
+describe('rolledBackVersions', () => {
+	it('reads the version off the Rolling back line dbmate prints', () => {
+		const output = [
+			'Rolling back: 202609300001_assignment_detail.sql',
+			'Rolled back: 202609300001_assignment_detail.sql in 12ms',
+			'Writing: packages/db/schema.sql',
+		].join('\n');
+		expect(rolledBackVersions(output)).toEqual(['202609300001']);
+	});
+
+	it('reads nothing when dbmate had nothing to roll back', () => {
+		expect(rolledBackVersions('')).toEqual([]);
+	});
+
+	it('reads CRLF output and a spelled-out migrations directory', () => {
+		expect(rolledBackVersions('Rolling back: packages/db/migrations/7_a.sql\r\n')).toEqual(['7']);
+	});
+
+	it('reads neither an Applying line nor a Rolled back line', () => {
+		expect(rolledBackVersions('Applying: 7_a.sql\nRolled back: 8_b.sql in 1ms\n')).toEqual([]);
+		expect(appliedVersions('Rolling back: 7_a.sql\n')).toEqual([]);
+	});
+});
+
 describe('staleDump', () => {
-	it('passes a run that applied nothing, however stale the dump is', () => {
-		expect(staleDump({ applied: [], dumped: [], rewritten: false })).toBeNull();
+	const none = { applied: [], rolledBack: [] };
+
+	it('passes a run that changed nothing, however stale the dump is', () => {
+		expect(staleDump({ ...none, dumped: [], rewritten: false })).toBeNull();
 	});
 
 	it('passes a rewritten dump naming every applied version', () => {
-		expect(staleDump({ applied: ['2'], dumped: ['1', '2'], rewritten: true })).toBeNull();
+		expect(staleDump({ ...none, applied: ['2'], dumped: ['1', '2'], rewritten: true })).toBeNull();
 	});
 
 	it('names every applied version the rewritten dump leaves out', () => {
-		expect(staleDump({ applied: ['1', '2', '3'], dumped: ['1', '3'], rewritten: true })).toEqual({
-			rewritten: true,
-			undumped: ['2'],
-		});
+		expect(
+			staleDump({ ...none, applied: ['1', '2', '3'], dumped: ['1', '3'], rewritten: true }),
+		).toEqual({ rewritten: true, undumped: ['2'], lingering: [] });
 	});
 
 	it('fails a dump left unwritten even when it already names what was applied', () => {
 		// A fresh database takes every migration the checked-in dump already
 		// names, so the versions alone read clean while pg_dump failed.
-		expect(staleDump({ applied: ['1', '2'], dumped: ['1', '2'], rewritten: false })).toEqual({
-			rewritten: false,
+		expect(
+			staleDump({ ...none, applied: ['1', '2'], dumped: ['1', '2'], rewritten: false }),
+		).toEqual({ rewritten: false, undumped: [], lingering: [] });
+	});
+
+	it('passes a rewritten dump that no longer names the rolled-back version', () => {
+		expect(staleDump({ ...none, rolledBack: ['2'], dumped: ['1'], rewritten: true })).toBeNull();
+	});
+
+	it('names a rolled-back version the rewritten dump still names', () => {
+		expect(staleDump({ ...none, rolledBack: ['2'], dumped: ['1', '2'], rewritten: true })).toEqual({
+			rewritten: true,
 			undumped: [],
+			lingering: ['2'],
 		});
+	});
+
+	it('fails a rollback whose dump was left unwritten', () => {
+		expect(staleDump({ ...none, rolledBack: ['2'], dumped: ['1', '2'], rewritten: false })).toEqual(
+			{ rewritten: false, undumped: [], lingering: ['2'] },
+		);
 	});
 });
 
@@ -262,17 +341,27 @@ describe('findExecutable', () => {
 
 describe('the refusals', () => {
 	it('names pg_dump, the file that would go stale, and how to get it', () => {
-		const message = missingPgDumpMessage();
+		const message = missingPgDumpMessage('up');
 		expect(message).toContain('pg_dump');
 		expect(message).toContain('packages/db/schema.sql');
 		expect(message).toContain('no migration was applied');
+		expect(message).toContain('`pnpm db:migrate`');
 		expect(message).toMatch(/PATH/);
+	});
+
+	it('says nothing was rolled back when the rollback is refused', () => {
+		const message = missingPgDumpMessage('rollback');
+		expect(message).toContain('nothing was rolled back');
+		expect(message).toContain('packages/db/schema.sql');
+		expect(message).toContain('`pnpm db:rollback`');
+		expect(message).not.toContain('no migration was applied');
 	});
 
 	it('names each version the dump is missing', () => {
 		const message = staleDumpMessage({
 			rewritten: true,
 			undumped: ['202609300001', '202609300002'],
+			lingering: [],
 		});
 		expect(message).toContain('202609300001');
 		expect(message).toContain('202609300002');
@@ -280,8 +369,28 @@ describe('the refusals', () => {
 	});
 
 	it('says the dump was not written when dbmate left it alone', () => {
-		const message = staleDumpMessage({ rewritten: false, undumped: [] });
+		const message = staleDumpMessage({ rewritten: false, undumped: [], lingering: [] });
 		expect(message).toContain('did not rewrite packages/db/schema.sql');
 		expect(message).toContain('pg_dump');
+	});
+
+	it('names each rolled-back version the dump still names', () => {
+		const message = staleDumpMessage({
+			rewritten: true,
+			undumped: [],
+			lingering: ['202609300001'],
+		});
+		expect(message).toContain('rolled back');
+		expect(message).toContain('202609300001');
+	});
+
+	it('says the dump was not written after a rollback', () => {
+		const message = staleDumpMessage({
+			rewritten: false,
+			undumped: [],
+			lingering: ['202609300001'],
+		});
+		expect(message).toContain('rolled back');
+		expect(message).toContain('did not rewrite packages/db/schema.sql');
 	});
 });
