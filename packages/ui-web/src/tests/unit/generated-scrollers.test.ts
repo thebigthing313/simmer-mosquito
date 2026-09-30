@@ -12,6 +12,12 @@
  * one exception: the registry has no autocomplete, so its slot is written by
  * hand and the rule reaches it the same way.
  *
+ * The Select scrolls too and is deliberately not in the rule (#1290). Radix
+ * hides its viewport's scrollbar because its up and down buttons do the
+ * scrolling, and drawing the bar as well put three scroll controls on one list:
+ * the bar, the browser's stepper arrow at its foot, and the Radix button. The
+ * last case below fails if the viewport comes back into the rule.
+ *
  * Read from source rather than rendered because the bar is a computed style,
  * and jsdom neither loads the stylesheet nor measures an overflow.
  */
@@ -25,17 +31,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const STYLES_CSS = resolve(HERE, '../../styles.css');
 const COMPONENTS_UI = resolve(HERE, '../../components/ui');
 
-/**
- * Each generated scroller: the component module, the slot it renders, and the
- * selector that reaches the element that scrolls. The selector is the slot
- * itself except where the scrolling element carries none of its own.
- */
+/** Each generated scroller: the component module and the slot it renders. */
 const SCROLLERS = [
-	{
-		module: 'select.tsx',
-		slot: 'select-content',
-		selector: '[data-slot="select-content"] [data-radix-select-viewport]',
-	},
 	{ module: 'dropdown-menu.tsx', slot: 'dropdown-menu-content' },
 	{ module: 'context-menu.tsx', slot: 'context-menu-content' },
 	{ module: 'command.tsx', slot: 'command-list' },
@@ -71,7 +68,7 @@ describe('generated scrollers', () => {
 	});
 
 	for (const scroller of SCROLLERS) {
-		const selector = 'selector' in scroller ? scroller.selector : `[data-slot="${scroller.slot}"]`;
+		const selector = `[data-slot="${scroller.slot}"]`;
 
 		it(`${scroller.module} still renders data-slot="${scroller.slot}"`, () => {
 			const source = readFileSync(resolve(COMPONENTS_UI, scroller.module), 'utf8');
@@ -90,5 +87,16 @@ describe('generated scrollers', () => {
 		const source = readFileSync(resolve(COMPONENTS_UI, 'autocomplete.tsx'), 'utf8');
 		const tag = source.match(/<div\b[^>]*data-slot="autocomplete-list"[^>]*>/)?.[0];
 		expect(tag).toMatch(/className="[^"]*\boverflow-y-auto\b[^"]*"/);
+	});
+
+	// Radix scrolls a Select with its own buttons and hides the viewport's
+	// scrollbar on purpose. Naming the content slot or the viewport here would
+	// draw the bar beside those buttons again (#1290).
+	it('leaves the Select out, so its scroll buttons are its only scroll control', () => {
+		const select = selectors.filter(
+			(selector) =>
+				selector.includes('select-content') || selector.includes('data-radix-select-viewport'),
+		);
+		expect(select).toEqual([]);
 	});
 });

@@ -497,6 +497,11 @@ hand-added class, so the stylesheet reaches those by `data-slot` instead
 (#1261). A new generated scroller joins that selector list and the suite beside
 it, `generated-scrollers.test.ts`, rather than a class in the generated file.
 
+The Select is the one scroller that draws no bar. Radix hides its viewport's
+scrollbar and scrolls the list with its own up and down buttons, and adding the
+bar beside them put three scroll controls on one list (#1290). So the Select
+stays out of that selector list, and the suite fails if it comes back.
+
 ### Inputs / fields
 - **Style:** Surface background, Border Strong stroke, 8px radius, 40px minimum
   height, 9px by 11px padding. The stroke owes 3:1 against its surface; it is a
