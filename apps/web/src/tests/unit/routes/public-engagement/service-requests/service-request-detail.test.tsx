@@ -10,8 +10,9 @@
  * file holds is the part of that the header's own suite cannot: which items the
  * `...` offers per state of the request, that choosing one opens the reason
  * dialog and hands the mutation the reason, that Delete is last and opens the
- * delete dialog, that the pencil and the menu hide below the manager floor, and
- * that none of the retired controls are drawn. The second half is the tabs
+ * delete dialog, that the pencil and the lifecycle items hide below the manager
+ * floor while `Edit tags` stays for a Collector, and that none of the retired
+ * controls are drawn. The second half is the tabs
  * under it (#1089). Six sit in the product's strip, and the active one is
  * read from and written to `?tab=`. Details holds the record and Comments the
  * thread. Each family tab lists its family's nearby records as the results
@@ -311,27 +312,24 @@ describe('the service request detail page header', () => {
 
 		await screen.findByText('Priority');
 		const bar = screen.getByRole('banner');
-		// Three: the status flag, the Tag's own chip, and the count on the button
-		// that opens the picker.
-		expect(bar.querySelectorAll('[data-slot="badge"]')).toHaveLength(3);
-		expect(screen.getByRole('button', { name: /Tags/ })).toBeTruthy();
+		// Two: the status flag and the Tag's own chip. The picker opens from the
+		// `...` rather than from a counted button beside them (#1266).
+		expect(bar.querySelectorAll('[data-slot="badge"]')).toHaveLength(2);
+		expect(screen.queryByRole('button', { name: /^Tags/ })).toBeNull();
 	});
 
-	// The status flag is the one badge in the bar. An untagged record draws the
-	// button with no count rather than nothing, because the row holds the only way
-	// to put a Tag on.
-	it('draws the picker button and no chips for an untagged request', async () => {
+	it('draws no chips for an untagged request', async () => {
 		await renderPage();
 
 		const bar = screen.getByRole('banner');
 		expect(bar.querySelectorAll('[data-slot="badge"]')).toHaveLength(1);
-		expect(screen.getByRole('button', { name: /Tags/ })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /^Tags/ })).toBeNull();
 	});
 
-	it('offers Close on an open request, with Delete last', async () => {
+	it('offers Close on an open request, then Edit tags, with Delete last', async () => {
 		await renderPage();
 
-		expect(await openMenu()).toEqual(['Close Request', 'Delete service request']);
+		expect(await openMenu()).toEqual(['Close Request', 'Edit tags', 'Delete service request']);
 		expect(screen.getByRole('separator')).toBeTruthy();
 	});
 
@@ -339,7 +337,15 @@ describe('the service request detail page header', () => {
 		await renderPage(new Date('2026-08-10T15:00:00Z'));
 
 		expect(screen.getByText('Closed')).toBeTruthy();
-		expect(await openMenu()).toEqual(['Reopen Request', 'Delete service request']);
+		expect(await openMenu()).toEqual(['Reopen Request', 'Edit tags', 'Delete service request']);
+	});
+
+	it('opens the tag picker from Edit tags', async () => {
+		await renderPage();
+		await choose('Edit tags');
+
+		expect(await screen.findByRole('button', { name: 'Done' })).toBeTruthy();
+		expect(screen.queryByRole('menu')).toBeNull();
 	});
 
 	it('closes with the reason the dialog collected', async () => {
@@ -379,10 +385,25 @@ describe('the service request detail page header', () => {
 		);
 	});
 
-	it('hides the pencil and the menu below the manager floor', async () => {
+	// A Collector may tag a request and do nothing else from the bar, so the
+	// menu holds the one item.
+	it('leaves a Collector only Edit tags', async () => {
 		harness.role = 'collector';
 		await renderPage();
 
+		expect(screen.queryByLabelText('Edit')).toBeNull();
+		expect(await openMenu()).toEqual(['Edit tags']);
+	});
+
+	it('draws a Viewer the chips and no menu', async () => {
+		harness.role = 'viewer';
+		seedRows(tags, [{ id: 't1', tag_name: 'Priority', color: null, description: null }]);
+		seedRows(tag_items, [
+			{ id: 'i1', entity_id: REQUEST_ID, entity_type: 'service_request', tag_id: 't1' },
+		]);
+		await renderPage();
+
+		expect(await screen.findByText('Priority')).toBeTruthy();
 		expect(screen.queryByLabelText('Edit')).toBeNull();
 		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
 	});

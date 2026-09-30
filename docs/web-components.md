@@ -745,18 +745,28 @@ is what `habitat-detail.tsx` and `service-request-detail-header.tsx` reach
 through too. A Tag assignable on four of the six is not a rule anybody would
 state.
 
-An untagged record draws the counted button with no count rather than nothing.
-Hiding the row when it was empty is the right answer for a row of chips and the
-wrong one for a row holding the only way to add one.
+It draws chips and nothing else since #1266. The picker opens from `Edit tags`
+in the header's `...`, after the page's own actions and above Delete, and
+`RecordTagPicker` beside the chips is what the header mounts for it. The counted
+`Tags` button it replaced sat a thousand pixels from the record's name on a wide
+screen, and the header already has one place for what can be done to the
+record. The item carries no count, since the chips beside it show the Tags.
+
+The picker is mounted beside the menu, not inside the item, because a dialog in
+a menu item is unmounted by the click that opens it. That is the reason Delete
+was already a sibling, and `DetailAction` now has a `dialog` shape so the next
+menu item needing one takes the same path rather than a third hand-written
+flag.
 
 The read is keyed on the record id alone, because `tag_items.entity_id` is
 globally unique. The write needs the record type as well, which is why the
 header's `tags` prop carries it, and the picker's `For habitats` heading reads
 the same key off `RECORD_NOUNS`.
 
-Every control is `WriteOnly`: the button, the checkboxes and the chip's `x`. The
-`x` appears on hover and the dialog does the same job without a pointer, so
-nothing is reachable by hover alone.
+Every control is behind the Collector floor: the menu item, the checkboxes and
+the chip's `x`. A Viewer sees the chips and, on a page with nothing else in the
+menu, no `...` at all. The `x` appears on hover and the dialog does the same job
+without a pointer, so nothing is reachable by hover alone.
 
 #### TagPickerDialog
 
