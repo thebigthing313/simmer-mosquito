@@ -43,6 +43,7 @@ import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { dumpedVersions } from './lib/schema-dump.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCHEMA_FILE = join(ROOT, 'packages/db/schema.sql');
@@ -149,9 +150,6 @@ const REGISTER_FILE = join(ROOT, 'packages/domain/src/column-vocabularies.ts');
 // Reading the dump.
 // ---------------------------------------------------------------------------
 
-/** `('202605120001'),` in the `schema_migrations` insert dbmate appends. */
-const DUMPED_VERSION = /^\s*\('(\d+)'\)[,;]$/gm;
-
 /** A migration filename is `<version>_<name>.sql`. Anything else is not one. */
 const MIGRATION_FILE = /^(\d+)_.+\.sql$/;
 
@@ -164,7 +162,7 @@ const MIGRATION_FILE = /^(\d+)_.+\.sql$/;
  * does not exist.
  */
 function requireDumpMatchesMigrations(sql) {
-	const dumped = [...sql.matchAll(DUMPED_VERSION)].map((match) => match[1]).sort();
+	const dumped = dumpedVersions(sql);
 	const onDisk = readdirSync(MIGRATIONS_DIR)
 		.map((file) => MIGRATION_FILE.exec(file))
 		.filter((match) => match !== null)
