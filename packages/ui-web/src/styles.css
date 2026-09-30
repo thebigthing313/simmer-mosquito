@@ -316,6 +316,33 @@
 }
 
 /*
+ * The generated components that scroll, drawing the same bar. Their files under
+ * `components/ui` are regenerated from the registry, which would drop a class
+ * added there by hand, so the rule is keyed on each scroller's `data-slot`
+ * here instead. `src/tests/unit/generated-scrollers.test.ts` fails when a slot
+ * is renamed or a selector goes missing.
+ *
+ * Two scrollers carry no slot of their own. A Select scrolls in the Radix
+ * viewport inside its content, and Radix injects an unlayered style hiding that
+ * viewport's scrollbar in favour of its scroll buttons; this rule is unlayered
+ * too and one attribute more specific, which is what lets it win. The
+ * Autocomplete's list scrolls in a plain block directly inside its popover.
+ * Being unlayered also means a utility at a call site cannot switch the bar off.
+ */
+[data-slot="select-content"] [data-radix-select-viewport],
+[data-slot="dropdown-menu-content"],
+[data-slot="context-menu-content"],
+[data-slot="command-list"],
+[data-slot="combobox-list"],
+[data-slot="popover-content"] > .overflow-y-auto,
+[data-slot="sheet-content"],
+[data-slot="drawer-content"],
+[data-slot="sidebar-content"],
+[data-slot="table-container"] {
+	@apply scrollbar-subtle;
+}
+
+/*
  * The loading hairline that runs across the top of a region still resolving. It
  * is the one moving part of a skeleton surface, and it carries state rather than
  * decoration: the skeletons say what is coming, and this says work is still in
