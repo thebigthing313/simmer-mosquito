@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { cleanup, render, screen } from '@testing-library/react';
 import { act } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	GeocoderDialog,
 	type GeocoderResult,
@@ -25,20 +25,12 @@ import { scrollBodyCap } from '../../scroll-body-cap';
  * than through either caller.
  */
 
-function installDomStubs(): void {
-	Element.prototype.scrollIntoView ??= () => {};
-	Element.prototype.hasPointerCapture ??= () => false;
-	Element.prototype.setPointerCapture ??= () => {};
-	Element.prototype.releasePointerCapture ??= () => {};
-}
-
 const RESULT: GeocoderResult = {
 	formatted_address: '12 Marsh Rd, Edison NJ 08817',
 	location: { lat: 40.52, lng: -74.41 },
 };
 
 describe('GeocoderDialog', () => {
-	beforeEach(installDomStubs);
 	afterEach(cleanup);
 
 	it('offers manual placement, and says so, only when the caller has a map', async () => {

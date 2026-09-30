@@ -32,10 +32,6 @@ function place(id: string): MapboxSearchResult {
 	return { id, label: `Place ${id}`, description: 'Somewhere' };
 }
 
-// jsdom draws nothing, so the scroll that keeps the highlight on screen has
-// nothing to do here.
-Element.prototype.scrollIntoView ??= () => {};
-
 beforeEach(() => {
 	suggestions = [];
 	suggestPlaces.mockClear();

@@ -32,12 +32,6 @@ import { pressKeyIn } from './fake-map';
  * duplication ratchet counts a copy.
  */
 
-// jsdom ships none of the pointer APIs Radix's select and menu reach for.
-Element.prototype.scrollIntoView ??= () => {};
-Element.prototype.hasPointerCapture ??= () => false;
-Element.prototype.setPointerCapture ??= () => {};
-Element.prototype.releasePointerCapture ??= () => {};
-
 /** The kinds of field the panel beside the map is made of. */
 const TYPED_INTO = ['input', 'textarea', 'select', 'contenteditable'] as const;
 

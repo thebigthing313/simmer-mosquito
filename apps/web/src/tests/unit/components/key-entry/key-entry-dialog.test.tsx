@@ -26,25 +26,6 @@ const BINDINGS: SpeciesKeyBindingsView = {
 	hasBindings: true,
 };
 
-// jsdom ships none of the layout/pointer APIs Radix reaches for. Stubs are enough:
-// these tests assert behaviour, never geometry.
-function installDomStubs(): void {
-	Element.prototype.scrollIntoView ??= () => {};
-	Element.prototype.hasPointerCapture ??= () => false;
-	Element.prototype.setPointerCapture ??= () => {};
-	Element.prototype.releasePointerCapture ??= () => {};
-	globalThis.matchMedia ??= ((query: string) => ({
-		matches: false,
-		media: query,
-		onchange: null,
-		addEventListener: () => {},
-		removeEventListener: () => {},
-		addListener: () => {},
-		removeListener: () => {},
-		dispatchEvent: () => false,
-	})) as unknown as typeof matchMedia;
-}
-
 function deferred<T = void>() {
 	let resolve!: (value: T) => void;
 	let reject!: (reason: unknown) => void;
@@ -144,7 +125,6 @@ function commitCounts(onCommit: CommitMock, index: number): readonly (readonly [
 }
 
 beforeEach(() => {
-	installDomStubs();
 	vi.useFakeTimers();
 	globalThis.localStorage.clear();
 });
