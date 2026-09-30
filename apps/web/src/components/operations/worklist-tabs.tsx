@@ -2,7 +2,9 @@ import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-st
 import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { iconRegistry, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type React from 'react';
+import { CommentCount } from '../comment-count';
 import { CommentsSection } from '../comments-section';
+import { LabelCount } from '../label-count';
 
 const CommentIcon = iconRegistry.actions.comment.icon;
 
@@ -21,7 +23,10 @@ export function WorklistTabs({
 	/** The worklist the thread hangs off. */
 	readonly target: { readonly type: 'mission' | 'assignment'; readonly id: string };
 	readonly commentsDescription?: string | undefined;
-	/** Shown beside the Stops label, so the count survives a switch to Comments. */
+	/**
+	 * Shown beside the Stops label, so the count survives a switch to Comments.
+	 * The Comments label reads its own count off the thread's query.
+	 */
 	readonly stopCount: number;
 	/** Planning controls pinned above the stop list, if the worklist has any. */
 	readonly stopControls?: React.ReactNode;
@@ -35,13 +40,12 @@ export function WorklistTabs({
 					<TabStripTab value="stops">
 						<MapPinnedIcon aria-hidden="true" />
 						Stops
-						{stopCount === 0 ? null : (
-							<span className="text-muted-foreground text-xs tabular-nums">{stopCount}</span>
-						)}
+						<LabelCount count={stopCount} />
 					</TabStripTab>
 					<TabStripTab value="comments">
 						<CommentIcon aria-hidden="true" />
 						Comments
+						<CommentCount target={target} />
 					</TabStripTab>
 				</TabStrip>
 			</div>

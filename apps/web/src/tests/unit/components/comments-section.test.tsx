@@ -193,3 +193,42 @@ describe('the thread', () => {
 		expect(screen.getByRole('textbox').closest('[data-slot="scroll-area-viewport"]')).toBeNull();
 	});
 });
+
+describe('the count in the heading (#1265)', () => {
+	/** The heading's text: the title, then the count when there is one. */
+	function heading(): string {
+		return document.querySelector('[data-slot="card-title"]')?.textContent ?? '';
+	}
+
+	it('draws how many comments the record has beside the heading', () => {
+		thread = [
+			comment({ commentText: 'Pinned.', isPinned: true }),
+			comment({ commentText: 'First.' }),
+			comment({ commentText: 'Second.' }),
+		];
+		renderThread();
+
+		expect(heading()).toBe('Comments3');
+	});
+
+	it('draws no count on a record nobody has commented on', () => {
+		renderThread();
+
+		expect(heading()).toBe('Comments');
+	});
+
+	it('moves when a comment is added and when one is deleted', () => {
+		const first = comment({ commentText: 'First.' });
+		thread = [first];
+		const { rerender } = render(<CommentsSection target={{ type: 'habitat', id: 'habitat-1' }} />);
+		expect(heading()).toBe('Comments1');
+
+		thread = [comment({ commentText: 'Second.' }), first];
+		rerender(<CommentsSection target={{ type: 'habitat', id: 'habitat-1' }} />);
+		expect(heading()).toBe('Comments2');
+
+		thread = [];
+		rerender(<CommentsSection target={{ type: 'habitat', id: 'habitat-1' }} />);
+		expect(heading()).toBe('Comments');
+	});
+});

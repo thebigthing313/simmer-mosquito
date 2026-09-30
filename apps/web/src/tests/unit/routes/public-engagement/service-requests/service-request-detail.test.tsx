@@ -44,6 +44,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { type ReactNode, Suspense } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NearbyLayerConfig } from '../../../../../hooks/map/use-nearby-layer';
+import { comments } from '../../../../../lib/collections/comments';
 import { habitat_types } from '../../../../../lib/collections/habitat_types';
 import { organizations } from '../../../../../lib/collections/organizations';
 import { service_requests } from '../../../../../lib/collections/service_requests';
@@ -474,6 +475,26 @@ describe('the tabs on the service request detail page', () => {
 		expect(screen.getByRole('tablist', { name: 'Service request sections' })).toBeTruthy();
 		// The family toggle chips are gone: the tab is the toggle.
 		expect(screen.queryByRole('button', { name: /Surveillance/ })).toBeNull();
+	});
+
+	it("draws the thread's count on the Comments tab before it is opened (#1265)", async () => {
+		const onRequest = (id: string, entityId = REQUEST_ID) => ({
+			id,
+			organization_id: 'org-1',
+			entity_type: 'service_request',
+			entity_id: entityId,
+			comment_text: 'Resident asked for a call back.',
+			commented_by_profile_id: null,
+			commented_at: new Date('2026-08-05T12:00:00Z'),
+			is_pinned: false,
+			edited_at: null,
+			edited_by_profile_id: null,
+		});
+		seedRows(comments, [onRequest('c1'), onRequest('c2'), onRequest('c3', 'sr-2')]);
+		await renderPage();
+
+		await waitFor(() => expect(tabNames().at(-1)).toBe('Comments2'));
+		expect(screen.getByRole('tab', { selected: true }).textContent).toBe('Details');
 	});
 
 	it('opens on Details, holding the record and the regions band', async () => {
