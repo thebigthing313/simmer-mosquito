@@ -4,8 +4,8 @@ import type { ComponentProps } from 'react';
 
 /**
  * The tab strips the directory is filtered by: collection methods on the left,
- * seasons on the right, each as long as the organization's data makes it. The
- * strip fills its half of the row.
+ * and the three most recent seasons on the right, beside the menu that holds
+ * the older ones. The strip fills its half of the row.
  */
 export function DirectoryTabsList({
 	label,
