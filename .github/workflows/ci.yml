@@ -1009,9 +1009,15 @@ jobs:
     services:
       # Matches Railway staging exactly (PostgreSQL 17.5, PostGIS 3.5.2), so the
       # job cannot be green on a version no environment actually runs, and the
-      # same image the local compose file uses.
+      # same image the local compose file uses. Pinned by digest to the image
+      # the `17-3.5` tag named on 2026-09-30, PG_VERSION 17.5: the schema dump
+      # step below dumps through this container, and `packages/db/schema.sql`
+      # is what pg_dump 17.0 to 17.5 writes, so a rebuild of the tag on 17.6
+      # would fail that step on every branch at once. `docker-compose.yml` and
+      # `schema-drift.yml` carry the same digest; move all three together
+      # (CLAUDE.md, Database).
       postgres:
-        image: postgis/postgis:17-3.5
+        image: postgis/postgis:17-3.5@sha256:01a6a70e41e6c4467c8f55f6063555ed72db2d6662cd0d571040d42eadaeb6f6
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
