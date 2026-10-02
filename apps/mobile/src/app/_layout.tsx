@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../auth/auth-context';
 import { useAuth } from '../hooks/use-auth';
 import { FieldLoopPrototype } from '../prototype-field-loop';
+import { SyncStatusPrototype } from '../prototype-sync-status';
 import { theme } from '../theme/theme';
 
 /**
@@ -23,6 +24,15 @@ export default function RootLayout() {
 			<SafeAreaProvider>
 				<StatusBar style="dark" />
 				<FieldLoopPrototype />
+			</SafeAreaProvider>
+		);
+	}
+	// PROTOTYPE, throwaway (#1348): `pnpm prototype:sync-status` sets this.
+	if (process.env.EXPO_PUBLIC_PROTOTYPE === 'sync-status') {
+		return (
+			<SafeAreaProvider>
+				<StatusBar style="dark" />
+				<SyncStatusPrototype />
 			</SafeAreaProvider>
 		);
 	}

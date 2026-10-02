@@ -10,7 +10,8 @@
 		"ios": "expo start --ios",
 		"test": "vitest run --passWithNoTests",
 		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
-		"prototype:field-loop": "node prototype-field-loop.mjs"
+		"prototype:field-loop": "node prototype-field-loop.mjs",
+		"prototype:sync-status": "node prototype-sync-status.mjs"
 	},
 	"dependencies": {
 		"@expo/metro-runtime": "~57.0.16",

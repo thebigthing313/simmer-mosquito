@@ -71,7 +71,8 @@
 		"typecheck": "nx run-many -t typecheck",
 		"generate:schemas": "node scripts/generate-table-schemas.mjs",
 		"generate:table-types": "node scripts/generate-table-types.mjs",
-		"prototype:field-loop": "pnpm --filter @simmer-mosquito/mobile prototype:field-loop"
+		"prototype:field-loop": "pnpm --filter @simmer-mosquito/mobile prototype:field-loop",
+		"prototype:sync-status": "pnpm --filter @simmer-mosquito/mobile prototype:sync-status"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.14",
