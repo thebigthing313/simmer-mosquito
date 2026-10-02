@@ -9,9 +9,11 @@
 		"dev": "expo start",
 		"ios": "expo start --ios",
 		"test": "vitest run --passWithNoTests",
-		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
+		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+		"prototype:field-loop": "node prototype-field-loop.mjs"
 	},
 	"dependencies": {
+		"@expo/metro-runtime": "~57.0.16",
 		"@simmer-mosquito/auth": "workspace:*",
 		"@simmer-mosquito/config": "workspace:*",
 		"@simmer-mosquito/design-tokens": "workspace:*",
@@ -27,6 +29,7 @@
 		"react-native-gesture-handler": "~2.32.0",
 		"react-native-safe-area-context": "~5.7.0",
 		"react-native-screens": "~4.26.0",
+		"react-native-web": "^0.21.3",
 		"react-native-worklets": "0.10.1"
 	},
 	"devDependencies": {

@@ -36,3 +36,20 @@ config.resolver.nodeModulesPaths = [
 ];
 
 module.exports = config;
+
+// PROTOTYPE branch (#1338): workspace sources import siblings as `./x.js`
+// under NodeNext, and Metro does not map that to `./x.ts` on its own, so the
+// scaffold's `packages/auth` import failed to bundle. Retry a relative `.js`
+// specifier as its TypeScript source.
+const defaultResolve = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+	const resolve = defaultResolve ?? context.resolveRequest;
+	try {
+		return resolve(context, moduleName, platform);
+	} catch (error) {
+		if (moduleName.startsWith('.') && moduleName.endsWith('.js')) {
+			return resolve(context, moduleName.slice(0, -3), platform);
+		}
+		throw error;
+	}
+};

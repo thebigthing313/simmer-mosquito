@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../auth/auth-context';
 import { useAuth } from '../hooks/use-auth';
+import { FieldLoopPrototype } from '../prototype-field-loop';
 import { theme } from '../theme/theme';
 
 /**
@@ -16,6 +17,15 @@ import { theme } from '../theme/theme';
  * open until SecureStore and `/auth/me` have answered.
  */
 export default function RootLayout() {
+	// PROTOTYPE, throwaway (#1338): `pnpm prototype:field-loop` sets this.
+	if (process.env.EXPO_PUBLIC_PROTOTYPE === 'field-loop') {
+		return (
+			<SafeAreaProvider>
+				<StatusBar style="dark" />
+				<FieldLoopPrototype />
+			</SafeAreaProvider>
+		);
+	}
 	return (
 		<SafeAreaProvider>
 			<StatusBar style="dark" />
