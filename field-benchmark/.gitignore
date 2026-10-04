@@ -1,0 +1,11 @@
+node_modules/
+dist/
+data/
+release/
+scratch/
+android/app/build/
+android/build/
+android/.gradle/
+android/app/src/main/assets/public/
+android/local.properties
+public/map-assets/

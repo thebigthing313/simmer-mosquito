@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+		<title>Field benchmark</title>
+		<script>
+			// The Chromium 111 floor, checked before the module bundle loads (#1362).
+			(function () {
+				var m = /Chrome\/(\d+)/.exec(navigator.userAgent);
+				if (m && Number(m[1]) < 111) {
+					document.addEventListener('DOMContentLoaded', function () {
+						document.body.innerHTML =
+							'<p style="padding:16px;font-family:sans-serif">Update Android System WebView from the Play Store. This app needs Chromium 111 or later; this device has ' +
+							m[1] +
+							'.</p>';
+					});
+					window.__benchRefused = true;
+				}
+			})();
+		</script>
+	</head>
+	<body>
+		<div id="root"></div>
+		<script type="module" src="/src/main.tsx"></script>
+	</body>
+</html>

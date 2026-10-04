@@ -1,0 +1,74 @@
+{
+  "name": "field-benchmark",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "export-data": "node scripts/export-data.mjs",
+    "serve": "node scripts/serve.mjs",
+    "build:electron": "vite build && electron-builder --win nsis --x64",
+    "build:android": "vite build && cap sync android && cd android && gradlew.bat assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor-community/sqlite": "^8.1.1",
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@protomaps/basemaps": "^5.7.2",
+    "@tanstack/capacitor-db-sqlite-persistence": "^0.2.28",
+    "@tanstack/db": "^0.11.3",
+    "@tanstack/electron-db-sqlite-persistence": "^0.2.4",
+    "@tanstack/node-db-sqlite-persistence": "^0.2.28",
+    "@tanstack/react-db": "^0.5.3",
+    "better-sqlite3": "^12.11.1",
+    "maplibre-gl": "^6.12.0",
+    "pmtiles": "^4.5.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "simplify-js": "^1.2.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
+    "@types/geojson": "^7946.0.16",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "pg": "^8.23.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2"
+  },
+  "build": {
+    "appId": "com.simmerdata.fieldbench",
+    "productName": "Field benchmark",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    },
+    "npmRebuild": true
+  }
+}
