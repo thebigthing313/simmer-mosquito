@@ -1,12 +1,9 @@
 import { mapInteraction, mapLifecycle } from '@simmer-mosquito/design-tokens';
 import { createHabitatCommand } from '@simmer-mosquito/domain';
 import { centroidFromGeoJson } from '@simmer-mosquito/mapping';
-import {
-	type MetadataValue,
-	RecordFormPage,
-	useAppForm,
-} from '@simmer-mosquito/ui-web/components/form';
+import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { getServerUrl } from '../../../auth';
+import { useRecordForm } from '../../../hooks/forms/use-record-form';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
@@ -14,8 +11,7 @@ import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../lib/domain-va
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { CustomFieldsSection } from '../../forms/custom-fields-section';
 import { LocationAddressField, LocationBand } from '../../forms/location-band';
-import { MapCanvas } from '../../map';
-import { DrawToolbar } from '../../map/geometry-control';
+import { RecordFormFrame } from '../../forms/record-form-frame';
 import { WriteOnly } from '../../write-only';
 
 export const noHabitatTypeValue = 'none';
@@ -88,34 +84,33 @@ export function HabitatFormPage({
 		initialGeometry,
 		missingMessage: 'Draw the habitat geometry on the map before saving.',
 	});
-	const { draw, geometry, geometryType } = location;
+	const { geometry } = location;
 
-	const form = useAppForm({
+	const form = useRecordForm({
 		defaultValues,
-		validators: {
-			/*
-			 * The domain builder is the validation contract; the server runs this same
-			 * function and rejects with these same issues.
-			 */
-			onSubmit: domainValidator(
-				({ value }: { readonly value: HabitatFormValues }) =>
-					createHabitatCommand({
-						...FORM_VALIDATION_CONTEXT,
-						habitatId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: {
-							kind: 'geometry',
-							geometry: (geometry ?? null) as never,
-						},
-						addressId: value.addressId,
-						habitatTypeId: value.habitatTypeId === noHabitatTypeValue ? null : value.habitatTypeId,
-						description: value.description,
-						metadata: value.metadata,
-					}),
-				HABITAT_FIELD_PATHS,
-			),
-		},
-		onSubmit: async ({ value }) => {
-			if (!location.requireGeometry() || geometry === null) {
+		/*
+		 * The domain builder is the validation contract; the server runs this same
+		 * function and rejects with these same issues.
+		 */
+		validate: domainValidator(
+			({ value }: { readonly value: HabitatFormValues }) =>
+				createHabitatCommand({
+					...FORM_VALIDATION_CONTEXT,
+					habitatId: FORM_VALIDATION_CONTEXT.organizationId,
+					locationSource: {
+						kind: 'geometry',
+						geometry: (geometry ?? null) as never,
+					},
+					addressId: value.addressId,
+					habitatTypeId: value.habitatTypeId === noHabitatTypeValue ? null : value.habitatTypeId,
+					description: value.description,
+					metadata: value.metadata,
+				}),
+			HABITAT_FIELD_PATHS,
+		),
+		location,
+		onSubmit: async (value) => {
+			if (geometry === null) {
 				return;
 			}
 			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
@@ -127,116 +122,98 @@ export function HabitatFormPage({
 	const editCamera = mode === 'edit' ? cameraForGeometry(initialGeometry) : undefined;
 
 	return (
-		<form.AppForm>
-			<RecordFormPage
-				actions={
-					<>
-						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit} />
-					</>
-				}
-				gap="tight"
-				header={header}
-				aside={
-					<>
-						<MapCanvas
-							layers={[
-								{ kind: 'habitats', serverUrl: getServerUrl(), filters: { isActive: true } },
-							]}
-							onMapReady={location.onMapReady}
-							{...(editCamera === undefined ? {} : { camera: editCamera })}
-						/>
-						<DrawToolbar
-							geometryKind="habitat"
-							controller={draw}
-							geometryType={geometryType}
-							pointPrompt="Click the map to place the address point."
-						/>
-						<MapLegend mode={mode} />
-					</>
-				}
-				onSubmit={() => {
-					void form.handleSubmit();
-				}}
-			>
-				<form.FormErrorAlert title="Unable to Save Habitat" />
-
-				<div className="grid gap-5 @md/fields:grid-cols-2">
-					<form.AppField name="habitatName">
-						{(field) => (
-							<field.TextField label="Habitat name" placeholder="e.g. North basin catchment" />
-						)}
-					</form.AppField>
-					{/* Type, address, and geometry are `updateHabitatConfiguration` and
+		<RecordFormFrame
+			canSubmit={canSubmit}
+			errorTitle="Unable to Save Habitat"
+			form={form}
+			gap="tight"
+			header={header}
+			map={{
+				location,
+				geometryKind: 'habitat',
+				pointPrompt: 'Click the map to place the address point.',
+				canvas: {
+					layers: [{ kind: 'habitats', serverUrl: getServerUrl(), filters: { isActive: true } }],
+					...(editCamera === undefined ? {} : { camera: editCamera }),
+				},
+				legend: <MapLegend mode={mode} />,
+			}}
+		>
+			<div className="grid gap-5 @md/fields:grid-cols-2">
+				<form.AppField name="habitatName">
+					{(field) => (
+						<field.TextField label="Habitat name" placeholder="e.g. North basin catchment" />
+					)}
+				</form.AppField>
+				{/* Type, address, and geometry are `updateHabitatConfiguration` and
 					    `updateHabitatLocation`, both manager-and-above. A collector may
 					    change a habitat's name, description, and metadata
 					    (`docs/larval-surveillance-domain.md`), so the form shows them the
 					    fields they can save and leaves the rest to the detail page. On
 					    create the whole route is manager-and-above, so these always
 					    render there. */}
-					<WriteOnly minimum="manager">
-						<form.AppField name="habitatTypeId">
-							{(field) => (
-								<field.AutocompleteField
-									// The sentinel, not `null`: `habitatTypeId` is typed as a
-									// plain string and the submit mapping reads it back.
-									emptyValue={noHabitatTypeValue}
-									label="Habitat type"
-									options={habitatTypeOptions(habitatTypes)}
-									placeholder="Search habitat types"
-								/>
-							)}
-						</form.AppField>
-					</WriteOnly>
-				</div>
-
-				{/* Address above geometry, in one section, the same Location block
-							    every other located record's form uses. */}
 				<WriteOnly minimum="manager">
-					<LocationBand geometryKind="habitat" location={location} organizationId={organizationId}>
-						<form.AppField name="addressId">
-							{(field) => (
-								<LocationAddressField
-									errors={field.state.meta.errors}
-									location={location}
-									onChange={field.handleChange}
-									value={field.state.value}
-								/>
-							)}
-						</form.AppField>
-					</LocationBand>
+					<form.AppField name="habitatTypeId">
+						{(field) => (
+							<field.AutocompleteField
+								// The sentinel, not `null`: `habitatTypeId` is typed as a
+								// plain string and the submit mapping reads it back.
+								emptyValue={noHabitatTypeValue}
+								label="Habitat type"
+								options={habitatTypeOptions(habitatTypes)}
+								placeholder="Search habitat types"
+							/>
+						)}
+					</form.AppField>
 				</WriteOnly>
+			</div>
 
-				<form.AppField
-					name="description"
-					validators={{
-						onSubmit: ({ value }) =>
-							value.trim().length === 0 ? 'Description is required.' : undefined,
-					}}
-				>
-					{(field) => (
-						<field.TextareaField
-							label="Description"
-							required
-							placeholder="Describe access notes, habitat condition, and useful field context."
-							rows={4}
-						/>
-					)}
-				</form.AppField>
+			{/* Address above geometry, in one section, the same Location block
+							    every other located record's form uses. */}
+			<WriteOnly minimum="manager">
+				<LocationBand geometryKind="habitat" location={location} organizationId={organizationId}>
+					<form.AppField name="addressId">
+						{(field) => (
+							<LocationAddressField
+								errors={field.state.meta.errors}
+								location={location}
+								onChange={field.handleChange}
+								value={field.state.value}
+							/>
+						)}
+					</form.AppField>
+				</LocationBand>
+			</WriteOnly>
 
-				{/* Guided by the type's custom schema (see docs/larval-surveillance-domain.md),
+			<form.AppField
+				name="description"
+				validators={{
+					onSubmit: ({ value }) =>
+						value.trim().length === 0 ? 'Description is required.' : undefined,
+				}}
+			>
+				{(field) => (
+					<field.TextareaField
+						label="Description"
+						required
+						placeholder="Describe access notes, habitat condition, and useful field context."
+						rows={4}
+					/>
+				)}
+			</form.AppField>
+
+			{/* Guided by the type's custom schema (see docs/larval-surveillance-domain.md),
 							    and open to ad-hoc keys so a habitat can carry notes its type never
 							    declared. */}
-				<CustomFieldsSection
-					allowExtra
-					catalog={habitatTypes}
-					emptyDescription="Optional structured notes for habitat details of your own."
-					form={form}
-					framed={false}
-					schemaField="habitatTypeId"
-				/>
-			</RecordFormPage>
-		</form.AppForm>
+			<CustomFieldsSection
+				allowExtra
+				catalog={habitatTypes}
+				emptyDescription="Optional structured notes for habitat details of your own."
+				form={form}
+				framed={false}
+				schemaField="habitatTypeId"
+			/>
+		</RecordFormFrame>
 	);
 }
 

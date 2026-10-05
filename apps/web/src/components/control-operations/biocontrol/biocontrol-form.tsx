@@ -1,10 +1,6 @@
 import { isBiocontrolUnitType, recordBiocontrolActionCommand } from '@simmer-mosquito/domain';
-import {
-	FormSection,
-	type MetadataValue,
-	RecordFormPage,
-	useAppForm,
-} from '@simmer-mosquito/ui-web/components/form';
+import { FormSection, type MetadataValue } from '@simmer-mosquito/ui-web/components/form';
+import { useRecordForm } from '../../../hooks/forms/use-record-form';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { MissionStopGeometry } from '../../../hooks/operations/use-mission-stop-geometry';
@@ -25,8 +21,7 @@ import { DateControl } from '../../date-control';
 import { CustomFieldsSection } from '../../forms/custom-fields-section';
 import { FirstCommentSection } from '../../forms/first-comment-section';
 import { LocationAddressField, LocationBand } from '../../forms/location-band';
-import { MapCanvas } from '../../map';
-import { DrawToolbar } from '../../map/geometry-control';
+import { RecordFormFrame } from '../../forms/record-form-frame';
 import { HabitatPicker } from '../control-pickers';
 
 /** Domain issue path → the form field holding it. */
@@ -167,7 +162,7 @@ export function BiocontrolFormPage({
 		required: requireLocation,
 		missionStop,
 	});
-	const { draw, geometry, geometryType, referenceGeometry } = location;
+	const { geometry, referenceGeometry } = location;
 
 	const methodOptions = lifecycleOptions(
 		biocontrolMethods,
@@ -178,175 +173,145 @@ export function BiocontrolFormPage({
 	// rejects any other unit type.
 	const releaseUnitOptions = unitOptions(units, isBiocontrolUnitType);
 
-	const form = useAppForm({
+	const form = useRecordForm({
 		defaultValues,
-		validators: {
-			onSubmit: ({ value }: { readonly value: BiocontrolFormValues }) =>
-				validateBiocontrol(value, geometry),
-		},
-		// A save refused over the fields says the missing location in the same
-		// pass, rather than only once the fields are fixed.
-		onSubmitInvalid: () => {
-			location.requireGeometry();
-		},
-		onSubmit: async ({ value }) => {
-			location.clearError();
-			if (!location.requireGeometry()) {
-				return;
-			}
+		validate: ({ value }: { readonly value: BiocontrolFormValues }) =>
+			validateBiocontrol(value, geometry),
+		location,
+		onSubmit: async (value) => {
 			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 		},
 	});
 
 	return (
-		<form.AppForm>
-			<RecordFormPage
-				actions={
-					<>
-						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit} />
-					</>
-				}
-				header={header}
-				aside={
-					<>
-						<MapCanvas geoJson={referenceGeometry} onMapReady={location.onMapReady} />
-						<DrawToolbar
-							geometryKind="controlAction"
-							controller={draw}
-							geometryType={geometryType}
-						/>
-					</>
-				}
-				onSubmit={() => {
-					void form.handleSubmit();
-				}}
-			>
-				<form.FormErrorAlert title="Unable to Save Biocontrol Action" />
+		<RecordFormFrame
+			canSubmit={canSubmit}
+			errorTitle="Unable to Save Biocontrol Action"
+			form={form}
+			header={header}
+			map={{
+				location,
+				geometryKind: 'controlAction',
+				canvas: { geoJson: referenceGeometry },
+			}}
+		>
+			<form.AppField name="biocontrolDate">
+				{(field) => (
+					<DateControl
+						errors={field.state.meta.errors}
+						label="Release date"
+						required
+						onChange={(next) => field.handleChange(next)}
+						value={field.state.value}
+					/>
+				)}
+			</form.AppField>
 
-				<form.AppField name="biocontrolDate">
+			<FormSection title="Personnel">
+				<form.AppField name="technicianProfileId">
 					{(field) => (
-						<DateControl
-							errors={field.state.meta.errors}
-							label="Release date"
-							required
-							onChange={(next) => field.handleChange(next)}
-							value={field.state.value}
+						<field.SelectField
+							label="Technician"
+							options={technicianOptions(profiles)}
+							placeholder="Unassigned"
 						/>
 					)}
 				</form.AppField>
-
-				<FormSection title="Personnel">
-					<form.AppField name="technicianProfileId">
-						{(field) => (
-							<field.SelectField
-								label="Technician"
-								options={technicianOptions(profiles)}
-								placeholder="Unassigned"
-							/>
-						)}
-					</form.AppField>
-					<form.Subscribe selector={(state) => state.values.technicianProfileId}>
-						{(technicianProfileId) => (
-							<form.AppField name="additionalPersonnelIds">
-								{(field) => (
-									<field.MultiSelectField
-										emptyMessage="No profiles"
-										label="Additional personnel"
-										options={additionalPersonnelOptions(profiles, field.state.value, {
-											excludeProfileId:
-												technicianProfileId === noTechnicianValue ? null : technicianProfileId,
-										})}
-										placeholder="Search profiles"
-									/>
-								)}
-							</form.AppField>
-						)}
-					</form.Subscribe>
-				</FormSection>
-
-				<LocationBand
-					below={
-						<form.AppField name="habitatId">
+				<form.Subscribe selector={(state) => state.values.technicianProfileId}>
+					{(technicianProfileId) => (
+						<form.AppField name="additionalPersonnelIds">
 							{(field) => (
-								<HabitatPicker
-									errors={field.state.meta.errors}
-									label="Habitat"
-									organizationId={organizationId}
-									onSelect={(habitat) => {
-										field.handleChange(habitat?.id ?? null);
-										// The habitat is larval context, not the action's location; framing the
-										// map on it seeds unplaced geometry.
-										location.selectReference(
-											habitat === null ? null : { lat: habitat.latitude, lng: habitat.longitude },
-										);
-									}}
-									value={field.state.value}
+								<field.MultiSelectField
+									emptyMessage="No profiles"
+									label="Additional personnel"
+									options={additionalPersonnelOptions(profiles, field.state.value, {
+										excludeProfileId:
+											technicianProfileId === noTechnicianValue ? null : technicianProfileId,
+									})}
+									placeholder="Search profiles"
 								/>
 							)}
 						</form.AppField>
-					}
-					geometryKind="controlAction"
-					location={location}
-					organizationId={organizationId}
-					required={requireLocation}
-				>
-					<form.AppField name="addressId">
+					)}
+				</form.Subscribe>
+			</FormSection>
+
+			<LocationBand
+				below={
+					<form.AppField name="habitatId">
 						{(field) => (
-							<LocationAddressField
+							<HabitatPicker
 								errors={field.state.meta.errors}
-								location={location}
-								onChange={field.handleChange}
+								label="Habitat"
+								organizationId={organizationId}
+								onSelect={(habitat) => {
+									field.handleChange(habitat?.id ?? null);
+									// The habitat is larval context, not the action's location; framing the
+									// map on it seeds unplaced geometry.
+									location.selectReference(
+										habitat === null ? null : { lat: habitat.latitude, lng: habitat.longitude },
+									);
+								}}
 								value={field.state.value}
 							/>
 						)}
 					</form.AppField>
-				</LocationBand>
+				}
+				geometryKind="controlAction"
+				location={location}
+				organizationId={organizationId}
+				required={requireLocation}
+			>
+				<form.AppField name="addressId">
+					{(field) => (
+						<LocationAddressField
+							errors={field.state.meta.errors}
+							location={location}
+							onChange={field.handleChange}
+							value={field.state.value}
+						/>
+					)}
+				</form.AppField>
+			</LocationBand>
 
-				<FormSection title="Release">
-					<form.AppField name="biocontrolMethodId">
+			<FormSection title="Release">
+				<form.AppField name="biocontrolMethodId">
+					{(field) => (
+						<field.SelectField
+							label="Biocontrol method"
+							required
+							options={methodOptions}
+							placeholder="Select method"
+						/>
+					)}
+				</form.AppField>
+				<div className="grid gap-5 @md/fields:grid-cols-2">
+					<form.AppField name="amountReleased">
+						{(field) => (
+							<field.NumberField label="Amount released" required min={0} placeholder="e.g. 250" />
+						)}
+					</form.AppField>
+					<form.AppField name="releaseUnitId">
 						{(field) => (
 							<field.SelectField
-								label="Biocontrol method"
+								label="Unit"
 								required
-								options={methodOptions}
-								placeholder="Select method"
+								options={releaseUnitOptions}
+								placeholder="Select unit"
 							/>
 						)}
 					</form.AppField>
-					<div className="grid gap-5 @md/fields:grid-cols-2">
-						<form.AppField name="amountReleased">
-							{(field) => (
-								<field.NumberField
-									label="Amount released"
-									required
-									min={0}
-									placeholder="e.g. 250"
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="releaseUnitId">
-							{(field) => (
-								<field.SelectField
-									label="Unit"
-									required
-									options={releaseUnitOptions}
-									placeholder="Select unit"
-								/>
-							)}
-						</form.AppField>
-					</div>
-				</FormSection>
+				</div>
+			</FormSection>
 
-				<CustomFieldsSection
-					catalog={biocontrolMethods}
-					form={form}
-					schemaField="biocontrolMethodId"
-				/>
+			<CustomFieldsSection
+				catalog={biocontrolMethods}
+				form={form}
+				schemaField="biocontrolMethodId"
+			/>
 
-				<FirstCommentSection form={form} mode={mode} />
-			</RecordFormPage>
-		</form.AppForm>
+			<FirstCommentSection form={form} mode={mode} />
+		</RecordFormFrame>
 	);
 }
 

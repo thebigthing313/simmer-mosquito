@@ -1,11 +1,7 @@
 import { type ControlType, createMissionCommand } from '@simmer-mosquito/domain';
-import {
-	FormSection,
-	type RecordFormHeader,
-	RecordFormPage,
-	useAppForm,
-} from '@simmer-mosquito/ui-web/components/form';
+import { FormSection, type RecordFormHeader } from '@simmer-mosquito/ui-web/components/form';
 import { useState } from 'react';
+import { useRecordForm } from '../../../hooks/forms/use-record-form';
 import {
 	NO_ASSIGNEE,
 	NO_METHOD,
@@ -16,6 +12,7 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../lib/domain-validation';
 import { localTimeAsInstant, localTimeOfDay, todayInTimeZone } from '../../../lib/local-date';
 import { DateControl } from '../../date-control';
+import { RecordFormFrame } from '../../forms/record-form-frame';
 import { ControlTypeToggle } from '../control-type-toggle';
 
 /**
@@ -207,140 +204,127 @@ export function MissionFormPage({
 
 	const options = useMissionFormOptions(controlType);
 
-	const form = useAppForm({
+	const form = useRecordForm({
 		defaultValues,
-		validators: {
-			onSubmit: missionFormValidator(validate, fieldPaths, timeZone),
-		},
-		onSubmit: async ({ value }) => {
+		validate: missionFormValidator(validate, fieldPaths, timeZone),
+		onSubmit: async (value) => {
 			await onSave(readMissionPlan(value, timeZone));
 		},
 	});
 
 	return (
-		<form.AppForm>
-			<RecordFormPage
-				actions={
-					<>
-						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit} />
-					</>
-				}
-				gap="tight"
-				header={header}
-				measure="record"
-				onSubmit={() => {
-					void form.handleSubmit();
-				}}
-			>
-				<form.FormErrorAlert title={errorTitle} />
+		<RecordFormFrame
+			canSubmit={canSubmit}
+			errorTitle={errorTitle}
+			form={form}
+			gap="tight"
+			header={header}
+		>
+			<FormSection title="Plan">
+				<form.AppField name="controlType">
+					{(field) => (
+						<ControlTypeToggle
+							description="Sets which methods the mission can plan."
+							onChange={(next) => {
+								field.handleChange(next);
+								// The planned method is polymorphic by control type, so one
+								// chosen for the old type points at the wrong catalog.
+								setControlType(next);
+								form.setFieldValue('plannedMethodId', NO_METHOD);
+							}}
+							value={field.state.value}
+						/>
+					)}
+				</form.AppField>
 
-				<FormSection title="Plan">
-					<form.AppField name="controlType">
+				<form.AppField name="missionName">
+					{(field) => (
+						<field.TextField
+							label="Mission name"
+							placeholder="Optional, a name crews will recognise"
+						/>
+					)}
+				</form.AppField>
+
+				<form.AppField name="plannedMethodId">
+					{(field) => (
+						<field.SelectField
+							label="Planned method"
+							options={options.methods}
+							placeholder="No planned method"
+						/>
+					)}
+				</form.AppField>
+			</FormSection>
+
+			<FormSection title="Schedule">
+				<div className="grid gap-5 @md/fields:grid-cols-2">
+					<form.AppField name="startDate">
 						{(field) => (
-							<ControlTypeToggle
-								description="Sets which methods the mission can plan."
-								onChange={(next) => {
-									field.handleChange(next);
-									// The planned method is polymorphic by control type, so one
-									// chosen for the old type points at the wrong catalog.
-									setControlType(next);
-									form.setFieldValue('plannedMethodId', NO_METHOD);
-								}}
+							<DateControl
+								errors={field.state.meta.errors}
+								label="Start date"
+								onChange={field.handleChange}
+								required
 								value={field.state.value}
 							/>
 						)}
 					</form.AppField>
-
-					<form.AppField name="missionName">
+					<form.AppField name="startTime">
+						{(field) => <field.TextField label="Start time" required type="time" />}
+					</form.AppField>
+				</div>
+				<div className="grid gap-5 @md/fields:grid-cols-2">
+					<form.AppField name="endTime">
 						{(field) => (
 							<field.TextField
-								label="Mission name"
-								placeholder="Optional, a name crews will recognise"
+								description="Optional. Leave empty for an open-ended mission."
+								label="End time"
+								type="time"
 							/>
 						)}
 					</form.AppField>
-
-					<form.AppField name="plannedMethodId">
-						{(field) => (
-							<field.SelectField
-								label="Planned method"
-								options={options.methods}
-								placeholder="No planned method"
-							/>
-						)}
-					</form.AppField>
-				</FormSection>
-
-				<FormSection title="Schedule">
-					<div className="grid gap-5 @md/fields:grid-cols-2">
-						<form.AppField name="startDate">
+					<div className="grid gap-1.5">
+						<form.AppField name="rainDate">
 							{(field) => (
 								<DateControl
 									errors={field.state.meta.errors}
-									label="Start date"
+									label="Rain date"
 									onChange={field.handleChange}
-									required
 									value={field.state.value}
 								/>
 							)}
 						</form.AppField>
-						<form.AppField name="startTime">
-							{(field) => <field.TextField label="Start time" required type="time" />}
-						</form.AppField>
+						<p className="m-0 text-muted-foreground text-xs">
+							Optional planning metadata. It does not reschedule the mission.
+						</p>
 					</div>
-					<div className="grid gap-5 @md/fields:grid-cols-2">
-						<form.AppField name="endTime">
-							{(field) => (
-								<field.TextField
-									description="Optional. Leave empty for an open-ended mission."
-									label="End time"
-									type="time"
-								/>
-							)}
-						</form.AppField>
-						<div className="grid gap-1.5">
-							<form.AppField name="rainDate">
-								{(field) => (
-									<DateControl
-										errors={field.state.meta.errors}
-										label="Rain date"
-										onChange={field.handleChange}
-										value={field.state.value}
-									/>
-								)}
-							</form.AppField>
-							<p className="m-0 text-muted-foreground text-xs">
-								Optional planning metadata. It does not reschedule the mission.
-							</p>
-						</div>
-					</div>
-				</FormSection>
+				</div>
+			</FormSection>
 
-				<FormSection title="Crew and Notice">
-					<div className="grid gap-5 @md/fields:grid-cols-2">
-						<form.AppField name="assignedToProfileId">
-							{(field) => (
-								<field.SelectField
-									label="Assigned to"
-									options={options.assignees}
-									placeholder="Unassigned"
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="notificationTypeId">
-							{(field) => (
-								<field.SelectField
-									label="Notification type"
-									options={options.notificationTypes}
-									placeholder="No notifications"
-								/>
-							)}
-						</form.AppField>
-					</div>
-				</FormSection>
-			</RecordFormPage>
-		</form.AppForm>
+			<FormSection title="Crew and Notice">
+				<div className="grid gap-5 @md/fields:grid-cols-2">
+					<form.AppField name="assignedToProfileId">
+						{(field) => (
+							<field.SelectField
+								label="Assigned to"
+								options={options.assignees}
+								placeholder="Unassigned"
+							/>
+						)}
+					</form.AppField>
+					<form.AppField name="notificationTypeId">
+						{(field) => (
+							<field.SelectField
+								label="Notification type"
+								options={options.notificationTypes}
+								placeholder="No notifications"
+							/>
+						)}
+					</form.AppField>
+				</div>
+			</FormSection>
+		</RecordFormFrame>
 	);
 }
 

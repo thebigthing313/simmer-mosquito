@@ -884,6 +884,39 @@ thread is already on screen with its own composer, and a box on the edit
 form would silently append a new comment every time someone corrected a dip
 count.
 
+#### useRecordForm
+
+The form-level half every record form shared: `useAppForm` with the
+validator, and for a form with a map, the missing-shape check. The form keeps
+its own save and payload. The six payload shapes are each form's contract with
+its route, and the routes differ in ways #871 measured and left alone, so the
+hook hands the form its validated values and stops there.
+
+The check runs from two places, and that is what the hook exists for. Before
+#871 the 13 located forms wired it three ways:
+
+| Wiring | Forms |
+|---|---|
+| `onSubmitInvalid` and `onSubmit` both check | trap, biocontrol, source reduction, chemical application, outreach |
+| `onSubmit` checks, after clearing the error | collection, address, inspection, service request |
+| `onSubmit` checks | habitat, region, weather station, request for control |
+
+TanStack Form calls `onSubmit` only once the validators pass, so on the
+eight forms without `onSubmitInvalid` a save with a refused field and an
+empty map said the field, and the missing shape came only on the next press.
+The hook calls the check from both, so every located form says both at once.
+
+`needsShape` is the whole of the location fork. The inspection needs a shape
+only in ad hoc mode and the collection only off a trap; in the other mode the
+habitat or trap is a field the validator already refuses, and the hook clears
+any missing-shape error left from the ad hoc side. The two location sources
+were the case the shell was held for, and they turned out to need one
+predicate rather than a model of a pick.
+
+Create versus edit is not the hook's either. `useDrawLocation`'s `required`
+already carries the one signal it reads, and the others decide which fields a
+form draws.
+
 #### useSearchFilters
 
 An explorer's filters are part of where the operator is, not only how the

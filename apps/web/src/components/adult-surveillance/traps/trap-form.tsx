@@ -1,5 +1,6 @@
 import { createTrapCommand } from '@simmer-mosquito/domain';
-import { FormSection, RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import { FormSection } from '@simmer-mosquito/ui-web/components/form';
+import { useRecordForm } from '../../../hooks/forms/use-record-form';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { TrapFields } from '../../../hooks/mutations/use-trap-mutations';
@@ -15,8 +16,7 @@ import {
 } from '../../../lib/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { LocationAddressField, LocationBand } from '../../forms/location-band';
-import { MapCanvas } from '../../map';
-import { DrawToolbar } from '../../map/geometry-control';
+import { RecordFormFrame } from '../../forms/record-form-frame';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
 const noLureValue = 'none';
@@ -133,7 +133,7 @@ export function TrapFormPage({
 		missingMessage: 'Place the trap point on the map.',
 		required: requireLocation,
 	});
-	const { draw, geometry, geometryType } = location;
+	const { geometry } = location;
 
 	const methodOptions = lifecycleOptions(
 		collectionMethods,
@@ -141,119 +141,93 @@ export function TrapFormPage({
 		(method) => method.name,
 	);
 
-	const form = useAppForm({
+	const form = useRecordForm({
 		defaultValues,
-		validators: {
-			onSubmit: ({ value }: { readonly value: TrapFormValues }) => validateTrap(value, geometry),
-		},
-		// A save refused over the fields says the missing location in the same
-		// pass, rather than only once the fields are fixed.
-		onSubmitInvalid: () => {
-			location.requireGeometry();
-		},
-		onSubmit: async ({ value }) => {
-			location.clearError();
-			if (!location.requireGeometry()) {
-				return;
-			}
+		validate: ({ value }: { readonly value: TrapFormValues }) => validateTrap(value, geometry),
+		location,
+		onSubmit: async (value) => {
 			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 		},
 	});
 
 	return (
-		<form.AppForm>
-			<RecordFormPage
-				actions={
-					<>
-						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit} />
-					</>
-				}
-				header={header}
-				aside={
-					<>
-						<MapCanvas onMapReady={location.onMapReady} />
-						<DrawToolbar
-							geometryKind="trap"
-							controller={draw}
-							geometryType={geometryType}
-							pointPrompt="Click the map to place the trap point."
-						/>
-					</>
-				}
-				onSubmit={() => {
-					void form.handleSubmit();
-				}}
+		<RecordFormFrame
+			canSubmit={canSubmit}
+			errorTitle="Unable to Save Trap"
+			form={form}
+			header={header}
+			map={{
+				location,
+				geometryKind: 'trap',
+				pointPrompt: 'Click the map to place the trap point.',
+			}}
+		>
+			<LocationBand
+				geometryKind="trap"
+				label="Point"
+				location={location}
+				organizationId={organizationId}
+				required={requireLocation}
 			>
-				<form.FormErrorAlert title="Unable to Save Trap" />
+				<form.AppField name="addressId">
+					{(field) => (
+						<LocationAddressField
+							errors={field.state.meta.errors}
+							location={location}
+							onChange={field.handleChange}
+							value={field.state.value}
+						/>
+					)}
+				</form.AppField>
+			</LocationBand>
 
-				<LocationBand
-					geometryKind="trap"
-					label="Point"
-					location={location}
-					organizationId={organizationId}
-					required={requireLocation}
-				>
-					<form.AppField name="addressId">
+			<FormSection title="Configuration">
+				<div className="grid gap-5 @md/fields:grid-cols-2">
+					<form.AppField name="collectionMethodId">
 						{(field) => (
-							<LocationAddressField
-								errors={field.state.meta.errors}
-								location={location}
-								onChange={field.handleChange}
-								value={field.state.value}
+							<field.SelectField
+								label="Collection method"
+								required
+								options={methodOptions}
+								placeholder="Select method"
 							/>
 						)}
 					</form.AppField>
-				</LocationBand>
-
-				<FormSection title="Configuration">
-					<div className="grid gap-5 @md/fields:grid-cols-2">
-						<form.AppField name="collectionMethodId">
-							{(field) => (
-								<field.SelectField
-									label="Collection method"
-									required
-									options={methodOptions}
-									placeholder="Select method"
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="collectionLureId">
-							{(field) => (
-								<field.SelectField
-									label="Lure"
-									options={lureOptions(collectionLures)}
-									placeholder="No lure"
-								/>
-							)}
-						</form.AppField>
-					</div>
-				</FormSection>
-
-				<FormSection title="Identity">
-					<div className="grid gap-5 @md/fields:grid-cols-2">
-						<form.AppField name="trapName">
-							{(field) => <field.TextField label="Trap name" placeholder="e.g. North Basin CDC" />}
-						</form.AppField>
-						<form.AppField name="trapCode">
-							{(field) => <field.TextField label="Trap code" placeholder="e.g. NB-01" />}
-						</form.AppField>
-					</div>
-					<form.AppField name="description">
+					<form.AppField name="collectionLureId">
 						{(field) => (
-							<field.TextareaField
-								label="Description"
-								placeholder="Add a description for this trap…"
-								rows={3}
+							<field.SelectField
+								label="Lure"
+								options={lureOptions(collectionLures)}
+								placeholder="No lure"
 							/>
 						)}
 					</form.AppField>
-					<form.AppField name="isActive">
-						{(field) => <field.SwitchField label="Active" />}
+				</div>
+			</FormSection>
+
+			<FormSection title="Identity">
+				<div className="grid gap-5 @md/fields:grid-cols-2">
+					<form.AppField name="trapName">
+						{(field) => <field.TextField label="Trap name" placeholder="e.g. North Basin CDC" />}
 					</form.AppField>
-				</FormSection>
-			</RecordFormPage>
-		</form.AppForm>
+					<form.AppField name="trapCode">
+						{(field) => <field.TextField label="Trap code" placeholder="e.g. NB-01" />}
+					</form.AppField>
+				</div>
+				<form.AppField name="description">
+					{(field) => (
+						<field.TextareaField
+							label="Description"
+							placeholder="Add a description for this trap…"
+							rows={3}
+						/>
+					)}
+				</form.AppField>
+				<form.AppField name="isActive">
+					{(field) => <field.SwitchField label="Active" />}
+				</form.AppField>
+			</FormSection>
+		</RecordFormFrame>
 	);
 }
 
