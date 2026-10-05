@@ -218,6 +218,25 @@ stop's geometry is said on the band's error line, and a refusal takes that
 line while it is up, since the refusal is the one the person has to act on
 first.
 
+#### RecordFormFrame
+
+The 15 record forms each drew the same 20 to 30 lines around their fields:
+the form context, `RecordFormPage`, Reset and Save, the submit handler, the
+error alert, and on the 13 located forms a `MapCanvas` with a `DrawToolbar`.
+They differed only in the toolbar's record kind and prompt, what the canvas
+drew besides the record's own shape, and a legend on three forms (#871).
+
+The form prop is typed as the two members the frame calls, `AppForm` and
+`handleSubmit`, rather than as the kit's whole form type or `any`. Reset,
+Save and the alert read the form from context, so the frame needs nothing
+else. It passes `measure="record"` itself because that is `apps/web`'s
+measure for every column form, and a split form ignores it.
+
+A form whose fields want a shorter line caps them inside the frame, so the
+Contact form's alert now spans the field column rather than its 640px cap.
+A dialog a form opens, the geocoder or the dry-conditions confirmation, sits
+beside the frame, outside the `<form>`, where it sat beside the page before.
+
 #### StopGeometryButton
 
 "Use stop geometry". It reads everything off the `DrawLocation` controller,

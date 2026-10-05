@@ -10,8 +10,6 @@ import {
 	errorMessagesFrom,
 	FormSection,
 	LocationSection,
-	RecordFormPage,
-	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
 import {
 	AlertDialog,
@@ -27,6 +25,7 @@ import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { useId, useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { useRecordForm } from '../../../hooks/forms/use-record-form';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
@@ -39,9 +38,9 @@ import { profileOptions } from '../../../lib/profile-options';
 import { additionalPersonnelOptions } from '../../additional-personnel';
 import { FirstCommentSection } from '../../forms/first-comment-section';
 import { LocationAddressField } from '../../forms/location-band';
-import { MapCanvas } from '../../map';
+import { RecordFormFrame } from '../../forms/record-form-frame';
 import { checkOwnedGeometry } from '../../map/geojson-adapter';
-import { DrawToolbar, GeometryControl } from '../../map/geometry-control';
+import { GeometryControl } from '../../map/geometry-control';
 import {
 	ConditionsField,
 	DryNote,
@@ -180,19 +179,15 @@ export function InspectionFormPage({
 				});
 	}, INSPECTION_FIELD_PATHS);
 
-	const form = useAppForm({
+	const form = useRecordForm({
 		defaultValues,
-		validators: {
-			onSubmit: (input: { readonly value: InspectionFormValues }) =>
-				withConditionsChosen(input.value, validateCommand(input)),
-		},
-		onSubmit: async ({ value }) => {
-			location.clearError();
+		validate: (input: { readonly value: InspectionFormValues }) =>
+			withConditionsChosen(input.value, validateCommand(input)),
+		location,
+		needsShape: (value) => value.locationMode === 'adhoc',
+		onSubmit: async (value) => {
 			// A missing habitat never reaches here: the validator files it on
 			// `habitatId` and the picker draws it.
-			if (value.locationMode === 'adhoc' && !location.requireGeometry()) {
-				return;
-			}
 			await onSave({
 				values: value,
 				adhocGeometry: value.locationMode === 'adhoc' ? adhocGeometry : null,
@@ -221,37 +216,21 @@ export function InspectionFormPage({
 	};
 
 	return (
-		<form.AppForm>
-			<RecordFormPage
-				actions={
-					<>
-						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit} />
-					</>
-				}
+		<>
+			<RecordFormFrame
+				canSubmit={canSubmit}
+				errorTitle="Unable to Save Inspection"
+				form={form}
 				header={header}
-				aside={
-					<>
-						<MapCanvas
-							geoJson={previewGeometry}
-							layers={[
-								{ kind: 'habitats', serverUrl: getServerUrl(), filters: { isActive: true } },
-							]}
-							onMapReady={location.onMapReady}
-						/>
-						<DrawToolbar
-							geometryKind="inspection"
-							controller={draw}
-							geometryType={adhocGeometryType}
-						/>
-					</>
-				}
-				onSubmit={() => {
-					void form.handleSubmit();
+				map={{
+					location,
+					geometryKind: 'inspection',
+					canvas: {
+						geoJson: previewGeometry,
+						layers: [{ kind: 'habitats', serverUrl: getServerUrl(), filters: { isActive: true } }],
+					},
 				}}
 			>
-				<form.FormErrorAlert title="Unable to Save Inspection" />
-
 				<form.AppField name="inspectionDate">
 					{(field) => {
 						const error = errorMessagesFrom(field.state.meta.errors)[0]?.message;
@@ -520,7 +499,7 @@ export function InspectionFormPage({
 				</form.Subscribe>
 
 				<FirstCommentSection form={form} mode={isEditing ? 'edit' : 'create'} />
-			</RecordFormPage>
+			</RecordFormFrame>
 
 			<AlertDialog onOpenChange={setPendingDry} open={pendingDry}>
 				<AlertDialogContent>
@@ -549,7 +528,7 @@ export function InspectionFormPage({
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-		</form.AppForm>
+		</>
 	);
 }
 

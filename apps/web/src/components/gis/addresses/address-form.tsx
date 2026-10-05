@@ -1,9 +1,10 @@
 import { createAddressCommand, isOwnedGeometry } from '@simmer-mosquito/domain';
-import { FormSection, RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import { FormSection } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useState } from 'react';
+import { useRecordForm } from '../../../hooks/forms/use-record-form';
 import type { DrawPoint } from '../../../hooks/map/use-address-point';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
@@ -14,8 +15,7 @@ import {
 } from '../../../lib/domain-validation';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { LocationBand } from '../../forms/location-band';
-import { MapCanvas } from '../../map';
-import { DrawToolbar } from '../../map/geometry-control';
+import { RecordFormFrame } from '../../forms/record-form-frame';
 import {
 	GeocoderDialog,
 	type GeocoderResult,
@@ -137,21 +137,20 @@ export function AddressFormPage({
 		initialGeometry,
 		missingMessage: 'Geocode the address or place a point on the map.',
 	});
-	const { draw, geometry, geometryType } = location;
+	const { draw, geometry } = location;
 
 	const [geocoderResponse, setGeocoderResponse] = useState<unknown | null>(initialGeocoderResponse);
 	const [geocoderResults, setGeocoderResults] = useState<readonly GeocoderResult[]>([]);
 	const [geocoderOpen, setGeocoderOpen] = useState(false);
 	const [isGeocoding, setIsGeocoding] = useState(false);
 
-	const form = useAppForm({
+	const form = useRecordForm({
 		defaultValues,
-		validators: {
-			onSubmit: ({ value }: { readonly value: AddressFormValues }) =>
-				validateAddress(value, geometry, geocoderResponse),
-		},
-		onSubmit: async ({ value }) => {
-			if (!location.requireGeometry() || geometry === null) {
+		validate: ({ value }: { readonly value: AddressFormValues }) =>
+			validateAddress(value, geometry, geocoderResponse),
+		location,
+		onSubmit: async (value) => {
+			if (geometry === null) {
 				return;
 			}
 			if (!isOwnedGeometry('address', geometry)) {
@@ -189,32 +188,18 @@ export function AddressFormPage({
 	};
 
 	return (
-		<form.AppForm>
-			<RecordFormPage
-				actions={
-					<>
-						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit} />
-					</>
-				}
-				aside={
-					<>
-						<MapCanvas onMapReady={location.onMapReady} />
-						<DrawToolbar
-							controller={draw}
-							geometryKind="address"
-							geometryType={geometryType}
-							pointPrompt="Click the map to place the address."
-						/>
-					</>
-				}
+		<>
+			<RecordFormFrame
+				canSubmit={canSubmit}
+				errorTitle="Unable to Save Address"
+				form={form}
 				header={header}
-				onSubmit={() => {
-					void form.handleSubmit();
+				map={{
+					location,
+					geometryKind: 'address',
+					pointPrompt: 'Click the map to place the address.',
 				}}
 			>
-				<form.FormErrorAlert title="Unable to Save Address" />
-
 				<FormSection title="Address">
 					<div className="grid gap-4 @md/fields:grid-cols-2">
 						<form.AppField name="displayName">
@@ -264,7 +249,7 @@ export function AddressFormPage({
 					location={location}
 					title="Address Location"
 				/>
-			</RecordFormPage>
+			</RecordFormFrame>
 
 			<GeocoderDialog
 				onOpenChange={setGeocoderOpen}
@@ -282,7 +267,7 @@ export function AddressFormPage({
 				open={geocoderOpen}
 				results={geocoderResults}
 			/>
-		</form.AppForm>
+		</>
 	);
 }
 

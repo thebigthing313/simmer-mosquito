@@ -1,10 +1,6 @@
 import { recordOutreachActionCommand } from '@simmer-mosquito/domain';
-import {
-	FormSection,
-	type MetadataValue,
-	RecordFormPage,
-	useAppForm,
-} from '@simmer-mosquito/ui-web/components/form';
+import { FormSection, type MetadataValue } from '@simmer-mosquito/ui-web/components/form';
+import { useRecordForm } from '../../../hooks/forms/use-record-form';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { MissionStopGeometry } from '../../../hooks/operations/use-mission-stop-geometry';
@@ -23,8 +19,7 @@ import { DateControl } from '../../date-control';
 import { CustomFieldsSection } from '../../forms/custom-fields-section';
 import { FirstCommentSection } from '../../forms/first-comment-section';
 import { LocationAddressField, LocationBand } from '../../forms/location-band';
-import { MapCanvas } from '../../map';
-import { DrawToolbar } from '../../map/geometry-control';
+import { RecordFormFrame } from '../../forms/record-form-frame';
 
 /** Domain issue path → the form field holding it. */
 const OUTREACH_FIELD_PATHS: Readonly<Record<string, string>> = {
@@ -158,7 +153,7 @@ export function OutreachFormPage({
 		required: requireLocation,
 		missionStop,
 	});
-	const { draw, geometry, geometryType } = location;
+	const { geometry } = location;
 
 	const methodOptions = lifecycleOptions(
 		outreachMethods,
@@ -166,151 +161,125 @@ export function OutreachFormPage({
 		(method) => method.name,
 	);
 
-	const form = useAppForm({
+	const form = useRecordForm({
 		defaultValues,
-		validators: {
-			onSubmit: ({ value }: { readonly value: OutreachFormValues }) =>
-				validateOutreach(value, geometry),
-		},
-		// A save refused over the fields says the missing location in the same
-		// pass, rather than only once the fields are fixed.
-		onSubmitInvalid: () => {
-			location.requireGeometry();
-		},
-		onSubmit: async ({ value }) => {
-			location.clearError();
-			if (!location.requireGeometry()) {
-				return;
-			}
+		validate: ({ value }: { readonly value: OutreachFormValues }) =>
+			validateOutreach(value, geometry),
+		location,
+		onSubmit: async (value) => {
 			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 		},
 	});
 
 	return (
-		<form.AppForm>
-			<RecordFormPage
-				actions={
-					<>
-						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit} />
-					</>
-				}
-				header={header}
-				aside={
-					<>
-						<MapCanvas onMapReady={location.onMapReady} />
-						<DrawToolbar
-							geometryKind="controlAction"
-							controller={draw}
-							geometryType={geometryType}
-						/>
-					</>
-				}
-				onSubmit={() => {
-					void form.handleSubmit();
-				}}
-			>
-				<form.FormErrorAlert title="Unable to Save Outreach Action" />
+		<RecordFormFrame
+			canSubmit={canSubmit}
+			errorTitle="Unable to Save Outreach Action"
+			form={form}
+			header={header}
+			map={{
+				location,
+				geometryKind: 'controlAction',
+			}}
+		>
+			<form.AppField name="outreachDate">
+				{(field) => (
+					<DateControl
+						errors={field.state.meta.errors}
+						label="Outreach date"
+						onChange={(next) => field.handleChange(next)}
+						required
+						value={field.state.value}
+					/>
+				)}
+			</form.AppField>
 
-				<form.AppField name="outreachDate">
+			<FormSection title="Personnel">
+				<form.AppField name="technicianProfileId">
 					{(field) => (
-						<DateControl
+						<field.SelectField
+							label="Technician"
+							options={technicianOptions(profiles)}
+							placeholder="Unassigned"
+						/>
+					)}
+				</form.AppField>
+				<form.Subscribe selector={(state) => state.values.technicianProfileId}>
+					{(technicianProfileId) => (
+						<form.AppField name="additionalPersonnelIds">
+							{(field) => (
+								<field.MultiSelectField
+									emptyMessage="No profiles"
+									label="Additional personnel"
+									options={additionalPersonnelOptions(profiles, field.state.value, {
+										excludeProfileId:
+											technicianProfileId === noTechnicianValue ? null : technicianProfileId,
+									})}
+									placeholder="Search profiles"
+								/>
+							)}
+						</form.AppField>
+					)}
+				</form.Subscribe>
+			</FormSection>
+
+			<LocationBand
+				geometryKind="controlAction"
+				location={location}
+				organizationId={organizationId}
+				required={requireLocation}
+			>
+				<form.AppField name="addressId">
+					{(field) => (
+						<LocationAddressField
 							errors={field.state.meta.errors}
-							label="Outreach date"
-							onChange={(next) => field.handleChange(next)}
-							required
+							location={location}
+							onChange={field.handleChange}
 							value={field.state.value}
 						/>
 					)}
 				</form.AppField>
+			</LocationBand>
 
-				<FormSection title="Personnel">
-					<form.AppField name="technicianProfileId">
+			<FormSection title="Outreach">
+				<form.AppField name="outreachMethodId">
+					{(field) => (
+						<field.SelectField
+							label="Outreach method"
+							options={methodOptions}
+							placeholder="Select method"
+							required
+						/>
+					)}
+				</form.AppField>
+				<div className="grid gap-5 @md/fields:grid-cols-2">
+					<form.AppField name="reach">
 						{(field) => (
-							<field.SelectField
-								label="Technician"
-								options={technicianOptions(profiles)}
-								placeholder="Unassigned"
-							/>
-						)}
-					</form.AppField>
-					<form.Subscribe selector={(state) => state.values.technicianProfileId}>
-						{(technicianProfileId) => (
-							<form.AppField name="additionalPersonnelIds">
-								{(field) => (
-									<field.MultiSelectField
-										emptyMessage="No profiles"
-										label="Additional personnel"
-										options={additionalPersonnelOptions(profiles, field.state.value, {
-											excludeProfileId:
-												technicianProfileId === noTechnicianValue ? null : technicianProfileId,
-										})}
-										placeholder="Search profiles"
-									/>
-								)}
-							</form.AppField>
-						)}
-					</form.Subscribe>
-				</FormSection>
-
-				<LocationBand
-					geometryKind="controlAction"
-					location={location}
-					organizationId={organizationId}
-					required={requireLocation}
-				>
-					<form.AppField name="addressId">
-						{(field) => (
-							<LocationAddressField
-								errors={field.state.meta.errors}
-								location={location}
-								onChange={field.handleChange}
-								value={field.state.value}
-							/>
-						)}
-					</form.AppField>
-				</LocationBand>
-
-				<FormSection title="Outreach">
-					<form.AppField name="outreachMethodId">
-						{(field) => (
-							<field.SelectField
-								label="Outreach method"
-								options={methodOptions}
-								placeholder="Select method"
+							<field.NumberField
+								label="People reached"
+								min={1}
+								placeholder="e.g. 24"
 								required
+								step={1}
 							/>
 						)}
 					</form.AppField>
-					<div className="grid gap-5 @md/fields:grid-cols-2">
-						<form.AppField name="reach">
-							{(field) => (
-								<field.NumberField
-									label="People reached"
-									min={1}
-									placeholder="e.g. 24"
-									required
-									step={1}
-								/>
-							)}
-						</form.AppField>
-					</div>
-					<form.AppField name="reachDescription">
-						{(field) => (
-							<field.TextareaField
-								label="Who was reached"
-								placeholder="e.g. Households on Willow Ct. 12 doors, 3 asked for a follow-up inspection"
-								rows={4}
-							/>
-						)}
-					</form.AppField>
-				</FormSection>
+				</div>
+				<form.AppField name="reachDescription">
+					{(field) => (
+						<field.TextareaField
+							label="Who was reached"
+							placeholder="e.g. Households on Willow Ct. 12 doors, 3 asked for a follow-up inspection"
+							rows={4}
+						/>
+					)}
+				</form.AppField>
+			</FormSection>
 
-				<CustomFieldsSection catalog={outreachMethods} form={form} schemaField="outreachMethodId" />
+			<CustomFieldsSection catalog={outreachMethods} form={form} schemaField="outreachMethodId" />
 
-				<FirstCommentSection form={form} mode={mode} />
-			</RecordFormPage>
-		</form.AppForm>
+			<FirstCommentSection form={form} mode={mode} />
+		</RecordFormFrame>
 	);
 }
 

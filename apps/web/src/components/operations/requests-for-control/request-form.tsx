@@ -1,12 +1,8 @@
 import type { ControlType } from '@simmer-mosquito/domain';
 import { requestControlActionCommand } from '@simmer-mosquito/domain';
-import {
-	FormSection,
-	type RecordFormHeader,
-	RecordFormPage,
-	useAppForm,
-} from '@simmer-mosquito/ui-web/components/form';
+import { FormSection, type RecordFormHeader } from '@simmer-mosquito/ui-web/components/form';
 import { useState } from 'react';
+import { useRecordForm } from '../../../hooks/forms/use-record-form';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import { useMethodsForControlType } from '../../../hooks/operations/use-methods-for-control-type';
@@ -14,8 +10,7 @@ import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../lib/domain-va
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { HabitatPicker } from '../../control-operations/control-pickers';
 import { LocationAddressField, LocationBand } from '../../forms/location-band';
-import { MapCanvas } from '../../map';
-import { DrawToolbar } from '../../map/geometry-control';
+import { RecordFormFrame } from '../../forms/record-form-frame';
 import { ControlTypeToggle } from '../control-type-toggle';
 /**
  * The request-for-control form, shared by raising one and editing one. Where
@@ -108,30 +103,26 @@ export function RequestFormPage({
 		),
 	];
 
-	const form = useAppForm({
+	const form = useRecordForm({
 		defaultValues,
-		validators: {
-			onSubmit: domainValidator(
-				({ value }: { readonly value: RequestFormValues }) =>
-					requestControlActionCommand({
-						...FORM_VALIDATION_CONTEXT,
-						requestedControlActionId: FORM_VALIDATION_CONTEXT.organizationId,
-						controlType: value.controlType,
-						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
-						...readRequestFields(value),
-						addressId: value.addressId,
-						context:
-							value.habitatId === null
-								? { kind: 'none' }
-								: { kind: 'larval', habitatId: value.habitatId },
-					}),
-				REQUEST_FIELD_PATHS,
-			),
-		},
-		onSubmit: async ({ value }) => {
-			if (!location.requireGeometry()) {
-				return;
-			}
+		validate: domainValidator(
+			({ value }: { readonly value: RequestFormValues }) =>
+				requestControlActionCommand({
+					...FORM_VALIDATION_CONTEXT,
+					requestedControlActionId: FORM_VALIDATION_CONTEXT.organizationId,
+					controlType: value.controlType,
+					locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
+					...readRequestFields(value),
+					addressId: value.addressId,
+					context:
+						value.habitatId === null
+							? { kind: 'none' }
+							: { kind: 'larval', habitatId: value.habitatId },
+				}),
+			REQUEST_FIELD_PATHS,
+		),
+		location,
+		onSubmit: async (value) => {
 			await onSave({
 				values: value,
 				geometry,
@@ -141,114 +132,99 @@ export function RequestFormPage({
 	});
 
 	return (
-		<form.AppForm>
-			<RecordFormPage
-				actions={
-					<>
-						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit} />
-					</>
-				}
-				aside={
-					<>
-						<MapCanvas geoJson={location.referenceGeometry} onMapReady={location.onMapReady} />
-						<DrawToolbar
-							geometryKind="requestedControlAction"
-							controller={location.draw}
-							geometryType={location.geometryType}
-						/>
-					</>
-				}
-				header={header}
-				onSubmit={() => {
-					void form.handleSubmit();
-				}}
+		<RecordFormFrame
+			canSubmit={canSubmit}
+			errorTitle={errorTitle}
+			form={form}
+			header={header}
+			map={{
+				location,
+				geometryKind: 'requestedControlAction',
+				canvas: { geoJson: location.referenceGeometry },
+			}}
+		>
+			<LocationBand
+				geometryKind="requestedControlAction"
+				location={location}
+				organizationId={organizationId}
 			>
-				<form.FormErrorAlert title={errorTitle} />
+				<form.AppField name="addressId">
+					{(field) => (
+						<LocationAddressField
+							errors={field.state.meta.errors}
+							location={location}
+							onChange={field.handleChange}
+							value={field.state.value}
+						/>
+					)}
+				</form.AppField>
+			</LocationBand>
 
-				<LocationBand
-					geometryKind="requestedControlAction"
-					location={location}
-					organizationId={organizationId}
-				>
-					<form.AppField name="addressId">
+			<FormSection title="What Is Being Requested">
+				<form.AppField name="controlType">
+					{(field) => (
+						<ControlTypeToggle
+							onChange={(next) => {
+								field.handleChange(next);
+								// The recommended method is polymorphic by control type, so
+								// one chosen for the old type points at the wrong catalog.
+								setControlType(next);
+								form.setFieldValue('recommendedMethodId', NO_METHOD);
+							}}
+							value={field.state.value}
+						/>
+					)}
+				</form.AppField>
+
+				<form.AppField name="recommendedMethodId">
+					{(field) => (
+						<field.SelectField
+							description="Optional. Leave unset to recommend the control type without naming a method."
+							label="Recommended method"
+							options={methodOptions}
+							placeholder="No specific method"
+						/>
+					)}
+				</form.AppField>
+
+				<form.AppField name="summary">
+					{(field) => (
+						<field.TextareaField
+							label="Summary"
+							placeholder="What was seen, and what needs doing"
+							rows={3}
+						/>
+					)}
+				</form.AppField>
+			</FormSection>
+
+			<FormSection title="Context">
+				<div className="grid gap-1.5">
+					<form.AppField name="habitatId">
 						{(field) => (
-							<LocationAddressField
+							<HabitatPicker
 								errors={field.state.meta.errors}
-								location={location}
-								onChange={field.handleChange}
-								value={field.state.value}
-							/>
-						)}
-					</form.AppField>
-				</LocationBand>
-
-				<FormSection title="What Is Being Requested">
-					<form.AppField name="controlType">
-						{(field) => (
-							<ControlTypeToggle
-								onChange={(next) => {
-									field.handleChange(next);
-									// The recommended method is polymorphic by control type, so
-									// one chosen for the old type points at the wrong catalog.
-									setControlType(next);
-									form.setFieldValue('recommendedMethodId', NO_METHOD);
+								label="Habitat"
+								onSelect={(habitat) => {
+									field.handleChange(habitat?.id ?? null);
+									location.selectReference(
+										habitat === null ||
+											typeof habitat.latitude !== 'number' ||
+											typeof habitat.longitude !== 'number'
+											? null
+											: { lat: habitat.latitude, lng: habitat.longitude },
+									);
 								}}
+								organizationId={organizationId}
 								value={field.state.value}
 							/>
 						)}
 					</form.AppField>
-
-					<form.AppField name="recommendedMethodId">
-						{(field) => (
-							<field.SelectField
-								description="Optional. Leave unset to recommend the control type without naming a method."
-								label="Recommended method"
-								options={methodOptions}
-								placeholder="No specific method"
-							/>
-						)}
-					</form.AppField>
-
-					<form.AppField name="summary">
-						{(field) => (
-							<field.TextareaField
-								label="Summary"
-								placeholder="What was seen, and what needs doing"
-								rows={3}
-							/>
-						)}
-					</form.AppField>
-				</FormSection>
-
-				<FormSection title="Context">
-					<div className="grid gap-1.5">
-						<form.AppField name="habitatId">
-							{(field) => (
-								<HabitatPicker
-									errors={field.state.meta.errors}
-									label="Habitat"
-									onSelect={(habitat) => {
-										field.handleChange(habitat?.id ?? null);
-										location.selectReference(
-											habitat === null ||
-												typeof habitat.latitude !== 'number' ||
-												typeof habitat.longitude !== 'number'
-												? null
-												: { lat: habitat.latitude, lng: habitat.longitude },
-										);
-									}}
-									organizationId={organizationId}
-									value={field.state.value}
-								/>
-							)}
-						</form.AppField>
-						<p className="m-0 text-muted-foreground text-xs">
-							Link the request to a known habitat so it shows on that habitat’s history.
-						</p>
-					</div>
-				</FormSection>
-			</RecordFormPage>
-		</form.AppForm>
+					<p className="m-0 text-muted-foreground text-xs">
+						Link the request to a known habitat so it shows on that habitat’s history.
+					</p>
+				</div>
+			</FormSection>
+		</RecordFormFrame>
 	);
 }

@@ -1,6 +1,7 @@
 import { createContactCommand } from '@simmer-mosquito/domain';
-import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import { useRecordForm } from '../../../hooks/forms/use-record-form';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../lib/domain-validation';
+import { RecordFormFrame } from '../../forms/record-form-frame';
 import { CONTACT_FIELD_PATHS, type ContactFormValues } from '../contact-fields';
 import { ContactFieldsBlock } from '../contact-fields-block';
 
@@ -61,39 +62,26 @@ export function ContactFormPage({
 	header,
 	onSave,
 }: ContactFormPageProps) {
-	const form = useAppForm({
+	const form = useRecordForm({
 		defaultValues,
-		validators: {
-			onSubmit: ({ value }: { readonly value: ContactFormValues }) => validateContact(value),
-		},
-		onSubmit: async ({ value }) => {
+		validate: ({ value }: { readonly value: ContactFormValues }) => validateContact(value),
+		onSubmit: async (value) => {
 			await onSave(value);
 		},
 	});
 
 	return (
-		<form.AppForm>
-			<RecordFormPage
-				actions={
-					<>
-						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit} />
-					</>
-				}
-				header={header}
-				measure="record"
-				onSubmit={() => {
-					void form.handleSubmit();
-				}}
-			>
-				{/* A contact is all short single-value fields; a full-width measure would
-				    strand each label a screen away from its input. */}
-				<div className="grid max-w-[640px] gap-6">
-					<form.FormErrorAlert title="Unable to Save Contact" />
-
-					<ContactFieldsBlock form={form} />
-				</div>
-			</RecordFormPage>
-		</form.AppForm>
+		<RecordFormFrame
+			canSubmit={canSubmit}
+			errorTitle="Unable to Save Contact"
+			form={form}
+			header={header}
+		>
+			{/* A contact is all short single-value fields; a full-width measure would
+			    strand each label a screen away from its input. */}
+			<div className="grid max-w-[640px] gap-6">
+				<ContactFieldsBlock form={form} />
+			</div>
+		</RecordFormFrame>
 	);
 }

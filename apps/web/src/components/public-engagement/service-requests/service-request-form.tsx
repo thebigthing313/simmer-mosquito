@@ -1,12 +1,12 @@
 import { REQUEST_INTAKE_TYPES, type RequestIntakeType } from '@simmer-mosquito/domain';
-import { FormSection, RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import { FormSection } from '@simmer-mosquito/ui-web/components/form';
+import { useRecordForm } from '../../../hooks/forms/use-record-form';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { DateControl } from '../../date-control';
-import { MapCanvas } from '../../map';
-import { DrawToolbar } from '../../map/geometry-control';
+import { RecordFormFrame } from '../../forms/record-form-frame';
 import type { AddressOption } from '../../pickers/address-picker';
 import { ContactSection } from './service-request-contact-section';
 import {
@@ -85,114 +85,93 @@ export function ServiceRequestFormPage({
 		selectAddress(address);
 	};
 
-	const form = useAppForm({
+	const form = useRecordForm({
 		defaultValues,
-		validators: {
-			onSubmit: (input: { readonly value: ServiceRequestFormValues }) =>
-				validateServiceRequest(input.value, geometry, { hideLocation, disableNewContact }),
-		},
-		onSubmit: async ({ value }) => {
-			location.clearError();
-			if (!location.requireGeometry()) {
-				return;
-			}
+		validate: (input: { readonly value: ServiceRequestFormValues }) =>
+			validateServiceRequest(input.value, geometry, { hideLocation, disableNewContact }),
+		location,
+		onSubmit: async (value) => {
 			await onSave({ values: value, geometry: hideLocation ? null : geometry });
 		},
 	});
 
 	return (
-		<form.AppForm>
-			<RecordFormPage
-				actions={
-					<>
-						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit} />
-					</>
-				}
-				header={header}
-				aside={
-					<>
-						<MapCanvas onMapReady={location.onMapReady} />
-						<DrawToolbar
-							geometryKind="serviceRequest"
-							controller={draw}
-							geometryType={geometryType}
-							pointPrompt="Click the map to place the request location."
-						/>
-					</>
-				}
-				onSubmit={() => {
-					void form.handleSubmit();
-				}}
-			>
-				<form.FormErrorAlert title="Unable to Save Service Request" />
+		<RecordFormFrame
+			canSubmit={canSubmit}
+			errorTitle="Unable to Save Service Request"
+			form={form}
+			header={header}
+			map={{
+				location,
+				geometryKind: 'serviceRequest',
+				pointPrompt: 'Click the map to place the request location.',
+			}}
+		>
+			<ContactSection disableNewContact={disableNewContact} form={form} />
 
-				<ContactSection disableNewContact={disableNewContact} form={form} />
+			{hideLocation ? null : (
+				<RequestLocation
+					addressCoord={addressCoord}
+					controller={draw}
+					form={form}
+					geometry={geometry}
+					geometryType={geometryType}
+					locationError={location.locationError}
+					onAddressSelected={handleAddressSelected}
+					onClearPoint={location.clear}
+					onDrawPoint={location.startDraw}
+					onMoveToAddress={location.moveToAddress}
+					requestMapPoint={location.requestMapPoint}
+					requireLocation={requireLocation}
+				/>
+			)}
 
-				{hideLocation ? null : (
-					<RequestLocation
-						addressCoord={addressCoord}
-						controller={draw}
-						form={form}
-						geometry={geometry}
-						geometryType={geometryType}
-						locationError={location.locationError}
-						onAddressSelected={handleAddressSelected}
-						onClearPoint={location.clear}
-						onDrawPoint={location.startDraw}
-						onMoveToAddress={location.moveToAddress}
-						requestMapPoint={location.requestMapPoint}
-						requireLocation={requireLocation}
-					/>
-				)}
-
-				<FormSection title="Request">
-					<div className="grid gap-5 @md/fields:grid-cols-2">
-						<form.AppField name="intakeType">
-							{(field) => (
-								<field.SelectField
-									label="Intake type"
-									required
-									options={INTAKE_TYPE_OPTIONS}
-									placeholder="Select intake type"
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="requestDate">
-							{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-							{(field: any) => (
-								<DateControl
-									errors={field.state.meta.errors}
-									label="Request date"
-									required
-									onChange={field.handleChange}
-									value={field.state.value}
-								/>
-							)}
-						</form.AppField>
-					</div>
-					<form.AppField name="receivedByProfileId">
+			<FormSection title="Request">
+				<div className="grid gap-5 @md/fields:grid-cols-2">
+					<form.AppField name="intakeType">
 						{(field) => (
 							<field.SelectField
-								label="Received by"
-								options={profileOptions}
-								placeholder="Select a profile"
-							/>
-						)}
-					</form.AppField>
-					<form.AppField name="details">
-						{(field) => (
-							<field.TextareaField
-								label="Details"
+								label="Intake type"
 								required
-								placeholder="Describe the request…"
-								rows={4}
+								options={INTAKE_TYPE_OPTIONS}
+								placeholder="Select intake type"
 							/>
 						)}
 					</form.AppField>
-				</FormSection>
-			</RecordFormPage>
-		</form.AppForm>
+					<form.AppField name="requestDate">
+						{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
+						{(field: any) => (
+							<DateControl
+								errors={field.state.meta.errors}
+								label="Request date"
+								required
+								onChange={field.handleChange}
+								value={field.state.value}
+							/>
+						)}
+					</form.AppField>
+				</div>
+				<form.AppField name="receivedByProfileId">
+					{(field) => (
+						<field.SelectField
+							label="Received by"
+							options={profileOptions}
+							placeholder="Select a profile"
+						/>
+					)}
+				</form.AppField>
+				<form.AppField name="details">
+					{(field) => (
+						<field.TextareaField
+							label="Details"
+							required
+							placeholder="Describe the request…"
+							rows={4}
+						/>
+					)}
+				</form.AppField>
+			</FormSection>
+		</RecordFormFrame>
 	);
 }
 

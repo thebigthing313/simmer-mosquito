@@ -1,7 +1,7 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
 import { createWeatherStationCommand } from '@simmer-mosquito/domain';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import { useRecordForm } from '../../../hooks/forms/use-record-form';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { WeatherStationFields } from '../../../hooks/mutations/use-weather-station-mutations';
@@ -12,8 +12,7 @@ import {
 } from '../../../lib/domain-validation';
 import { CustomFieldsSection } from '../../forms/custom-fields-section';
 import { LocationBand } from '../../forms/location-band';
-import { MapCanvas } from '../../map';
-import { DrawToolbar } from '../../map/geometry-control';
+import { RecordFormFrame } from '../../forms/record-form-frame';
 
 /**
  * Domain issue path to the form field holding it. Geometry is placed on the
@@ -89,29 +88,28 @@ export function WeatherStationFormPage({
 		initialGeometry,
 		missingMessage: 'Place the station on the map before saving.',
 	});
-	const { draw, geometry, geometryType } = location;
+	const { geometry } = location;
 
-	const form = useAppForm({
+	const form = useRecordForm({
 		defaultValues,
-		validators: {
-			onSubmit: domainValidator(
-				({ value }: { readonly value: WeatherStationFormValues }) =>
-					createWeatherStationCommand({
-						...FORM_VALIDATION_CONTEXT,
-						weatherStationId: FORM_VALIDATION_CONTEXT.organizationId,
-						stationName: value.name,
-						stationCode: value.code,
-						metadata: value.metadata,
-						// The stand-in, not the real `null`: the builder fails a null point with a
-						// GeoJSON message that pre-empts the whole validator. The absence of a point
-						// is this form's to report, against the map.
-						geometry: geometry ?? FORM_VALIDATION_GEOMETRY,
-					}),
-				STATION_FIELD_PATHS,
-			),
-		},
-		onSubmit: async ({ value }) => {
-			if (!location.requireGeometry() || geometry === null) {
+		validate: domainValidator(
+			({ value }: { readonly value: WeatherStationFormValues }) =>
+				createWeatherStationCommand({
+					...FORM_VALIDATION_CONTEXT,
+					weatherStationId: FORM_VALIDATION_CONTEXT.organizationId,
+					stationName: value.name,
+					stationCode: value.code,
+					metadata: value.metadata,
+					// The stand-in, not the real `null`: the builder fails a null point with a
+					// GeoJSON message that pre-empts the whole validator. The absence of a point
+					// is this form's to report, against the map.
+					geometry: geometry ?? FORM_VALIDATION_GEOMETRY,
+				}),
+			STATION_FIELD_PATHS,
+		),
+		location,
+		onSubmit: async (value) => {
+			if (geometry === null) {
 				return;
 			}
 			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
@@ -119,69 +117,52 @@ export function WeatherStationFormPage({
 	});
 
 	return (
-		<form.AppForm>
-			<RecordFormPage
-				actions={
-					<>
-						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit} />
-					</>
-				}
-				header={header}
-				aside={
-					<>
-						<MapCanvas onMapReady={location.onMapReady} />
-						<DrawToolbar
-							geometryKind="weatherStation"
-							controller={draw}
-							geometryType={geometryType}
+		<RecordFormFrame
+			canSubmit={canSubmit}
+			errorTitle="Unable to Save Weather Station"
+			form={form}
+			header={header}
+			map={{
+				location,
+				geometryKind: 'weatherStation',
+				legend: <MapLegend mode={mode} />,
+			}}
+		>
+			<div className="grid gap-5 @md/fields:grid-cols-2">
+				<form.AppField
+					name="name"
+					validators={{
+						onSubmit: ({ value }) => (value.trim().length === 0 ? 'Name is required.' : undefined),
+					}}
+				>
+					{(field) => <field.TextField label="Name" required placeholder="e.g. North gauge" />}
+				</form.AppField>
+				<form.AppField name="code">
+					{(field) => (
+						<field.TextField
+							description="Optional short code, unique across your stations."
+							label="Code"
+							placeholder="e.g. NG-1"
 						/>
-						<MapLegend mode={mode} />
-					</>
-				}
-				onSubmit={() => {
-					void form.handleSubmit();
-				}}
-			>
-				<form.FormErrorAlert title="Unable to Save Weather Station" />
+					)}
+				</form.AppField>
+			</div>
 
-				<div className="grid gap-5 @md/fields:grid-cols-2">
-					<form.AppField
-						name="name"
-						validators={{
-							onSubmit: ({ value }) =>
-								value.trim().length === 0 ? 'Name is required.' : undefined,
-						}}
-					>
-						{(field) => <field.TextField label="Name" required placeholder="e.g. North gauge" />}
-					</form.AppField>
-					<form.AppField name="code">
-						{(field) => (
-							<field.TextField
-								description="Optional short code, unique across your stations."
-								label="Code"
-								placeholder="e.g. NG-1"
-							/>
-						)}
-					</form.AppField>
-				</div>
+			{/*
+			 * Point-only, by the domain's rule, and stated on the map rather than
+			 * typed: a station is a thermometer on a post, and the coordinates it
+			 * stores are the ones somebody placed.
+			 */}
+			<LocationBand
+				description="Place the station where it stands."
+				geometryKind="weatherStation"
+				label="Location"
+				location={location}
+				title="Station Location"
+			/>
 
-				{/*
-				 * Point-only, by the domain's rule, and stated on the map rather than
-				 * typed: a station is a thermometer on a post, and the coordinates it
-				 * stores are the ones somebody placed.
-				 */}
-				<LocationBand
-					description="Place the station where it stands."
-					geometryKind="weatherStation"
-					label="Location"
-					location={location}
-					title="Station Location"
-				/>
-
-				<CustomFieldsSection form={form} framed={false} />
-			</RecordFormPage>
-		</form.AppForm>
+			<CustomFieldsSection form={form} framed={false} />
+		</RecordFormFrame>
 	);
 }
 
