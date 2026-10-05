@@ -136,6 +136,17 @@ export interface Habitat {
 	readonly updatedByProfileId: string | null;
 }
 
+/**
+ * A Habitat as its detail page reads one: every column, and the two Profiles
+ * its audit rows name, joined rather than looked up (#874). Each name is `null`
+ * when nobody was recorded or the Profile is not in the client; the id beside
+ * it says which.
+ */
+export interface AuditedHabitat extends Habitat {
+	readonly createdByName: string | null;
+	readonly updatedByName: string | null;
+}
+
 /** Enough to name a Habitat in a list, a label, or a map cluster. */
 export interface HabitatName {
 	readonly id: string;

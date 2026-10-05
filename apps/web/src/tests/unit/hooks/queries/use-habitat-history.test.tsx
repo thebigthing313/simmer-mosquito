@@ -21,9 +21,20 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useHabitatHistory } from '../../../../hooks/queries/use-habitat-history';
+import { application_methods } from '../../../../lib/collections/application_methods';
+import { applications } from '../../../../lib/collections/applications';
+import { insecticides } from '../../../../lib/collections/insecticides';
+import { inspections } from '../../../../lib/collections/inspections';
+import { profiles } from '../../../../lib/collections/profiles';
 import { requested_control_actions } from '../../../../lib/collections/requested_control_actions';
+import { sample_species } from '../../../../lib/collections/sample_species';
+import { samples } from '../../../../lib/collections/samples';
+import { source_reduction_methods } from '../../../../lib/collections/source_reduction_methods';
 import { source_reductions } from '../../../../lib/collections/source_reductions';
+import { species } from '../../../../lib/collections/species';
+import { units } from '../../../../lib/collections/units';
 import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
+import { inspection } from './larval-rows';
 import { plain, renderRead } from './read-harness';
 
 const HABITAT = '11111111-1111-4111-8111-111111111111';
@@ -90,6 +101,7 @@ describe('useHabitatHistory requests', () => {
 				id: 'r1',
 				requestedAt: new Date('2026-08-01T10:00:00.000Z'),
 				requestedByProfileId: PROFILE,
+				requestedByName: null,
 				controlType: 'application',
 				summary: 'Standing water behind the depot',
 				resolvedAt: null,
@@ -152,9 +164,12 @@ describe('useHabitatHistory source reductions', () => {
 				id: 's1',
 				sourceReductionDate: '2026-08-01',
 				technicianProfileId: PROFILE,
+				technicianName: null,
 				sourceReductionMethodId: METHOD,
+				sourceReductionMethodName: null,
 				sourcesEliminatedAmount: 4,
 				sourcesEliminatedUnitId: UNIT,
+				unitAbbreviation: null,
 			},
 		]);
 	});
@@ -207,5 +222,119 @@ describe('useHabitatHistory source reductions', () => {
 		expect(result.current.sourceReductions).toEqual([]);
 		expect(result.current.isReady).toBe(true);
 		expect(result.current.isSourceReductionsError).toBe(false);
+	});
+});
+
+/**
+ * The names the History tabs draw. Each tab used to resolve them one cell at a
+ * time, a roster read behind a `<Suspense>` per name (#874). The hook joins
+ * them now, `left` throughout, so a name the client does not hold is `null` and
+ * its row stays, and a link nobody filled in stays `null` beside its id, which
+ * is how a tab tells "unassigned" from "unknown".
+ */
+describe('useHabitatHistory joined names', () => {
+	const INSECTICIDE = '66666666-6666-4666-8666-666666666666';
+	const APPLICATION_METHOD = '77777777-7777-4777-8777-777777777777';
+	const SPECIES = '88888888-8888-4888-8888-888888888888';
+
+	beforeEach(() => {
+		seedRows(profiles, [{ id: PROFILE, display_name: 'Rosa Lam' }]);
+		seedRows(units, [{ id: UNIT, abbreviation: 'gal' }]);
+		seedRows(insecticides, [{ id: INSECTICIDE, trade_name: 'VectoBac 12AS' }]);
+		seedRows(application_methods, [{ id: APPLICATION_METHOD, name: 'Backpack sprayer' }]);
+		seedRows(source_reduction_methods, [{ id: METHOD, name: 'Tire removal' }]);
+		seedRows(species, [{ id: SPECIES, display_name: 'Culex pipiens' }]);
+	});
+
+	it('names the inspector and each species counted', async () => {
+		seedRows(inspections, [
+			inspection('i1', { habitat_id: HABITAT, inspected_by_profile_id: PROFILE }),
+		]);
+		seedRows(samples, [
+			{
+				id: 's1',
+				inspection_id: 'i1',
+				display_name: null,
+				is_zero_larvae: false,
+				has_non_mosquito: false,
+				unidentifiable_reason: null,
+			},
+		]);
+		seedRows(sample_species, [{ id: 'c1', sample_id: 's1', species_id: SPECIES, larvae_count: 5 }]);
+
+		const { result } = await renderRead(() => useHabitatHistory(HABITAT));
+
+		expect(result.current.inspections.map((row) => row.inspectedByName)).toEqual(['Rosa Lam']);
+		expect(result.current.samples[0]?.species.map((row) => row.speciesName)).toEqual([
+			'Culex pipiens',
+		]);
+	});
+
+	it('names the applicator, the insecticide, the method and the unit', async () => {
+		seedRows(applications, [
+			{
+				id: 'a1',
+				habitat_id: HABITAT,
+				application_date: '2026-08-12',
+				applicator_profile_id: PROFILE,
+				insecticide_id: INSECTICIDE,
+				application_method_id: APPLICATION_METHOD,
+				amount_applied: 2,
+				application_unit_id: UNIT,
+			},
+			{
+				id: 'a2',
+				habitat_id: HABITAT,
+				application_date: '2026-08-11',
+				applicator_profile_id: null,
+				insecticide_id: '99999999-9999-4999-8999-999999999999',
+				application_method_id: null,
+				amount_applied: 1,
+				application_unit_id: UNIT,
+			},
+		]);
+
+		const { result } = await renderRead(() => useHabitatHistory(HABITAT));
+
+		expect(result.current.applications).toEqual([
+			expect.objectContaining({
+				id: 'a1',
+				applicatorName: 'Rosa Lam',
+				insecticideName: 'VectoBac 12AS',
+				applicationMethodId: APPLICATION_METHOD,
+				applicationMethodName: 'Backpack sprayer',
+				unitAbbreviation: 'gal',
+			}),
+			expect.objectContaining({
+				id: 'a2',
+				applicatorProfileId: null,
+				applicatorName: null,
+				insecticideName: null,
+				applicationMethodId: null,
+				applicationMethodName: null,
+			}),
+		]);
+	});
+
+	it('names the technician, the method and the unit of a source reduction', async () => {
+		seedRows(source_reductions, [sourceReduction('s1', '2026-08-01')]);
+
+		const { result } = await renderRead(() => useHabitatHistory(HABITAT));
+
+		expect(result.current.sourceReductions).toEqual([
+			expect.objectContaining({
+				technicianName: 'Rosa Lam',
+				sourceReductionMethodName: 'Tire removal',
+				unitAbbreviation: 'gal',
+			}),
+		]);
+	});
+
+	it('names who asked for a request', async () => {
+		seedRows(requested_control_actions, [request('r1', '2026-08-01T10:00:00.000Z')]);
+
+		const { result } = await renderRead(() => useHabitatHistory(HABITAT));
+
+		expect(result.current.requests.map((row) => row.requestedByName)).toEqual(['Rosa Lam']);
 	});
 });

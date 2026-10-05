@@ -362,7 +362,9 @@ unchanged.
 - the fifty-three collection declarations in `src/lib/collections`, one per
   table, each naming its own `syncMode`;
 - the read seam in `src/hooks/queries`, one hook per surface, joining
-  collections and returning camelCase;
+  collections and returning camelCase. A hook returns the display names a row
+  is drawn with, joined from their catalog, and a page or component does not
+  look a name up by id (#874);
 - the explicit eager baseline preload bundle and route live-query preloads;
 - the transport, installed in `src/app-auth.ts`. `apps/web` and `apps/admin`
   install the cookie fetcher from `@simmer-mosquito/auth/browser`; a token
