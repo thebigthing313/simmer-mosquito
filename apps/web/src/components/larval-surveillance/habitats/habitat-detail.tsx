@@ -18,10 +18,9 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { Suspense } from 'react';
-import { useHabitatTypeName } from '../../../hooks/larval-surveillance/use-habitat-type-name';
 import { useHabitatTypeSchema } from '../../../hooks/larval-surveillance/use-habitat-type-schema';
 import { useHabitatMutations } from '../../../hooks/mutations/use-habitat-mutations';
-import type { Habitat } from '../../../hooks/queries/habitat-view';
+import type { AuditedHabitat, Habitat } from '../../../hooks/queries/habitat-view';
 import { useHabitatSuspense } from '../../../hooks/queries/use-habitat-suspense';
 import { useRecordRoutes } from '../../../hooks/queries/use-record-routes';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
@@ -48,7 +47,7 @@ import {
 } from '../../record';
 import type { HabitatGeometry } from './habitat-geometry-cache';
 import { HabitatHistoryCard, HistorySkeleton } from './habitat-history-card';
-import { formatDateTime, ProfileName } from './habitat-history-values';
+import { formatDateTime } from './habitat-history-values';
 import { HabitatInspectionStats } from './habitat-inspection-stats';
 
 interface HabitatDetailProps {
@@ -113,7 +112,7 @@ function HabitatDetailContent({
 	habitat,
 	askDelete,
 }: {
-	readonly habitat: Habitat;
+	readonly habitat: AuditedHabitat;
 	readonly askDelete: AskAcknowledged;
 }) {
 	// Surface the habitat's name in the breadcrumb trail in place of its uuid.
@@ -167,11 +166,9 @@ function HabitatDetailContent({
 					recordId: habitat.id,
 					returnTo: '/larval-surveillance/habitats',
 				},
-				subtitle: (
-					<Suspense fallback={<span>Loading type…</span>}>
-						<HabitatTypeSubtitle habitatTypeId={habitat.typeId} />
-					</Suspense>
-				),
+				// The subtitle says an unassigned type in words, where the Details row
+				// draws the absent mark.
+				subtitle: <span>{habitatTypeLabel(habitat) ?? 'Unassigned type'}</span>,
 				tags: { recordId: habitat.id, recordType: 'habitat' },
 				title: habitat.name,
 			}}
@@ -190,18 +187,15 @@ function HabitatDetailContent({
 }
 
 /**
- * The habitat's type in a fact row, or `null` when it has none so the
- * `DetailRow` draws the absent mark. The subtitle needs words instead; see
- * {@link HabitatTypeSubtitle}.
+ * The habitat's type, joined onto the record: `null` when it has none, so a
+ * `DetailRow` draws the absent mark, and "Unknown type" when it names an entry
+ * the client does not hold.
  */
-function HabitatTypeLabel({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
-	const typeName = useHabitatTypeName(habitatTypeId);
-	return typeName === null ? null : <span>{typeName}</span>;
-}
-
-/** The same name, in the header, where an unassigned type is said in words. */
-function HabitatTypeSubtitle({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
-	return <span>{useHabitatTypeName(habitatTypeId) ?? 'Unassigned type'}</span>;
+function habitatTypeLabel(habitat: Habitat): string | null {
+	if (habitat.typeId === null) {
+		return null;
+	}
+	return habitat.typeName ?? 'Unknown type';
 }
 
 function HabitatStateBadges({ habitat }: { readonly habitat: Habitat }) {
@@ -247,7 +241,7 @@ function HabitatLocationCard({
 	);
 }
 
-function HabitatDetailsCard({ habitat }: { readonly habitat: Habitat }) {
+function HabitatDetailsCard({ habitat }: { readonly habitat: AuditedHabitat }) {
 	return (
 		<Card variant="surface">
 			<CardHeader padding="compact">
@@ -259,11 +253,7 @@ function HabitatDetailsCard({ habitat }: { readonly habitat: Habitat }) {
 					<p className="m-0 max-w-[70ch] text-sm text-foreground">{habitatDescription(habitat)}</p>
 				</div>
 				<DetailList>
-					<DetailRow label="Habitat type">
-						<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
-							<HabitatTypeLabel habitatTypeId={habitat.typeId} />
-						</Suspense>
-					</DetailRow>
+					<DetailRow label="Habitat type">{habitatTypeLabel(habitat)}</DetailRow>
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={habitat.addressId} />
 					</DetailRow>
@@ -273,10 +263,18 @@ function HabitatDetailsCard({ habitat }: { readonly habitat: Habitat }) {
 						</Suspense>
 					</DetailRow>
 					<DetailRow label="Created">
-						<AuditValue at={habitat.createdAt} profileId={habitat.createdByProfileId} />
+						<AuditValue
+							at={habitat.createdAt}
+							name={habitat.createdByName}
+							profileId={habitat.createdByProfileId}
+						/>
 					</DetailRow>
 					<DetailRow label="Updated">
-						<AuditValue at={habitat.updatedAt} profileId={habitat.updatedByProfileId} />
+						<AuditValue
+							at={habitat.updatedAt}
+							name={habitat.updatedByName}
+							profileId={habitat.updatedByProfileId}
+						/>
 					</DetailRow>
 				</DetailList>
 				<Suspense fallback={null}>
@@ -317,25 +315,21 @@ function HabitatMetadata({
 	);
 }
 
+/** A stamp, and who made it when somebody was recorded. */
 function AuditValue({
 	at,
+	name,
 	profileId,
 }: {
 	readonly at: string | Date;
+	readonly name: string | null;
 	readonly profileId: string | null;
 }) {
 	const timeZone = useOrganizationTimeZone();
 	return (
 		<span>
 			{formatDateTime(at, timeZone)}
-			{profileId === null ? null : (
-				<>
-					{' by '}
-					<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-						<ProfileName profileId={profileId} />
-					</Suspense>
-				</>
-			)}
+			{profileId === null ? null : ` by ${name ?? 'Unknown'}`}
 		</span>
 	);
 }

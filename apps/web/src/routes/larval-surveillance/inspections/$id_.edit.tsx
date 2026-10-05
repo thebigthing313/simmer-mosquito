@@ -1,10 +1,7 @@
 import type { ResolvedLarvalInspectionEntryPolicy } from '@simmer-mosquito/domain';
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import { sessionFetch } from '@simmer-mosquito/sync';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { getServerUrl } from '../../../auth';
 import {
 	type DrawGeometry,
 	InspectionFormPage,
@@ -16,7 +13,6 @@ import {
 	noHabitatTypeValue,
 	unsetDensityValue,
 } from '../../../components/larval-surveillance/inspections/inspection-form-values';
-import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { toDrawGeometry } from '../../../hooks/map/use-map-draw';
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
@@ -36,6 +32,7 @@ import {
 } from '../../../hooks/queries/use-inspection-record';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { INSPECTION_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { samples } from '../../../lib/collections/samples';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -125,23 +122,22 @@ function EditInspectionLoader({
 	readonly personnelProfileIds: readonly string[];
 }) {
 	const navigate = useNavigate();
-	const queryClient = useQueryClient();
 	const { setPersonnel } = useAdditionalPersonnelMutations();
 	const isAdhoc = inspection.habitatId === null;
 	const inspectionMutations = useInspectionMutations();
 	const sampleMutations = useSampleMutations();
 
 	// Geometry is not part of the Electric shape (ADR 0009), so it comes from the
-	// display endpoint. Keyed on updatedAt so reopening after a save loads the
-	// current shape, and holding the previous value across that key change so the
-	// form is not unmounted mid-save — which would take any error with it.
-	const geometryQuery = useQuery({
-		queryKey: ['inspection-geometry', inspection.id, inspection.updatedAt.toISOString()],
-		queryFn: ({ signal }) => fetchInspectionGeometry(inspection.id, signal),
-		placeholderData: (previous) => previous,
-		staleTime: Number.POSITIVE_INFINITY,
-	});
-	const geojson = geometryQuery.data ?? null;
+	// display endpoint, keyed on updatedAt so reopening after a save loads the
+	// current shape. `useOwnedGeometry` holds the previous value across that key
+	// change, so the form is not unmounted mid-save, which would take any error
+	// with it.
+	const geometryQuery = useOwnedGeometry(
+		INSPECTION_GEOMETRY_SOURCE,
+		inspection.id,
+		inspection.updatedAt.toISOString(),
+	);
+	const geojson = geometryQuery.geojson;
 	const initialAdhocGeometry = isAdhoc ? toDrawGeometry(geojson) : null;
 
 	const onSave = async ({
@@ -225,9 +221,6 @@ function EditInspectionLoader({
 			});
 		}
 
-		// The detail page reads the inspection over HTTP, so its cached copy would
-		// still hold the pre-edit values on arrival.
-		await queryClient.invalidateQueries({ queryKey: ['inspection-detail', inspection.id] });
 		await navigate({ to: '/larval-surveillance/inspections/$id', params: { id: inspection.id } });
 	};
 
@@ -294,25 +287,4 @@ function defaultsFromInspection(
 			hasPupae: inspection.hasPupae,
 		},
 	};
-}
-
-/** Samples added on this pass. Existing ones are managed from the record. */
-
-async function fetchInspectionGeometry(
-	inspectionId: string,
-	signal: AbortSignal,
-): Promise<GeoJsonGeometry | null> {
-	const url = new URL(`/map/inspections/${inspectionId}`, getServerUrl());
-	const response = await sessionFetch(url, { signal });
-	if (response.status === 404) {
-		return null;
-	}
-	if (!response.ok) {
-		throw new Error(`Inspection geometry request failed with ${response.status}`);
-	}
-
-	const body = (await response.json()) as {
-		readonly inspection?: { readonly geojson?: unknown };
-	};
-	return checkOwnedGeometry('inspection', body.inspection?.geojson).geometry;
 }

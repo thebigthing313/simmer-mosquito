@@ -1,5 +1,4 @@
 import type { ControlType } from '@simmer-mosquito/domain';
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
@@ -13,7 +12,6 @@ import {
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { Suspense } from 'react';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -33,26 +31,24 @@ import {
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import {
-	type InspectionDetailRow,
-	useInspectionDetail,
-} from '../../../hooks/larval-surveillance/use-inspection-detail';
-import { useSpeciesName } from '../../../hooks/larval-surveillance/use-species-name';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
-import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-biocontrol-method-roster';
-import { useHabitatTypeRoster } from '../../../hooks/queries/use-habitat-type-roster';
-import { useInsecticideRecords } from '../../../hooks/queries/use-insecticide-records';
-import { useInspectionSamples } from '../../../hooks/queries/use-inspection-samples';
+import {
+	type InspectionCard,
+	inspectionTypeLabel,
+} from '../../../hooks/queries/larval-activity-view';
+import { useInspection } from '../../../hooks/queries/use-inspection';
+import {
+	type InspectionSample,
+	type InspectionSampleSpecies,
+	useInspectionSamples,
+} from '../../../hooks/queries/use-inspection-samples';
 import {
 	type LinkedControlAction,
 	useLinkedControlActions,
 } from '../../../hooks/queries/use-linked-control-actions';
-import { useOutreachMethodRoster } from '../../../hooks/queries/use-outreach-method-roster';
-import { useProfileNames } from '../../../hooks/queries/use-profile-names';
-import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-source-reduction-method-roster';
-import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { INSPECTION_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { INSPECTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { adhocLabel, habitatLabel } from '../../../lib/coordinate-label';
 import { formatAmount } from '../../../lib/format-count';
@@ -75,14 +71,14 @@ const layout: RecordDetailLayout = {
 
 function RouteComponent() {
 	const { id } = Route.useParams();
-	const query = useInspectionDetail(id);
+	const { inspection, isReady, isError } = useInspection(id);
 
 	return (
 		<RecordDetailPage
 			deleteRefusals={INSPECTION_DELETE_REFUSALS}
 			layout={layout}
 			recordType="inspection"
-			reading={{ isError: query.isError, isReady: !query.isPending, record: query.data }}
+			reading={{ isError, isReady, record: inspection }}
 		>
 			{(record, askDelete) => <InspectionDetailContent askDelete={askDelete} inspection={record} />}
 		</RecordDetailPage>
@@ -95,27 +91,11 @@ const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 const HabitatIcon = iconRegistry.entities.habitat.icon;
 const ControlIcon = iconRegistry.domains.controlOperations.icon;
 
-// Projected shapes of the nested includes query (sample -> species).
-interface SampleSpeciesEntry {
-	readonly id: string;
-	readonly speciesId: string;
-	readonly larvaeCount: number;
-}
-
-interface SampleEntry {
-	readonly id: string;
-	readonly displayName: string | null;
-	readonly isZeroLarvae: boolean;
-	readonly hasNonMosquito: boolean;
-	readonly unidentifiableReason: string | null;
-	readonly species: readonly SampleSpeciesEntry[];
-}
-
 function InspectionDetailContent({
 	inspection,
 	askDelete,
 }: {
-	readonly inspection: InspectionDetailRow;
+	readonly inspection: InspectionCard;
 	readonly askDelete: AskAcknowledged;
 }) {
 	// Surface the inspection date in the breadcrumb trail in place of its uuid.
@@ -164,7 +144,7 @@ function InspectionDetailContent({
 			layout={layout}
 			lead={
 				<div className="grid content-start gap-3">
-					<InspectionLocationCard geometry={inspection.geojson} geomType={inspection.geomType} />
+					<InspectionLocationCard inspection={inspection} />
 					<RecordRegionsBand recordId={inspection.id} recordType="inspections" />
 				</div>
 			}
@@ -175,7 +155,8 @@ function InspectionDetailContent({
 	);
 }
 
-function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDetailRow }) {
+function InspectionSubtitle({ inspection }: { readonly inspection: InspectionCard }) {
+	const addressName = addressDisplayName(inspection);
 	if (inspection.habitatId === null) {
 		return (
 			<p className="m-0 text-small text-muted-foreground">
@@ -186,9 +167,9 @@ function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDet
 				 * (#1231).
 				 */}
 				<span className="tabular-nums">
-					{adhocLabel(inspection.lat, inspection.lng, 'One-off inspection')}
+					{adhocLabel(inspection.latitude, inspection.longitude, 'One-off inspection')}
 				</span>
-				{inspection.addressDisplayName === null ? null : ` · ${inspection.addressDisplayName}`}
+				{addressName === null ? null : ` · ${addressName}`}
 			</p>
 		);
 	}
@@ -201,21 +182,18 @@ function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDet
 				params={{ id: inspection.habitatId }}
 				to="/larval-surveillance/habitats/$id"
 			>
-				{habitatLabel(inspection, {
-					addressName: inspection.addressDisplayName,
-					fallback: 'One-off inspection',
-				})}
+				{habitatTitle(inspection)}
 			</Link>
 			<span aria-hidden="true">·</span>
-			<Suspense fallback={<span>Loading type…</span>}>
-				<HabitatTypeSubtitle habitatTypeId={inspection.habitatTypeId} />
-			</Suspense>
+			{/* The subtitle says an unassigned type in words, where a lone dash after
+			    the habitat's name would read as a glyph nobody placed. */}
+			<span>{inspectionTypeLabel(inspection) ?? 'Unassigned type'}</span>
 		</p>
 	);
 }
 
 /** A single "larvae found / none found" pill, meaningful only for wet inspections. */
-function PositivityBadge({ inspection }: { readonly inspection: InspectionDetailRow }) {
+function PositivityBadge({ inspection }: { readonly inspection: InspectionCard }) {
 	if (!inspection.isWet) {
 		return null;
 	}
@@ -230,18 +208,20 @@ function PositivityBadge({ inspection }: { readonly inspection: InspectionDetail
 	);
 }
 
-function InspectionLocationCard({
-	geometry,
-	geomType,
-}: {
-	readonly geometry: GeoJsonGeometry | null;
-	readonly geomType: string | null;
-}) {
+function InspectionLocationCard({ inspection }: { readonly inspection: InspectionCard }) {
+	const geometry = useOwnedGeometry(
+		INSPECTION_GEOMETRY_SOURCE,
+		inspection.id,
+		inspection.updatedAt.toISOString(),
+	);
 	return (
 		<RecordLocationCard
 			emptyDescription="This inspection has no location to display."
-			geojson={geometry}
-			geomType={geomType}
+			geojson={geometry.geojson}
+			geomType={geometry.geomType ?? inspection.geometryKind}
+			isError={geometry.isError}
+			isPending={geometry.isPending}
+			unsupportedShape={geometry.unsupportedShape}
 		/>
 	);
 }
@@ -260,7 +240,7 @@ function InspectionLocationCard({
  * of the page, so those moved into the Details card as ordinary rows. See
  * {@link FindingsList}.
  */
-function FindingsFlags({ inspection }: { readonly inspection: InspectionDetailRow }) {
+function FindingsFlags({ inspection }: { readonly inspection: InspectionCard }) {
 	// A dry inspection is one badge and nothing else. There was no dipping to
 	// have done, so there is no positivity to report either.
 	if (!inspection.isWet) {
@@ -295,7 +275,7 @@ const findingsRow = 'mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-2';
  * A dry inspection renders nothing. Its Dry badge is in the header, and there
  * is no density to band, no stages to strip and no dipping to divide by.
  */
-function FindingsList({ inspection }: { readonly inspection: InspectionDetailRow }) {
+function FindingsList({ inspection }: { readonly inspection: InspectionCard }) {
 	if (!inspection.isWet) {
 		return null;
 	}
@@ -352,7 +332,7 @@ function formatRate(rate: number): string {
  * same reader scanning one column of labels. A dry inspection has no findings
  * group, so it takes no rule either.
  */
-function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow }) {
+function ContextCard({ inspection }: { readonly inspection: InspectionCard }) {
 	const timeZone = useOrganizationTimeZone();
 	return (
 		<Card variant="surface">
@@ -377,25 +357,30 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 								to="/larval-surveillance/habitats/$id"
 							>
 								<HabitatIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-								{habitatLabel(inspection, {
-									addressName: inspection.addressDisplayName,
-									fallback: 'One-off inspection',
-								})}
+								{habitatTitle(inspection)}
 							</Link>
 						)}
 					</DetailRow>
-					<DetailRow label="Habitat type">
-						<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
-							<HabitatTypeName habitatTypeId={inspection.habitatTypeId} />
-						</Suspense>
-					</DetailRow>
+					{/* No type draws the absent mark, the way the Address row beside it
+					    does; the subtitle is where an unassigned type is spelled out. */}
+					<DetailRow label="Habitat type">{inspectionTypeLabel(inspection)}</DetailRow>
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={inspection.addressId} />
 					</DetailRow>
-					<DetailRow label="Inspector">{inspection.inspectedByName}</DetailRow>
+					{/* A recorded inspector whose Profile the client does not hold reads
+					    as unknown rather than as the absent mark nobody-recorded draws. */}
+					<DetailRow label="Inspector">
+						{inspection.inspectedByProfileId === null
+							? null
+							: (inspection.inspectedByName ?? 'Unknown')}
+					</DetailRow>
 					<DetailRow label="Inspected">{formatFullDate(inspection.inspectionDate)}</DetailRow>
-					<DetailRow label="Recorded">{formatDateTime(inspection.createdAt, timeZone)}</DetailRow>
-					<DetailRow label="Updated">{formatDateTime(inspection.updatedAt, timeZone)}</DetailRow>
+					<DetailRow label="Recorded">
+						{formatDateTime(inspection.createdAt.toISOString(), timeZone)}
+					</DetailRow>
+					<DetailRow label="Updated">
+						{formatDateTime(inspection.updatedAt.toISOString(), timeZone)}
+					</DetailRow>
 				</DetailList>
 				<AdditionalPersonnelList target={{ type: 'inspection', id: inspection.id }} />
 			</CardContent>
@@ -451,7 +436,7 @@ function InspectionSamplesCard({
 	);
 }
 
-function SampleItem({ sample }: { readonly sample: SampleEntry }) {
+function SampleItem({ sample }: { readonly sample: InspectionSample }) {
 	const result = sampleResult(sample);
 	return (
 		<li className="grid gap-2 rounded-md border border-border/40 bg-background/60 px-3 py-2.5">
@@ -470,15 +455,11 @@ function SampleItem({ sample }: { readonly sample: SampleEntry }) {
 			{sample.species.length === 0 ? (
 				<span className="text-muted-foreground text-xs">No species identified</span>
 			) : (
-				<Suspense
-					fallback={<span className="text-muted-foreground text-xs">Loading species…</span>}
-				>
-					<div className="flex flex-wrap gap-1.5">
-						{sample.species.map((entry) => (
-							<SpeciesChip entry={entry} key={entry.id} />
-						))}
-					</div>
-				</Suspense>
+				<div className="flex flex-wrap gap-1.5">
+					{sample.species.map((entry) => (
+						<SpeciesChip entry={entry} key={entry.id} />
+					))}
+				</div>
 			)}
 			{sample.unidentifiableReason !== null && sample.unidentifiableReason.trim().length > 0 ? (
 				<p className="m-0 text-muted-foreground text-xs">{sample.unidentifiableReason}</p>
@@ -487,12 +468,11 @@ function SampleItem({ sample }: { readonly sample: SampleEntry }) {
 	);
 }
 
-function SpeciesChip({ entry }: { readonly entry: SampleSpeciesEntry }) {
-	const name = useSpeciesName(entry.speciesId);
+function SpeciesChip({ entry }: { readonly entry: InspectionSampleSpecies }) {
 	return (
 		<Badge tone="neutral" variant="outline">
 			<SpeciesIcon aria-hidden="true" className="size-3 text-muted-foreground" />
-			{name}
+			{entry.speciesName ?? 'Unknown species'}
 			<span className="tabular-nums">{entry.larvaeCount}</span>
 		</Badge>
 	);
@@ -574,9 +554,7 @@ function LinkedActionRow({ action }: { readonly action: LinkedControlAction }) {
 				<LinkedActionSummary action={action} />
 			</p>
 			<p className="m-0 text-muted-foreground text-xs">
-				<Suspense fallback={<span>…</span>}>
-					<LinkedActionActor action={action} />
-				</Suspense>
+				<LinkedActionActor action={action} />
 			</p>
 		</li>
 	);
@@ -586,51 +564,58 @@ function LinkedActionSummary({ action }: { readonly action: LinkedControlAction 
 	switch (action.kind) {
 		case 'application':
 			return (
-				<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
-					Treated with <InsecticideName id={action.insecticideId} /> ·{' '}
-					<UnitAmount amount={action.amount} unitId={action.unitId} />
-				</Suspense>
+				<>
+					Treated with {action.insecticideName ?? 'Unknown insecticide'} ·{' '}
+					<UnitAmount amount={action.amount} abbreviation={action.unitAbbreviation} />
+				</>
 			);
 		case 'sourceReduction':
 			return (
-				<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
-					<SourceReductionMethodName id={action.methodId} /> ·{' '}
-					<UnitAmount amount={action.amount} unitId={action.unitId} /> eliminated
-				</Suspense>
+				<>
+					{action.methodName ?? unknownMethod} ·{' '}
+					<UnitAmount amount={action.amount} abbreviation={action.unitAbbreviation} /> eliminated
+				</>
 			);
 		case 'outreachAction':
 			return (
-				<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
-					<OutreachMethodName id={action.methodId} /> · {action.reach.toLocaleString('en-US')}{' '}
-					reached
-				</Suspense>
+				<>
+					{action.methodName ?? unknownMethod} · {action.reach.toLocaleString('en-US')} reached
+				</>
 			);
 		case 'biocontrolAction':
 			return (
-				<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
-					<BiocontrolMethodName id={action.methodId} /> ·{' '}
-					<UnitAmount amount={action.amount} unitId={action.unitId} /> released
-				</Suspense>
-			);
-		default:
-			return (
 				<>
-					{controlTypeLabel(action.controlType)} requested
-					{action.summary === null || action.summary.trim().length === 0
-						? ''
-						: ` · ${action.summary}`}
-					{' · '}
-					<span
-						className={
-							action.resolvedAt === null ? 'font-medium text-foreground' : 'text-muted-foreground'
-						}
-					>
-						{action.resolvedAt === null ? 'Open' : 'Resolved'}
-					</span>
+					{action.methodName ?? unknownMethod} ·{' '}
+					<UnitAmount amount={action.amount} abbreviation={action.unitAbbreviation} /> released
 				</>
 			);
+		default:
+			return <RequestedActionSummary action={action} />;
 	}
 }
+
+function RequestedActionSummary({
+	action,
+}: {
+	readonly action: Extract<LinkedControlAction, { readonly kind: 'requestedControlAction' }>;
+}) {
+	return (
+		<>
+			{controlTypeLabel(action.controlType)} requested
+			{action.summary === null || action.summary.trim().length === 0 ? '' : ` · ${action.summary}`}
+			{' · '}
+			<span
+				className={
+					action.resolvedAt === null ? 'font-medium text-foreground' : 'text-muted-foreground'
+				}
+			>
+				{action.resolvedAt === null ? 'Open' : 'Resolved'}
+			</span>
+		</>
+	);
+}
+
+const unknownMethod = 'Unknown method';
 
 function LinkedActionActor({ action }: { readonly action: LinkedControlAction }) {
 	const label =
@@ -648,74 +633,43 @@ function LinkedActionActor({ action }: { readonly action: LinkedControlAction })
 	}
 	return (
 		<>
-			{label}: <ProfileName profileId={action.actorProfileId} />
+			{label}: {action.actorName ?? 'Unknown'}
 		</>
 	);
 }
 
-// insecticides, control methods, units, and profiles are eager baseline
-// collections, so suspense is safe — unlike the on-demand action rows they label.
-function InsecticideName({ id }: { readonly id: string }) {
-	const match = useInsecticideRecords().find((product) => product.id === id);
-	return <>{match?.tradeName ?? 'Unknown insecticide'}</>;
-}
-
-// Three components rather than one taking a collection: which catalog names a
-// method is fixed by the kind of action, and a hook cannot be chosen by a prop.
-function SourceReductionMethodName({ id }: { readonly id: string }) {
-	return <>{methodName(useSourceReductionMethodRoster(), id)}</>;
-}
-
-function OutreachMethodName({ id }: { readonly id: string }) {
-	return <>{methodName(useOutreachMethodRoster(), id)}</>;
-}
-
-function BiocontrolMethodName({ id }: { readonly id: string }) {
-	return <>{methodName(useBiocontrolMethodRoster(), id)}</>;
-}
-
-function methodName(roster: readonly { readonly id: string; readonly name: string }[], id: string) {
-	return roster.find((method) => method.id === id)?.name ?? 'Unknown method';
-}
-
-function UnitAmount({ amount, unitId }: { readonly amount: number; readonly unitId: string }) {
-	const abbreviation = useUnitLabels().byId.get(unitId)?.abbreviation ?? '';
+/** An amount and the unit's abbreviation, or the bare amount when the unit is not in the client. */
+function UnitAmount({
+	amount,
+	abbreviation,
+}: {
+	readonly amount: number;
+	readonly abbreviation: string | null;
+}) {
 	return (
 		<span className="tabular-nums">
 			{formatAmount(amount)}
-			{abbreviation === '' ? null : ` ${abbreviation}`}
+			{abbreviation === null || abbreviation === '' ? null : ` ${abbreviation}`}
 		</span>
 	);
 }
 
-/** See the twin in `-habitat-detail.tsx`: one roster read, not one per name. */
-function ProfileName({ profileId }: { readonly profileId: string }) {
-	return <>{useProfileNames().get(profileId) ?? 'Unknown'}</>;
+/** The habitat as the subtitle and the Habitat row name it, with the linked address as its fallback. */
+function habitatTitle(inspection: InspectionCard): string {
+	return habitatLabel(
+		{
+			habitatId: inspection.habitatId,
+			habitatName: inspection.habitatName,
+			lat: inspection.latitude,
+			lng: inspection.longitude,
+		},
+		{ addressName: addressDisplayName(inspection), fallback: 'One-off inspection' },
+	);
 }
 
-/**
- * The habitat's type in a fact row, which is nothing at all when it has none.
- *
- * A `DetailRow` handed nothing draws the absent mark, so the row says the same
- * thing the Address row beside it says. The subtitle is where an unassigned
- * type is spelled out, because a lone dash after the habitat's name would read
- * as a glyph nobody placed. See {@link HabitatTypeSubtitle}.
- */
-function HabitatTypeName({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
-	const habitatTypes = useHabitatTypeRoster();
-	if (habitatTypeId === null) {
-		return null;
-	}
-	const match = habitatTypes.find((habitatType) => habitatType.id === habitatTypeId);
-	return <>{match?.name ?? 'Unknown type'}</>;
-}
-
-/** The same name, in the header, where an unassigned type is said in words. */
-function HabitatTypeSubtitle({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
-	if (habitatTypeId === null) {
-		return <span>Unassigned type</span>;
-	}
-	return <HabitatTypeName habitatTypeId={habitatTypeId} />;
+/** The joined address's display name, which an unmatched `left` join leaves `undefined`. */
+function addressDisplayName(inspection: InspectionCard): string | null {
+	return inspection.address.displayName ?? null;
 }
 
 // --- helpers ----------------------------------------------------------------
@@ -731,7 +685,7 @@ const sampleResultTones = {
 >;
 
 function sampleResult(
-	sample: SampleEntry,
+	sample: InspectionSample,
 ): (typeof sampleResultTones)[keyof typeof sampleResultTones] {
 	if (sample.isZeroLarvae) {
 		return sampleResultTones.zero;
@@ -745,7 +699,7 @@ function sampleResult(
 	return sampleResultTones.larvae;
 }
 
-function breadcrumbLabel(inspection: InspectionDetailRow): string {
+function breadcrumbLabel(inspection: InspectionCard): string {
 	return `Inspection · ${formatMonthDayYear(inspection.inspectionDate)}`;
 }
 

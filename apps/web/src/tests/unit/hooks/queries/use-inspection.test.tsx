@@ -84,6 +84,23 @@ describe('useInspection', () => {
 		expect(titleOf(record)).toBe('Habitat 1a2b3c4d');
 	});
 
+	/**
+	 * The detail page reads this hook since #874, in place of the whole record
+	 * from `/map/inspections/:id`, so the columns its Details card prints have to
+	 * be on the row: the dip count the rate divides by, and the two stamps.
+	 */
+	it('carries the dip count and the two stamps the detail page prints', async () => {
+		seedRows(inspections, [
+			{ ...inspection('i1', { dip_count: 12 }), updated_at: new Date('2026-08-13T09:30:00Z') },
+		]);
+
+		const record = await readInspection('i1');
+
+		expect(record.dipCount).toBe(12);
+		expect(record.createdAt).toEqual(new Date('2026-08-12T10:00:00Z'));
+		expect(record.updatedAt).toEqual(new Date('2026-08-13T09:30:00Z'));
+	});
+
 	it('reads an inspection naming no habitat as null, so the fallback runs', async () => {
 		seedRows(inspections, [inspection('i1', { habitat_id: null, habitat_type_id: null })]);
 

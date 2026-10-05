@@ -1072,13 +1072,6 @@ render and dims it. The response's `today` is the picker's upper bound and
 the partial test, so a client whose clock disagrees with the server draws the
 server's day. `docs/today-spec.md`, "The client half".
 
-### larval-surveillance
-
-#### useSpeciesName
-
-One id through the shared taxonomy read, because the catalog is eager and
-small. The habitat detail and the inspection detail used to each define it.
-
 ### adult-surveillance
 
 #### useTrapDirectory
@@ -1270,14 +1263,6 @@ Named apart from `useHabitatSearch` in `hooks/queries`, which filters the
 synced habitats client-side; this one asks the server, because the route
 picker searches by name and address over every habitat the organization
 holds.
-
-#### useInspectionDetail
-
-The `/map/inspections/:id` display projection is the single source for the
-detail page's header, map, findings and context. An inspection is not
-editable in v1, so a one-shot fetch, which also bundles the geometry Electric
-omits (ADR 0009), is simpler than reassembling the record from synced
-collections.
 
 #### useHabitatLabel
 
@@ -1719,6 +1704,41 @@ the exact key through `seedHabitatGeometryCache`. The context hook returns
 `undefined` rather than an empty context when there is no geometry, so the
 card falls back to its plain single-record behaviour instead of drawing an
 empty legend.
+
+#### useLinkedControlActions, useInspectionSamples and useHabitatHistory
+
+The rows under the inspection and habitat detail pages, and each row carries
+the names it is drawn with: the Profile, the insecticide, the method, the unit
+and the species. Every name is a `left` join on an eager catalog, which costs
+no request. Before #874 the rows returned ids and the two pages resolved each
+one with a component that read a whole roster and found one entry, each behind
+its own `<Suspense>`: fourteen of them across the two pages, and two copies of
+most. A component cannot pick which hook to call from a prop, so the copies
+could not be folded into one; returning the name from the hook that already
+reads the row removes the question.
+
+Two rules keep the joins cheap. They feed a label and nothing else: sorting
+and the where clause stay on the on-demand table's own columns, because
+sorting or filtering by a joined column moves the cursor or the predicate off
+the table being loaded (see #1026). And they are `left`, so a row whose catalog
+entry the client does not hold is kept with a `null` name. A link nobody filled
+in keeps its `null` id beside the `null` name, which is how a page tells
+"Unassigned" from "Unknown". `useLinkedControlActions`' suite asserts the
+subset each action table is asked for, so a join that took the predicate over
+fails there. A join also works inside a correlated `toArray` include, which is
+how a species count gets its taxon's name.
+
+#### useInspection and useHabitatSuspense
+
+The two larval detail pages' own records, read off the synced rows with their
+names joined: the habitat, its type, the address and the inspector on an
+inspection, and the type and the two audit Profiles on a habitat. The
+inspection page used to fetch its whole record from `/map/inspections/:id` on
+the grounds that inspections were not editable; they are, and only the
+geometry comes from that endpoint now, through `useOwnedGeometry` and
+`INSPECTION_GEOMETRY_SOURCE`, the way every control action page reads its
+shape. The edit form asks the same source, so the two pages cannot read
+different geometry.
 
 #### The catalog mutation hooks
 

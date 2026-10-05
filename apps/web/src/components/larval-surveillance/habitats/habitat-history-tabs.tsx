@@ -5,9 +5,7 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { TableCell, TableHead, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
-import { Suspense } from 'react';
 import { useLarvalEntryMode } from '../../../hooks/larval-surveillance/use-larval-entry-mode';
-import { useSpeciesName } from '../../../hooks/larval-surveillance/use-species-name';
 import { controlTypeLabel, requestStatus } from '../../../hooks/queries/operations-view';
 import type {
 	HabitatHistoryApplication,
@@ -26,14 +24,7 @@ import { sampleName } from '../../../lib/sample-name';
 import { DensityBadge, LifeStageStrip } from '../../larval-display';
 import { RequestStatusBadge } from '../../request-status-badge';
 import { HISTORY_UNAVAILABLE, HistoryTab } from './habitat-history-tab';
-import {
-	AmountWithUnit,
-	ApplicationMethodName,
-	formatDateTime,
-	InsecticideName,
-	ProfileName,
-	SourceReductionMethodName,
-} from './habitat-history-values';
+import { amountWithUnit, formatDateTime } from './habitat-history-values';
 
 const historyLinkClassName = recordLink({ tone: 'inherit', underline: 'hover' });
 const InspectionIcon = iconRegistry.entities.inspection.icon;
@@ -91,9 +82,7 @@ export function InspectionHistory({
 						{inspection.inspectedByProfileId === null ? (
 							<AbsentValue />
 						) : (
-							<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-								<ProfileName profileId={inspection.inspectedByProfileId} />
-							</Suspense>
+							(inspection.inspectedByName ?? 'Unknown')
 						)}
 					</TableCell>
 					<TableCell>{inspection.isWet ? 'Yes' : 'No'}</TableCell>
@@ -225,28 +214,19 @@ export function ApplicationHistory({
 						{application.applicatorProfileId === null ? (
 							<AbsentValue />
 						) : (
-							<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-								<ProfileName profileId={application.applicatorProfileId} />
-							</Suspense>
+							(application.applicatorName ?? 'Unknown')
 						)}
 					</TableCell>
+					<TableCell>{application.insecticideName ?? 'Unknown insecticide'}</TableCell>
 					<TableCell>
-						<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-							<InsecticideName insecticideId={application.insecticideId} />
-						</Suspense>
-					</TableCell>
-					<TableCell>
-						<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-							<ApplicationMethodName applicationMethodId={application.applicationMethodId} />
-						</Suspense>
+						{application.applicationMethodId === null ? (
+							<AbsentValue />
+						) : (
+							(application.applicationMethodName ?? 'Unknown method')
+						)}
 					</TableCell>
 					<TableCell className="text-right tabular-nums">
-						<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-							<AmountWithUnit
-								amount={application.amountApplied}
-								unitId={application.applicationUnitId}
-							/>
-						</Suspense>
+						{amountWithUnit(application.amountApplied, application.unitAbbreviation)}
 					</TableCell>
 				</TableRow>
 			)}
@@ -306,25 +286,12 @@ export function SourceReductionHistory({
 						{reduction.technicianProfileId === null ? (
 							<AbsentValue />
 						) : (
-							<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-								<ProfileName profileId={reduction.technicianProfileId} />
-							</Suspense>
+							(reduction.technicianName ?? 'Unknown')
 						)}
 					</TableCell>
-					<TableCell>
-						<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-							<SourceReductionMethodName
-								sourceReductionMethodId={reduction.sourceReductionMethodId}
-							/>
-						</Suspense>
-					</TableCell>
+					<TableCell>{reduction.sourceReductionMethodName ?? 'Unknown method'}</TableCell>
 					<TableCell className="text-right tabular-nums">
-						<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-							<AmountWithUnit
-								amount={reduction.sourcesEliminatedAmount}
-								unitId={reduction.sourcesEliminatedUnitId}
-							/>
-						</Suspense>
+						{amountWithUnit(reduction.sourcesEliminatedAmount, reduction.unitAbbreviation)}
 					</TableCell>
 				</TableRow>
 			)}
@@ -387,9 +354,7 @@ export function RequestHistory({
 						{request.requestedByProfileId === null ? (
 							<AbsentValue />
 						) : (
-							<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-								<ProfileName profileId={request.requestedByProfileId} />
-							</Suspense>
+							(request.requestedByName ?? 'Unknown')
 						)}
 					</TableCell>
 					<TableCell className="whitespace-nowrap">
@@ -411,21 +376,18 @@ function SampleSpeciesSummary({ species }: { readonly species: readonly HabitatH
 	}
 
 	return (
-		<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-			<div className="flex flex-wrap gap-1.5">
-				{species.map((row) => (
-					<SampleSpeciesChip key={row.id} row={row} />
-				))}
-			</div>
-		</Suspense>
+		<div className="flex flex-wrap gap-1.5">
+			{species.map((row) => (
+				<SampleSpeciesChip key={row.id} row={row} />
+			))}
+		</div>
 	);
 }
 
 function SampleSpeciesChip({ row }: { readonly row: HabitatHistorySpecies }) {
-	const speciesName = useSpeciesName(row.speciesId);
 	return (
 		<Badge variant="outline" tone="neutral">
-			{speciesName}
+			{row.speciesName ?? 'Unknown species'}
 			<span className="tabular-nums">{formatCount(row.larvaeCount)}</span>
 		</Badge>
 	);

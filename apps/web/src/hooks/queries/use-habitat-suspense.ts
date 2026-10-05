@@ -9,14 +9,15 @@
  * loading — the loading case never returns.
  */
 
-import { caseWhen, eq, isNull, useLiveSuspenseQuery } from '@tanstack/react-db';
+import { caseWhen, coalesce, eq, isNull, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
-import { type Habitat, habitatNameSelect } from './habitat-view';
+import { profiles } from '../../lib/collections/profiles';
+import { type AuditedHabitat, habitatNameSelect } from './habitat-view';
 import { addressSelect } from './shared';
 
-export function useHabitatSuspense(habitatId: string): Habitat | undefined {
+export function useHabitatSuspense(habitatId: string): AuditedHabitat | undefined {
 	const result = useLiveSuspenseQuery((query) =>
 		query
 			.from({ habitat: habitats() })
@@ -31,7 +32,17 @@ export function useHabitatSuspense(habitatId: string): Habitat | undefined {
 				({ habitat, address }) => eq(habitat.address_id, address.id),
 				'left',
 			)
-			.select(({ habitat, type, address }) => ({
+			.join(
+				{ creator: profiles() },
+				({ habitat, creator }) => eq(habitat.created_by_profile_id, creator.id),
+				'left',
+			)
+			.join(
+				{ updater: profiles() },
+				({ habitat, updater }) => eq(habitat.updated_by_profile_id, updater.id),
+				'left',
+			)
+			.select(({ habitat, type, address, creator, updater }) => ({
 				id: habitat.id,
 				address: addressSelect(address),
 				name: habitatNameSelect(habitat),
@@ -48,7 +59,9 @@ export function useHabitatSuspense(habitatId: string): Habitat | undefined {
 				createdAt: habitat.created_at,
 				updatedAt: habitat.updated_at,
 				createdByProfileId: habitat.created_by_profile_id,
+				createdByName: coalesce(creator.display_name, null),
 				updatedByProfileId: habitat.updated_by_profile_id,
+				updatedByName: coalesce(updater.display_name, null),
 			})),
 	);
 

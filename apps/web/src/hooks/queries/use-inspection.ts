@@ -1,8 +1,12 @@
 /**
- * One Habitat Inspection, with everything a card shows it beside.
+ * One Habitat Inspection, with everything a card or its detail page shows it
+ * beside.
  *
  * The map focus card, which appears next to a map that is already drawn — so it
  * renders its own skeleton rather than suspending and blanking what surrounds it.
+ * The detail page reads the same row (#874): it used to fetch the whole record
+ * from `/map/inspections/:id`, and now only the geometry comes from there,
+ * through `useOwnedGeometry`.
  *
  * ## What this replaces
  *
@@ -81,6 +85,7 @@ export function useInspection(inspectionId: string): {
 						inspector.display_name,
 					),
 					isWet: inspection.is_wet,
+					dipCount: inspection.dip_count,
 					density: inspection.density,
 					larvaeCount: inspection.larvae_count,
 
@@ -102,6 +107,9 @@ export function useInspection(inspectionId: string): {
 					hasThirdInstar: inspection.has_third_instar,
 					hasFourthInstar: inspection.has_fourth_instar,
 					hasPupae: inspection.has_pupae,
+
+					createdAt: inspection.created_at,
+					updatedAt: inspection.updated_at,
 				})),
 	});
 

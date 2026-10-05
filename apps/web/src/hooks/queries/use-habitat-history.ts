@@ -22,6 +22,16 @@
  * rows upstream, so a source reduction that reaches this hook is work that was
  * done at the Habitat. Every one of them belongs on the card.
  *
+ * ## Names are joined, not looked up
+ *
+ * Every row carries the names its tab draws: the Profile, the insecticide, the
+ * method, the unit and, under a sample, the species. Each is a `left` join that
+ * feeds a label and nothing else, so sorting and the where clause stay on the
+ * history table's own columns and the subset Electric is asked for is unchanged.
+ * A link nobody filled in keeps its `null` id beside a `null` name, and an entry
+ * the client does not hold has an id and a `null` name, which is how a tab tells
+ * unassigned from unknown (#874).
+ *
  * ## Why `useLiveQuery` and not the suspense variant
  *
  * All six tables are on-demand, and the suspense hook gets permanently stuck
@@ -43,13 +53,19 @@
  */
 
 import type { ControlType, LarvalDensity } from '@simmer-mosquito/domain';
-import { eq, toArray, useLiveQuery } from '@tanstack/react-db';
+import { coalesce, eq, toArray, useLiveQuery } from '@tanstack/react-db';
+import { application_methods } from '../../lib/collections/application_methods';
 import { applications } from '../../lib/collections/applications';
+import { insecticides } from '../../lib/collections/insecticides';
 import { inspections } from '../../lib/collections/inspections';
+import { profiles } from '../../lib/collections/profiles';
 import { requested_control_actions } from '../../lib/collections/requested_control_actions';
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
+import { source_reduction_methods } from '../../lib/collections/source_reduction_methods';
 import { source_reductions } from '../../lib/collections/source_reductions';
+import { species as speciesCatalog } from '../../lib/collections/species';
+import { units } from '../../lib/collections/units';
 
 /** How long a habitat's history stays warm after the page leaves it. */
 const historyGcTimeMs = 30_000;
@@ -58,6 +74,8 @@ const historyGcTimeMs = 30_000;
 export interface HabitatHistorySpecies {
 	readonly id: string;
 	readonly speciesId: string;
+	/** `null` when the taxon is not in the client. */
+	readonly speciesName: string | null;
 	readonly larvaeCount: number;
 }
 
@@ -78,6 +96,8 @@ export interface HabitatHistoryInspection {
 	/** `YYYY-MM-DD` — the operational date, not a timestamp. */
 	readonly inspectionDate: string;
 	readonly inspectedByProfileId: string | null;
+	/** `null` when nobody was recorded or the Profile is not in the client. */
+	readonly inspectedByName: string | null;
 	readonly isWet: boolean;
 	readonly dipCount: number | null;
 	readonly density: LarvalDensity | null;
@@ -102,10 +122,14 @@ export interface HabitatHistoryApplication {
 	/** `YYYY-MM-DD` — the operational date, not a timestamp. */
 	readonly applicationDate: string;
 	readonly applicatorProfileId: string | null;
+	readonly applicatorName: string | null;
 	readonly insecticideId: string;
+	readonly insecticideName: string | null;
 	readonly applicationMethodId: string | null;
+	readonly applicationMethodName: string | null;
 	readonly amountApplied: number;
 	readonly applicationUnitId: string;
+	readonly unitAbbreviation: string | null;
 }
 
 /**
@@ -121,9 +145,12 @@ export interface HabitatHistorySourceReduction {
 	/** `YYYY-MM-DD` — the operational date, not a timestamp. */
 	readonly sourceReductionDate: string;
 	readonly technicianProfileId: string | null;
+	readonly technicianName: string | null;
 	readonly sourceReductionMethodId: string;
+	readonly sourceReductionMethodName: string | null;
 	readonly sourcesEliminatedAmount: number;
 	readonly sourcesEliminatedUnitId: string;
+	readonly unitAbbreviation: string | null;
 }
 
 /**
@@ -139,6 +166,7 @@ export interface HabitatHistoryRequest {
 	readonly id: string;
 	readonly requestedAt: Date;
 	readonly requestedByProfileId: string | null;
+	readonly requestedByName: string | null;
 	readonly controlType: ControlType;
 	readonly summary: string | null;
 	readonly resolvedAt: Date | null;
@@ -172,11 +200,17 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 			query
 				.from({ inspection: inspections() })
 				.where(({ inspection }) => eq(inspection.habitat_id, habitatId))
+				.join(
+					{ inspector: profiles() },
+					({ inspection, inspector }) => eq(inspection.inspected_by_profile_id, inspector.id),
+					'left',
+				)
 				.orderBy(({ inspection }) => inspection.inspection_date, 'desc')
-				.select(({ inspection }) => ({
+				.select(({ inspection, inspector }) => ({
 					id: inspection.id,
 					inspectionDate: inspection.inspection_date,
 					inspectedByProfileId: inspection.inspected_by_profile_id,
+					inspectedByName: coalesce(inspector.display_name, null),
 					isWet: inspection.is_wet,
 					dipCount: inspection.dip_count,
 					density: inspection.density,
@@ -202,9 +236,15 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 									query
 										.from({ species: sample_species() })
 										.where(({ species }) => eq(species.sample_id, sample.id))
-										.select(({ species }) => ({
+										.join(
+											{ taxon: speciesCatalog() },
+											({ species, taxon }) => eq(species.species_id, taxon.id),
+											'left',
+										)
+										.select(({ species, taxon }) => ({
 											id: species.id,
 											speciesId: species.species_id,
+											speciesName: coalesce(taxon.display_name, null),
 											larvaeCount: species.larvae_count,
 										})),
 								),
@@ -219,15 +259,39 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 			query
 				.from({ application: applications() })
 				.where(({ application }) => eq(application.habitat_id, habitatId))
+				.join(
+					{ applicator: profiles() },
+					({ application, applicator }) => eq(application.applicator_profile_id, applicator.id),
+					'left',
+				)
+				.join(
+					{ insecticide: insecticides() },
+					({ application, insecticide }) => eq(application.insecticide_id, insecticide.id),
+					'left',
+				)
+				.join(
+					{ method: application_methods() },
+					({ application, method }) => eq(application.application_method_id, method.id),
+					'left',
+				)
+				.join(
+					{ unit: units() },
+					({ application, unit }) => eq(application.application_unit_id, unit.id),
+					'left',
+				)
 				.orderBy(({ application }) => application.application_date, 'desc')
-				.select(({ application }) => ({
+				.select(({ application, applicator, insecticide, method, unit }) => ({
 					id: application.id,
 					applicationDate: application.application_date,
 					applicatorProfileId: application.applicator_profile_id,
+					applicatorName: coalesce(applicator.display_name, null),
 					insecticideId: application.insecticide_id,
+					insecticideName: coalesce(insecticide.trade_name, null),
 					applicationMethodId: application.application_method_id,
+					applicationMethodName: coalesce(method.name, null),
 					amountApplied: application.amount_applied,
 					applicationUnitId: application.application_unit_id,
+					unitAbbreviation: coalesce(unit.abbreviation, null),
 				})),
 	});
 
@@ -237,14 +301,32 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 			query
 				.from({ reduction: source_reductions() })
 				.where(({ reduction }) => eq(reduction.habitat_id, habitatId))
+				.join(
+					{ technician: profiles() },
+					({ reduction, technician }) => eq(reduction.technician_profile_id, technician.id),
+					'left',
+				)
+				.join(
+					{ method: source_reduction_methods() },
+					({ reduction, method }) => eq(reduction.source_reduction_method_id, method.id),
+					'left',
+				)
+				.join(
+					{ unit: units() },
+					({ reduction, unit }) => eq(reduction.sources_eliminated_unit_id, unit.id),
+					'left',
+				)
 				.orderBy(({ reduction }) => reduction.source_reduction_date, 'desc')
-				.select(({ reduction }) => ({
+				.select(({ reduction, technician, method, unit }) => ({
 					id: reduction.id,
 					sourceReductionDate: reduction.source_reduction_date,
 					technicianProfileId: reduction.technician_profile_id,
+					technicianName: coalesce(technician.display_name, null),
 					sourceReductionMethodId: reduction.source_reduction_method_id,
+					sourceReductionMethodName: coalesce(method.name, null),
 					sourcesEliminatedAmount: reduction.sources_eliminated_amount,
 					sourcesEliminatedUnitId: reduction.sources_eliminated_unit_id,
+					unitAbbreviation: coalesce(unit.abbreviation, null),
 				})),
 	});
 
@@ -254,11 +336,17 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 			query
 				.from({ request: requested_control_actions() })
 				.where(({ request }) => eq(request.habitat_id, habitatId))
+				.join(
+					{ requester: profiles() },
+					({ request, requester }) => eq(request.requested_by_profile_id, requester.id),
+					'left',
+				)
 				.orderBy(({ request }) => request.requested_at, 'desc')
-				.select(({ request }) => ({
+				.select(({ request, requester }) => ({
 					id: request.id,
 					requestedAt: request.requested_at,
 					requestedByProfileId: request.requested_by_profile_id,
+					requestedByName: coalesce(requester.display_name, null),
 					controlType: request.control_type,
 					summary: request.summary,
 					resolvedAt: request.resolved_at,

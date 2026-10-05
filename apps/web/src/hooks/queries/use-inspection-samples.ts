@@ -9,14 +9,20 @@
  * Ordered by `created_at` so the grid reads in the order the crew keyed the
  * samples in, which is the order the labels were written on the vials.
  *
+ * Each species count carries its taxon's name through a `left` join on the
+ * species catalog inside the include, so the page reads a name rather than
+ * looking one up by id (#874). The join feeds the label only; the subset
+ * Electric is asked for is still the `sample_id` the include correlates on.
+ *
  * Both collections are on-demand, so this uses the status-gated `useLiveQuery`
  * rather than the suspense variant, which sticks after a navigation unmount over
  * an on-demand collection.
  */
 
-import { eq, toArray, useLiveQuery } from '@tanstack/react-db';
+import { coalesce, eq, toArray, useLiveQuery } from '@tanstack/react-db';
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
+import { species as speciesCatalog } from '../../lib/collections/species';
 
 /** How long an inspection's samples stay warm after the page leaves them. */
 const samplesGcTimeMs = 30_000;
@@ -25,6 +31,8 @@ const samplesGcTimeMs = 30_000;
 export interface InspectionSampleSpecies {
 	readonly id: string;
 	readonly speciesId: string;
+	/** The taxon's name, or `null` when the catalog entry is not in the client. */
+	readonly speciesName: string | null;
 	readonly larvaeCount: number;
 }
 
@@ -61,9 +69,15 @@ export function useInspectionSamples(inspectionId: string): {
 						query
 							.from({ species: sample_species() })
 							.where(({ species }) => eq(species.sample_id, sample.id))
-							.select(({ species }) => ({
+							.join(
+								{ taxon: speciesCatalog() },
+								({ species, taxon }) => eq(species.species_id, taxon.id),
+								'left',
+							)
+							.select(({ species, taxon }) => ({
 								id: species.id,
 								speciesId: species.species_id,
+								speciesName: coalesce(taxon.display_name, null),
 								larvaeCount: species.larvae_count,
 							})),
 					),

@@ -86,6 +86,11 @@ export interface InspectionCard extends LarvalActivityRow {
 	readonly addressId: string | null;
 	/** Joined, not looked up — see `address-view.ts` for why it is nested here. */
 	readonly address: LinkedAddress;
+	/** The effort the density band is a rate over. */
+	readonly dipCount: number | null;
+	readonly createdAt: Date;
+	/** Also what the geometry fetch is keyed on, so an edited shape is not read back stale. */
+	readonly updatedAt: Date;
 }
 
 /**
