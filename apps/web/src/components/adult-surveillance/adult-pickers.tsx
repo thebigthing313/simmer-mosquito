@@ -33,11 +33,14 @@ export function TrapPicker<TTrap extends PickableTrap>({
 	traps,
 	value,
 	onSelect,
+	errors,
 }: {
 	readonly label?: string;
 	readonly traps: readonly TTrap[];
 	readonly value: string | null;
 	readonly onSelect: (trap: TTrap | null) => void;
+	/** The bound field's `state.meta.errors`, drawn under the input. */
+	readonly errors?: readonly unknown[] | undefined;
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
@@ -56,6 +59,7 @@ export function TrapPicker<TTrap extends PickableTrap>({
 
 	return (
 		<PickerFrame
+			errors={errors}
 			anchorRef={anchorRef}
 			label={label}
 			onClear={() => {

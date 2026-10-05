@@ -14,11 +14,14 @@ export function HabitatPicker({
 	organizationId,
 	value,
 	onSelect,
+	errors,
 }: {
 	readonly label?: string;
 	readonly organizationId: string;
 	readonly value: string | null;
 	readonly onSelect: (habitat: HabitatMatch | null) => void;
+	/** The bound field's `state.meta.errors`, drawn under the input. */
+	readonly errors?: readonly unknown[] | undefined;
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
@@ -37,6 +40,7 @@ export function HabitatPicker({
 	return (
 		<PickerFrame
 			anchorRef={anchorRef}
+			errors={errors}
 			label={label}
 			onClear={() => {
 				setPickedLabel('');

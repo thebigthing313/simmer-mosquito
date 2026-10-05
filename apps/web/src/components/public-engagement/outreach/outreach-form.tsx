@@ -215,6 +215,7 @@ export function OutreachFormPage({
 				<form.AppField name="outreachDate">
 					{(field) => (
 						<DateControl
+							errors={field.state.meta.errors}
 							label="Outreach date"
 							onChange={(next) => field.handleChange(next)}
 							required
@@ -261,6 +262,7 @@ export function OutreachFormPage({
 					<form.AppField name="addressId">
 						{(field) => (
 							<LocationAddressField
+								errors={field.state.meta.errors}
 								location={location}
 								onChange={field.handleChange}
 								value={field.state.value}

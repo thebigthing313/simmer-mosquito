@@ -62,6 +62,7 @@ export function TimingSection({
 								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 								{(field: any) => (
 									<DateControl
+										errors={field.state.meta.errors}
 										label="Set date"
 										onChange={(next: string) => field.handleChange(next === '' ? null : next)}
 										required={pending}
@@ -73,6 +74,7 @@ export function TimingSection({
 								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 								{(field: any) => (
 									<DateControl
+										errors={field.state.meta.errors}
 										// Left empty, the trap is still out and the collection is
 										// saved pending, to be emptied on a later visit.
 										label="Collected date"
@@ -88,6 +90,7 @@ export function TimingSection({
 								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 								{(field: any) => (
 									<DateControl
+										errors={field.state.meta.errors}
 										label="Collection date"
 										required
 										onChange={(next: string) => field.handleChange(next === '' ? null : next)}

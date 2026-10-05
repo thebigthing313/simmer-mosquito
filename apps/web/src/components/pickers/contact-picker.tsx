@@ -30,10 +30,13 @@ export function ContactPicker({
 	label = 'Contact',
 	value,
 	onSelect,
+	errors,
 }: {
 	readonly label?: string;
 	readonly value: string | null;
 	readonly onSelect: (contact: ContactOption | null) => void;
+	/** The bound field's `state.meta.errors`, drawn under the input. */
+	readonly errors?: readonly unknown[] | undefined;
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
@@ -51,6 +54,7 @@ export function ContactPicker({
 
 	return (
 		<PickerFrame
+			errors={errors}
 			anchorRef={anchorRef}
 			label={label}
 			onClear={() => {

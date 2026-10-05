@@ -1,4 +1,6 @@
+import { errorMessagesFrom } from '@simmer-mosquito/ui-web/components/form';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
+import { FieldError } from '@simmer-mosquito/ui-web/components/ui/field';
 import { InputGroupButton } from '@simmer-mosquito/ui-web/components/ui/input-group';
 import {
 	Popover,
@@ -6,6 +8,7 @@ import {
 	PopoverContent,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
 import { CheckIcon, SearchIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { useId } from 'react';
 
 // Shared search-and-pick chrome for the domain forms: a search input that opens a
 // popover of matches beneath itself. Callers supply the results — an eager
@@ -23,6 +26,7 @@ export function PickerFrame({
 	onOpen,
 	onClear,
 	onOpenChange,
+	errors,
 	children,
 }: {
 	readonly label: string;
@@ -36,8 +40,17 @@ export function PickerFrame({
 	readonly onOpen: () => void;
 	readonly onClear: () => void;
 	readonly onOpenChange: (open: boolean) => void;
+	/**
+	 * The bound field's `state.meta.errors`, drawn under the input. A form's
+	 * validator files a missing pick on the field, and the alert leaves field
+	 * errors to the field, so a picker that drops them refuses the save silently.
+	 */
+	readonly errors?: readonly unknown[] | undefined;
 	readonly children: React.ReactNode;
 }) {
+	const errorId = useId();
+	const messages = errorMessagesFrom(errors ?? []);
+
 	return (
 		<div className="grid gap-1.5">
 			<span className="font-medium text-foreground text-sm">{label}</span>
@@ -61,6 +74,7 @@ export function PickerFrame({
 									</InputGroupButton>
 								)
 							}
+							{...invalidInputProps(messages.length > 0, errorId)}
 							label={label}
 							onChange={(event) => onSearchChange(event.target.value)}
 							onFocus={onOpen}
@@ -83,8 +97,14 @@ export function PickerFrame({
 					{children}
 				</PopoverContent>
 			</Popover>
+			<FieldError errors={messages} id={errorId} />
 		</div>
 	);
+}
+
+/** What the input says to assistive technology when its field is refused. */
+function invalidInputProps(invalid: boolean, errorId: string) {
+	return invalid ? { 'aria-describedby': errorId, 'aria-invalid': true as const } : {};
 }
 
 export function OptionRow({

@@ -91,15 +91,19 @@ export function LocationAddressField({
 	value,
 	onChange,
 	label,
+	errors,
 }: {
 	readonly location: DrawLocation;
 	readonly value: string | null;
 	readonly onChange: (addressId: string | null) => void;
 	readonly label?: string;
+	/** The bound field's `state.meta.errors`, drawn under the picker. */
+	readonly errors?: readonly unknown[] | undefined;
 }) {
 	return (
 		<AddressPicker
 			create={{ requestMapPoint: location.requestMapPoint }}
+			errors={errors}
 			{...(label === undefined ? {} : { label })}
 			onSelect={(address) => {
 				onChange(address?.id ?? null);

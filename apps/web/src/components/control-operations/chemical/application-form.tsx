@@ -223,6 +223,7 @@ export function ApplicationFormPage({
 				<form.AppField name="applicationDate">
 					{(field) => (
 						<DateControl
+							errors={field.state.meta.errors}
 							label="Application date"
 							required
 							onChange={field.handleChange}
@@ -266,6 +267,7 @@ export function ApplicationFormPage({
 						<form.AppField name="habitatId">
 							{(field) => (
 								<HabitatPicker
+									errors={field.state.meta.errors}
 									label="Habitat"
 									organizationId={organizationId}
 									onSelect={(habitat) => field.handleChange(habitat?.id ?? null)}
@@ -282,6 +284,7 @@ export function ApplicationFormPage({
 					<form.AppField name="addressId">
 						{(field) => (
 							<LocationAddressField
+								errors={field.state.meta.errors}
 								location={location}
 								onChange={field.handleChange}
 								value={field.state.value}

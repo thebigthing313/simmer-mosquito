@@ -25,7 +25,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
@@ -35,6 +35,7 @@ import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../lib/domain-validation';
 import { formatLocalDate, parseLocalDate, todayInTimeZone } from '../../../lib/local-date';
+import { profileOptions } from '../../../lib/profile-options';
 import { additionalPersonnelOptions } from '../../additional-personnel';
 import { FirstCommentSection } from '../../forms/first-comment-section';
 import { LocationAddressField } from '../../forms/location-band';
@@ -57,7 +58,6 @@ import {
 	type InspectionFormValues,
 	type InspectionSampleDraft,
 	noHabitatTypeValue,
-	profileOptions,
 	resultColumnsForMode,
 	unsetDensityValue,
 	withConditionsChosen,
@@ -123,12 +123,10 @@ export function InspectionFormPage({
 	const entryMode = policy.mode;
 	const columns = resultColumnsForMode(entryMode);
 
-	// Habitat mode reports against the same band as the drawn location, but it is
-	// a missing pick rather than a missing shape, so the hook does not own it.
-	const [habitatError, setHabitatError] = useState<string | null>(null);
 	// Switching to dry throws away whatever abundance was keyed in, because the command
 	// rejects a dry inspection that carries any, so the crew is asked first.
 	const [pendingDry, setPendingDry] = useState(false);
+	const inspectionDateErrorId = useId();
 	// `referenceGeometry` is the selected habitat's shape, shown for reference in
 	// habitat mode. Ad-hoc geometry is rendered by the draw layer instead.
 	const location = useDrawLocation({
@@ -190,11 +188,8 @@ export function InspectionFormPage({
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
-			setHabitatError(null);
-			if (value.locationMode === 'habitat' && value.habitatId === null) {
-				setHabitatError('Select the habitat this inspection covers.');
-				return;
-			}
+			// A missing habitat never reaches here: the validator files it on
+			// `habitatId` and the picker draws it.
 			if (value.locationMode === 'adhoc' && !location.requireGeometry()) {
 				return;
 			}
@@ -209,7 +204,6 @@ export function InspectionFormPage({
 	const { clearError } = location;
 	const handleHabitatSelected = (habitat: HabitatMatch | null) => {
 		clearError();
-		setHabitatError(null);
 		if (habitat === null) {
 			setReferenceGeometry(null);
 			return;
@@ -259,20 +253,30 @@ export function InspectionFormPage({
 				<form.FormErrorAlert title="Unable to Save Inspection" />
 
 				<form.AppField name="inspectionDate">
-					{(field) => (
-						<LabeledControl label="Inspection date" required>
-							<DatePicker
-								ariaLabel="Inspection date"
-								className="w-full"
-								max={parseLocalDate(today)}
-								onChange={(date) =>
-									field.handleChange(date === undefined ? '' : formatLocalDate(date))
-								}
-								placeholder="Select date"
-								value={parseLocalDate(field.state.value)}
-							/>
-						</LabeledControl>
-					)}
+					{(field) => {
+						const error = errorMessagesFrom(field.state.meta.errors)[0]?.message;
+						return (
+							<LabeledControl
+								error={error}
+								errorId={inspectionDateErrorId}
+								label="Inspection date"
+								required
+							>
+								<DatePicker
+									ariaDescribedBy={error === undefined ? undefined : inspectionDateErrorId}
+									ariaInvalid={error !== undefined}
+									ariaLabel="Inspection date"
+									className="w-full"
+									max={parseLocalDate(today)}
+									onChange={(date) =>
+										field.handleChange(date === undefined ? '' : formatLocalDate(date))
+									}
+									placeholder="Select date"
+									value={parseLocalDate(field.state.value)}
+								/>
+							</LabeledControl>
+						);
+					}}
 				</form.AppField>
 
 				<FormSection title="Personnel">
@@ -310,7 +314,7 @@ export function InspectionFormPage({
 							? 'The habitat or one-off choice is fixed. Record a new inspection to cover a different habitat.'
 							: 'Tie the inspection to a mapped habitat, or draw the one-off location it covers. An address is optional reference.'
 					}
-					error={habitatError ?? location.locationError}
+					error={location.locationError}
 				>
 					<form.AppField name="locationMode">
 						{(field) => (
@@ -347,6 +351,7 @@ export function InspectionFormPage({
 											<SelectedHabitat habitatId={field.state.value} />
 										) : (
 											<HabitatPicker
+												errors={field.state.meta.errors}
 												onSelect={(habitat) => {
 													field.handleChange(habitat?.id ?? null);
 													handleHabitatSelected(habitat);
@@ -365,6 +370,7 @@ export function InspectionFormPage({
 									<form.AppField name="addressId">
 										{(field) => (
 											<LocationAddressField
+												errors={field.state.meta.errors}
 												location={location}
 												onChange={field.handleChange}
 												value={field.state.value}

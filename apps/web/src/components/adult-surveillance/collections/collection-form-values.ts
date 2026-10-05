@@ -10,7 +10,6 @@ import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { CollectionFields } from '../../../hooks/mutations/use-collection-mutations';
 import type { CatalogListing } from '../../../hooks/queries/catalog-roster-view';
-import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { TrapOption } from '../../../hooks/queries/use-trap-options';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../lib/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
@@ -215,12 +214,4 @@ export function lureOptions(lures: readonly CatalogListing[]) {
 			(lure) => lure.name,
 		),
 	];
-}
-
-export function profileOptions(profiles: readonly ProfileListing[]) {
-	return lifecycleOptions(
-		profiles,
-		(profile) => profile.isActive,
-		(profile) => profile.displayName,
-	);
 }
