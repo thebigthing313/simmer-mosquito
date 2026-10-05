@@ -162,6 +162,7 @@ export function ServiceRequestFormPage({
 							{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 							{(field: any) => (
 								<DateControl
+									errors={field.state.meta.errors}
 									label="Request date"
 									required
 									onChange={field.handleChange}

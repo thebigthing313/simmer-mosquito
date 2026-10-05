@@ -1,5 +1,7 @@
-import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
+import { errorMessagesFrom, RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
+import { FieldError } from '@simmer-mosquito/ui-web/components/ui/field';
+import { useId } from 'react';
 import { formatLocalDate, parseLocalDate } from '../lib/local-date';
 
 /**
@@ -16,26 +18,40 @@ export function DateControl({
 	value,
 	required = false,
 	onChange,
+	errors,
 }: {
 	readonly label: string;
 	readonly value: string | null;
 	readonly required?: boolean;
 	/** Receives `''` when the field is cleared. */
 	readonly onChange: (value: string) => void;
+	/**
+	 * The bound field's `state.meta.errors`, drawn under the picker. A cleared
+	 * required date is filed on the field, so a control that drops them refuses
+	 * the save with nothing on screen.
+	 */
+	readonly errors?: readonly unknown[] | undefined;
 }) {
+	const errorId = useId();
+	const messages = errorMessagesFrom(errors ?? []);
+	const invalid = messages.length > 0;
+
 	return (
-		<div className="grid gap-1.5">
+		<div className="grid gap-1.5" data-invalid={invalid ? true : undefined}>
 			<span className="font-medium text-foreground text-sm">
 				{label}
 				{required ? <RequiredMark /> : null}
 			</span>
 			<DatePicker
+				ariaDescribedBy={invalid ? errorId : undefined}
+				ariaInvalid={invalid}
 				ariaLabel={label}
 				className="w-full"
 				onChange={(date) => onChange(date === undefined ? '' : formatLocalDate(date))}
 				placeholder="Select date"
 				value={parseLocalDate(value)}
 			/>
+			<FieldError errors={messages} id={errorId} />
 		</div>
 	);
 }

@@ -234,6 +234,7 @@ export function SourceReductionFormPage({
 				<form.AppField name="sourceReductionDate">
 					{(field) => (
 						<DateControl
+							errors={field.state.meta.errors}
 							label="Date performed"
 							required
 							onChange={field.handleChange}
@@ -276,6 +277,7 @@ export function SourceReductionFormPage({
 						<form.AppField name="habitatId">
 							{(field) => (
 								<HabitatPicker
+									errors={field.state.meta.errors}
 									label="Habitat"
 									organizationId={organizationId}
 									onSelect={(habitat) => {
@@ -303,6 +305,7 @@ export function SourceReductionFormPage({
 					<form.AppField name="addressId">
 						{(field) => (
 							<LocationAddressField
+								errors={field.state.meta.errors}
 								location={location}
 								onChange={field.handleChange}
 								value={field.state.value}

@@ -5,7 +5,6 @@ import {
 } from '@simmer-mosquito/domain';
 import type { InspectionResult } from '../../../hooks/mutations/use-inspection-mutations';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
-import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { densityLabel, type LifeStageFlags } from '../../larval-display';
 
@@ -206,14 +205,6 @@ export function habitatTypeOptions(habitatTypes: readonly SchemaCatalogListing[]
 			(type) => type.name,
 		),
 	];
-}
-
-export function profileOptions(profiles: readonly ProfileListing[]) {
-	return lifecycleOptions(
-		profiles,
-		(profile) => profile.isActive,
-		(profile) => profile.displayName,
-	);
 }
 
 /**

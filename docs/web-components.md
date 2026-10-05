@@ -720,6 +720,20 @@ modal overlay swallowed the click the await was waiting for, and "Use Manual
 Coordinates" looked like a modal that would not go away over a map that would
 not respond.
 
+#### PickerFrame
+
+It takes the bound field's `state.meta.errors` and draws them under the input,
+and every picker built on it, `DateControl` and the inspection's own
+`HabitatPicker` pass them through. `domainValidator` files a missing pick or a
+cleared date on the field it names, and `FormErrorAlert` leaves field errors to
+the field, so a control that drops them refuses the save with nothing on
+screen. Until #871 that was a habitat inspection with no habitat, a trap
+collection with no trap and every required date, and the inspection's
+`habitatError` fallback for the first could never run, because `onSubmit` only
+runs once the validator has passed. A control the app draws inside a
+`form.AppField` passes the field's errors, the way the kit's `field.*`
+components read them for themselves.
+
 ### public-engagement
 
 #### contact-fields

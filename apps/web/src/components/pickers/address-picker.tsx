@@ -35,11 +35,14 @@ export function AddressPicker({
 	value,
 	onSelect,
 	create,
+	errors,
 }: {
 	readonly label?: string;
 	readonly value: string | null;
 	readonly onSelect: (address: AddressOption | null) => void;
 	readonly create?: AddressPickerCreateOptions | undefined;
+	/** The bound field's `state.meta.errors`, drawn under the input. */
+	readonly errors?: readonly unknown[] | undefined;
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
@@ -67,6 +70,7 @@ export function AddressPicker({
 	return (
 		<div className="grid gap-3">
 			<PickerFrame
+				errors={errors}
 				anchorRef={anchorRef}
 				label={label}
 				onClear={() => {

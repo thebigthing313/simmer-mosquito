@@ -174,6 +174,7 @@ export function RequestFormPage({
 					<form.AppField name="addressId">
 						{(field) => (
 							<LocationAddressField
+								errors={field.state.meta.errors}
 								location={location}
 								onChange={field.handleChange}
 								value={field.state.value}
@@ -225,6 +226,7 @@ export function RequestFormPage({
 						<form.AppField name="habitatId">
 							{(field) => (
 								<HabitatPicker
+									errors={field.state.meta.errors}
 									label="Habitat"
 									onSelect={(habitat) => {
 										field.handleChange(habitat?.id ?? null);

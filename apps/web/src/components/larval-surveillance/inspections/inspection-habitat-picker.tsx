@@ -1,3 +1,4 @@
+import { errorMessagesFrom } from '@simmer-mosquito/ui-web/components/form';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { InputGroupButton } from '@simmer-mosquito/ui-web/components/ui/input-group';
 import {
@@ -6,7 +7,7 @@ import {
 	PopoverContent,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
 import { CheckIcon, SearchIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { useDeferredValue, useRef, useState } from 'react';
+import { useDeferredValue, useId, useRef, useState } from 'react';
 import { useHabitatLabel } from '../../../hooks/larval-surveillance/use-habitat-label';
 import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
 import { useHabitatSearch } from '../../../hooks/queries/use-habitat-search';
@@ -32,11 +33,19 @@ export function HabitatPicker({
 	organizationId,
 	value,
 	onSelect,
+	errors,
 }: {
 	readonly organizationId: string;
 	readonly value: string | null;
 	readonly onSelect: (habitat: HabitatMatch | null) => void;
+	/**
+	 * The bound field's `state.meta.errors`. A habitat inspection with no habitat
+	 * is refused on this field, and nothing else on the page says so.
+	 */
+	readonly errors?: readonly unknown[] | undefined;
 }) {
+	const errorId = useId();
+	const error = errorMessagesFrom(errors ?? [])[0]?.message;
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
 	const [pickedLabel, setPickedLabel] = useState('');
@@ -49,7 +58,7 @@ export function HabitatPicker({
 	const selectedLabel = pickedLabel === '' ? seededLabel : pickedLabel;
 
 	return (
-		<LabeledControl label="Habitat" required>
+		<LabeledControl error={error} errorId={errorId} label="Habitat" required>
 			<Popover onOpenChange={setOpen} open={open}>
 				<PopoverAnchor asChild>
 					<div ref={anchorRef}>
@@ -70,6 +79,8 @@ export function HabitatPicker({
 									</InputGroupButton>
 								)
 							}
+							aria-describedby={error === undefined ? undefined : errorId}
+							aria-invalid={error === undefined ? undefined : true}
 							label="Search habitats"
 							onChange={(event) => {
 								setSearch(event.target.value);

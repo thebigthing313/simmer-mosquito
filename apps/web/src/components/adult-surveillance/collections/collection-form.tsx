@@ -16,6 +16,7 @@ import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { TrapOption } from '../../../hooks/queries/use-trap-options';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
+import { profileOptions } from '../../../lib/profile-options';
 import { additionalPersonnelOptions } from '../../additional-personnel';
 import { CustomFieldsSection } from '../../forms/custom-fields-section';
 import { FirstCommentSection } from '../../forms/first-comment-section';
@@ -28,7 +29,6 @@ import {
 	isPendingCollectionDraft,
 	lureOptions,
 	noLureValue,
-	profileOptions,
 	trapPoint,
 	validateCollection,
 } from './collection-form-values';
@@ -244,6 +244,7 @@ export function CollectionFormPage({
 									{(field) => (
 										<div className="grid gap-2">
 											<TrapPicker
+												errors={field.state.meta.errors}
 												onSelect={(trap) => {
 													field.handleChange(trap?.id ?? null);
 													setSelectedTrap(trap);
@@ -276,6 +277,7 @@ export function CollectionFormPage({
 									<form.AppField name="addressId">
 										{(field) => (
 											<LocationAddressField
+												errors={field.state.meta.errors}
 												location={location}
 												onChange={field.handleChange}
 												value={field.state.value}

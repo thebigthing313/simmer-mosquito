@@ -277,6 +277,7 @@ export function MissionFormPage({
 						<form.AppField name="startDate">
 							{(field) => (
 								<DateControl
+									errors={field.state.meta.errors}
 									label="Start date"
 									onChange={field.handleChange}
 									required
@@ -302,6 +303,7 @@ export function MissionFormPage({
 							<form.AppField name="rainDate">
 								{(field) => (
 									<DateControl
+										errors={field.state.meta.errors}
 										label="Rain date"
 										onChange={field.handleChange}
 										value={field.state.value}

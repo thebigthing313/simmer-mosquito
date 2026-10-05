@@ -227,6 +227,7 @@ export function BiocontrolFormPage({
 				<form.AppField name="biocontrolDate">
 					{(field) => (
 						<DateControl
+							errors={field.state.meta.errors}
 							label="Release date"
 							required
 							onChange={(next) => field.handleChange(next)}
@@ -269,6 +270,7 @@ export function BiocontrolFormPage({
 						<form.AppField name="habitatId">
 							{(field) => (
 								<HabitatPicker
+									errors={field.state.meta.errors}
 									label="Habitat"
 									organizationId={organizationId}
 									onSelect={(habitat) => {
@@ -292,6 +294,7 @@ export function BiocontrolFormPage({
 					<form.AppField name="addressId">
 						{(field) => (
 							<LocationAddressField
+								errors={field.state.meta.errors}
 								location={location}
 								onChange={field.handleChange}
 								value={field.state.value}
