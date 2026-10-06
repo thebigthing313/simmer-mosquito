@@ -6,13 +6,11 @@ import {
 	createMapClusteringSetting,
 	MAP_CLUSTERING_KEY,
 	type MapClusteringStorage,
-	memoryClusteringStorage,
 } from '../../../lib/map-clustering';
 
 afterEach(() => {
 	localStorage.clear();
 	vi.restoreAllMocks();
-	vi.resetModules();
 });
 
 function blockStorage() {
@@ -26,7 +24,7 @@ function blockStorage() {
 
 describe('map clustering setting', () => {
 	it('starts on when nothing is stored', () => {
-		const setting = createMapClusteringSetting(memoryClusteringStorage());
+		const setting = createMapClusteringSetting({ read: () => undefined, write: () => {} });
 
 		expect(setting.read()).toBe(true);
 	});
@@ -74,13 +72,6 @@ describe('map clustering setting', () => {
 
 		expect(written).toEqual([]);
 		expect(heard).toBe(0);
-	});
-
-	it('keeps a memory value for as long as the storage lives', () => {
-		const storage = memoryClusteringStorage();
-		createMapClusteringSetting(storage).write(false);
-
-		expect(createMapClusteringSetting(storage).read()).toBe(false);
 	});
 });
 
@@ -133,6 +124,7 @@ describe('map clustering in browser storage (issue #1381)', () => {
 	});
 
 	it('opens a reloaded page on the choice the last one stored', async () => {
+		vi.resetModules();
 		const first = await import('../../../lib/map-clustering');
 		first.mapClustering.write(false);
 
@@ -144,5 +136,6 @@ describe('map clustering in browser storage (issue #1381)', () => {
 		vi.resetModules();
 		const again = await import('../../../lib/map-clustering');
 		expect(again.mapClustering.read()).toBe(true);
+		vi.resetModules();
 	});
 });

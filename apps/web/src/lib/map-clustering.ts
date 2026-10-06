@@ -26,17 +26,6 @@ export interface MapClusteringSetting {
 /** Clustering is on until somebody turns it off. */
 const CLUSTERING_DEFAULT = true;
 
-/** A storage that holds the value for as long as the page does. */
-export function memoryClusteringStorage(): MapClusteringStorage {
-	let stored: boolean | undefined;
-	return {
-		read: () => stored,
-		write: (on) => {
-			stored = on;
-		},
-	};
-}
-
 /** The one key the choice is stored under, for every Organization. */
 export const MAP_CLUSTERING_KEY = 'simmer.map.clustering';
 
