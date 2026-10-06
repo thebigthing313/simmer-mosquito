@@ -400,7 +400,9 @@ order the Density filter and the map key list them in, rather than by count.
 A dry inspection has no density, so the bands are followed by "Not recorded"
 as text, which no filter selects. Larvae found draws one side only, because
 there is no filter for its opposite. A value with no inspections in view is
-left out, since clicking it would empty the panel. The count depends on the
+left out, since clicking it would empty the panel. Habitat Type and Inspector
+need no such step, because each lists only the values the server grouped by,
+and a grouped value has at least one inspection behind it. The count depends on the
 date range, and the map opens on the last 30 days, so a season's worth of
 inspections draws the summary only once somebody widens the window or zooms
 out over a busy month.

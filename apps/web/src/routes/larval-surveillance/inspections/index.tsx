@@ -50,7 +50,6 @@ import { type RecordBadgeFacts, recordBadges } from '../../../components/record/
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import type { ExplorerSummaryState } from '../../../hooks/explorer/use-explorer-summary';
 import {
 	type InspectionFilterOptions,
 	useInspectionFilterOptions,
@@ -229,15 +228,31 @@ function InspectionsExplorerRoute() {
 				// Over 100 in view the rows would not fit on one page, so the panel
 				// says what is in view instead (#1369).
 				summary: summary.isShown ? (
-					<InspectionSummary
-						activeFilterCount={activeFilterCount}
-						defaults={defaults}
-						onClearAll={clearAll}
-						onResetDates={resetDates}
-						options={filterOptions}
-						set={set}
-						state={state}
-						summary={summary}
+					<ExplorerSummary
+						chips={
+							<InspectionActiveFilters
+								activeFilterCount={activeFilterCount}
+								defaults={defaults}
+								onClearAll={clearAll}
+								onResetDates={resetDates}
+								options={filterOptions}
+								set={set}
+								state={state}
+							/>
+						}
+						groupings={
+							summary.data === null
+								? []
+								: inspectionSummaryGroupings({
+										summary: summary.data,
+										state,
+										set,
+										typeNameById: filterOptions.catalogs.typeNameById,
+										inspectorNameById: filterOptions.catalogs.personnelNameById,
+									})
+						}
+						recordType="inspection"
+						state={summary}
 					/>
 				) : undefined,
 				renderRow: (inspection) => (
@@ -254,8 +269,8 @@ function InspectionsExplorerRoute() {
 	);
 }
 
-/** What the chip row reads, which the filter card and the summary both draw. */
-interface ActiveFilterProps {
+/** What the filter card and the chip row both read, the chips also drawing above the summary. */
+interface InspectionFilterProps {
 	readonly activeFilterCount: number;
 	readonly defaults: InspectionSearchFilters;
 	readonly onClearAll: () => void;
@@ -263,32 +278,6 @@ interface ActiveFilterProps {
 	readonly options: InspectionFilterOptions;
 	readonly set: InspectionFilterSetters;
 	readonly state: InspectionFilterState;
-}
-
-/** What the panel draws in place of the rows: the chips, then the counts in view. */
-function InspectionSummary({
-	summary,
-	...chips
-}: ActiveFilterProps & { readonly summary: ExplorerSummaryState }) {
-	const { catalogs } = chips.options;
-	return (
-		<ExplorerSummary
-			chips={<InspectionActiveFilters {...chips} />}
-			groupings={
-				summary.data === null
-					? []
-					: inspectionSummaryGroupings({
-							summary: summary.data,
-							state: chips.state,
-							set: chips.set,
-							typeNameById: catalogs.typeNameById,
-							inspectorNameById: catalogs.personnelNameById,
-						})
-			}
-			recordType="inspection"
-			state={summary}
-		/>
-	);
 }
 
 /** The map, and the card for whichever inspection is selected. */
@@ -341,7 +330,7 @@ function InspectionActiveFilters({
 	options,
 	set,
 	state,
-}: ActiveFilterProps) {
+}: InspectionFilterProps) {
 	if (activeFilterCount === 0) {
 		return null;
 	}
@@ -418,7 +407,7 @@ function InspectionFilters({
 	options,
 	set,
 	state,
-}: ActiveFilterProps & { readonly dateRange: ReturnType<typeof useDateRangeFilters> }) {
+}: InspectionFilterProps & { readonly dateRange: ReturnType<typeof useDateRangeFilters> }) {
 	return (
 		<>
 			<DateRangeFilter {...dateRange} />
