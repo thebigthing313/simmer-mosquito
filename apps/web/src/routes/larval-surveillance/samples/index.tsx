@@ -4,16 +4,20 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
-import { ExplorerPagination } from '../../../components/explorer-pagination';
+import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { SampleMapCard } from '../../../components/larval-surveillance/sample-map-card';
 import { sampleLegend } from '../../../components/larval-surveillance/samples/legend';
-import { SampleFilterFields } from '../../../components/larval-surveillance/samples/sample-filters';
+import {
+	SampleFilterChips,
+	SampleFilterFields,
+} from '../../../components/larval-surveillance/samples/sample-filters';
 import {
 	SampleContext,
 	type SampleListRow,
 	SpeciesResults,
 	sampleSwatch,
 } from '../../../components/larval-surveillance/samples/sample-row-parts';
+import { sampleSummaryGroupings } from '../../../components/larval-surveillance/samples/sample-summary';
 import { SampleSurfaceSwitch } from '../../../components/larval-surveillance/samples/sample-surface-switch';
 import {
 	sampleFilterCodecs,
@@ -47,7 +51,7 @@ function SamplesExplorerRoute() {
 	// The filter state lives in the URL, so a deep link, a shared link, and Back
 	// out of a record all land on the same view.
 	const binding = useSampleFilterState();
-	const { filters: query, reset: clearAll, activeCount: activeFilterCount } = binding;
+	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -67,7 +71,7 @@ function SamplesExplorerRoute() {
 		onSelectFeature: setSelectedId,
 	};
 	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
+	const { rows, total, isLoading, isError, retry, selected, empty, summary } =
 		useExplorerResource<SampleListRow>({
 			path: PATH,
 			rowsKey: 'samples',
@@ -77,6 +81,7 @@ function SamplesExplorerRoute() {
 			layer,
 			map,
 			selectedId,
+			summarize: true,
 		});
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
@@ -88,15 +93,6 @@ function SamplesExplorerRoute() {
 			actions={<SampleSurfaceSwitch compact current="map" search={carried} />}
 			activeFilterCount={activeFilterCount}
 			filters={<SampleFilterFields binding={binding} />}
-			footer={
-				<ExplorerPagination
-					noun={recordNoun('sample')}
-					onPageChange={setPage}
-					page={page}
-					pageCount={pageCount}
-					total={total}
-				/>
-			}
 			heading={{
 				title: recordNoun('sample').titleMany,
 				icon: SampleIcon,
@@ -133,6 +129,25 @@ function SamplesExplorerRoute() {
 				onRetry: retry,
 				skeletonClassName: 'h-[64px]',
 				empty,
+				// Over 100 in view the rows would not fit on one page, so the panel
+				// says what is in view instead (#1370).
+				summary: summary.isShown ? (
+					<ExplorerSummary
+						chips={activeFilterCount === 0 ? null : <SampleFilterChips binding={binding} />}
+						groupings={
+							summary.data === null
+								? []
+								: sampleSummaryGroupings({
+										summary: summary.data,
+										filters: query,
+										setFilters,
+										speciesNameById: nameById,
+									})
+						}
+						recordType="sample"
+						state={summary}
+					/>
+				) : undefined,
 				renderRow: (sample) => (
 					<SampleListItem
 						isSelected={sample.id === selectedId}

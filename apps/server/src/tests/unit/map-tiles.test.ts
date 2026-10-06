@@ -948,6 +948,72 @@ describe('registerMapTileRoutes — inspections', () => {
 	});
 });
 
+// The Samples rail's summary over 100 in view (#1370), which answers a figure
+// beside the groups.
+describe('registerMapTileRoutes — sample summary', () => {
+	const speciesId = '8c3e1f52-6a4d-4b97-9e20-5d7f3a1c8b64';
+
+	it('passes the box and every sample filter to the summary, and answers its figures', async () => {
+		const summarizeSamples = vi.fn(async () => ({
+			total: 230,
+			groups: {
+				status: [{ value: 'identified', count: 230 }],
+				species: [{ value: speciesId, count: 230 }],
+				nonMosquito: [{ value: true, count: 230 }],
+			},
+			figures: { larvaeTotal: 1_204 },
+		}));
+		const app = createApp({ getHabitatTile: async () => new Uint8Array(), summarizeSamples });
+
+		const response = await app.request(
+			`/map/samples/summary?bbox=-91,35,-90,36&species=${speciesId}&status=identified&nonMosquito=true&regionId=${regionId}&dateFrom=2026-09-01&dateTo=2026-09-30`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toMatchObject({ figures: { larvaeTotal: 1_204 } });
+		expect(summarizeSamples).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				speciesIds: [speciesId],
+				status: 'identified',
+				nonMosquitoOnly: true,
+				regionIds: [regionId],
+				dateFrom: '2026-09-01',
+				dateTo: '2026-09-30',
+			},
+		});
+	});
+
+	it.each([
+		['a missing bbox', '?status=awaiting'],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a status that is not one of the four', '?bbox=-91,35,-90,36&status=maybe'],
+		['a param no sample filter admits', '?bbox=-91,35,-90,36&isWet=true'],
+	])('refuses %s before reading the sample summary', async (_case, query) => {
+		const summarizeSamples = vi.fn();
+		const getSampleDisplayRow = vi.fn();
+		const app = createApp({ summarizeSamples, getSampleDisplayRow });
+
+		const response = await app.request(`/map/samples/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeSamples).not.toHaveBeenCalled();
+		expect(getSampleDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no sample summary for a request with no session', async () => {
+		const summarizeSamples = vi.fn();
+		const app = createApp({ authenticated: false, summarizeSamples });
+
+		const response = await app.request('/map/samples/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeSamples).not.toHaveBeenCalled();
+	});
+});
+
 // The four routes whose readers were called directly rather than injected, so
 // none of them could be driven without a database until the readers became one
 // object. Three answer geometry the Electric shape does not carry (ADR 0009).

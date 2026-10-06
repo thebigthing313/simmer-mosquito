@@ -4,8 +4,13 @@ import { PbfReader } from 'pbf';
 import { expect, it } from 'vitest';
 import { getRequestedControlActionDisplayRowById } from '../../../domains/control-operations-map.js';
 import type { HabitatMvtTileFilters } from '../../../domains/habitats.js';
-import type { InspectionMvtTileFilters } from '../../../domains/larval-surveillance.js';
+import {
+	type InspectionMvtTileFilters,
+	type SampleListFilters,
+	sampleStatusValues,
+} from '../../../domains/larval-surveillance.js';
 import type { MapExtent } from '../../../domains/map-extent.js';
+import type { MapRecordSurfaceReaders } from '../../../domains/map-surface.js';
 import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import { MAP_TILE_ENCODING } from '../../../domains/map-tile.js';
 import { getNotificationRegistrationGeometryById } from '../../../domains/public-engagement-map.js';
@@ -1189,7 +1194,7 @@ describeDbIntegration('inspection summary against Postgres', () => {
 				{ dateFrom: '2026-03-16' },
 			];
 			const answers = await Promise.all(
-				filterSets.map((filters) => inspectionSummaryAndPage(db, filters)),
+				filterSets.map((filters) => summaryAndPage(db, MAP_SURFACES.inspections, filters)),
 			);
 
 			for (const { summary, pageTotal } of answers) {
@@ -1275,9 +1280,10 @@ async function seedInspectionVariety(
 }
 
 /** The summary and the page's total for the seeded box under one filter set. */
-async function inspectionSummaryAndPage(
+async function summaryAndPage<TFilters>(
 	db: Kysely<SimmerDatabase>,
-	filters: InspectionMvtTileFilters,
+	surface: Pick<MapRecordSurfaceReaders<TFilters, unknown>, 'summarizeByBounds' | 'listByBounds'>,
+	filters: TFilters,
 ) {
 	const input = {
 		organizationId: mapSurfaceOrganizationIds.own,
@@ -1285,7 +1291,141 @@ async function inspectionSummaryAndPage(
 		bounds: mapSurfacePlace.bounds,
 		filters,
 	};
-	const summary = await MAP_SURFACES.inspections.summarizeByBounds(db, input);
-	const listed = await MAP_SURFACES.inspections.listByBounds(db, { ...input, ...page });
+	const summary = await surface.summarizeByBounds(db, input);
+	const listed = await surface.listByBounds(db, { ...input, ...page });
 	return { summary, pageTotal: listed.total };
+}
+
+// Over 100 samples in view the Samples rail draws the same summary (#1370).
+// The seeded world's one live sample in the box, which is awaiting, is joined
+// by four more on the same inspection. Two statuses overlap on one of them and
+// one carries two species, so the status and species counts can run past the
+// total, and each is checked against the page its button narrows to.
+describeDbIntegration('sample summary against Postgres', () => {
+	it('counts the samples the page counts, by status, species and non-mosquito', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const { pipiens, restuans } = await seedSampleVariety(db);
+			const read = (filters: SampleListFilters) =>
+				summaryAndPage(db, MAP_SURFACES.samples, filters);
+
+			const all = await read({});
+			expect(all.pageTotal).toBe(5);
+			expect(all.summary).toEqual({
+				total: 5,
+				groups: {
+					status: expect.arrayContaining([
+						{ value: 'identified', count: 2 },
+						{ value: 'awaiting', count: 1 },
+						{ value: 'zero_larvae', count: 1 },
+						{ value: 'unidentifiable', count: 2 },
+					]),
+					species: [
+						{ value: pipiens, count: 2 },
+						{ value: restuans, count: 1 },
+					],
+					nonMosquito: [
+						{ value: false, count: 4 },
+						{ value: true, count: 1 },
+					],
+				},
+				figures: { larvaeTotal: 10 },
+			});
+			expect(all.summary.groups.status).toHaveLength(4);
+
+			// Each group's count is the total of the page its button narrows to.
+			const narrowed: readonly (readonly [string, string | boolean, SampleListFilters])[] = [
+				...sampleStatusValues.map((status) => ['status', status, { status }] as const),
+				['species', pipiens, { speciesIds: [pipiens] }],
+				['species', restuans, { speciesIds: [restuans] }],
+				['nonMosquito', true, { nonMosquitoOnly: true }],
+			];
+			const answers = await Promise.all(narrowed.map(([, , filters]) => read(filters)));
+			narrowed.forEach(([grouping, value], index) => {
+				const answer = answers[index];
+				expect(answer?.summary.total).toBe(answer?.pageTotal);
+				expect(all.summary.groups[grouping]?.find((group) => group.value === value)?.count).toBe(
+					answer?.pageTotal,
+				);
+			});
+
+			expect((await read({ speciesIds: [restuans] })).summary.figures).toEqual({
+				larvaeTotal: 8,
+			});
+			// Outside the date window nothing is counted and nothing is added up.
+			expect((await read({ dateFrom: '2026-03-16' })).summary).toEqual({
+				total: 0,
+				groups: { status: [], species: [], nonMosquito: [] },
+				figures: { larvaeTotal: 0 },
+			});
+		});
+	});
+});
+
+/**
+ * Four more live samples on the seeded `inside` inspection: one carrying both
+ * species and non-mosquito material, one carrying one species, one closed out
+ * as zero larvae and unidentifiable at once, and one unidentifiable alone. Ten
+ * larvae are identified across them.
+ */
+async function seedSampleVariety(
+	db: Kysely<SimmerDatabase>,
+): Promise<{ readonly pipiens: string; readonly restuans: string }> {
+	const genus = await db
+		.insertInto('genera')
+		.values({ abbreviation: 'Cx', name: 'Culex' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const species = await db
+		.insertInto('species')
+		.values(
+			['pipiens', 'restuans'].map((epithet) => ({
+				genus_id: genus.id,
+				epithet,
+				display_name: `Culex ${epithet}`,
+			})),
+		)
+		.returning(['id', 'epithet'])
+		.execute();
+	const idOf = (epithet: string) => {
+		const row = species.find((candidate) => candidate.epithet === epithet);
+		if (row === undefined) {
+			throw new Error(`Expected the seeded species ${epithet}.`);
+		}
+		return row.id;
+	};
+
+	const base = {
+		organization_id: mapSurfaceOrganizationIds.own,
+		inspection_id: mapSurfaceRowIds.inspection.inside,
+	};
+	const [both, one] = await db
+		.insertInto('samples')
+		.values([
+			{ ...base, has_non_mosquito: true },
+			{ ...base },
+			{ ...base, is_zero_larvae: true, unidentifiable_reason: 'Damaged' },
+			{ ...base, unidentifiable_reason: 'Desiccated' },
+		])
+		.returning('id')
+		.execute();
+	if (both === undefined || one === undefined) {
+		throw new Error('Expected the seeded samples back.');
+	}
+
+	const pipiens = idOf('pipiens');
+	const restuans = idOf('restuans');
+	const identified = {
+		organization_id: mapSurfaceOrganizationIds.own,
+		identified_at: new Date('2026-03-16T00:00:00.000Z'),
+	};
+	await db
+		.insertInto('sample_species')
+		.values([
+			{ ...identified, sample_id: both.id, species_id: restuans, larvae_count: 3 },
+			{ ...identified, sample_id: both.id, species_id: pipiens, larvae_count: 5 },
+			{ ...identified, sample_id: one.id, species_id: pipiens, larvae_count: 2 },
+		])
+		.execute();
+	return { pipiens, restuans };
 }

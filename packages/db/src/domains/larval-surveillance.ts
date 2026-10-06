@@ -479,6 +479,14 @@ export function sampleSurface(
 		// geometry, is not on the map at all.
 		alwaysWhere: [sql<boolean>`i.deleted_at is null`, sql<boolean>`i.geom is not null`],
 		filterWhere: sampleFilterWhere,
+		// What the Samples rail counts by over 100 in view (#1370), each named for
+		// the query param of the filter it applies, so a group is a button.
+		groupings: () => ({
+			status: { each: sampleStatusesSql },
+			species: { each: sampleSpeciesIdsSql },
+			nonMosquito: sql`s.has_non_mosquito`,
+		}),
+		figures: () => ({ larvaeTotal: sampleLarvaeTotalSql }),
 		display: {
 			columns: sampleDisplayColumns,
 			joins: sampleDisplayJoins,
@@ -486,6 +494,34 @@ export function sampleSurface(
 		},
 	});
 }
+
+/**
+ * Every status whose filter would keep the sample, read off the filter's own
+ * clauses rather than the precedence the tile paints by. The states overlap in
+ * the data, a zero-larvae sample can also carry an unidentifiable reason, and
+ * a status group's count is then what clicking it narrows the page to.
+ */
+const sampleStatusesSql = sql<readonly SampleStatus[]>`array_remove(array[${sql.join(
+	sampleStatusValues.map(
+		(status) => sql`case when ${sampleStatusClause(status)} then ${status}::text end`,
+	),
+	sql`, `,
+)}], null)`;
+
+/**
+ * The species a sample carries, the table the `speciesIds` filter reads. The
+ * active-row unique index on sample and species keeps each one listed once.
+ */
+const sampleSpeciesIdsSql = sql<readonly string[]>`array(
+	select ss.species_id from sample_species ss
+	where ss.sample_id = s.id and ss.deleted_at is null
+)`;
+
+/** The larvae identified in one sample, the row's `larvaeTotal`. */
+const sampleLarvaeTotalSql = sql<number>`(
+	select coalesce(sum(ss.larvae_count), 0)::int from sample_species ss
+	where ss.sample_id = s.id and ss.deleted_at is null
+)`;
 
 function sampleFilterWhere(filters: SampleListFilters | undefined): RawBuilder<boolean>[] {
 	if (filters === undefined) {

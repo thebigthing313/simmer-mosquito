@@ -121,6 +121,7 @@ vi.mock('../../../../hooks/explorer/use-explorer-resource', () => ({
 		pageCount: 1,
 		setPage: () => undefined,
 		selected: null,
+		summary: { isShown: false, data: null, isError: false, retry: () => undefined },
 	}),
 }));
 vi.mock('../../../../hooks/explorer/use-region-options', () => ({
