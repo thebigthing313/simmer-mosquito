@@ -189,14 +189,14 @@ describe('parseHabitatDisplayQuery', () => {
 			parseHabitatDisplayQuery(
 				new URLSearchParams({
 					bbox: '-91,35,-90,36',
-					limit: '100',
+					limit: '101',
 				}),
 				organizationId,
 				timeZone,
 			),
 		).toMatchObject({
 			ok: false,
-			reason: 'limit must be between 1 and 50.',
+			reason: 'limit must be between 1 and 100.',
 		});
 	});
 });
@@ -273,7 +273,7 @@ describe('registerMapTileRoutes', () => {
 			listHabitatDisplayRows,
 		});
 
-		const response = await app.request('/map/habitats?bbox=-91,35,-90,36&limit=99');
+		const response = await app.request('/map/habitats?bbox=-91,35,-90,36&limit=101');
 
 		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
 		expect(response.status).toBe(400);
@@ -594,6 +594,75 @@ describe('registerMapTileRoutes', () => {
 		expect(response.status).toBe(401);
 		expect(countHabitatTypeUsage).not.toHaveBeenCalled();
 	});
+
+	it('summarizes the habitats in the box under the same filters the page reads', async () => {
+		const calls: unknown[] = [];
+		const summary = {
+			total: 214,
+			groups: {
+				habitatTypeId: [{ value: habitatTypeId, count: 200 }],
+				isActive: [{ value: true, count: 214 }],
+				isInaccessible: [{ value: false, count: 214 }],
+				untreated: [{ value: false, count: 214 }],
+			},
+		};
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			summarizeHabitats: async (_db, input) => {
+				calls.push(input);
+				return summary;
+			},
+		});
+
+		const response = await app.request(
+			`/map/habitats/summary?bbox=-91,35,-90,36&isActive=true&habitatTypeId=${habitatTypeId}&untreated=true`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(calls).toEqual([
+			{
+				organizationId,
+				bounds: { west: -91, south: 35, east: -90, north: 36 },
+				filters: { isActive: true, habitatTypeIds: [habitatTypeId], untreatedOnly: true },
+			},
+		]);
+	});
+
+	it.each([
+		['a missing bbox', '/map/habitats/summary?isActive=true'],
+		['a paging param', '/map/habitats/summary?bbox=-91,35,-90,36&limit=10'],
+		['an unknown filter', '/map/habitats/summary?bbox=-91,35,-90,36&notAFilter=1'],
+	])('refuses %s before reading the summary', async (_case, path) => {
+		const summarizeHabitats = vi.fn();
+		const getHabitatDisplayRow = vi.fn();
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			summarizeHabitats,
+			getHabitatDisplayRow,
+		});
+
+		const response = await app.request(path);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeHabitats).not.toHaveBeenCalled();
+		expect(getHabitatDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('requires auth before reading the summary', async () => {
+		const summarizeHabitats = vi.fn();
+		const app = createApp({
+			authenticated: false,
+			getHabitatTile: async () => new Uint8Array(),
+			summarizeHabitats,
+		});
+
+		const response = await app.request('/map/habitats/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeHabitats).not.toHaveBeenCalled();
+	});
 });
 
 describe('parseInspectionTileFilters', () => {
@@ -679,7 +748,7 @@ describe('parseInspectionDisplayQuery', () => {
 				organizationId,
 				timeZone,
 			),
-		).toMatchObject({ ok: false, reason: 'limit must be between 1 and 50.' });
+		).toMatchObject({ ok: false, reason: 'limit must be between 1 and 100.' });
 	});
 });
 

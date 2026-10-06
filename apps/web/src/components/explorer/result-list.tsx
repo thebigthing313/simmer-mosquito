@@ -200,8 +200,9 @@ const ROW_OVERSCAN = 6;
  * A flat list of rows, which is what thirteen of the fifteen explorers hand
  * over. Only the rows in view are mounted.
  *
- * A page is 50 records and a panel shows about a dozen, so rendering the whole
- * page spent React reconciliation on 38 rows nobody could see. That was a 55ms
+ * A page was 50 records and a panel shows about a dozen, so rendering the whole
+ * page spent React reconciliation on 38 rows nobody could see. A page is 100
+ * since #1244, which costs nothing more for the same reason. That was a 55ms
  * long task on every viewport settle while the map was being dragged, and the
  * same drag with the rail collapsed had none.
  *

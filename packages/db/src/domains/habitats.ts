@@ -174,7 +174,8 @@ const habitatDisplayColumns: MapDisplayColumns<SafeHabitatDisplayRow> = {
 
 /**
  * The habitats map surface: the tile the explorer draws, the extent it frames,
- * the viewport-bounded page its rail reads, and the row its detail card opens.
+ * the viewport-bounded page its rail reads, the summary it draws in place of
+ * the page over 100 in view, and the row its detail card opens.
  *
  * The layer is the argument rather than a literal here, because it is the key
  * this surface is registered under in `map-surface-register.ts`.
@@ -196,6 +197,14 @@ export function habitatSurface(
 			sql`h.geom_type as "geomType"`,
 		],
 		filterWhere: habitatFilterWhere,
+		// What the Habitats rail counts by over 100 in view (#1244), each one a
+		// filter the rail already has, so a group is a button that applies it.
+		groupings: (context) => ({
+			habitatTypeId: sql`h.habitat_type_id`,
+			isActive: sql`h.is_active`,
+			isInaccessible: sql`h.is_inaccessible`,
+			untreated: untreatedHabitatSql(context),
+		}),
 		display: {
 			columns: habitatDisplayColumns,
 			// `natural_sort` puts `Habitat 9` ahead of `Habitat 10`.

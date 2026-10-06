@@ -3,6 +3,7 @@ import { type Kysely, sql } from 'kysely';
 import { PbfReader } from 'pbf';
 import { expect, it } from 'vitest';
 import { getRequestedControlActionDisplayRowById } from '../../../domains/control-operations-map.js';
+import type { HabitatMvtTileFilters } from '../../../domains/habitats.js';
 import type { MapExtent } from '../../../domains/map-extent.js';
 import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import { MAP_TILE_ENCODING } from '../../../domains/map-tile.js';
@@ -30,6 +31,7 @@ import {
 	seedStatusCollections,
 } from '../../../seeds/map-surfaces.js';
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
+import { seedUntreatedWorld, UNTREATED_BOUNDS, UNTREATED_TIME_ZONE } from './untreated-world.js';
 
 // --- what the map surfaces actually answer -----------------------------------
 //
@@ -1058,3 +1060,108 @@ function featureIds(tile: Uint8Array | undefined, layerName: string): string[] {
 		String(layer.feature(index).properties.id),
 	).sort();
 }
+
+// --- the in-view summary -----------------------------------------------------
+//
+// Over 100 habitats in view the Habitats rail draws grouped counts instead of
+// rows (#1244). The summary and the page are two reads, so the one thing that
+// must hold is that they count the same set: the summary's total is compared
+// with the page's under every filter a grouping button writes, and each
+// grouping's counts add up to that total. The world is the untreated suite's,
+// so the untreated grouping is read against the same eight habitats that suite
+// asserts by id.
+describeDbIntegration('habitat summary against Postgres', () => {
+	it('counts the habitats the page counts, grouped by each declared grouping', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedUntreatedWorld(db);
+			const typed = world.untreated.slice(0, 2);
+			const type = await db
+				.insertInto('habitat_types')
+				.values({ organization_id: world.organizationId, name: 'Tire' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			await db
+				.updateTable('habitats')
+				.set({ habitat_type_id: type.id })
+				.where('id', 'in', typed)
+				.execute();
+
+			const context = {
+				organizationId: world.organizationId,
+				timeZone: UNTREATED_TIME_ZONE,
+				bounds: UNTREATED_BOUNDS,
+			};
+			const filterSets: readonly HabitatMvtTileFilters[] = [
+				{},
+				{ untreatedOnly: true },
+				{ isActive: true },
+				{ isActive: false },
+				{ isInaccessible: true },
+				{ isInaccessible: false },
+				{ habitatTypeIds: [type.id] },
+			];
+
+			const answers = await Promise.all(
+				filterSets.map(async (filters) => {
+					const summary = await MAP_SURFACES.habitats.summarizeByBounds(db, {
+						...context,
+						filters,
+					});
+					const listed = await MAP_SURFACES.habitats.listByBounds(db, {
+						...context,
+						filters,
+						...page,
+					});
+					return { summary, pageTotal: listed.total };
+				}),
+			);
+
+			for (const { summary, pageTotal } of answers) {
+				expect(summary.total).toBe(pageTotal);
+				for (const groups of Object.values(summary.groups)) {
+					expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(summary.total);
+				}
+			}
+
+			const unfiltered = answers[0]?.summary;
+			expect(Object.keys(unfiltered?.groups ?? {}).sort()).toEqual([
+				'habitatTypeId',
+				'isActive',
+				'isInaccessible',
+				'untreated',
+			]);
+			expect(unfiltered?.groups.untreated).toContainEqual({
+				value: true,
+				count: world.untreated.length,
+			});
+			expect(unfiltered?.groups.habitatTypeId).toContainEqual({ value: type.id, count: 2 });
+			// Largest first, so a client can take the top five as they come.
+			for (const groups of Object.values(unfiltered?.groups ?? {})) {
+				const counts = groups.map((group) => group.count);
+				expect(counts).toEqual([...counts].sort((a, b) => b - a));
+			}
+
+			// Filtered to untreated, every habitat in the box is on the true side.
+			expect(answers[1]?.summary.groups.untreated).toEqual([
+				{ value: true, count: world.untreated.length },
+			]);
+		});
+	});
+
+	it('answers a box with nothing in it with a zero total and empty groupings', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedUntreatedWorld(db);
+
+			const summary = await MAP_SURFACES.habitats.summarizeByBounds(db, {
+				organizationId: world.organizationId,
+				timeZone: UNTREATED_TIME_ZONE,
+				bounds: { west: 10, south: 10, east: 11, north: 11 },
+			});
+
+			expect(summary).toEqual({
+				total: 0,
+				groups: { habitatTypeId: [], isActive: [], isInaccessible: [], untreated: [] },
+			});
+		});
+	});
+});

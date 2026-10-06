@@ -5,9 +5,13 @@ import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
-import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { HabitatFilterFields } from '../../../components/larval-surveillance/habitats/habitat-filters';
+import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import {
+	HabitatFilterChips,
+	HabitatFilterFields,
+} from '../../../components/larval-surveillance/habitats/habitat-filters';
 import { HabitatMapCard } from '../../../components/larval-surveillance/habitats/habitat-map-card';
+import { habitatSummaryGroupings } from '../../../components/larval-surveillance/habitats/habitat-summary';
 import { HabitatSurfaceSwitch } from '../../../components/larval-surveillance/habitats/habitat-surface-switch';
 import {
 	habitatFilterCodecs,
@@ -64,7 +68,7 @@ interface HabitatListRow {
 
 function HabitatsExplorerRoute() {
 	const binding = useHabitatFilterState();
-	const { filters: query, activeCount: activeFilterCount, clearAll } = binding;
+	const { filters: query, activeCount: activeFilterCount, clearAll, setFilters } = binding;
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -91,11 +95,9 @@ function HabitatsExplorerRoute() {
 		isLoading,
 		isError,
 		retry,
-		page,
-		pageCount,
-		setPage,
 		selected: selectedHabitat,
 		empty,
+		summary,
 	} = useExplorerResource<HabitatListRow>({
 		path: PATH,
 		rowsKey: 'habitats',
@@ -105,9 +107,11 @@ function HabitatsExplorerRoute() {
 		layer,
 		map,
 		selectedId,
+		summarize: true,
 	});
 	// Tags for the rows actually on screen, so the subset request stays small.
-	const pageHabitatIds = rows.map((habitat) => habitat.id);
+	// None while the summary stands in for the rows.
+	const pageHabitatIds = summary.isShown ? [] : rows.map((habitat) => habitat.id);
 	const { byId: tagsByHabitatId } = useEntityTags('habitat', pageHabitatIds);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
@@ -117,15 +121,6 @@ function HabitatsExplorerRoute() {
 			actions={<HabitatSurfaceSwitch compact current="map" search={carried} />}
 			activeFilterCount={activeFilterCount}
 			filters={<HabitatFilterFields binding={binding} />}
-			footer={
-				<ExplorerPagination
-					noun={recordNoun('habitat')}
-					onPageChange={setPage}
-					page={page}
-					pageCount={pageCount}
-					total={total}
-				/>
-			}
 			heading={{
 				title: recordNoun('habitat').titleMany,
 				icon: HabitatIcon,
@@ -164,6 +159,25 @@ function HabitatsExplorerRoute() {
 				onRetry: retry,
 				skeletonClassName: 'h-[58px]',
 				empty,
+				// Over 100 in view the rows would not fit on one page, so the panel
+				// says what is in view instead (#1244).
+				summary: summary.isShown ? (
+					<ExplorerSummary
+						chips={activeFilterCount === 0 ? null : <HabitatFilterChips binding={binding} />}
+						groupings={
+							summary.data === null
+								? []
+								: habitatSummaryGroupings({
+										summary: summary.data,
+										filters: query,
+										setFilters,
+										typeNameById,
+									})
+						}
+						recordType="habitat"
+						state={summary}
+					/>
+				) : undefined,
 				renderRow: (habitat) => (
 					<HabitatListItem
 						habitat={habitat}

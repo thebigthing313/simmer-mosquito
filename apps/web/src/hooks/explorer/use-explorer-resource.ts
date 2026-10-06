@@ -6,6 +6,7 @@ import type {
 import { type MapTileLayer, tileLayerExtentUrl } from '../../components/map/tile-layers';
 import type { RecordType } from '../../lib/record-nouns';
 import { type MapExtent, useMapExtent } from '../map/use-map-extent';
+import { type ExplorerSummaryState, useExplorerSummary } from './use-explorer-summary';
 import { useFlyToSelection } from './use-fly-to-selection';
 import { useMapBoundsParam } from './use-map-bounds-param';
 import {
@@ -35,6 +36,11 @@ export interface ExplorerResource<TRow> extends PagedMapResource<TRow> {
 	 * `ExplorerEmptyReason` for the four answers.
 	 */
 	readonly empty: ExplorerEmptiness;
+	/**
+	 * The in-view summary, shown in place of the rows over 100 in view on a
+	 * surface that asked for one with `summarize`.
+	 */
+	readonly summary: ExplorerSummaryState;
 }
 
 /**
@@ -56,6 +62,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	selectedId,
 	normalizeRow,
 	holdRailOnSelect = false,
+	summarize = false,
 }: {
 	/** The list endpoint, e.g. `/map/source-reduction`. Also roots the query key. */
 	readonly path: string;
@@ -82,6 +89,11 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	 * the record; the page is not re-read for the viewport it lands on.
 	 */
 	readonly holdRailOnSelect?: boolean;
+	/**
+	 * Read `{path}/summary` once the page counts more than fit on it. Only a
+	 * surface whose server declares a summary passes it.
+	 */
+	readonly summarize?: boolean;
 }): ExplorerResource<TRow> {
 	const bbox = useMapBoundsParam(map);
 	// Spread rather than passed, because the workspace is on
@@ -110,6 +122,14 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 		...shaping,
 	});
 	useFlyToSelection(map, selected, holdRailOnSelect);
+	const summary = useExplorerSummary({
+		path,
+		recordType,
+		params: query,
+		total: paged.total,
+		pageSettled: paged.isSettled,
+		enabled: summarize,
+	});
 
 	const extentUrl = tileLayerExtentUrl(layer);
 	const extent = useMapExtent(extentUrl);
@@ -129,6 +149,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 		isLoading,
 		selected,
 		empty,
+		summary,
 	};
 }
 

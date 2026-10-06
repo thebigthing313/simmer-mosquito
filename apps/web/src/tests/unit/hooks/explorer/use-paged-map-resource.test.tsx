@@ -14,7 +14,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  */
 
 /** How many rows the fake endpoint holds, which a case lowers to model a delete. */
-let total = 120;
+let total = 240;
 
 vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
@@ -60,7 +60,7 @@ function renderPaged(initialParams: Readonly<Record<string, string>>) {
 }
 
 beforeEach(() => {
-	total = 120;
+	total = 240;
 	client.clear();
 });
 
@@ -72,15 +72,15 @@ describe('the page of a list request', () => {
 		expect(paged.result.current.rows[0]?.id).toBe('row-0');
 
 		act(() => paged.result.current.setPage(2));
-		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-100'));
-		expect(paged.result.current.rows).toHaveLength(20);
+		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-200'));
+		expect(paged.result.current.rows).toHaveLength(40);
 	});
 
 	it('is the first page under a new request in the render that sees it', async () => {
 		const paged = renderPaged({ status: 'active' });
 		await waitFor(() => expect(paged.result.current.isSettled).toBe(true));
 		act(() => paged.result.current.setPage(2));
-		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-100'));
+		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-200'));
 		paged.pages.length = 0;
 
 		paged.rerender({ params: { status: 'retired' } });
@@ -92,13 +92,13 @@ describe('the page of a list request', () => {
 		const paged = renderPaged({ status: 'active' });
 		await waitFor(() => expect(paged.result.current.isSettled).toBe(true));
 		act(() => paged.result.current.setPage(2));
-		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-100'));
+		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-200'));
 
 		// The last page's rows are deleted and the list is read again.
-		total = 100;
+		total = 200;
 		paged.pages.length = 0;
 		await act(() => client.invalidateQueries());
-		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-50'));
+		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-100'));
 		expect(paged.result.current.page).toBe(1);
 		expect(paged.result.current.pageCount).toBe(2);
 		// The render that read the smaller total is thrown away before it commits,

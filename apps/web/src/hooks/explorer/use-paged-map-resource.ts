@@ -4,8 +4,11 @@ import { useState } from 'react';
 import { getServerUrl } from '../../auth';
 import { type RecordType, recordNoun } from '../../lib/record-nouns';
 
-/** Rows per page on every explorer. */
-const PAGE_SIZE = 50;
+/**
+ * Rows per page on every explorer, and the most a rail with a summary draws as
+ * rows: over this many in view it draws the summary instead (#1244).
+ */
+export const PAGE_SIZE = 100;
 
 /**
  * The `bbox` a surface with no map sends, which is the whole of WGS 84.
@@ -156,7 +159,7 @@ function normalized<TRow>(
 }
 
 /** A stable key for a param set. Object key order must not key two requests. */
-function stableParamsKey(params: Readonly<Record<string, string>>): string {
+export function stableParamsKey(params: Readonly<Record<string, string>>): string {
 	return Object.entries(params)
 		.sort(([first], [second]) => (first < second ? -1 : first > second ? 1 : 0))
 		.map(([key, value]) => `${key}=${value}`)

@@ -90,6 +90,13 @@ interface ExplorerRowResults<TRow> extends ExplorerResultsBase {
 	 * record picked on the map is found in the list rather than hunted for.
 	 */
 	readonly revealIndex?: number | undefined;
+	/**
+	 * What the panel draws in place of the rows while it is set: the in-view
+	 * summary a surface shows when more records are in view than fit on one
+	 * page (#1244). The caller sets it from its own count, so the frame only
+	 * swaps one for the other, and a zero count still reaches the empty state.
+	 */
+	readonly summary?: ReactNode;
 }
 
 /**
@@ -444,14 +451,18 @@ function railWait<TRow>(
  * reads: is there anything to show, and what draws it.
  *
  * A rows caller has its emptiness counted, because a row array is the whole of
- * what it has. A body caller states it, because the frame cannot look inside a
- * tree and count leaves.
+ * what it has, unless it hands over a summary, which stands for more records
+ * than a page holds and so is never empty. A body caller states it, because
+ * the frame cannot look inside a tree and count leaves.
  */
 function resultContent<TRow>(results: ExplorerResults<TRow>): {
 	readonly isEmpty: boolean;
 	readonly content: ReactNode;
 } {
 	if (results.isEmpty === undefined) {
+		if (results.summary !== undefined && results.summary !== null) {
+			return { isEmpty: false, content: <ResultBody>{results.summary}</ResultBody> };
+		}
 		return {
 			isEmpty: results.rows.length === 0,
 			content: (

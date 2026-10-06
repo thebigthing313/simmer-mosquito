@@ -165,7 +165,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			search: 'pond',
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&isActive=true&isInaccessible=false&habitatTypeId=type-1%2Ctype-2&tagId=tag-1%2Ctag-2&regionId=region-1%2Cregion-2&search=pond',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&isActive=true&isInaccessible=false&habitatTypeId=type-1%2Ctype-2&tagId=tag-1%2Ctag-2&regionId=region-1%2Cregion-2&search=pond',
 	},
 	{
 		name: 'inspections',
@@ -185,7 +185,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&isWet=false&density=low%2Chigh&positive=true&habitatTypeId=type-1%2Ctype-2&inspectedBy=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&isWet=false&density=low%2Chigh&positive=true&habitatTypeId=type-1%2Ctype-2&inspectedBy=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'samples',
@@ -203,7 +203,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&species=species-1%2Cspecies-2&status=identified&nonMosquito=true&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&species=species-1%2Cspecies-2&status=identified&nonMosquito=true&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'collections',
@@ -220,7 +220,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&collectionMethodId=method-1%2Cmethod-2&problem=true&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&collectionMethodId=method-1%2Cmethod-2&problem=true&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'traps',
@@ -236,7 +236,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			regionId: ids('region'),
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&collectionMethodId=method-1%2Cmethod-2&status=active&search=gravid&regionId=region-1%2Cregion-2',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&collectionMethodId=method-1%2Cmethod-2&status=active&search=gravid&regionId=region-1%2Cregion-2',
 	},
 	{
 		name: 'biocontrol',
@@ -254,7 +254,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&biocontrolMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&habitatLinked=true&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&biocontrolMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&habitatLinked=true&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'chemical',
@@ -272,7 +272,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&insecticideId=product-1%2Cproduct-2&applicationMethodId=method-1%2Cmethod-2&applicator=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&insecticideId=product-1%2Cproduct-2&applicationMethodId=method-1%2Cmethod-2&applicator=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'source reduction',
@@ -289,7 +289,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&sourceReductionMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&sourceReductionMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'outreach',
@@ -306,7 +306,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&outreachMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&outreachMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 ];
 
@@ -1007,5 +1007,88 @@ describe('useExplorerResource: a filter change', () => {
 		await waitFor(() => expect(result.current.isSettled).toBe(true));
 		expect(fake.cameraCalls).toHaveLength(1);
 		expect(requestCounts('/map/habitats').page).toBe(before.page + 1);
+	});
+});
+
+describe('useExplorerResource: the in-view summary', () => {
+	/*
+	 * Over 100 in view a surface that asks for a summary draws grouped counts in
+	 * place of its rows (#1244). The page goes first as it always has, because it
+	 * already answers `total`, and only a total over the threshold sends the
+	 * second request. So the zoomed-in path stays one request, and the summary is
+	 * read under the same box and filters as the page it stands in for.
+	 */
+	const SUMMARY = {
+		total: 214,
+		groups: { isActive: [{ value: true, count: 214 }] },
+	};
+
+	function summaryRequests(): readonly URL[] {
+		return sent.filter((url) => url.pathname === '/map/habitats/summary');
+	}
+
+	function renderSummarizing(summarize: boolean) {
+		const fake = createFakeMap();
+		return renderHook(
+			() =>
+				useExplorerResource<Row>({
+					path: '/map/habitats',
+					rowsKey: 'rows',
+					rowKey: 'row',
+					recordType: 'habitat',
+					params: { isActive: true, search: 'pond' },
+					layer: bareLayer('habitats'),
+					map: fake.map,
+					selectedId: null,
+					summarize,
+				}),
+			{ wrapper },
+		);
+	}
+
+	function servePage(total: number) {
+		answer = (url) => (url.pathname.endsWith('/summary') ? SUMMARY : { rows: [], total });
+	}
+
+	it('asks for no summary while the rows fit on one page', async () => {
+		servePage(100);
+		const { result } = renderSummarizing(true);
+
+		await waitFor(() => expect(result.current.isSettled).toBe(true));
+		expect(result.current.summary.isShown).toBe(false);
+		expect(summaryRequests()).toHaveLength(0);
+	});
+
+	it('reads the summary under the box and filters of the page once the total is over 100', async () => {
+		servePage(101);
+		const { result } = renderSummarizing(true);
+
+		await waitFor(() => expect(result.current.summary.data).toEqual(SUMMARY));
+		expect(result.current.summary.isShown).toBe(true);
+		expect(summaryRequests()).toHaveLength(1);
+		expect(summaryRequests()[0]?.search).toBe('?bbox=0%2C-0.8%2C1%2C0&isActive=true&search=pond');
+	});
+
+	it('asks for no summary on a surface that has not asked for one', async () => {
+		servePage(5000);
+		const { result } = renderSummarizing(false);
+
+		await waitFor(() => expect(result.current.isSettled).toBe(true));
+		expect(result.current.summary.isShown).toBe(false);
+		expect(summaryRequests()).toHaveLength(0);
+	});
+
+	it('reports a failed summary for the rail to offer a retry', async () => {
+		servePage(500);
+		failing = (url) => url.pathname.endsWith('/summary');
+		const { result } = renderSummarizing(true);
+
+		await waitFor(() => expect(result.current.summary.isError).toBe(true));
+		expect(result.current.summary.data).toBeNull();
+
+		failing = () => false;
+		act(() => result.current.summary.retry());
+
+		await waitFor(() => expect(result.current.summary.data).toEqual(SUMMARY));
 	});
 });

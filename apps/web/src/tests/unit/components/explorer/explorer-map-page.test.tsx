@@ -128,7 +128,7 @@ const ROWS: readonly Row[] = [
 ];
 
 /** A full page of results, which is what `PAGE_SIZE` hands the rail. */
-const PAGE_OF_ROWS: readonly Row[] = Array.from({ length: 50 }, (_, index) => ({
+const PAGE_OF_ROWS: readonly Row[] = Array.from({ length: 100 }, (_, index) => ({
 	id: `r${index + 1}`,
 	name: `Site ${index + 1}`,
 }));
@@ -144,6 +144,7 @@ function Page({
 	activeFilterCount = 2,
 	body,
 	bodyIsEmpty = false,
+	summary,
 	hasCreate = true,
 	hasPager = true,
 	hasReset = true,
@@ -158,6 +159,8 @@ function Page({
 	readonly activeFilterCount?: number;
 	readonly body?: ReactNode;
 	readonly bodyIsEmpty?: boolean;
+	/** Drawn in place of the rows, the way a surface over 100 in view hands it over. */
+	readonly summary?: ReactNode;
 	readonly hasCreate?: boolean;
 	readonly hasPager?: boolean;
 	readonly hasReset?: boolean;
@@ -199,6 +202,7 @@ function Page({
 								rows,
 								emptyTitle: 'No habitats in view',
 								emptyDescription: 'Loosen the filters to bring habitats into range.',
+								summary,
 								// The list item belongs to the rail, which positions and measures
 								// it. A caller renders the row's contents.
 								renderRow: (row) => <span key={row.id}>{row.name}</span>,
@@ -220,6 +224,28 @@ function skeletonCount() {
 }
 
 describe('ExplorerMapPage', () => {
+	// Over 100 in view a surface hands over a summary with its rows, and the
+	// frame draws the summary alone: the rows are on the page the request
+	// already fetched, and none of them is drawn (#1244).
+	it('draws a summary in place of the rows while one is handed over', () => {
+		render(<Page hasPager={false} summary={<p>in-view summary</p>} />);
+
+		expect(screen.getByText('in-view summary')).toBeTruthy();
+		expect(screen.queryByText('Culvert 12')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Skip to paging' })).toBeNull();
+		// No pager, so the header states the count.
+		expect(screen.getByText('2 habitats')).toBeTruthy();
+	});
+
+	it('draws the rows again once the summary is taken away', () => {
+		const { rerender } = render(<Page hasPager={false} summary={<p>in-view summary</p>} />);
+
+		rerender(<Page hasPager={false} />);
+
+		expect(screen.queryByText('in-view summary')).toBeNull();
+		expect(screen.getByText('Culvert 12')).toBeTruthy();
+	});
+
 	it('keeps the result count and the active filter count readable once the panel is collapsed', () => {
 		render(<Page />);
 		// Expanded, the count belongs to the panel's footer. A header that also
