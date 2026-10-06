@@ -452,8 +452,8 @@ function railWait<TRow>(
  *
  * A rows caller has its emptiness counted, because a row array is the whole of
  * what it has, unless it hands over a summary, which stands for more records
- * than a page holds and so is never empty. A body caller states it, because the frame cannot look inside a
- * tree and count leaves.
+ * than a page holds and so is never empty. A body caller states it, because
+ * the frame cannot look inside a tree and count leaves.
  */
 function resultContent<TRow>(results: ExplorerResults<TRow>): {
 	readonly isEmpty: boolean;

@@ -37,18 +37,25 @@ export interface SummaryGrouping {
 	readonly groups: readonly SummaryGroup[];
 }
 
+/** The summary request as this component reads it. */
+type SummaryRequest = Pick<ExplorerSummaryState, 'data' | 'isError' | 'retry'>;
+
+/** What the summary draws, which the body below takes whole. */
+interface SummaryContent {
+	/** What the counts count, for each group's accessible name. */
+	readonly recordType: RecordType;
+	readonly groupings: readonly SummaryGrouping[];
+	readonly state: SummaryRequest;
+}
+
 export function ExplorerSummary({
 	recordType,
 	chips,
 	groupings,
 	state,
-}: {
-	/** What the counts count, for each group's accessible name. */
-	readonly recordType: RecordType;
+}: SummaryContent & {
 	/** The surface's active filter chips, drawn above the groupings. */
 	readonly chips?: ReactNode;
-	readonly groupings: readonly SummaryGrouping[];
-	readonly state: Pick<ExplorerSummaryState, 'data' | 'isError' | 'retry'>;
 }) {
 	return (
 		<div className="grid gap-4 p-3">
@@ -59,15 +66,7 @@ export function ExplorerSummary({
 }
 
 /** The groupings, or what stands in for them before the first summary arrives. */
-function SummaryBody({
-	recordType,
-	groupings,
-	state,
-}: {
-	readonly recordType: RecordType;
-	readonly groupings: readonly SummaryGrouping[];
-	readonly state: Pick<ExplorerSummaryState, 'data' | 'isError' | 'retry'>;
-}) {
+function SummaryBody({ recordType, groupings, state }: SummaryContent) {
 	if (state.data === null) {
 		return state.isError ? (
 			<SummaryFailed hasData={false} onRetry={state.retry} />
@@ -144,7 +143,9 @@ function SummarySection({
 					</li>
 				))}
 			</ul>
-			{more > 0 ? <p className="px-2 text-muted-foreground text-xs">{`${more} more`}</p> : null}
+			{more > 0 ? (
+				<p className="px-2 text-muted-foreground text-xs">{`${formatCount(more)} more`}</p>
+			) : null}
 		</section>
 	);
 }

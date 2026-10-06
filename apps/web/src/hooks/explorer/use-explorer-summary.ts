@@ -37,9 +37,9 @@ export interface ExplorerSummaryState {
  * counted more records than fit on it.
  *
  * Reads `{path}/summary` under the page's own box and filters, without the
- * paging. The page request goes first and answers `total`, so a viewport
- * holding 100 or fewer records costs one request, as it did before the summary
- * existed. The previous summary stays up while the next one loads.
+ * paging, once the page has answered with a total over 100. Takes the page's
+ * params, total and settled flag. The previous summary stays up while the next
+ * one loads.
  */
 export function useExplorerSummary({
 	path,

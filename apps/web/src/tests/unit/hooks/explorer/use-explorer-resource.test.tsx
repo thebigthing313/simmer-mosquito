@@ -1059,7 +1059,7 @@ describe('useExplorerResource: the in-view summary', () => {
 		expect(summaryRequests()).toHaveLength(0);
 	});
 
-	it('reads the summary under the page’s box and filters once the total is over 100', async () => {
+	it('reads the summary under the box and filters of the page once the total is over 100', async () => {
 		servePage(101);
 		const { result } = renderSummarizing(true);
 

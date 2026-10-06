@@ -42,31 +42,36 @@ export function habitatSummaryGroupings({
 			: { key: 'none', label: 'No type', count },
 	);
 
-	// Fixed order rather than by count: a reader looks for Active in the same
-	// place whichever side holds more.
-	const status = (['active', 'inactive'] as const).map((side) => {
-		const isSelected = filters.status === side;
-		return {
-			key: side,
-			label: side === 'active' ? 'Active' : 'Inactive',
-			count: countOf('isActive', side === 'active'),
-			isSelected,
-			onToggle: () => setFilters({ status: isSelected ? 'all' : side }),
-		};
-	});
+	// Each side of a yes-or-no grouping sets its filter to that side, and the
+	// side already set goes back to `all`. Drawn in a fixed order rather than by
+	// count, so Active sits in the same place whichever side holds more.
+	const sides = <TSide extends string>(
+		grouping: string,
+		current: TSide | 'all',
+		apply: (next: TSide | 'all') => void,
+		pair: readonly (readonly [side: TSide, label: string, value: boolean])[],
+	): SummaryGroup[] =>
+		pair.map(([side, label, value]) => {
+			const isSelected = current === side;
+			return {
+				key: side,
+				label,
+				count: countOf(grouping, value),
+				isSelected,
+				onToggle: () => apply(isSelected ? 'all' : side),
+			};
+		});
 
-	const access = (['accessible', 'inaccessible'] as const).map((side) => {
-		const isSelected = filters.access === side;
-		return {
-			key: side,
-			label: side === 'accessible' ? 'Accessible' : 'Inaccessible',
-			count: countOf('isInaccessible', side === 'inaccessible'),
-			isSelected,
-			onToggle: () => setFilters({ access: isSelected ? 'all' : side }),
-		};
-	});
+	const status = sides('isActive', filters.status, (next) => setFilters({ status: next }), [
+		['active', 'Active', true],
+		['inactive', 'Inactive', false],
+	]);
+	const access = sides('isInaccessible', filters.access, (next) => setFilters({ access: next }), [
+		['accessible', 'Accessible', false],
+		['inaccessible', 'Inaccessible', true],
+	]);
 
-	// Only the untreated side: there is no filter for "not untreated".
+	// Only the untreated side is drawn, since no filter selects its opposite.
 	const untreated = {
 		key: 'untreated',
 		label: 'Untreated',
@@ -83,7 +88,7 @@ export function habitatSummaryGroupings({
 	];
 }
 
-/** A side no habitat in view is on is not drawn: clicking it would empty the panel. */
+/** A side no habitat in view is on is not drawn, because clicking it would empty the panel. */
 function hasRecords(group: SummaryGroup): boolean {
 	return group.count > 0;
 }

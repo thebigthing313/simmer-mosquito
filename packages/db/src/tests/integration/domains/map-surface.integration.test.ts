@@ -1097,6 +1097,7 @@ describeDbIntegration('habitat summary against Postgres', () => {
 				{ isActive: true },
 				{ isActive: false },
 				{ isInaccessible: true },
+				{ isInaccessible: false },
 				{ habitatTypeIds: [type.id] },
 			];
 
