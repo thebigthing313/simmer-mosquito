@@ -115,6 +115,7 @@ import {
 	type SourceReductionTileFilters,
 	sourceReductionTileLayers,
 } from './source-reduction-tiles';
+import type { TileDrawOptions } from './tile-urls';
 import {
 	buildTrapExtentUrl,
 	buildTrapTileUrl,
@@ -145,7 +146,14 @@ interface TileLayerBinding<TLayer> {
 	readonly interactiveLayerIds: readonly string[];
 	/** Every layer the tileset owns, for teardown. */
 	readonly allLayerIds: readonly string[];
-	readonly buildTileUrl: (layer: TLayer) => string;
+	/**
+	 * The server lets this tileset cluster. It mirrors `clusters: true` in
+	 * `createTileSetRegistry`, and a tileset without it is never asked to,
+	 * because the server answers 400 to the param there.
+	 */
+	readonly clusters?: true;
+	/** `draw.cluster` is only ever true here for a tileset that clusters. */
+	readonly buildTileUrl: (layer: TLayer, draw: TileDrawOptions) => string;
 	/** The extent for these filters, or null to leave the camera alone. */
 	readonly buildExtentUrl: (layer: TLayer) => string | null;
 	readonly buildLayers: (layer: TLayer) => LayerSpecification[];
@@ -260,7 +268,8 @@ const TILE_LAYER_BINDINGS = {
 		interactiveLayerIds: TRAP_INTERACTIVE_LAYER_IDS,
 		allLayerIds: TRAP_LAYER_IDS,
 		// Traps are the one tileset that clusters so far (#1379).
-		buildTileUrl: (layer) => buildTrapTileUrl(layer.serverUrl, layer.filters, { cluster: true }),
+		clusters: true,
+		buildTileUrl: (layer, draw) => buildTrapTileUrl(layer.serverUrl, layer.filters, draw),
 		buildExtentUrl: (layer) => buildTrapExtentUrl(layer.serverUrl, layer.filters),
 		buildLayers: (layer) => trapTileLayers(layer.selectedId ?? null),
 	}),
@@ -315,6 +324,22 @@ export function tileLayerBinding(layer: MapTileLayer): TileLayerBinding<MapTileL
 export function tileLayerFilterKey(layer: MapTileLayer): string {
 	const specs = tileLayerBinding(layer).buildLayers(layer);
 	return JSON.stringify(specs.map((spec) => spec.filter ?? null));
+}
+
+/** Whether the server lets this layer's tileset cluster. */
+export function tileLayerClusters(layer: MapTileLayer): boolean {
+	return tileLayerBinding(layer).clusters === true;
+}
+
+/**
+ * The tile template for this layer. `draw.cluster` is the map's clustering
+ * setting, and it reaches the URL only for a tileset that clusters.
+ */
+export function tileLayerTileUrl(layer: MapTileLayer, draw: TileDrawOptions): string {
+	const binding = tileLayerBinding(layer);
+	return binding.buildTileUrl(layer, {
+		cluster: draw.cluster === true && binding.clusters === true,
+	});
 }
 
 /** Where this layer's filtered data is, or null when it has none to frame. */

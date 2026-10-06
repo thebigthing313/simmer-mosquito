@@ -40,11 +40,19 @@ class FakeMap {
 		return (this.style as FakeStyle).getOwnLayer(id);
 	}
 	addSource(id: string, spec: unknown) {
-		(this.style as FakeStyle).sources.set(id, {
-			setData: () => undefined,
-			setTiles: () => undefined,
-			spec,
-		});
+		const source: { tiles?: readonly string[] } = {
+			...(spec as { tiles?: readonly string[] }),
+		};
+		(this.style as FakeStyle).sources.set(
+			id,
+			Object.assign(source, {
+				setData: () => undefined,
+				setTiles: (tiles: readonly string[]) => {
+					source.tiles = tiles;
+				},
+				spec,
+			}),
+		);
 	}
 	addLayer(layer: { id: string }) {
 		(this.style as FakeStyle).layers.set(layer.id, layer);
@@ -143,6 +151,7 @@ vi.stubEnv('VITE_MAPBOX_ACCESS_TOKEN', 'pk.test');
 
 const { RouteMap } = await import('../../../../components/route-planning/route-map');
 const { MapCanvas } = await import('../../../../components/map/map-canvas');
+const { mapClustering } = await import('../../../../lib/map-clustering');
 
 const roots: Array<{ container: HTMLElement; unmount: () => void }> = [];
 
@@ -405,5 +414,93 @@ describe('MapCanvas layer order (issue #431)', () => {
 
 		expect(ids.some((id) => id.startsWith('habitats-'))).toBe(false);
 		expect(ids).toContain('geojson-overlay-points');
+	});
+});
+
+/*
+ * The cluster switch (#1380). One setting for every map, so it is reset after
+ * each case: a case that leaves it off would hand the next one a map that
+ * opens unclustered.
+ */
+describe('MapCanvas cluster control (issue #1380)', () => {
+	afterEach(() => {
+		mapClustering.write(true);
+	});
+
+	const TRAPS = { kind: 'traps', serverUrl: 'https://api.test' } as const;
+	const HABITATS = { kind: 'habitats', serverUrl: 'https://api.test' } as const;
+	const CLUSTERED = 'https://api.test/map/tiles/traps/{z}/{x}/{y}.mvt?cluster=1';
+	const PLAIN = 'https://api.test/map/tiles/traps/{z}/{x}/{y}.mvt';
+
+	function clusterButton(): HTMLButtonElement | null {
+		return document.body.querySelector('button[aria-label="Group nearby points"]');
+	}
+
+	async function draw(
+		layers: NonNullable<Parameters<typeof MapCanvas>[0]['layers']>,
+		minimal = false,
+	) {
+		mount(<MapCanvas controls={{ search: false, minimal }} layers={layers} />);
+		await loadRuntime();
+		act(() => {
+			latest().fire('load');
+		});
+	}
+
+	function trapTiles(): readonly string[] | undefined {
+		return (latest().style?.sources.get('traps') as { tiles?: readonly string[] } | undefined)
+			?.tiles;
+	}
+
+	it('shows on the Traps map, pressed, with clustered tiles', async () => {
+		await draw([TRAPS]);
+
+		expect(clusterButton()?.getAttribute('aria-pressed')).toBe('true');
+		expect(trapTiles()).toEqual([CLUSTERED]);
+	});
+
+	it('drops the cluster param when switched off, and asks again when switched on', async () => {
+		await draw([TRAPS]);
+
+		act(() => {
+			clusterButton()?.click();
+		});
+		expect(clusterButton()?.getAttribute('aria-pressed')).toBe('false');
+		expect(trapTiles()).toEqual([PLAIN]);
+
+		act(() => {
+			clusterButton()?.click();
+		});
+		expect(clusterButton()?.getAttribute('aria-pressed')).toBe('true');
+		expect(trapTiles()).toEqual([CLUSTERED]);
+	});
+
+	it('carries the choice to the next map', async () => {
+		await draw([TRAPS]);
+		act(() => {
+			clusterButton()?.click();
+		});
+		for (const handle of roots.splice(0)) {
+			handle.unmount();
+			handle.container.remove();
+		}
+		pendingLoader = null;
+
+		await draw([TRAPS]);
+
+		expect(clusterButton()?.getAttribute('aria-pressed')).toBe('false');
+		expect(trapTiles()).toEqual([PLAIN]);
+	});
+
+	it('is absent from a map with no tileset that clusters', async () => {
+		await draw([HABITATS]);
+
+		expect(clusterButton()).toBeNull();
+	});
+
+	it('is absent from a minimal map, even one drawing traps', async () => {
+		await draw([TRAPS], true);
+
+		expect(clusterButton()).toBeNull();
 	});
 });

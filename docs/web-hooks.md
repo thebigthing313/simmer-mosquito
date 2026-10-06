@@ -655,6 +655,26 @@ clustering at: any closer would land on a plain tile showing the same records.
 A box with no size, every point on one spot, has nothing to fit, so that case
 eases to its centre at the same zoom (`fitMapToCluster` in `cluster-fit.ts`).
 
+The hook takes the clustering setting as `draw.cluster` rather than reading it
+itself, so a suite can mount a tileset in either state without touching the
+shared setting. It reaches the URL through `tileLayerTileUrl`, which drops it
+for any tileset whose row in `tile-layers.ts` does not say `clusters: true`:
+the server answers 400 to the param there, so a setting that is on everywhere
+must not reach a tileset that cannot take it (#1380). A switch is a new URL on
+the source already there, the same path a filter change takes, so the camera
+does not move and the selection highlight keeps its record.
+
+#### useMapClustering
+
+One setting for every map, held outside React in `lib/map-clustering.ts` and
+read through `useSyncExternalStore`, so a switch on one canvas is the value on
+the next one mounted and on any other still on screen (#1380). The module
+keeps the value in a `MapClusteringStorage`, and the storage is chosen at one
+line at the bottom of it. Today that is memory: the setting holds for the
+visit and a reload starts on again. Keeping it across visits (#1381) is a
+storage that reads and writes the browser's, chosen at that same line, and
+nothing that reads the setting changes.
+
 #### useGlobalSearch
 
 Three behaviours the palette needs are properties of the hook rather than

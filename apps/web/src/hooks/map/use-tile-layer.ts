@@ -6,20 +6,25 @@ import {
 	type MapTileLayer,
 	tileLayerBinding,
 	tileLayerFilterKey,
+	tileLayerTileUrl,
 } from '../../components/map/tile-layers';
+import type { TileDrawOptions } from '../../components/map/tile-urls';
 import { isMapLive } from './use-mapbox-map';
 
 /**
  * Binds one vector tileset to a live Mapbox map. What each tileset supplies is
- * one row of `tile-layers.ts`.
+ * one row of `tile-layers.ts`. `draw` is how the tiles draw: `cluster` is the
+ * map's clustering setting, and switching it swaps the tile URL in place the
+ * way a filter change does.
  */
 export function useTileLayer(
 	map: MapboxMap | null,
 	isLoaded: boolean,
 	layer: MapTileLayer | undefined,
+	draw: TileDrawOptions,
 ): void {
 	const enabled = layer !== undefined;
-	const url = layer === undefined ? null : tileLayerBinding(layer).buildTileUrl(layer);
+	const url = layer === undefined ? null : tileLayerTileUrl(layer, draw);
 	const filterKey = layer === undefined ? '' : tileLayerFilterKey(layer);
 
 	const layerRef = useRef(layer);
