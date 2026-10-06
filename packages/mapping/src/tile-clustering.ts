@@ -7,9 +7,9 @@
  * the tile query decides from it whether to group, and `apps/web`, which has no
  * dependency on `packages/db`, fits a cluster whose points share one spot to it.
  *
- * 15 is the zoom the explorer frames a single record at (`FIT_POINT_ZOOM` in
- * `use-map-extent-fit.ts`), so a record the map is asked to show on its own is
- * always drawn as itself. Measured on the prod clone's 417 traps at a 512-unit
+ * 15 is also the zoom the explorer frames a single record at: `FIT_POINT_ZOOM`
+ * in `use-map-extent-fit.ts` is this constant, so a record the map is asked to
+ * show on its own is always drawn as itself. Measured on the prod clone's 417 traps at a 512-unit
  * cell, zoom 13 draws 361 features, 14 draws 374 and 15 draws 380, against 395
  * distinct positions, so by the cut-off a cluster is a few traps a street apart
  * and clustering any further in would hide almost nothing.

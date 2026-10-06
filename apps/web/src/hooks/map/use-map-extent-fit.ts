@@ -1,4 +1,8 @@
-import { type BoundingBox, formatBoundingBox } from '@simmer-mosquito/mapping';
+import {
+	type BoundingBox,
+	formatBoundingBox,
+	MAP_CLUSTER_UNTIL_ZOOM,
+} from '@simmer-mosquito/mapping';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
 import { insetPadding, type MapInset } from '../../components/map/map-inset';
@@ -15,8 +19,13 @@ export type MapExtentFitSource = { readonly url: string } | { readonly bounds: B
 const FIT_PADDING = 56;
 /** Ceiling on the fitted zoom, so a tight cluster doesn't slam into street level. */
 const FIT_MAX_ZOOM = 16;
-/** Zoom used when the extent collapses to a single point. */
-const FIT_POINT_ZOOM = 15;
+/**
+ * Zoom used when the extent collapses to a single point.
+ *
+ * The zoom clustering stops at, so a record framed on its own is drawn as
+ * itself and never inside a cluster of its neighbours.
+ */
+const FIT_POINT_ZOOM = MAP_CLUSTER_UNTIL_ZOOM;
 const FIT_DURATION_MS = 600;
 
 /**

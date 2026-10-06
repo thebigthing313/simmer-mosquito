@@ -1,12 +1,11 @@
 /**
  * The layer stack every record tileset draws.
  *
- * Nine domains — habitats, traps, collections, inspections, samples, chemical
- * applications, source reduction, biocontrol, outreach — render the same ten
- * GL layers over the same three geometry types: a polygon fill and outline, a
+ * Nine domains render the same ten GL layers: habitats, traps, collections,
+ * inspections, samples, chemical applications, source reduction, biocontrol and
+ * outreach, over the same three geometry types: a polygon fill and outline, a
  * line, a point, a cluster circle and its count, and four highlight layers
- * scoped to the selected feature. Only the tileset name and the palette
- * differ, and inspections and samples colour their points by a data ramp
+ * scoped to the selected feature. Only the tileset name and the palette differ, and inspections and samples colour their points by a data ramp
  * instead of a flat domain colour. Only a tileset whose tiles are asked for
  * clusters ever draws one, so on the others the two cluster layers are empty.
  *
@@ -59,6 +58,12 @@ export interface GeometryTilePalette {
 	/** Point features. Defaults to `fill`. */
 	readonly point?: TileColor | undefined;
 }
+
+/**
+ * What a cluster circle paints, and the only place a legend reads it from.
+ * Every tileset draws its clusters in this one colour, whatever its own palette.
+ */
+export const TILE_CLUSTER_COLOR = mapCluster.fill;
 
 const polygonOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Polygon'];
 const lineOnly: ExpressionSpecification = ['==', ['geometry-type'], 'LineString'];
@@ -188,7 +193,7 @@ export function geometryTileLayers(
 			'source-layer': sourceId,
 			filter: clusterOnly,
 			paint: {
-				'circle-color': mapCluster.fill,
+				'circle-color': TILE_CLUSTER_COLOR,
 				'circle-opacity': 0.9,
 				// Wider as the count grows, in steps so a circle does not resize
 				// between two counts nobody could tell apart.

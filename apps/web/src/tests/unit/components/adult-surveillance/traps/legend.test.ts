@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { trapLegend } from '../../../../../components/adult-surveillance/traps/legend';
-import { TRAP_STATUS_COLORS } from '../../../../../components/map';
+import { TILE_CLUSTER_COLOR, TRAP_STATUS_COLORS } from '../../../../../components/map';
 
 const labels = (status: 'all' | 'active' | 'inactive') =>
 	trapLegend(status).map((entry) => entry.label);
@@ -12,18 +12,19 @@ const labels = (status: 'all' | 'active' | 'inactive') =>
  */
 describe('trapLegend', () => {
 	it('names both colours when the status filter is open', () => {
-		expect(labels('all')).toEqual(['Active', 'Inactive']);
+		expect(labels('all')).toEqual(['Active', 'Inactive', 'Trap Group']);
 	});
 
 	it('names one colour when the status filter has narrowed to it', () => {
-		expect(labels('active')).toEqual(['Active']);
-		expect(labels('inactive')).toEqual(['Inactive']);
+		expect(labels('active')).toEqual(['Active', 'Trap Group']);
+		expect(labels('inactive')).toEqual(['Inactive', 'Trap Group']);
 	});
 
 	it('takes its swatches from the colours the layer paints with', () => {
 		expect(trapLegend('all').map((entry) => entry.color)).toEqual([
 			TRAP_STATUS_COLORS.active,
 			TRAP_STATUS_COLORS.inactive,
+			TILE_CLUSTER_COLOR,
 		]);
 	});
 });

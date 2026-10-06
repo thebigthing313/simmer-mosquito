@@ -75,13 +75,14 @@ async function readTile(
 	rows: readonly SourceRow[],
 	at: { readonly z: number; readonly x: number; readonly y: number },
 	cluster: boolean,
+	properties: readonly RawBuilder<unknown>[] = [sql`r.id`, sql`r.label`],
 ): Promise<Uint8Array> {
 	return readMapTile(db, {
 		...at,
 		layer,
 		from: sourceOf(rows),
 		geom: sql`r.geom`,
-		properties: [sql`r.id`, sql`r.label`],
+		properties,
 		where: [
 			sql<boolean>`r.geom && bounds.geom_4326`,
 			sql<boolean>`st_intersects(r.geom, bounds.geom_4326)`,
@@ -128,6 +129,18 @@ const thirdCell = [
 	{ id: 'b2', at: [cell * 2.4, cell * 0.4] },
 ] as const;
 const loneAt = [cell * 5.5, cell * 5.5] as const;
+
+/** The tile east of {@link tile}, across the seam the seam cases sit on. */
+const east = { ...tile, x: tile.x + 1 } as const;
+
+/**
+ * A point on the seam exactly: the east tile's western edge, read off the same
+ * envelope function the query frames both tiles with, so it is selected by both.
+ */
+const seamPoint = sql`st_setsrid(st_makepoint(
+	st_xmin(st_transform(st_tileenvelope(${east.z}, ${east.x}, ${east.y}), 4326)),
+	${lngLatAt(east, 0, cell * 0.5).lat}::float8
+), 4326)`;
 
 const rows: readonly SourceRow[] = [
 	...[...firstCell, ...thirdCell].map(({ id, at }) => ({
@@ -208,18 +221,11 @@ describeDbIntegration('clustered map tiles against Postgres', () => {
 		});
 	});
 
-	it('counts a point on a tile seam in one tile only', async () => {
+	it('counts a point on a tile seam toward a cluster in one tile only', async () => {
 		await withTestDb(async ({ db }) => {
-			const east = { ...tile, x: tile.x + 1 };
-			// On the seam exactly: the east tile's western edge, read off the same
-			// envelope function the query frames both tiles with.
-			const seam = sql`st_setsrid(st_makepoint(
-				st_xmin(st_transform(st_tileenvelope(${east.z}, ${east.x}, ${east.y}), 4326)),
-				${lngLatAt(east, 0, cell * 0.5).lat}::float8
-			), 4326)`;
 			const companion = lngLatAt(east, cell * 0.3, cell * 0.5);
 			const seamRows: readonly SourceRow[] = [
-				{ id: 'seam', label: 'Seam', geom: seam },
+				{ id: 'seam', label: 'Seam', geom: seamPoint },
 				{
 					id: 'companion',
 					label: 'Companion',
@@ -227,18 +233,59 @@ describeDbIntegration('clustered map tiles against Postgres', () => {
 				},
 			];
 
-			// Unclustered, the seam point is drawn by both tiles, which is what a
-			// cluster would count twice.
-			const westPlain = featuresOf(await readTile(db, seamRows, tile, false));
-			expect(westPlain.map((feature) => feature.properties.id)).toEqual(['seam']);
-
 			const west = featuresOf(await readTile(db, seamRows, tile, true));
 			const eastTile = featuresOf(await readTile(db, seamRows, east, true));
 
-			expect(pointsDrawn(west) + pointsDrawn(eastTile)).toBe(2);
+			// The east tile owns it and clusters it with its companion; the west tile
+			// draws it as itself and puts it in no cluster.
 			expect(eastTile.filter(isCluster).map((feature) => feature.properties.point_count)).toEqual([
 				2,
 			]);
+			expect(west.filter(isCluster)).toEqual([]);
+			expect(west.map((feature) => feature.properties)).toEqual([{ id: 'seam', label: 'Seam' }]);
+		});
+	});
+
+	it('draws a lone point on a seam in both tiles, the way the plain tiles do', async () => {
+		await withTestDb(async ({ db }) => {
+			const seamRows: readonly SourceRow[] = [{ id: 'seam', label: 'Seam', geom: seamPoint }];
+			const ids = async (
+				at: { readonly z: number; readonly x: number; readonly y: number },
+				cluster: boolean,
+			) =>
+				featuresOf(await readTile(db, seamRows, at, cluster)).map(
+					(feature) => feature.properties.id,
+				);
+
+			// Each tile carries its copy, so the circle is whole across the edge.
+			expect(await ids(tile, false)).toEqual(['seam']);
+			expect(await ids(east, false)).toEqual(['seam']);
+			expect(await ids(tile, true)).toEqual(['seam']);
+			expect(await ids(east, true)).toEqual(['seam']);
+		});
+	});
+
+	it('puts none of the record properties on a cluster, even one with a value over no row', async () => {
+		await withTestDb(async ({ db }) => {
+			// The shape of the collections status: an expression answering for a
+			// row with nothing in it.
+			const properties = [sql`r.id`, sql`coalesce(r.label, 'unlabelled') as "labelOrNone"`];
+			const features = featuresOf(await readTile(db, rows, tile, true, properties));
+
+			for (const cluster of features.filter(isCluster)) {
+				expect(Object.keys(cluster.properties).sort()).toEqual([
+					'cluster',
+					'cluster_east',
+					'cluster_north',
+					'cluster_south',
+					'cluster_west',
+					'point_count',
+				]);
+			}
+			expect(features.find((feature) => feature.properties.id === 'lone')?.properties).toEqual({
+				id: 'lone',
+				labelOrNone: 'Lone',
+			});
 		});
 	});
 

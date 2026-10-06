@@ -128,12 +128,14 @@ function unclusteredTile(query: MapTileQuery): RawBuilder<TileResult> {
  *
  * Three things here are not obvious from the SQL.
  *
- * A point counts only in the tile that owns it. The envelope test is closed, so
- * a point on a seam is selected by both tiles, which reads fine when each draws
- * it and would count it twice in two clusters. Ownership is half-open, west and
- * north edges in and east and south out, and it is tested in the same WGS84
- * frame the envelope test is, so every point either tile selects belongs to
- * exactly one of them.
+ * A point counts toward a cluster only in the tile that owns it. The envelope
+ * test is closed, so a point on a seam is selected by both tiles, which reads
+ * fine when each draws it and would count it twice in two clusters. Ownership
+ * is half-open, west and north edges in and east and south out, and it is
+ * tested in the same WGS84 frame the envelope test is, so every point either
+ * tile selects belongs to exactly one of them. The tile that does not own a
+ * seam point still draws it as itself, the way a plain tile does, so its circle
+ * is not cut in half at the edge.
  *
  * The rows are read twice, once for the cells and once for the records that
  * stay themselves. A single read would have to carry the record's properties
@@ -141,10 +143,13 @@ function unclusteredTile(query: MapTileQuery): RawBuilder<TileResult> {
  * is handed into the feature, so a lone point would arrive with its cell index
  * on it. The cells read selects geometry alone.
  *
- * A cluster row carries the record's properties as nulls, from a join that
- * matches nothing, so both halves of the union have the same columns without
- * this module knowing their names. `ST_AsMVT` writes no property for a null, so
- * a cluster carries none of the record's and a record none of the cluster's.
+ * A cluster row carries one literal null per record property, so both halves
+ * of the union have the same columns without this module knowing their names,
+ * and Postgres types each null from the record half. The expressions are never
+ * evaluated for a cluster: one like a `case` with an `else` would answer with a
+ * value over no row and put it on every cluster. `ST_AsMVT` writes no property
+ * for a null, so a cluster carries none of the record's and a record none of
+ * the cluster's.
  */
 function clusteredTile(query: MapTileQuery): RawBuilder<TileResult> {
 	const { extent, buffer } = MAP_TILE_ENCODING;
@@ -173,6 +178,10 @@ function clusteredTile(query: MapTileQuery): RawBuilder<TileResult> {
 	)`;
 	const where = sql.join([...query.where], sql` and `);
 	const properties = sql.join([...query.properties], sql`, `);
+	const noProperties = sql.join(
+		query.properties.map(() => sql`null`),
+		sql`, `,
+	);
 
 	return sql<TileResult>`
 		with
@@ -224,17 +233,15 @@ function clusteredTile(query: MapTileQuery): RawBuilder<TileResult> {
 			cross join bounds
 			where ${where} and (
 				not ${isPoint}
-				or (
-					${ownedHere}
-					and not exists (
-						select 1 from cluster_cells
-						where cluster_cells.cell_x = ${cellX} and cluster_cells.cell_y = ${cellY}
-					)
+				or not ${ownedHere}
+				or not exists (
+					select 1 from cluster_cells
+					where cluster_cells.cell_x = ${cellX} and cluster_cells.cell_y = ${cellY}
 				)
 			)
 			union all
 			select
-				${properties},
+				${noProperties},
 				st_asmvtgeom(
 					cluster_cells.centre,
 					bounds.geom_3857,
@@ -249,7 +256,6 @@ function clusteredTile(query: MapTileQuery): RawBuilder<TileResult> {
 				cluster_cells.north
 			from cluster_cells
 			cross join bounds
-			left join (${query.from} cross join (select 1) as no_record) on false
 		)
 		select coalesce(st_asmvt(tile_rows, ${query.layer}::text, ${extent}, 'geom'), ''::bytea) as tile
 		from tile_rows
