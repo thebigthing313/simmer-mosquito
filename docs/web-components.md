@@ -460,21 +460,25 @@ carry an unidentifiable reason, and the Status filter tests each status with
 its own clause rather than with the precedence the tile paints by. So the
 server files a sample under every status whose clause keeps it, and the count
 on a status is the page it narrows to. Grouping by the painted precedence was
-the obvious read and is wrong here: the precedence paints that sample No
-larvae, so the summary says "Unidentifiable, 40" and the click lands on 41. The statuses can then add up to more
-than the total, which is also true of species, since a sample carrying two
-species is counted under both. Both are `each` groupings on
-`summarizeByBounds`, which counts a record once under every value in an array.
+the obvious read and is wrong here. The precedence paints that sample No
+larvae, so the summary would say "Unidentifiable, 40" and the click would
+land on 41. The statuses can then add up to more than the total, which is
+also true of species, since a sample carrying two species is counted under
+both. Both are `each` groupings on `summarizeByBounds`, which counts a record
+once under every value in an array.
 
 Non-mosquito material draws one side only, because no filter selects its
 opposite, and takes the filter toggle's words rather than the brief's
 "Non-mosquito". A status or the material side with no samples in view is
 left out, since clicking it would empty the panel.
 
-Larvae identified is a figure, a sum the server adds up over the box, and it
-draws as a text row through the same section shape the groupings use: a
-value with no `onToggle` is text, so `ExplorerSummary` needed nothing new.
-The count depends on the date range, and the map opens on the last 30 days.
+Larvae identified is a figure, a sum the server adds up over the box. It
+draws as a text row under Totals, through the same section shape the
+groupings use, because a value with no `onToggle` is text and
+`ExplorerSummary` needed nothing new. It is labelled in full rather than as
+"Identified" under a Larvae heading, since Identified is already a status on
+the same panel. The count depends on the date range, and the map opens on
+the last 30 days.
 
 ### map
 

@@ -73,12 +73,12 @@ export function sampleSummaryGroupings({
 		{ key: 'species', title: 'Species', groups: species },
 		{ key: 'material', title: 'Material', groups: [nonMosquito].filter(hasRecords) },
 		{
-			key: 'larvae',
-			title: 'Larvae',
+			key: 'totals',
+			title: 'Totals',
 			groups:
 				larvaeTotal === undefined
 					? []
-					: [{ key: 'identified', label: 'Identified', count: larvaeTotal }],
+					: [{ key: 'larvae-identified', label: 'Larvae identified', count: larvaeTotal }],
 		},
 	];
 }

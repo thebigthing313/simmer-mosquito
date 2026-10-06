@@ -181,15 +181,15 @@ describe('the sample summary', () => {
 	it('draws the larvae identified as text, with no filter behind it', () => {
 		renderSummary();
 
-		const larvae = section('Larvae');
+		const larvae = section('Totals');
 		expect(within(larvae).queryByRole('button')).toBeNull();
-		expect(larvae.textContent).toContain('Identified');
+		expect(larvae.textContent).toContain('Larvae identified');
 		expect(larvae.textContent).toContain('12,480');
 	});
 
 	it('draws no larvae figure when the summary carries none', () => {
 		renderSummary({}, { total: 150, groups: {} });
 
-		expect(screen.queryByRole('region', { name: 'Larvae' })).toBeNull();
+		expect(screen.queryByRole('region', { name: 'Totals' })).toBeNull();
 	});
 });

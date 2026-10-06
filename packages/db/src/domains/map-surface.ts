@@ -397,9 +397,10 @@ export function mapRecordSurface<TFilters, TRow>(
 interface SummaryCountRow {
 	/** The grouping's name, or null on the one row that counts the whole box. */
 	readonly grouping: string | null;
-	/** The grouping's value, or on the whole-box row the figures, keyed by name. */
-	readonly value: string | boolean | Readonly<Record<string, number>> | null;
+	readonly value: string | boolean | null;
 	readonly count: number;
+	/** The figures summed, keyed by name, on the whole-box row of a surface declaring any. */
+	readonly figures: Readonly<Record<string, number>> | null;
 }
 
 /** A surface definition with what its in-view summary counts and adds up. */
@@ -424,8 +425,8 @@ interface MapSummaryDefinition<TFilters> extends MapSurfaceDefinition<TFilters> 
  * The grouping expressions are emitted under positional aliases, `g0`, `g1`,
  * and named by parameter in the union, so a grouping's name never reaches the
  * SQL as an identifier. Figures go the same way under `f0`, `f1`, summed on
- * the whole-box row and handed back as its value, a `jsonb` object keyed by
- * name.
+ * the whole-box row into its own `figures` column, a `jsonb` object keyed by
+ * name, which every grouping row leaves null.
  */
 async function readMapSummary<TFilters>(
 	db: DbExecutor,
@@ -455,7 +456,11 @@ async function readMapSummary<TFilters>(
 				sql` and `,
 			)}
 		)
-		select null::text as "grouping", ${figureSums(figures)} as "value", count(*)::int as "count"
+		select
+			null::text as "grouping",
+			null::jsonb as "value",
+			count(*)::int as "count",
+			${figureSums(figures)} as "figures"
 		from in_view
 		${counts.length === 0 ? sql`` : sql.join(counts, sql``)}
 	`.execute(db);
@@ -463,7 +468,6 @@ async function readMapSummary<TFilters>(
 	return summaryFromRows(
 		result.rows,
 		groupings.map(([name]) => name),
-		figures.length > 0,
 	);
 }
 
@@ -508,7 +512,7 @@ function groupingCount(
 	if ('each' in grouping) {
 		return sql`
 			union all
-			select ${name}::text, to_jsonb(each_value.value), count(*)::int
+			select ${name}::text, to_jsonb(each_value.value), count(*)::int, null::jsonb
 			from in_view
 			cross join lateral unnest(${groupAlias(index)}) as each_value(value)
 			group by each_value.value
@@ -516,7 +520,7 @@ function groupingCount(
 	}
 	return sql`
 		union all
-		select ${name}::text, to_jsonb(${groupAlias(index)}), count(*)::int
+		select ${name}::text, to_jsonb(${groupAlias(index)}), count(*)::int, null::jsonb
 		from in_view
 		group by ${groupAlias(index)}
 	`;
@@ -526,7 +530,6 @@ function groupingCount(
 function summaryFromRows(
 	rows: readonly SummaryCountRow[],
 	groupingNames: readonly string[],
-	hasFigures: boolean,
 ): MapSummaryResult {
 	const groups: Record<string, MapSummaryGroup[]> = Object.fromEntries(
 		groupingNames.map((name) => [name, []]),
@@ -534,19 +537,15 @@ function summaryFromRows(
 	const whole = rows.find((row) => row.grouping === null);
 	for (const row of rows) {
 		if (row.grouping !== null) {
-			groups[row.grouping]?.push({
-				value: row.value as MapSummaryGroup['value'],
-				count: row.count,
-			});
+			groups[row.grouping]?.push({ value: row.value, count: row.count });
 		}
 	}
 	for (const list of Object.values(groups)) {
 		list.sort((first, second) => second.count - first.count);
 	}
 	const total = whole?.count ?? 0;
-	return hasFigures
-		? { total, groups, figures: whole?.value as Readonly<Record<string, number>> }
-		: { total, groups };
+	const figures = whole?.figures ?? null;
+	return figures === null ? { total, groups } : { total, groups, figures };
 }
 
 /**
