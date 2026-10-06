@@ -8,10 +8,12 @@ import { searchClauses } from './map-search-filter.js';
 import {
 	type MapByIdInput,
 	type MapDisplayColumns,
+	type MapReadContext,
 	type MapRecordSurfaceReaders,
 	mapRecordSurface,
 } from './map-surface.js';
-import { tagMembershipClauses } from './map-tag-filter.js';
+import { tagIdsSql, tagMembershipClauses } from './map-tag-filter.js';
+import { assertIanaTimeZone, localDateSql } from './record-display-sql.js';
 
 /**
  * A notification registration's drawn shape, read back by id.
@@ -96,7 +98,7 @@ export interface ServiceRequestMapFilters {
  *
  * The contact and the address are ids rather than joined columns, because the
  * rail resolves both for the page it draws out of their on-demand collections
- * (`useRequestParties`), and a page of fifty ids is a subset those load
+ * (`useRequestParties`), and a page of a hundred ids is a subset those load
  * reliably. `closedAt` is the status: a request is open until it is stamped.
  */
 export interface SafeServiceRequestDisplayRow {
@@ -170,6 +172,15 @@ export function serviceRequestSurface(
 		geom: sql`sr.geom`,
 		properties: [sql`sr.id`, sql`(sr.closed_at is null) as "isOpen"`],
 		filterWhere: serviceRequestFilterWhere,
+		// What the Service Requests rail counts by over 100 in view (#1371). The
+		// first two are named for the params of the filters they narrow to;
+		// `intakeType` has no filter and is drawn as text.
+		groupings: () => ({
+			status: sql`case when sr.closed_at is null then 'open' else 'closed' end`,
+			tagId: { each: tagIdsSql({ id: sql`sr.id`, entityType: 'service_request' }) },
+			intakeType: sql`sr.intake_type::text`,
+		}),
+		figures: (context) => ({ oldestOpenDays: { max: openRequestAgeDaysSql(context) } }),
 		display: {
 			columns: serviceRequestDisplayColumns,
 			// Newest first, which is the order the explorer always read in, and the
@@ -182,6 +193,16 @@ export function serviceRequestSurface(
 					: sql`sr.request_date desc, sr.created_at desc, sr.id`,
 		},
 	});
+}
+
+/**
+ * How many days an open request has waited, counted from its request date to
+ * the organization's today, the way the rail's age slot counts it. Null on a
+ * closed request, so the oldest open one is the largest value in the box.
+ */
+function openRequestAgeDaysSql(context: MapReadContext): RawBuilder<number | null> {
+	const today = sql.raw(localDateSql('now()', assertIanaTimeZone(context.timeZone)));
+	return sql<number | null>`case when sr.closed_at is null then ${today} - sr.request_date end`;
 }
 
 function serviceRequestFilterWhere(

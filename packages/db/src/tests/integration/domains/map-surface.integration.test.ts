@@ -13,7 +13,10 @@ import type { MapExtent } from '../../../domains/map-extent.js';
 import type { MapRecordSurfaceReaders } from '../../../domains/map-surface.js';
 import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import { MAP_TILE_ENCODING } from '../../../domains/map-tile.js';
-import { getNotificationRegistrationGeometryById } from '../../../domains/public-engagement-map.js';
+import {
+	getNotificationRegistrationGeometryById,
+	type ServiceRequestMapFilters,
+} from '../../../domains/public-engagement-map.js';
 import type { SimmerDatabase } from '../../../index.js';
 import {
 	type MapSurfaceName,
@@ -1428,4 +1431,161 @@ async function seedSampleVariety(
 		])
 		.execute();
 	return { pipiens, restuans };
+}
+
+// Over 100 service requests in view the Service Requests rail draws the same
+// summary (#1371). The seeded world's one open request in the box is joined by
+// three more: one open and carrying two Tags, one closed and carrying one of
+// them, and one open with neither. A request with two Tags counts under both,
+// so the Tag counts run past the total, and each status and Tag count is
+// checked against the page its button narrows to.
+describeDbIntegration('service request summary against Postgres', () => {
+	it('counts the requests the page counts, by status, Tag and intake type', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const { drainage, noise, insideDate } = await seedServiceRequestVariety(db);
+			const read = (filters: ServiceRequestMapFilters) =>
+				summaryAndPage(db, MAP_SURFACES['service-requests'], filters);
+			// The oldest open request is the one dated thirty days before the seed's,
+			// counted to today in the organization's zone.
+			const oldestOpenDays = daysBetween(addDays(insideDate, -30), todayIn(mapSurfaceTimeZone));
+
+			const all = await read({});
+			expect(all.pageTotal).toBe(4);
+			expect(all.summary).toEqual({
+				total: 4,
+				groups: {
+					status: [
+						{ value: 'open', count: 3 },
+						{ value: 'closed', count: 1 },
+					],
+					tagId: [
+						{ value: drainage, count: 2 },
+						{ value: noise, count: 1 },
+					],
+					intakeType: expect.arrayContaining([
+						{ value: 'online', count: 1 },
+						{ value: 'other', count: 1 },
+						{ value: 'phone', count: 1 },
+						{ value: 'walk-in', count: 1 },
+					]),
+				},
+				figures: { oldestOpenDays },
+			});
+			expect(all.summary.groups.intakeType).toHaveLength(4);
+
+			// Each group's count is the total of the page its button narrows to.
+			const narrowed: readonly (readonly [string, string, ServiceRequestMapFilters])[] = [
+				['status', 'open', { isOpen: true }],
+				['status', 'closed', { isOpen: false }],
+				['tagId', drainage, { tagIds: [drainage] }],
+				['tagId', noise, { tagIds: [noise] }],
+			];
+			const answers = await Promise.all(narrowed.map(([, , filters]) => read(filters)));
+			narrowed.forEach(([grouping, value], index) => {
+				const answer = answers[index];
+				expect(answer?.summary.total).toBe(answer?.pageTotal);
+				expect(all.summary.groups[grouping]?.find((group) => group.value === value)?.count).toBe(
+					answer?.pageTotal,
+				);
+			});
+
+			// Under Drainage the thirty-day request is still the oldest open one.
+			// With only closed requests in view there is no oldest open request, so
+			// the figure is left out rather than read as zero days.
+			expect((await read({ tagIds: [drainage] })).summary.figures).toEqual({ oldestOpenDays });
+			expect((await read({ isOpen: false })).summary.figures).toEqual({});
+			expect((await read({ dateFrom: addDays(insideDate, 1) })).summary).toEqual({
+				total: 0,
+				groups: { status: [], tagId: [], intakeType: [] },
+				figures: {},
+			});
+		});
+	});
+});
+
+/**
+ * Three more requests in the box beside the seeded open one, copied from it
+ * with an earlier date: open and phoned in thirty days before with both Tags,
+ * closed and walked in sixty days before with Drainage, and open with an
+ * intake type of other ten days before with neither. The seeded one came in
+ * online, so every intake type is counted once.
+ */
+async function seedServiceRequestVariety(db: Kysely<SimmerDatabase>): Promise<{
+	readonly drainage: string;
+	readonly noise: string;
+	readonly insideDate: string;
+}> {
+	const inside = mapSurfaceRowIds.serviceRequest.inside;
+	const drainage = '00000000-0000-4000-8000-000000009911';
+	const noise = '00000000-0000-4000-8000-000000009912';
+	const tagged = '00000000-0000-4000-8000-000000009913';
+	const closed = '00000000-0000-4000-8000-000000009914';
+	const untagged = '00000000-0000-4000-8000-000000009915';
+
+	const copies = [
+		{ id: tagged, daysBefore: 30, intake: 'phone', closedAt: null },
+		{ id: closed, daysBefore: 60, intake: 'walk-in', closedAt: '2026-03-20T15:00:00.000Z' },
+		{ id: untagged, daysBefore: 10, intake: 'other', closedAt: null },
+	];
+	for (const copy of copies) {
+		await sql`
+			insert into service_requests
+				(id, organization_id, geom, request_date, intake_type, details, contact_id, address_id,
+					closed_at)
+			select ${copy.id}, organization_id, geom, request_date - ${copy.daysBefore}::int,
+				${copy.intake}::request_intake_type, details, contact_id, address_id,
+				${copy.closedAt}::timestamptz
+			from service_requests
+			where id = ${inside}
+		`.execute(db);
+	}
+
+	await db
+		.insertInto('tags')
+		.values([
+			{ id: drainage, organization_id: mapSurfaceOrganizationIds.own, tag_name: 'Drainage' },
+			{ id: noise, organization_id: mapSurfaceOrganizationIds.own, tag_name: 'Noise' },
+		])
+		.execute();
+	const tagItem = (tagId: string, entityId: string) => ({
+		tag_id: tagId,
+		organization_id: mapSurfaceOrganizationIds.own,
+		entity_type: 'service_request',
+		entity_id: entityId,
+	});
+	await db
+		.insertInto('tag_items')
+		.values([tagItem(drainage, tagged), tagItem(noise, tagged), tagItem(drainage, closed)])
+		.execute();
+
+	const date = await sql<{ readonly requestDate: string }>`
+		select to_char(request_date, 'YYYY-MM-DD') as "requestDate"
+		from service_requests where id = ${inside}
+	`.execute(db);
+	const insideDate = date.rows[0]?.requestDate;
+	if (insideDate === undefined) {
+		throw new Error('Expected the seeded service request back.');
+	}
+	return { drainage, noise, insideDate };
+}
+
+/** Today's calendar date in `timeZone`, as `YYYY-MM-DD`. */
+function todayIn(timeZone: string): string {
+	// en-CA for its year-month-day shape, which is how the dates are compared.
+	return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
+}
+
+/** `date` moved by `days`, as `YYYY-MM-DD`. */
+function addDays(date: string, days: number): string {
+	const moved = new Date(`${date}T00:00:00.000Z`);
+	moved.setUTCDate(moved.getUTCDate() + days);
+	return moved.toISOString().slice(0, 10);
+}
+
+/** Whole days from `from` to `to`, both `YYYY-MM-DD`. */
+function daysBetween(from: string, to: string): number {
+	return Math.round(
+		(Date.parse(`${to}T00:00:00.000Z`) - Date.parse(`${from}T00:00:00.000Z`)) / 86_400_000,
+	);
 }
