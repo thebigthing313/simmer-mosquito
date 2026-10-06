@@ -25,6 +25,7 @@
 
 import { contrastRatio, NON_TEXT_AA, parseCssColor } from '@simmer-mosquito/design-tokens/color';
 import {
+	mapCluster,
 	mapContext,
 	mapDensity,
 	mapDomain,
@@ -46,6 +47,8 @@ const GROUPS = {
 	progress: mapProgress,
 	context: mapContext,
 	density: mapDensity,
+	// The circle alone: the count is drawn on it, not on the basemap.
+	cluster: { fill: mapCluster.fill },
 };
 
 /**

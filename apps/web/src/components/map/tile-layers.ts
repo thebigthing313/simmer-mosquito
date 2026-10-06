@@ -259,7 +259,8 @@ const TILE_LAYER_BINDINGS = {
 		sourceId: TRAP_SOURCE_ID,
 		interactiveLayerIds: TRAP_INTERACTIVE_LAYER_IDS,
 		allLayerIds: TRAP_LAYER_IDS,
-		buildTileUrl: (layer) => buildTrapTileUrl(layer.serverUrl, layer.filters),
+		// Traps are the one tileset that clusters so far (#1379).
+		buildTileUrl: (layer) => buildTrapTileUrl(layer.serverUrl, layer.filters, { cluster: true }),
 		buildExtentUrl: (layer) => buildTrapExtentUrl(layer.serverUrl, layer.filters),
 		buildLayers: (layer) => trapTileLayers(layer.selectedId ?? null),
 	}),

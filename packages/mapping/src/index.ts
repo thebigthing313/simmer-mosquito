@@ -101,3 +101,4 @@ export type {
 	SplitRefusal,
 } from './sketch.js';
 export { reshapePath, samePlanarPosition, sketchCrossings, splitRings } from './sketch.js';
+export { MAP_CLUSTER_UNTIL_ZOOM } from './tile-clustering.js';

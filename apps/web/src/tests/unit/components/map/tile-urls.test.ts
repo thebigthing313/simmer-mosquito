@@ -17,6 +17,7 @@ import {
 } from '../../../../components/map/habitat-tiles';
 import { buildRegionExtentUrl, buildRegionTileUrl } from '../../../../components/map/region-tiles';
 import { buildSampleExtentUrl, buildSampleTileUrl } from '../../../../components/map/sample-tiles';
+import { tileLayerBinding } from '../../../../components/map/tile-layers';
 import { buildTrapExtentUrl, buildTrapTileUrl } from '../../../../components/map/trap-tiles';
 
 const serverUrl = 'https://api.example.test/';
@@ -111,6 +112,38 @@ describe('tile and extent URLs', () => {
 		);
 		expect(buildRegionTileUrl(serverUrl, { regionFolderId: 'unfiled' })).toBe(
 			'https://api.example.test/map/tiles/regions/{z}/{x}/{y}.mvt?regionFolderId=unfiled',
+		);
+	});
+});
+
+// A clustered tile is a different tile, so it must cache under its own URL,
+// while the extent frames the same records either way and keeps one URL.
+describe('clustered tile URLs', () => {
+	it('asks for clusters on the tile URL and never on the extent', () => {
+		const filters = { isActive: true, search: 'CDC' };
+
+		expect(queryOf(buildTrapTileUrl(serverUrl, filters, { cluster: true }))).toBe(
+			'status=active&search=CDC&cluster=1',
+		);
+		expect(queryOf(buildTrapTileUrl(serverUrl, filters))).toBe('status=active&search=CDC');
+		expect(queryOf(buildTrapTileUrl(serverUrl, filters, { cluster: false }))).toBe(
+			'status=active&search=CDC',
+		);
+		expect(queryOf(buildTrapExtentUrl(serverUrl, filters))).toBe('status=active&search=CDC');
+	});
+
+	it('clusters the Traps map and no other tileset', () => {
+		const traps = { kind: 'traps', serverUrl } as const;
+		const habitats = { kind: 'habitats', serverUrl } as const;
+
+		expect(tileLayerBinding(traps).buildTileUrl(traps)).toBe(
+			'https://api.example.test/map/tiles/traps/{z}/{x}/{y}.mvt?cluster=1',
+		);
+		expect(tileLayerBinding(traps).buildExtentUrl(traps)).toBe(
+			'https://api.example.test/map/tiles/traps/extent',
+		);
+		expect(tileLayerBinding(habitats).buildTileUrl(habitats)).toBe(
+			'https://api.example.test/map/tiles/habitats/{z}/{x}/{y}.mvt',
 		);
 	});
 });

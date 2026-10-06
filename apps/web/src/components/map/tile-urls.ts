@@ -56,13 +56,33 @@ export function setTextTileParam(
 	}
 }
 
-/** The vector-tile template for one tileset, with the filters folded in. */
+/** How a tileset's tiles draw, as opposed to which records they hold. */
+export interface TileDrawOptions {
+	/**
+	 * Ask for points grouped by grid cell. Only a tileset the server lets
+	 * cluster takes it; any other answers 400.
+	 */
+	readonly cluster?: boolean;
+}
+
+/**
+ * The vector-tile template for one tileset, with the filters folded in.
+ *
+ * Clustering rides on the tile URL alone and never on the extent's, so a
+ * clustered and a plain tile cache under two URLs and never mix, while the
+ * extent the camera frames stays the one URL it was.
+ */
 export function tileTemplateUrl(
 	serverUrl: string,
 	tileset: string,
 	params: URLSearchParams,
+	options?: TileDrawOptions,
 ): string {
-	return withQuery(`${trimTrailingSlash(serverUrl)}/map/tiles/${tileset}/{z}/{x}/{y}.mvt`, params);
+	const query = new URLSearchParams(params);
+	if (options?.cluster === true) {
+		query.set('cluster', '1');
+	}
+	return withQuery(`${trimTrailingSlash(serverUrl)}/map/tiles/${tileset}/{z}/{x}/{y}.mvt`, query);
 }
 
 /**

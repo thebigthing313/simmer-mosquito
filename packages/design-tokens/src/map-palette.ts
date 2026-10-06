@@ -239,6 +239,23 @@ export const mapContext = {
 } as const;
 
 /**
+ * A cluster: several records drawn as one circle with their count on it.
+ *
+ * Its own role and no record's colour. A cluster can hold active and inactive
+ * traps at once, so painting it in either lifecycle colour would report a state
+ * half its records are not in. Dark slate, outside every domain hue and away
+ * from amber selection, and dark enough that the off-white count reads on it.
+ */
+export const mapCluster = {
+	/** The circle. */
+	fill: '#334a50',
+	/** The casing that lifts it off the basemap, the one every point wears. */
+	stroke: casing,
+	/** The count drawn on the circle. */
+	label: casing,
+} as const;
+
+/**
  * The larval density ramp, keyed by the `larval_density` enum plus the dry tone.
  * Ordered cool to hot. This is a sequential scale carrying operational
  * magnitude, so it is deliberately not built from the domain hues above.

@@ -960,6 +960,88 @@ describe('map geometry routes', () => {
 	});
 });
 
+// `cluster=1` is read beside the filters: it changes how a tile draws its points
+// and not which records it holds, so only a tileset that declares it takes it,
+// and the extent the camera frames never sees it.
+describe('registerMapTileRoutes: clustered tiles', () => {
+	it('hands the trap tile reader a request for clusters', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			getTrapTile: async (_db, input) => {
+				calls.push(input);
+				return new Uint8Array();
+			},
+		});
+
+		const response = await app.request('/map/tiles/traps/10/300/386.mvt?cluster=1&status=active');
+
+		expect(response.status).toBe(200);
+		expect(calls).toEqual([
+			{ z: 10, x: 300, y: 386, organizationId, filters: { isActive: true }, cluster: true },
+		]);
+	});
+
+	it('reads the plain tile when no cluster is asked for', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			getTrapTile: async (_db, input) => {
+				calls.push(input);
+				return new Uint8Array();
+			},
+		});
+
+		await app.request('/map/tiles/traps/10/300/386.mvt');
+
+		expect(calls).toEqual([{ z: 10, x: 300, y: 386, organizationId, filters: {} }]);
+	});
+
+	it('refuses clusters on the regions tileset before reading tiles', async () => {
+		const getRegionTile = vi.fn();
+		const app = createApp({ getRegionTile });
+
+		const response = await app.request('/map/tiles/regions/10/300/386.mvt?cluster=1');
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_cluster' });
+		expect(getRegionTile).not.toHaveBeenCalled();
+	});
+
+	it('refuses a cluster value other than 1', async () => {
+		const getTrapTile = vi.fn();
+		const app = createApp({ getTrapTile });
+
+		const response = await app.request('/map/tiles/traps/10/300/386.mvt?cluster=true');
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_cluster' });
+		expect(getTrapTile).not.toHaveBeenCalled();
+	});
+
+	it('frames the same extent whether or not clusters are asked for', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			getTrapExtent: async (_db, input) => {
+				calls.push(input);
+				return null;
+			},
+			getRegionExtent: async (_db, input) => {
+				calls.push(input);
+				return null;
+			},
+		});
+
+		const trap = await app.request('/map/tiles/traps/extent?cluster=1&status=active');
+		const region = await app.request(`/map/tiles/regions/extent?cluster=1&id=${regionId}`);
+
+		expect(trap.status).toBe(200);
+		expect(region.status).toBe(200);
+		expect(calls).toEqual([
+			{ organizationId, filters: { isActive: true } },
+			{ organizationId, filters: { ids: [regionId] } },
+		]);
+	});
+});
+
 /**
  * An app whose routes read from fakes.
  *

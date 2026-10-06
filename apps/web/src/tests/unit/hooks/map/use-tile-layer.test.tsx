@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { MAP_CLUSTER_UNTIL_ZOOM } from '@simmer-mosquito/mapping';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { MapTileLayer } from '../../../../components/map';
 import { tileLayerExtentUrl } from '../../../../components/map/tile-layers';
@@ -82,6 +83,66 @@ describe('useTileLayer', () => {
 		fake.click(-90, 35);
 
 		expect(selected).toEqual(['sample-1', null]);
+	});
+
+	// A cluster is no record: a click on one zooms to the records under it and
+	// leaves the selection alone, never closer than the zoom clustering stops at.
+	it('zooms to a clicked cluster without selecting anything', () => {
+		const fake = createFakeMap();
+		const selected: (string | null)[] = [];
+		mount(fake, { kind: 'traps', serverUrl: SERVER, onSelectFeature: (id) => selected.push(id) });
+
+		fake.queryRenderedFeatures.mockReturnValueOnce([
+			{
+				properties: {
+					cluster: true,
+					point_count: 3,
+					cluster_west: -74.5,
+					cluster_south: 40.3,
+					cluster_east: -74.4,
+					cluster_north: 40.4,
+				},
+			},
+		]);
+		fake.click(-74.45, 40.35);
+
+		expect(selected).toEqual([]);
+		expect(fake.cameraCalls).toEqual([expect.objectContaining({ kind: 'fitBounds', padding: 48 })]);
+	});
+
+	it('centres on a cluster whose points share one spot, at the zoom clustering stops', () => {
+		const fake = createFakeMap();
+		mount(fake, { kind: 'traps', serverUrl: SERVER, onSelectFeature: () => {} });
+
+		fake.queryRenderedFeatures.mockReturnValueOnce([
+			{
+				properties: {
+					cluster: true,
+					point_count: 2,
+					cluster_west: -74.4,
+					cluster_south: 40.3,
+					cluster_east: -74.4,
+					cluster_north: 40.3,
+				},
+			},
+		]);
+		fake.click(-74.4, 40.3);
+
+		expect(fake.cameraCalls).toEqual([
+			expect.objectContaining({ kind: 'easeTo', zoom: MAP_CLUSTER_UNTIL_ZOOM }),
+		]);
+	});
+
+	it('asks the trap tiles for clusters', () => {
+		const fake = createFakeMap();
+		mount(fake, { kind: 'traps', serverUrl: SERVER });
+
+		expect(fake.tilesOf('traps')).toEqual([
+			'https://api.test/map/tiles/traps/{z}/{x}/{y}.mvt?cluster=1',
+		]);
+		expect(fake.layerIds()).toEqual(
+			expect.arrayContaining(['traps-clusters', 'traps-cluster-counts']),
+		);
 	});
 
 	it('does nothing at all without a layer', () => {

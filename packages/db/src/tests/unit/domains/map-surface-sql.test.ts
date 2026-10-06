@@ -276,6 +276,23 @@ const mapReads: ReadonlyArray<{
 				filters: { collectionMethodIds: ids, isActive: true, search: 'gravid', regionIds },
 			}),
 	},
+	// The same tile with its points grouped by cell. Not a forty-eighth read: one
+	// tile asked one way, pinned because it reads the rows twice and both reads
+	// have to carry the scope.
+	{
+		name: 'trap clustered tile',
+		organizationAlias: 't',
+		geomAlias: 't',
+		spatial: true,
+		read: (db) =>
+			MAP_SURFACES.traps.getTile(db, {
+				...tile,
+				organizationId,
+				timeZone,
+				filters: { collectionMethodIds: ids, isActive: true, search: 'gravid', regionIds },
+				cluster: true,
+			}),
+	},
 	{
 		name: 'trap bbox list',
 		organizationAlias: 't',

@@ -2,11 +2,13 @@
  * The layer stack every record tileset draws.
  *
  * Nine domains — habitats, traps, collections, inspections, samples, chemical
- * applications, source reduction, biocontrol, outreach — render the same eight
+ * applications, source reduction, biocontrol, outreach — render the same ten
  * GL layers over the same three geometry types: a polygon fill and outline, a
- * line, a point, and four highlight layers scoped to the selected feature. Only
- * the tileset name and the palette differ, and inspections and samples colour
- * their points by a data ramp instead of a flat domain colour.
+ * line, a point, a cluster circle and its count, and four highlight layers
+ * scoped to the selected feature. Only the tileset name and the palette
+ * differ, and inspections and samples colour their points by a data ramp
+ * instead of a flat domain colour. Only a tileset whose tiles are asked for
+ * clusters ever draws one, so on the others the two cluster layers are empty.
  *
  * This existed as nine near-identical copies. That is how habitat selection
  * broke: `e0bcd8e` fixed the render-time selection filter across seven of them
@@ -18,18 +20,20 @@
  * params genuinely differ per endpoint. See `tile-urls.ts`.
  */
 
-import { mapInteraction } from '@simmer-mosquito/design-tokens';
+import { mapCluster, mapInteraction } from '@simmer-mosquito/design-tokens';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
 	FillLayerSpecification,
 	LineLayerSpecification,
+	SymbolLayerSpecification,
 } from 'mapbox-gl';
 
 export type GeometryTileLayer =
 	| FillLayerSpecification
 	| LineLayerSpecification
-	| CircleLayerSpecification;
+	| CircleLayerSpecification
+	| SymbolLayerSpecification;
 
 /**
  * A colour a layer paints with: a literal, or an expression reading it off the
@@ -58,11 +62,29 @@ export interface GeometryTilePalette {
 
 const polygonOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Polygon'];
 const lineOnly: ExpressionSpecification = ['==', ['geometry-type'], 'LineString'];
-const pointOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Point'];
+/**
+ * A clustered tile marks a cluster with `cluster: true` and writes no such key
+ * on a record, so the presence of the key is the whole test.
+ */
+const clusterOnly: ExpressionSpecification = ['has', 'cluster'];
+/** A record's own point: a cluster is drawn as a point too, by its own layer. */
+const pointOnly: ExpressionSpecification = [
+	'all',
+	['==', ['geometry-type'], 'Point'],
+	['!', clusterOnly],
+];
 
-/** Layers the user can click to select a record. Order = hit priority. */
+/**
+ * Layers the user can click, in hit priority: a cluster, which zooms in, then
+ * the three a record is selected from.
+ */
 export function interactiveLayerIds(sourceId: string): readonly string[] {
-	return [`${sourceId}-points`, `${sourceId}-lines`, `${sourceId}-polygon-fill`];
+	return [
+		`${sourceId}-clusters`,
+		`${sourceId}-points`,
+		`${sourceId}-lines`,
+		`${sourceId}-polygon-fill`,
+	];
 }
 
 /** The highlight layers, drawn above the base stack. */
@@ -82,6 +104,8 @@ export function allLayerIds(sourceId: string): readonly string[] {
 		`${sourceId}-polygon-outline`,
 		`${sourceId}-lines`,
 		`${sourceId}-points`,
+		`${sourceId}-clusters`,
+		`${sourceId}-cluster-counts`,
 		...selectedLayerIds(sourceId),
 	];
 }
@@ -155,6 +179,38 @@ export function geometryTileLayers(
 				'circle-stroke-color': mapInteraction.pointStroke,
 				'circle-stroke-width': 1.2,
 			},
+		},
+		// --- clusters: only a tileset whose tiles are asked for them draws any ---
+		{
+			id: `${sourceId}-clusters`,
+			type: 'circle',
+			source: sourceId,
+			'source-layer': sourceId,
+			filter: clusterOnly,
+			paint: {
+				'circle-color': mapCluster.fill,
+				'circle-opacity': 0.9,
+				// Wider as the count grows, in steps so a circle does not resize
+				// between two counts nobody could tell apart.
+				'circle-radius': ['step', ['get', 'point_count'], 11, 10, 14, 50, 18, 200, 22],
+				'circle-stroke-color': mapCluster.stroke,
+				'circle-stroke-width': 1.5,
+			},
+		},
+		{
+			id: `${sourceId}-cluster-counts`,
+			type: 'symbol',
+			source: sourceId,
+			'source-layer': sourceId,
+			filter: clusterOnly,
+			layout: {
+				'text-field': ['to-string', ['get', 'point_count']],
+				'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+				'text-size': 12,
+				'text-allow-overlap': true,
+				'text-ignore-placement': true,
+			},
+			paint: { 'text-color': mapCluster.label },
 		},
 		// --- selection highlight: drawn on top, scoped to the selected feature ---
 		{
