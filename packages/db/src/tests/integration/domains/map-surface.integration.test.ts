@@ -4,6 +4,7 @@ import { PbfReader } from 'pbf';
 import { expect, it } from 'vitest';
 import { getRequestedControlActionDisplayRowById } from '../../../domains/control-operations-map.js';
 import type { HabitatMvtTileFilters } from '../../../domains/habitats.js';
+import type { InspectionMvtTileFilters } from '../../../domains/larval-surveillance.js';
 import type { MapExtent } from '../../../domains/map-extent.js';
 import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import { MAP_TILE_ENCODING } from '../../../domains/map-tile.js';
@@ -1165,3 +1166,126 @@ describeDbIntegration('habitat summary against Postgres', () => {
 		});
 	});
 });
+
+// Over 100 inspections in view the Inspections rail draws the same summary
+// (#1369). The seeded world's one live inspection in the box is joined by five
+// more that differ on each grouping, and the summary's total is compared with
+// the page's under every filter a grouping button writes.
+describeDbIntegration('inspection summary against Postgres', () => {
+	it('counts the inspections the page counts, grouped by each declared grouping', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const { typeId, inspectorId } = await seedInspectionVariety(db);
+
+			const filterSets: readonly InspectionMvtTileFilters[] = [
+				{},
+				{ isWet: true },
+				{ isWet: false },
+				{ densities: ['heavy'] },
+				{ densities: ['heavy', 'light'] },
+				{ positiveOnly: true },
+				{ habitatTypeIds: [typeId] },
+				{ inspectedByProfileIds: [inspectorId] },
+				{ dateFrom: '2026-03-16' },
+			];
+			const answers = await Promise.all(
+				filterSets.map((filters) => inspectionSummaryAndPage(db, filters)),
+			);
+
+			for (const { summary, pageTotal } of answers) {
+				expect(summary.total).toBe(pageTotal);
+				for (const groups of Object.values(summary.groups)) {
+					expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(summary.total);
+				}
+			}
+
+			expect(answers[0]?.summary).toEqual({
+				total: 6,
+				groups: {
+					isWet: [
+						{ value: true, count: 5 },
+						{ value: false, count: 1 },
+					],
+					density: expect.arrayContaining([
+						{ value: 'heavy', count: 2 },
+						{ value: 'light', count: 2 },
+						{ value: 'none', count: 1 },
+						{ value: null, count: 1 },
+					]),
+					positive: [
+						{ value: false, count: 4 },
+						{ value: true, count: 2 },
+					],
+					habitatTypeId: expect.arrayContaining([
+						{ value: typeId, count: 3 },
+						{ value: null, count: 3 },
+					]),
+					inspectedBy: expect.arrayContaining([
+						{ value: inspectorId, count: 3 },
+						{ value: null, count: 3 },
+					]),
+				},
+			});
+			// Outside the date window nothing is counted, and every grouping is still a key.
+			expect(answers[8]?.summary).toEqual({
+				total: 0,
+				groups: { isWet: [], density: [], positive: [], habitatTypeId: [], inspectedBy: [] },
+			});
+		});
+	});
+});
+
+/**
+ * Five more live inspections beside the seeded `inside` one, each differing on
+ * one grouping: a dry one, two heavy ones that found larvae, and two carrying
+ * the seeded inspection's type or inspector where the others carry none.
+ */
+async function seedInspectionVariety(
+	db: Kysely<SimmerDatabase>,
+): Promise<{ readonly typeId: string; readonly inspectorId: string }> {
+	const inside = await db
+		.selectFrom('inspections')
+		.select(['habitat_type_id', 'inspected_by_profile_id'])
+		.where('id', '=', mapSurfaceRowIds.inspection.inside)
+		.executeTakeFirstOrThrow();
+	const typeId = String(inside.habitat_type_id);
+	const inspectorId = String(inside.inspected_by_profile_id);
+	const base = {
+		organization_id: mapSurfaceOrganizationIds.own,
+		geom: sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`,
+		inspection_date: new Date('2026-03-15T00:00:00.000Z'),
+	};
+	await db
+		.insertInto('inspections')
+		.values([
+			{ ...base, is_wet: false, habitat_type_id: typeId },
+			{ ...base, is_wet: true, density: 'heavy', has_pupae: true },
+			{ ...base, is_wet: true, density: 'heavy', has_eggs: true },
+			{
+				...base,
+				is_wet: true,
+				density: 'light',
+				habitat_type_id: typeId,
+				inspected_by_profile_id: inspectorId,
+			},
+			{ ...base, is_wet: true, density: 'none', inspected_by_profile_id: inspectorId },
+		])
+		.execute();
+	return { typeId, inspectorId };
+}
+
+/** The summary and the page's total for the seeded box under one filter set. */
+async function inspectionSummaryAndPage(
+	db: Kysely<SimmerDatabase>,
+	filters: InspectionMvtTileFilters,
+) {
+	const input = {
+		organizationId: mapSurfaceOrganizationIds.own,
+		timeZone: mapSurfaceTimeZone,
+		bounds: mapSurfacePlace.bounds,
+		filters,
+	};
+	const summary = await MAP_SURFACES.inspections.summarizeByBounds(db, input);
+	const listed = await MAP_SURFACES.inspections.listByBounds(db, { ...input, ...page });
+	return { summary, pageTotal: listed.total };
+}

@@ -215,6 +215,16 @@ const inspectionDisplayColumns: MapDisplayColumns<SafeInspectionDisplayRow> = {
 };
 
 /**
+ * An inspection that found at least one life stage, eggs through pupae. One
+ * fragment, because the tile paints by it, the filter narrows by it and the
+ * summary counts by it, and the three have to agree.
+ */
+const inspectionPositiveSql = sql<boolean>`(
+	i.has_eggs or i.has_first_instar or i.has_second_instar
+	or i.has_third_instar or i.has_fourth_instar or i.has_pupae
+)`;
+
+/**
  * The inspections map surface, with the layer it stamps into its tiles handed in
  * by the register it is declared in.
  */
@@ -231,12 +241,18 @@ export function inspectionSurface(
 			sql`i.is_wet as "isWet"`,
 			sql`i.density::text as "density"`,
 			sql`i.habitat_type_id as "habitatTypeId"`,
-			sql`(
-			i.has_eggs or i.has_first_instar or i.has_second_instar
-			or i.has_third_instar or i.has_fourth_instar or i.has_pupae
-		) as "positive"`,
+			sql`${inspectionPositiveSql} as "positive"`,
 		],
 		filterWhere: inspectionFilterWhere,
+		// What the Inspections rail counts by over 100 in view (#1369), each named
+		// for the query param of the filter it applies, so a group is a button.
+		groupings: () => ({
+			isWet: sql`i.is_wet`,
+			density: sql`i.density::text`,
+			positive: inspectionPositiveSql,
+			habitatTypeId: sql`i.habitat_type_id`,
+			inspectedBy: sql`i.inspected_by_profile_id`,
+		}),
 		display: {
 			columns: inspectionDisplayColumns,
 			joins: inspectionDisplayJoins,
@@ -259,12 +275,7 @@ function inspectionFilterWhere(
 	}
 
 	if (filters?.positiveOnly === true) {
-		whereClauses.push(
-			sql<boolean>`(
-				i.has_eggs or i.has_first_instar or i.has_second_instar
-				or i.has_third_instar or i.has_fourth_instar or i.has_pupae
-			)`,
-		);
+		whereClauses.push(inspectionPositiveSql);
 	}
 
 	if (filters?.habitatTypeIds !== undefined && filters.habitatTypeIds.length > 0) {
