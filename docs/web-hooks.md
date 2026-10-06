@@ -268,7 +268,10 @@ the way the previous page does.
 Grouping values arrive as ids, flags and nulls, and the hook turns none of them
 into words. Which value is a button and what it is called is the surface's
 question, and on Habitats the type names come from the same catalog the filter
-chips read.
+chips read. A surface that adds a figure up, the larvae identified on Samples
+(#1370), answers it under `figures` beside the groups, and the hook passes it
+on as it came. A surface that declares none answers no `figures` key, which
+is why the field is optional rather than an empty object on every surface.
 
 #### useMapBoundsParam
 

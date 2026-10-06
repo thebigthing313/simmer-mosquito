@@ -94,6 +94,7 @@ const defaultMapReaders = {
 	getSampleTile: MAP_SURFACES.samples.getTile,
 	getSampleExtent: MAP_SURFACES.samples.getExtent,
 	listSampleDisplayRows: MAP_SURFACES.samples.listByBounds,
+	summarizeSamples: MAP_SURFACES.samples.summarizeByBounds,
 	getSampleDisplayRow: MAP_SURFACES.samples.getById,
 
 	getTrapTile: MAP_SURFACES.traps.getTile,
@@ -351,6 +352,14 @@ export function registerMapTileRoutes(
 		key: 'samples',
 		parseQuery: parseSampleDisplayQuery,
 		list: readers.listSampleDisplayRows,
+	});
+
+	// What the Samples rail draws in place of the page over 100 in view
+	// (#1370). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/samples/summary',
+		parseFilters: parseSampleTileFilters,
+		summarize: readers.summarizeSamples,
 	});
 
 	registerByIdRoute(app, options, {

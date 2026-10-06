@@ -1,9 +1,9 @@
 /**
  * The sample filters, drawn the same way on the Samples Map and the Samples
  * Table: the date window, Status, the species, region and non-mosquito
- * filters, and the chips for whatever is set. It returns the blocks bare, so
- * each surface puts them in its own frame. Takes the binding from
- * `useSampleFilterState`.
+ * filters, and the chips for whatever is set, which the Samples summary also
+ * draws. It returns the blocks bare, so each surface puts them in its own
+ * frame. Takes the binding from `useSampleFilterState`.
  */
 
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -52,16 +52,14 @@ export function SampleFilterFields({
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
-	const { filters, setFilters, reset, activeCount, defaults, today } = binding;
+	const { filters, setFilters, activeCount, today } = binding;
 	const dateRange = useDateRangeFilters({ from: filters.from, to: filters.to, today, setFilters });
-	const { nameById, options } = useSpeciesOptions();
+	const { options } = useSpeciesOptions();
 	const regions = useRegionOptions();
-	const isDefaultRange = filters.from === defaults.from && filters.to === defaults.to;
-	const status = filters.status;
 
 	const popovers = (
 		<div className="grid gap-3">
-			<StatusFilter onChange={(next) => setFilters({ status: next })} value={status} />
+			<StatusFilter onChange={(next) => setFilters({ status: next })} value={filters.status} />
 
 			<FilterGrid>
 				<SpeciesFilter
@@ -87,45 +85,7 @@ export function SampleFilterFields({
 		</div>
 	);
 
-	const chips =
-		activeCount === 0 ? null : (
-			<ActiveFilterBar onClearAll={reset}>
-				{isDefaultRange ? null : (
-					<FilterChip
-						label={`Dates: ${dateRangeLabel(filters.from, filters.to)}`}
-						onRemove={() => setFilters({ from: defaults.from, to: defaults.to })}
-					/>
-				)}
-				{status === 'all' ? null : (
-					<FilterChip
-						color={SAMPLE_STATUS_COLORS[status]}
-						label={sampleStatusLabel(status)}
-						onRemove={() => setFilters({ status: 'all' })}
-					/>
-				)}
-				{[...filters.species].map((id) => (
-					<FilterChip
-						italic
-						key={`species-${id}`}
-						label={nameById.get(id) ?? 'Unknown species'}
-						onRemove={() => setFilters({ species: toggle(filters.species, id) })}
-					/>
-				))}
-				{[...filters.regions].map((id) => (
-					<FilterChip
-						key={`region-${id}`}
-						label={regions.nameById.get(id) ?? 'Unknown region'}
-						onRemove={() => setFilters({ regions: toggle(filters.regions, id) })}
-					/>
-				))}
-				{filters.nonMosquito ? (
-					<FilterChip
-						label="Non-mosquito material"
-						onRemove={() => setFilters({ nonMosquito: false })}
-					/>
-				) : null}
-			</ActiveFilterBar>
-		);
+	const chips = activeCount === 0 ? null : <SampleFilterChips binding={binding} />;
 
 	return (
 		<FilterFieldsLayout
@@ -134,6 +94,57 @@ export function SampleFilterFields({
 			popovers={popovers}
 			wide={wide}
 		/>
+	);
+}
+
+/**
+ * One chip per filter that is set, each one clearing its own. The filter card
+ * draws these under its controls, and the Samples summary draws them above its
+ * groupings.
+ */
+export function SampleFilterChips({ binding }: { readonly binding: SampleFilterBinding }) {
+	const { filters, setFilters, reset, defaults } = binding;
+	const { nameById } = useSpeciesOptions();
+	const regions = useRegionOptions();
+	const isDefaultRange = filters.from === defaults.from && filters.to === defaults.to;
+	const status = filters.status;
+	return (
+		<ActiveFilterBar onClearAll={reset}>
+			{isDefaultRange ? null : (
+				<FilterChip
+					label={`Dates: ${dateRangeLabel(filters.from, filters.to)}`}
+					onRemove={() => setFilters({ from: defaults.from, to: defaults.to })}
+				/>
+			)}
+			{status === 'all' ? null : (
+				<FilterChip
+					color={SAMPLE_STATUS_COLORS[status]}
+					label={sampleStatusLabel(status)}
+					onRemove={() => setFilters({ status: 'all' })}
+				/>
+			)}
+			{[...filters.species].map((id) => (
+				<FilterChip
+					italic
+					key={`species-${id}`}
+					label={nameById.get(id) ?? 'Unknown species'}
+					onRemove={() => setFilters({ species: toggle(filters.species, id) })}
+				/>
+			))}
+			{[...filters.regions].map((id) => (
+				<FilterChip
+					key={`region-${id}`}
+					label={regions.nameById.get(id) ?? 'Unknown region'}
+					onRemove={() => setFilters({ regions: toggle(filters.regions, id) })}
+				/>
+			))}
+			{filters.nonMosquito ? (
+				<FilterChip
+					label="Non-mosquito material"
+					onRemove={() => setFilters({ nonMosquito: false })}
+				/>
+			) : null}
+		</ActiveFilterBar>
 	);
 }
 

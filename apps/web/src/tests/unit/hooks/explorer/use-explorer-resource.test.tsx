@@ -1091,4 +1091,12 @@ describe('useExplorerResource: the in-view summary', () => {
 
 		await waitFor(() => expect(result.current.summary.data).toEqual(SUMMARY));
 	});
+
+	it('hands on the figures a surface adds up beside its groups', async () => {
+		const withFigures = { ...SUMMARY, figures: { larvaeTotal: 1_204 } };
+		answer = (url) => (url.pathname.endsWith('/summary') ? withFigures : { rows: [], total: 214 });
+		const { result } = renderSummarizing(true);
+
+		await waitFor(() => expect(result.current.summary.data).toEqual(withFigures));
+	});
 });

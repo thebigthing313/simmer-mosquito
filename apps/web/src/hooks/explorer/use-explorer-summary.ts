@@ -21,6 +21,8 @@ export interface MapSummary {
 	readonly total: number;
 	/** Keyed by grouping name, each list largest count first. */
 	readonly groups: Readonly<Record<string, readonly MapSummaryGroup[]>>;
+	/** Each figure the surface adds up over the box, keyed by name. Absent where it declares none. */
+	readonly figures?: Readonly<Record<string, number>>;
 }
 
 export interface ExplorerSummaryState {
@@ -101,5 +103,6 @@ async function fetchSummary(
 	return {
 		total: typeof body.total === 'number' ? body.total : 0,
 		groups: body.groups ?? {},
+		...(body.figures === undefined ? {} : { figures: body.figures }),
 	};
 }
