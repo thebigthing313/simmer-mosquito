@@ -1,5 +1,6 @@
 import type { Map as MapboxMap, MapMouseEvent, VectorTileSource } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
+import { clusterBounds, fitMapToCluster } from '../../components/map/cluster-fit';
 import { registerHoverLayers } from '../../components/map/hover-cursor';
 import {
 	type MapTileLayer,
@@ -75,6 +76,13 @@ export function useTileLayer(
 				return;
 			}
 			const feature = activeMap.queryRenderedFeatures(event.point, { layers })[0];
+			// A cluster is no record: it zooms in to the records under it and
+			// leaves the selection where it was.
+			const cluster = clusterBounds(feature?.properties);
+			if (cluster !== null) {
+				fitMapToCluster(activeMap, cluster);
+				return;
+			}
 			const id = feature === undefined || feature.id === undefined ? null : String(feature.id);
 			layerRef.current?.onSelectFeature?.(id);
 		}

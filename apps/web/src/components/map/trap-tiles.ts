@@ -9,6 +9,7 @@ import {
 import {
 	type RegionScopedTileFilters,
 	setRegionTileParam,
+	type TileDrawOptions,
 	tileExtentUrl,
 	tileTemplateUrl,
 } from './tile-urls';
@@ -63,8 +64,12 @@ const statusColor: ExpressionSpecification = [
 ];
 
 /** Build the tile template URL with the active filters folded into the query. */
-export function buildTrapTileUrl(serverUrl: string, filters?: TrapTileFilters): string {
-	return tileTemplateUrl(serverUrl, TRAP_SOURCE_ID, trapTileParams(filters));
+export function buildTrapTileUrl(
+	serverUrl: string,
+	filters?: TrapTileFilters,
+	options?: TileDrawOptions,
+): string {
+	return tileTemplateUrl(serverUrl, TRAP_SOURCE_ID, trapTileParams(filters), options);
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */

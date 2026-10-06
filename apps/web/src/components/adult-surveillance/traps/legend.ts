@@ -1,8 +1,11 @@
-import { type MapLegendEntry, TRAP_STATUS_COLORS } from '../../map';
+import { type MapLegendEntry, TILE_CLUSTER_COLOR, TRAP_STATUS_COLORS } from '../../map';
 /** What the Status filter can be set to. Mirrors the segmented control's options. */
 export type StatusFilter = 'all' | 'active' | 'inactive';
 
-/** The key, cut down to the colours the current filter can draw. */
+/**
+ * The key, cut down to the colours the current filter can draw, and the cluster
+ * circle, which the Traps map draws under every filter once it is zoomed out.
+ */
 export function trapLegend(status: StatusFilter): readonly MapLegendEntry[] {
 	const entries: MapLegendEntry[] = [];
 	if (status !== 'inactive') {
@@ -11,5 +14,6 @@ export function trapLegend(status: StatusFilter): readonly MapLegendEntry[] {
 	if (status !== 'active') {
 		entries.push({ color: TRAP_STATUS_COLORS.inactive, label: 'Inactive' });
 	}
+	entries.push({ color: TILE_CLUSTER_COLOR, label: 'Trap Group' });
 	return entries;
 }

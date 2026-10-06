@@ -647,6 +647,14 @@ What varied was the tileset name and which module built the URL and the
 layers; everything about the lifecycle was the same, which is exactly the
 kind of thing that survives in one copy and rots in the others.
 
+A click on a cluster is answered here rather than by the caller, because a
+cluster is no record and `onSelectFeature` takes record ids. It fits the box
+the cluster carries and selects nothing, so a record already selected stays
+selected. The fit stops at `MAP_CLUSTER_UNTIL_ZOOM`, the zoom the tiles stop
+clustering at: any closer would land on a plain tile showing the same records.
+A box with no size, every point on one spot, has nothing to fit, so that case
+eases to its centre at the same zoom (`fitMapToCluster` in `cluster-fit.ts`).
+
 #### useGlobalSearch
 
 Three behaviours the palette needs are properties of the hook rather than

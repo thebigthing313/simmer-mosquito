@@ -6,6 +6,7 @@ export {
 	type CollectionStatus,
 	type CollectionTileFilters,
 } from './collection-tiles';
+export { TILE_CLUSTER_COLOR } from './geometry-tiles';
 export { HABITAT_STATUS_COLORS, type HabitatTileFilters } from './habitat-tiles';
 export {
 	INSPECTION_DENSITY_COLORS,

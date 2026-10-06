@@ -58,6 +58,8 @@ export interface MapTileInput<TFilters> extends MapReadContext {
 	readonly x: number;
 	readonly y: number;
 	readonly filters?: TFilters;
+	/** Group points by grid cell below the cut-off zoom; see `MAP_TILE_CLUSTERING`. */
+	readonly cluster?: boolean;
 }
 
 export interface MapFilterInput<TFilters> extends MapReadContext {
@@ -280,6 +282,7 @@ export function mapSurface<TFilters>(
 					...surfaceWhere(definition, input, input.filters),
 					...envelopeWhere(definition.geom),
 				],
+				cluster: input.cluster,
 			});
 		},
 

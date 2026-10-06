@@ -45,6 +45,16 @@ export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
  */
 const regionFilterParam = 'regionId';
 
+/**
+ * The param that asks a tile for its points grouped by grid cell.
+ *
+ * Read beside the filters rather than as one: it changes how the rows are drawn
+ * and not which rows they are, so the extent route drops it, and a tileset that
+ * does not cluster refuses it rather than drawing the plain tile under a URL
+ * that says otherwise.
+ */
+const clusterParam = 'cluster';
+
 type TileDb = Kysely<SimmerDatabase>;
 
 /**
@@ -174,12 +184,15 @@ type BboxPageInput<TFilters> = PageInput<TFilters> & { readonly bounds: MapBound
 // filters crosses the boundary, and the pair is defined together so they can't drift.
 interface TileSetDefinition {
 	readonly parseFilters: (searchParams: URLSearchParams) => FilterResult<unknown>;
+	/** Whether the tile route takes `cluster=1` for this tileset. */
+	readonly clusters?: true;
 	readonly getTile: (
 		db: TileDb,
 		input: TileCoordinate & {
 			readonly organizationId: string;
 			readonly timeZone: string;
 			readonly filters: unknown;
+			readonly cluster?: true;
 		},
 	) => Promise<Uint8Array>;
 	readonly getExtent: (
@@ -194,12 +207,14 @@ interface TileSetDefinition {
 
 function defineTileSet<F>(def: {
 	readonly parseFilters: (searchParams: URLSearchParams) => FilterResult<F>;
+	readonly clusters?: true;
 	readonly getTile: (
 		db: TileDb,
 		input: TileCoordinate & {
 			readonly organizationId: string;
 			readonly timeZone: string;
 			readonly filters: F;
+			readonly cluster?: true;
 		},
 	) => Promise<Uint8Array>;
 	readonly getExtent: (
@@ -510,7 +525,10 @@ export function registerMapTileRoutes(
 			return context.json({ error: 'invalid_tileset', reason: 'Unknown map tileset.' }, 400);
 		}
 
-		const filterResult = tileSet.parseFilters(new URL(context.req.url).searchParams);
+		// How the points are drawn does not move what the map frames.
+		const searchParams = new URL(context.req.url).searchParams;
+		searchParams.delete(clusterParam);
+		const filterResult = tileSet.parseFilters(searchParams);
 		if (!filterResult.ok) {
 			return context.json({ error: 'invalid_filter', reason: filterResult.reason }, 400);
 		}
@@ -548,7 +566,13 @@ export function registerMapTileRoutes(
 				);
 			}
 
-			const filterResult = tileSet.parseFilters(new URL(context.req.url).searchParams);
+			const searchParams = new URL(context.req.url).searchParams;
+			const clusterResult = parseClusterParam(searchParams, tileSet);
+			if (!clusterResult.ok) {
+				return context.json({ error: 'invalid_cluster', reason: clusterResult.reason }, 400);
+			}
+
+			const filterResult = tileSet.parseFilters(searchParams);
 			if (!filterResult.ok) {
 				return context.json({ error: 'invalid_filter', reason: filterResult.reason }, 400);
 			}
@@ -559,6 +583,9 @@ export function registerMapTileRoutes(
 				organizationId: authContext.organization.id,
 				timeZone: authContext.timeZone,
 				filters: filterResult.filters,
+				// Absent rather than false, so a plain tile is read with the input it
+				// always was.
+				...(clusterResult.cluster ? { cluster: true } : {}),
 			});
 
 			return new Response(tile, {
@@ -790,6 +817,7 @@ function createTileSetRegistry(readers: MapReaders): ReadonlyMap<string, TileSet
 		}),
 		traps: defineTileSet({
 			parseFilters: parseTrapMapFilters,
+			clusters: true,
 			getTile: readers.getTrapTile,
 			getExtent: readers.getTrapExtent,
 		}),
@@ -1169,6 +1197,33 @@ export const parseServiceRequestMapFilters = defineFilters<ServiceRequestMapFilt
 		...dateFields,
 	],
 );
+
+/**
+ * Read and remove `cluster` from a tile request's params.
+ *
+ * Removed because every filter parser refuses a param it does not admit. `1` is
+ * the only value: an absent param is the plain tile, and anything else is a
+ * mistake worth a 400 rather than a guess.
+ */
+function parseClusterParam(
+	searchParams: URLSearchParams,
+	tileSet: { readonly clusters?: true },
+):
+	| { readonly ok: true; readonly cluster: boolean }
+	| { readonly ok: false; readonly reason: string } {
+	const values = searchParams.getAll(clusterParam);
+	searchParams.delete(clusterParam);
+	if (values.length === 0) {
+		return { ok: true, cluster: false };
+	}
+	if (values.length > 1 || values[0] !== '1') {
+		return { ok: false, reason: 'cluster must be 1 when given.' };
+	}
+	if (tileSet.clusters !== true) {
+		return { ok: false, reason: 'This tileset does not cluster its points.' };
+	}
+	return { ok: true, cluster: true };
+}
 
 export function parseTileCoordinate(input: {
 	readonly z: string;
