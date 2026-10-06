@@ -706,7 +706,12 @@ so the record is drawn selected once at every zoom. Above the cut-off, and on a
 tileset that does not cluster, the highlight is the tile's alone, as it was
 before. The tile highlight only steps aside once the overlay has a point to
 draw, so a selection whose row is still being fetched keeps the tile's
-highlight in the meantime. The overlay's data is the row's own geometry object
+highlight in the meantime. One gap is left, and it is short: zooming in across
+the cut-off, Mapbox draws the clustered parent tile in place of each z15 tile
+until that one arrives, and for that moment the overlay is hidden by its
+`maxzoom` and the parent tile has no feature of the record's own to highlight.
+The highlight comes back with the z15 tile. Keeping the overlay up from the
+cut-off as well would close it and put two selected points on every plain tile. The overlay's data is the row's own geometry object
 rather than a feature built around it, because `useGeoJsonSource` holds `data`
 in an effect dependency and a new object every render would `setData` every
 render.

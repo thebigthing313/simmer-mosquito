@@ -133,6 +133,10 @@ export function useTileLayer(
 	}, [map, isLoaded, enabled, filterKey]);
 }
 
+/** Mapbox's own zoom range for a layer that names none, so a range can be put back. */
+const LAYER_MIN_ZOOM = 0;
+const LAYER_MAX_ZOOM = 24;
+
 /**
  * Point every layer this tileset owns at the filters and the zoom range it
  * should now be drawing. The range moves when the selection overlay starts or
@@ -147,7 +151,11 @@ function applyLayerFilters(map: MapboxMap, layer: MapTileLayer, draw: TileDrawOp
 			if (spec.filter !== undefined) {
 				map.setFilter(spec.id, spec.filter);
 			}
-			map.setLayerZoomRange(spec.id, spec.minzoom ?? 0, spec.maxzoom ?? 24);
+			map.setLayerZoomRange(
+				spec.id,
+				spec.minzoom ?? LAYER_MIN_ZOOM,
+				spec.maxzoom ?? LAYER_MAX_ZOOM,
+			);
 		}
 	} catch {
 		// Map style not available; nothing to re-scope.
