@@ -36,6 +36,10 @@ export function memoryClusteringStorage(): MapClusteringStorage {
 	};
 }
 
+/**
+ * The setting over a storage: on unless the storage holds a value, written
+ * through to it, and heard by every subscriber when it changes.
+ */
 export function createMapClusteringSetting(storage: MapClusteringStorage): MapClusteringSetting {
 	let value = storage.read() ?? CLUSTERING_DEFAULT;
 	const listeners = new Set<() => void>();

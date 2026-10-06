@@ -336,8 +336,9 @@ export function tileLayerClusters(layer: MapTileLayer): boolean {
  * setting, and it reaches the URL only for a tileset that clusters.
  */
 export function tileLayerTileUrl(layer: MapTileLayer, draw: TileDrawOptions): string {
-	return tileLayerBinding(layer).buildTileUrl(layer, {
-		cluster: draw.cluster === true && tileLayerClusters(layer),
+	const binding = tileLayerBinding(layer);
+	return binding.buildTileUrl(layer, {
+		cluster: draw.cluster === true && binding.clusters === true,
 	});
 }
 

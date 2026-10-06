@@ -323,10 +323,9 @@ export function MapCanvas({
 							// One right-edge stack. The cluster switch heads it, being about
 							// what the map draws rather than where it looks, and the rest read
 							// down in order of how often they are reached for: measure, then
-							// locate, then zoom. It sits at the
-							// middle of whatever strip of map the panels leave uncovered,
-							// rather than in the corner, where Mapbox's own attribution and
-							// info buttons live.
+							// locate, then zoom. It sits at the middle of whatever strip of
+							// map the panels leave uncovered, rather than in the corner,
+							// where Mapbox's own attribution and info buttons live.
 							<div
 								className="pointer-events-none absolute flex items-center"
 								style={{
