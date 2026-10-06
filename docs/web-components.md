@@ -391,6 +391,22 @@ drops the table's sort, and it takes the validated search so a filter at its
 default stays off the address bar and each surface keeps its own opening
 window.
 
+#### inspectionSummaryGroupings
+
+The Inspections summary's five groupings, built the way
+`habitatSummaryGroupings` builds the Habitats ones. Water draws Wet before Dry
+whichever holds more, and the density bands draw in the scale's order, the
+order the Density filter and the map key list them in, rather than by count.
+A dry inspection has no density, so the bands are followed by "Not recorded"
+as text, which no filter selects. Larvae found draws one side only, because
+there is no filter for its opposite. A value with no inspections in view is
+left out, since clicking it would empty the panel. Habitat Type and Inspector
+need no such step, because each lists only the values the server grouped by,
+and a grouped value has at least one inspection behind it. The count depends on the
+date range, and the map opens on the last 30 days, so a season's worth of
+inspections draws the summary only once somebody widens the window or zooms
+out over a busy month.
+
 #### InspectionFormPage
 
 `inspectedByProfileId` is seeded with the acting profile because "Default to

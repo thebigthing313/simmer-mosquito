@@ -869,6 +869,83 @@ describe('registerMapTileRoutes — inspections', () => {
 		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_id' });
 		expect(getInspectionDisplayRow).not.toHaveBeenCalled();
 	});
+
+	it('summarizes the inspections in the box under the same filters the page reads', async () => {
+		const calls: unknown[] = [];
+		const summary = {
+			total: 140,
+			groups: {
+				isWet: [{ value: true, count: 140 }],
+				density: [{ value: 'heavy', count: 140 }],
+				positive: [{ value: true, count: 140 }],
+				habitatTypeId: [{ value: habitatTypeId, count: 140 }],
+				inspectedBy: [{ value: null, count: 140 }],
+			},
+		};
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			summarizeInspections: async (_db, input) => {
+				calls.push(input);
+				return summary;
+			},
+		});
+
+		const response = await app.request(
+			`/map/inspections/summary?bbox=-91,35,-90,36&isWet=true&density=heavy&positive=true&habitatTypeId=${habitatTypeId}&dateFrom=2026-09-01&dateTo=2026-09-30`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(calls).toEqual([
+			{
+				organizationId,
+				bounds: { west: -91, south: 35, east: -90, north: 36 },
+				filters: {
+					isWet: true,
+					densities: ['heavy'],
+					positiveOnly: true,
+					habitatTypeIds: [habitatTypeId],
+					dateFrom: '2026-09-01',
+					dateTo: '2026-09-30',
+				},
+			},
+		]);
+	});
+
+	it.each([
+		['a missing bbox', '/map/inspections/summary?isWet=true'],
+		['a paging param', '/map/inspections/summary?bbox=-91,35,-90,36&offset=100'],
+		['an unknown filter', '/map/inspections/summary?bbox=-91,35,-90,36&notAFilter=1'],
+	])('refuses %s before reading the inspection summary', async (_case, path) => {
+		const summarizeInspections = vi.fn();
+		const getInspectionDisplayRow = vi.fn();
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			summarizeInspections,
+			getInspectionDisplayRow,
+		});
+
+		const response = await app.request(path);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeInspections).not.toHaveBeenCalled();
+		expect(getInspectionDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('requires auth before reading the inspection summary', async () => {
+		const summarizeInspections = vi.fn();
+		const app = createApp({
+			authenticated: false,
+			getHabitatTile: async () => new Uint8Array(),
+			summarizeInspections,
+		});
+
+		const response = await app.request('/map/inspections/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeInspections).not.toHaveBeenCalled();
+	});
 });
 
 // The four routes whose readers were called directly rather than injected, so

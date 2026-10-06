@@ -19,7 +19,7 @@ import {
 	whenOn,
 	whenText,
 } from '../../../components/explorer';
-import { ExplorerPagination } from '../../../components/explorer-pagination';
+import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { densityLabel, hasAnyLifeStage } from '../../../components/larval-display';
 import {
 	DensityFilter,
@@ -30,6 +30,7 @@ import {
 } from '../../../components/larval-surveillance/inspection-filters';
 import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
 import { InspectionSurfaceSwitch } from '../../../components/larval-surveillance/inspection-surface-switch';
+import { inspectionSummaryGroupings } from '../../../components/larval-surveillance/inspections/inspection-summary';
 import { inspectionLegend } from '../../../components/larval-surveillance/inspections/legend';
 import {
 	type InspectionFilters as InspectionSearchFilters,
@@ -56,7 +57,7 @@ import {
 import { useInspectionFilterState } from '../../../hooks/larval-surveillance/use-inspection-filter-state';
 import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
-import { type RecordType, recordNoun } from '../../../lib/record-nouns';
+import { recordNoun } from '../../../lib/record-nouns';
 import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
 
 const InspectionEntityIcon = iconRegistry.entities.inspection.icon;
@@ -97,8 +98,6 @@ interface InspectionRow {
 }
 
 const PATH = '/map/inspections';
-
-const RECORD_TYPE: RecordType = 'inspection';
 
 /** The placeholder's height, matched to the two-line row it stands in for. */
 const INSPECTION_SKELETON_CLASS = 'h-[64px]';
@@ -173,7 +172,7 @@ function InspectionsExplorerRoute() {
 		onSelectFeature: setSelectedId,
 	};
 	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
+	const { rows, total, isLoading, isError, retry, selected, empty, summary } =
 		useExplorerResource<InspectionRow>({
 			path: PATH,
 			rowsKey: 'inspections',
@@ -183,6 +182,7 @@ function InspectionsExplorerRoute() {
 			layer,
 			map,
 			selectedId,
+			summarize: true,
 		});
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 	const legend = inspectionLegend(wetness, densities);
@@ -206,15 +206,6 @@ function InspectionsExplorerRoute() {
 					state={state}
 				/>
 			}
-			footer={
-				<ExplorerPagination
-					noun={recordNoun(RECORD_TYPE)}
-					onPageChange={setPage}
-					page={page}
-					pageCount={pageCount}
-					total={total}
-				/>
-			}
 			onResetFilters={clearAll}
 			heading={inspectionsHeading(total, isLoading)}
 			map={
@@ -234,6 +225,36 @@ function InspectionsExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
+				// Over 100 in view the rows would not fit on one page, so the panel
+				// says what is in view instead (#1369).
+				summary: summary.isShown ? (
+					<ExplorerSummary
+						chips={
+							<InspectionActiveFilters
+								activeFilterCount={activeFilterCount}
+								defaults={defaults}
+								onClearAll={clearAll}
+								onResetDates={resetDates}
+								options={filterOptions}
+								set={set}
+								state={state}
+							/>
+						}
+						groupings={
+							summary.data === null
+								? []
+								: inspectionSummaryGroupings({
+										summary: summary.data,
+										state,
+										set,
+										typeNameById: filterOptions.catalogs.typeNameById,
+										inspectorNameById: filterOptions.catalogs.personnelNameById,
+									})
+						}
+						recordType="inspection"
+						state={summary}
+					/>
+				) : undefined,
 				renderRow: (inspection) => (
 					<InspectionListItem
 						inspection={inspection}
@@ -246,6 +267,17 @@ function InspectionsExplorerRoute() {
 			}}
 		/>
 	);
+}
+
+/** What the filter card and the chip row both read, the chips also drawing above the summary. */
+interface InspectionFilterProps {
+	readonly activeFilterCount: number;
+	readonly defaults: InspectionSearchFilters;
+	readonly onClearAll: () => void;
+	readonly onResetDates: () => void;
+	readonly options: InspectionFilterOptions;
+	readonly set: InspectionFilterSetters;
+	readonly state: InspectionFilterState;
 }
 
 /** The map, and the card for whichever inspection is selected. */
@@ -298,15 +330,7 @@ function InspectionActiveFilters({
 	options,
 	set,
 	state,
-}: {
-	readonly activeFilterCount: number;
-	readonly defaults: InspectionSearchFilters;
-	readonly onClearAll: () => void;
-	readonly onResetDates: () => void;
-	readonly options: InspectionFilterOptions;
-	readonly set: InspectionFilterSetters;
-	readonly state: InspectionFilterState;
-}) {
+}: InspectionFilterProps) {
 	if (activeFilterCount === 0) {
 		return null;
 	}
@@ -383,16 +407,7 @@ function InspectionFilters({
 	options,
 	set,
 	state,
-}: {
-	readonly activeFilterCount: number;
-	readonly dateRange: ReturnType<typeof useDateRangeFilters>;
-	readonly defaults: InspectionSearchFilters;
-	readonly onClearAll: () => void;
-	readonly onResetDates: () => void;
-	readonly options: InspectionFilterOptions;
-	readonly set: InspectionFilterSetters;
-	readonly state: InspectionFilterState;
-}) {
+}: InspectionFilterProps & { readonly dateRange: ReturnType<typeof useDateRangeFilters> }) {
 	return (
 		<>
 			<DateRangeFilter {...dateRange} />

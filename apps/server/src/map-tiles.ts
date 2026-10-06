@@ -78,6 +78,7 @@ const defaultMapReaders = {
 	getInspectionTile: MAP_SURFACES.inspections.getTile,
 	getInspectionExtent: MAP_SURFACES.inspections.getExtent,
 	listInspectionDisplayRows: MAP_SURFACES.inspections.listByBounds,
+	summarizeInspections: MAP_SURFACES.inspections.summarizeByBounds,
 	getInspectionDisplayRow: MAP_SURFACES.inspections.getById,
 
 	getSampleTile: MAP_SURFACES.samples.getTile,
@@ -313,6 +314,14 @@ export function registerMapTileRoutes(
 		key: 'inspections',
 		parseQuery: parseInspectionDisplayQuery,
 		list: readers.listInspectionDisplayRows,
+	});
+
+	// What the Inspections rail draws in place of the page over 100 in view
+	// (#1369). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/inspections/summary',
+		parseFilters: parseInspectionTileFilters,
+		summarize: readers.summarizeInspections,
 	});
 
 	registerByIdRoute(app, options, {
