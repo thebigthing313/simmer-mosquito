@@ -673,10 +673,18 @@ One setting for every map, held outside React in `lib/map-clustering.ts` and
 read through `useSyncExternalStore`, so a switch on one canvas is the value on
 the next one mounted and on any other still on screen (#1380). The module
 keeps the value in a `MapClusteringStorage`, and the storage is chosen at one
-line at the bottom of it. Today that is memory: the setting holds for the
-visit and a reload starts on again. Keeping it across visits (#1381) is a
-storage that reads and writes the browser's, chosen at that same line, and
-nothing that reads the setting changes.
+line at the bottom of it. That is the browser's `localStorage` under one key,
+`simmer.map.clustering`, so a reload opens on the choice the last visit left
+(#1381). The key is not keyed by Organization, which is the departure from
+`lib/explorer-camera.ts`: a camera is a fact about a place, and wanting clusters
+is a habit of the person at the screen. The value is stored as `on` or `off`,
+and a store that throws, an empty one, or any other value reads as nothing, so
+the maps open clustered and the switch still works for the visit. The guarded
+read and write sit in the module and not in the hook, the way
+`useActivityStripChangeMode` keeps them out, because the React Compiler cannot
+lower a try/catch inside a hook yet and would skip it. The value is read once,
+when the module loads, so a change in another tab reaches this one on its next
+reload rather than live.
 
 #### useGlobalSearch
 
