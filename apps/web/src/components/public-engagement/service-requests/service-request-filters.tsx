@@ -38,12 +38,18 @@ import {
 	toggle,
 } from '../../explorer';
 import { TagBadge } from '../../tag-badge';
-import type { StatusFilter } from './legend';
+import {
+	SERVICE_REQUEST_STATUS_ORDER,
+	type StatusFilter,
+	serviceRequestStatusLabel,
+} from './legend';
 
 const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: string }[] = [
 	{ value: 'all', label: 'All' },
-	{ value: 'open', label: 'Open' },
-	{ value: 'closed', label: 'Closed' },
+	...SERVICE_REQUEST_STATUS_ORDER.map((value) => ({
+		value,
+		label: serviceRequestStatusLabel(value),
+	})),
 ];
 
 /** The filter state the chips read, and the writes that undo each chip. */
@@ -178,9 +184,7 @@ function StatusChip({
 	if (status === 'all') {
 		return null;
 	}
-	return (
-		<FilterChip label={`Status: ${status === 'open' ? 'Open' : 'Closed'}`} onRemove={onReset} />
-	);
+	return <FilterChip label={`Status: ${serviceRequestStatusLabel(status)}`} onRemove={onReset} />;
 }
 
 function SearchChip({

@@ -1464,14 +1464,15 @@ describeDbIntegration('service request summary against Postgres', () => {
 						{ value: noise, count: 1 },
 					],
 					intakeType: expect.arrayContaining([
-						{ value: 'online', count: 2 },
+						{ value: 'online', count: 1 },
+						{ value: 'other', count: 1 },
 						{ value: 'phone', count: 1 },
 						{ value: 'walk-in', count: 1 },
 					]),
 				},
 				figures: { oldestOpenDays },
 			});
-			expect(all.summary.groups.intakeType).toHaveLength(3);
+			expect(all.summary.groups.intakeType).toHaveLength(4);
 
 			// Each group's count is the total of the page its button narrows to.
 			const narrowed: readonly (readonly [string, string, ServiceRequestMapFilters])[] = [
@@ -1506,8 +1507,9 @@ describeDbIntegration('service request summary against Postgres', () => {
 /**
  * Three more requests in the box beside the seeded open one, copied from it
  * with an earlier date: open and phoned in thirty days before with both Tags,
- * closed and walked in sixty days before with Drainage, and open and online
- * ten days before with none.
+ * closed and walked in sixty days before with Drainage, and open with an
+ * intake type of other ten days before with neither. The seeded one came in
+ * online, so every intake type is counted once.
  */
 async function seedServiceRequestVariety(db: Kysely<SimmerDatabase>): Promise<{
 	readonly drainage: string;
@@ -1524,7 +1526,7 @@ async function seedServiceRequestVariety(db: Kysely<SimmerDatabase>): Promise<{
 	const copies = [
 		{ id: tagged, daysBefore: 30, intake: 'phone', closedAt: null },
 		{ id: closed, daysBefore: 60, intake: 'walk-in', closedAt: '2026-03-20T15:00:00.000Z' },
-		{ id: untagged, daysBefore: 10, intake: 'online', closedAt: null },
+		{ id: untagged, daysBefore: 10, intake: 'other', closedAt: null },
 	];
 	for (const copy of copies) {
 		await sql`

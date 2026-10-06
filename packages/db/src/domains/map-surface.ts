@@ -474,7 +474,7 @@ async function readMapSummary<TFilters>(
 			null::text as "grouping",
 			null::jsonb as "value",
 			count(*)::int as "count",
-			${figureSums(figures)} as "figures"
+			${figureTotals(figures)} as "figures"
 		from in_view
 		${counts.length === 0 ? sql`` : sql.join(counts, sql``)}
 	`.execute(db);
@@ -512,7 +512,7 @@ function summarySelectList(
  * The figures over the box as one `jsonb` object, or null when there are none.
  * A sum over no records is zero; a `max` over none is null and stripped out.
  */
-function figureSums(figures: readonly SummaryFigureEntry[]): RawBuilder<unknown> {
+function figureTotals(figures: readonly SummaryFigureEntry[]): RawBuilder<unknown> {
 	if (figures.length === 0) {
 		return sql`null::jsonb`;
 	}

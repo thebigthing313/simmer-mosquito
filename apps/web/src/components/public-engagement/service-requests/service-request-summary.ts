@@ -2,14 +2,8 @@ import type { MapSummary } from '../../../hooks/explorer/use-explorer-summary';
 import type { SummaryGroup, SummaryGrouping } from '../../explorer/explorer-summary';
 import { toggle } from '../../explorer/multi-select-filter';
 import { intakeTypeLabel } from '../public-engagement-display';
-import type { StatusFilter } from './legend';
+import { SERVICE_REQUEST_STATUS_ORDER, serviceRequestStatusLabel } from './legend';
 import type { ServiceRequestFilters } from './service-requests-search';
-
-/** The two statuses, in the order the Status filter lists them. */
-const STATUSES: readonly (readonly [status: Exclude<StatusFilter, 'all'>, label: string])[] = [
-	['open', 'Open'],
-	['closed', 'Closed'],
-];
 
 /**
  * The Service Requests summary's groupings and its figure, out of what
@@ -38,11 +32,11 @@ export function serviceRequestSummaryGroupings({
 
 	// In the order the Status filter lists them rather than by count, so Open
 	// sits in the same place whichever holds more.
-	const statuses: SummaryGroup[] = STATUSES.map(([status, label]) => {
+	const statuses: SummaryGroup[] = SERVICE_REQUEST_STATUS_ORDER.map((status) => {
 		const isSelected = filters.status === status;
 		return {
 			key: status,
-			label,
+			label: serviceRequestStatusLabel(status),
 			count: counts('status').find((group) => group.value === status)?.count ?? 0,
 			isSelected,
 			onToggle: () => setFilters({ status: isSelected ? 'all' : status }),
