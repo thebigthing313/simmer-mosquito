@@ -1,13 +1,20 @@
 import { VectorTile, type VectorTileFeature } from '@mapbox/vector-tile';
-import { type RawBuilder, sql } from 'kysely';
+import { type Kysely, type RawBuilder, sql } from 'kysely';
 import { PbfReader } from 'pbf';
 import { expect, it } from 'vitest';
+import type { MapTilesetLayer } from '../../../domains/map-layers.js';
+import type { MapSurfaceReaders, MapTileInput } from '../../../domains/map-surface.js';
 import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import { MAP_TILE_CLUSTERING, MAP_TILE_ENCODING, readMapTile } from '../../../domains/map-tile.js';
+import type { SimmerDatabase } from '../../../index.js';
 import {
+	type MapSurfaceName,
+	mapSurfaceLateCollectionDates,
+	mapSurfaceLateCollectionId,
 	mapSurfaceOrganizationIds,
 	mapSurfacePlace,
 	mapSurfaceRowIds,
+	seedLateCollection,
 	seedMapSurfaces,
 } from '../../../seeds/map-surfaces.js';
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
@@ -305,28 +312,332 @@ describeDbIntegration('clustered map tiles against Postgres', () => {
 			expect(Buffer.from(clustered).equals(Buffer.from(unclustered))).toBe(true);
 		});
 	});
+});
 
-	it('keeps the traps surface scoped when it clusters', async () => {
+// --- every surface that clusters, over the seeded tables ---------------------
+//
+// The cases above ask the shared read about the grid. These ask each surface
+// that clusters whether its own scope and filters still hold once it does,
+// because the clustered read runs the surface's predicates twice, once for the
+// cells and once for the records that stay themselves, and a predicate that
+// reached only one half would hand a cluster records the plain tile never
+// draws.
+//
+// Each surface gets a companion: a copy of its live `inside` record on the same
+// spot, differing in one column that one of its filters reads. Unfiltered, the
+// two share a cell and draw as one cluster of two. Filtered, one of them is
+// left, and it draws as itself.
+
+interface ClusteringSurface {
+	readonly name: MapSurfaceName;
+	readonly layer: MapTilesetLayer;
+	/** The table the companion is copied within. */
+	readonly table: string;
+	/** The columns the companion differs on, each with its new value. */
+	readonly companion: Readonly<Record<string, unknown>>;
+	/** Which of the two the filter leaves. */
+	readonly kept: 'inside' | 'companion';
+	/** The surface's tile, with the filter that tells the two apart or none. */
+	readonly tile: (
+		db: Kysely<SimmerDatabase>,
+		input: Omit<MapTileInput<never>, 'filters'>,
+		filtered: boolean,
+	) => Promise<Uint8Array>;
+}
+
+/** A surface's tile reader, handed `filters` only when the case asks for them. */
+function filteredTile<TFilters>(
+	surface: MapSurfaceReaders<TFilters>,
+	filters: TFilters,
+): ClusteringSurface['tile'] {
+	return (db, input, filtered) => surface.getTile(db, filtered ? { ...input, filters } : input);
+}
+
+/**
+ * A day well before the seed's operational date, for the companion, and a
+ * `dateFrom` between the two. Days apart rather than one, because the seed
+ * writes its dates as instants and the day one lands on moves with the zone the
+ * driver converts it in.
+ */
+const dayBefore = '2026-03-01';
+const seedDay = '2026-03-08';
+
+const clusteringSurfaces: readonly ClusteringSurface[] = [
+	{
+		name: 'habitat',
+		layer: 'habitats',
+		table: 'habitats',
+		companion: { is_active: false },
+		kept: 'inside',
+		tile: filteredTile(MAP_SURFACES.habitats, { isActive: true }),
+	},
+	{
+		name: 'address',
+		layer: 'addresses',
+		table: 'addresses',
+		companion: { display_name: '200 Oak Ave' },
+		kept: 'companion',
+		tile: filteredTile(MAP_SURFACES.addresses, { search: 'Oak' }),
+	},
+	{
+		name: 'inspection',
+		layer: 'inspections',
+		table: 'inspections',
+		companion: { inspection_date: dayBefore },
+		kept: 'inside',
+		tile: filteredTile(MAP_SURFACES.inspections, { dateFrom: seedDay }),
+	},
+	{
+		name: 'sample',
+		layer: 'samples',
+		table: 'samples',
+		companion: { has_non_mosquito: true },
+		kept: 'companion',
+		tile: filteredTile(MAP_SURFACES.samples, { nonMosquitoOnly: true }),
+	},
+	{
+		name: 'application',
+		layer: 'chemical',
+		table: 'applications',
+		companion: { application_date: dayBefore },
+		kept: 'inside',
+		tile: filteredTile(MAP_SURFACES.chemical, { dateFrom: seedDay }),
+	},
+	{
+		name: 'sourceReduction',
+		layer: 'source-reduction',
+		table: 'source_reductions',
+		companion: { source_reduction_date: dayBefore },
+		kept: 'inside',
+		tile: filteredTile(MAP_SURFACES['source-reduction'], { dateFrom: seedDay }),
+	},
+	{
+		name: 'biocontrol',
+		layer: 'biocontrol',
+		table: 'biocontrol_actions',
+		companion: { biocontrol_date: dayBefore },
+		kept: 'inside',
+		tile: filteredTile(MAP_SURFACES.biocontrol, { dateFrom: seedDay }),
+	},
+	{
+		name: 'outreach',
+		layer: 'outreach',
+		table: 'outreach_actions',
+		companion: { outreach_date: dayBefore },
+		kept: 'inside',
+		tile: filteredTile(MAP_SURFACES.outreach, { dateFrom: seedDay }),
+	},
+	{
+		name: 'trap',
+		layer: 'traps',
+		table: 'traps',
+		companion: { is_active: false },
+		kept: 'inside',
+		tile: filteredTile(MAP_SURFACES.traps, { isActive: true }),
+	},
+	{
+		name: 'collection',
+		layer: 'collections',
+		table: 'collections',
+		companion: { has_problem: true },
+		kept: 'companion',
+		tile: filteredTile(MAP_SURFACES.collections, { problemOnly: true }),
+	},
+	{
+		name: 'serviceRequest',
+		layer: 'service-requests',
+		table: 'service_requests',
+		// The display name is unique per organization, so the copy takes none.
+		companion: { request_date: dayBefore, display_name: null },
+		kept: 'inside',
+		tile: filteredTile(MAP_SURFACES['service-requests'], { dateFrom: seedDay }),
+	},
+];
+
+/** The companion's id: the surface's `inside` id with its last digit swapped. */
+function companionId(name: MapSurfaceName): string {
+	return mapSurfaceRowIds[name].inside.replace(/1$/, '9');
+}
+
+/**
+ * Copy one row of `table` under a new id, with some columns changed.
+ *
+ * Every column a write can set is carried over, read off the catalog rather than
+ * listed per table, so the copy satisfies the same constraints the seeded row
+ * does. Generated columns are left to Postgres.
+ */
+async function copyRow(
+	db: Kysely<SimmerDatabase>,
+	table: string,
+	fromId: string,
+	toId: string,
+	changes: Readonly<Record<string, unknown>>,
+): Promise<void> {
+	const columns = await sql<{ readonly name: string; readonly type: string }>`
+		select column_name as name, udt_name as type
+		from information_schema.columns
+		where table_schema = current_schema() and table_name = ${table} and is_generated = 'NEVER'
+		order by ordinal_position
+	`.execute(db);
+	const values = columns.rows.map(({ name, type }) => {
+		if (name === 'id') {
+			return sql`${toId}::uuid`;
+		}
+		return Object.hasOwn(changes, name) ? sql`${changes[name]}::${sql.raw(type)}` : sql.ref(name);
+	});
+
+	await sql`
+		insert into ${sql.table(table)} (${sql.join(columns.rows.map(({ name }) => sql.ref(name)))})
+		select ${sql.join(values)} from ${sql.table(table)} where id = ${fromId}
+	`.execute(db);
+}
+
+/** The features of one surface's tile, with the layer name it encodes under. */
+function surfaceFeatures(bytes: Uint8Array, layerName: string): VectorTileFeature[] {
+	const decoded =
+		bytes.byteLength === 0 ? undefined : new VectorTile(new PbfReader(bytes)).layers[layerName];
+	return Array.from({ length: decoded?.length ?? 0 }, (_unused, index) => {
+		const feature = decoded?.feature(index);
+		if (feature === undefined) {
+			throw new Error(`Tile lost feature ${index} of ${layerName}.`);
+		}
+		return feature;
+	});
+}
+
+/** Each feature as the map reads it: a record's id, or a cluster's count. */
+function drawn(features: readonly VectorTileFeature[]): readonly (string | number)[] {
+	return features.map((feature) =>
+		isCluster(feature) ? Number(feature.properties.point_count) : String(feature.properties.id),
+	);
+}
+
+const ownTile = {
+	...mapSurfacePlace.tile,
+	organizationId: mapSurfaceOrganizationIds.own,
+	timeZone: 'America/New_York',
+} as const;
+
+describeDbIntegration('clustered map surfaces against Postgres', () => {
+	it('keeps every surface that clusters scoped to the organization’s live records', async () => {
 		await withTestDb(async ({ db }) => {
 			await seedMapSurfaces(db);
 
-			// The deleted trap and the other organization's sit on top of the live
+			// The deleted record and the other organization's sit on top of the live
 			// one, so a clustered read that lost its scope answers with a cluster of
-			// three where one trap was seeded.
-			const tileBytes = await MAP_SURFACES.traps.getTile(db, {
-				...mapSurfacePlace.tile,
-				organizationId: mapSurfaceOrganizationIds.own,
-				timeZone: 'America/New_York',
-				cluster: true,
-			});
-			const decoded = new VectorTile(new PbfReader(tileBytes)).layers.traps;
-			const features = Array.from({ length: decoded?.length ?? 0 }, (_unused, index) =>
-				decoded?.feature(index),
+			// three where one record was seeded.
+			const read = await Promise.all(
+				clusteringSurfaces.map(async (surface) => [
+					surface.name,
+					drawn(
+						surfaceFeatures(
+							await surface.tile(db, { ...ownTile, cluster: true }, false),
+							surface.layer,
+						),
+					),
+				]),
 			);
 
-			expect(features.map((feature) => feature?.properties.id)).toEqual([
-				mapSurfaceRowIds.trap.inside,
-			]);
+			expect(Object.fromEntries(read)).toEqual(
+				Object.fromEntries(
+					clusteringSurfaces.map((surface) => [
+						surface.name,
+						[mapSurfaceRowIds[surface.name].inside],
+					]),
+				),
+			);
+		});
+	});
+
+	it('narrows every surface’s clusters by its filters, the way it narrows its points', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			for (const surface of clusteringSurfaces) {
+				await copyRow(
+					db,
+					surface.table,
+					mapSurfaceRowIds[surface.name].inside,
+					companionId(surface.name),
+					surface.companion,
+				);
+			}
+
+			const read = await Promise.all(
+				clusteringSurfaces.map(async (surface) => {
+					const tile = async (cluster: boolean, filtered: boolean) =>
+						drawn(
+							surfaceFeatures(
+								await surface.tile(db, { ...ownTile, ...(cluster ? { cluster } : {}) }, filtered),
+								surface.layer,
+							),
+						);
+					return [
+						surface.name,
+						{
+							unfiltered: await tile(true, false),
+							filtered: await tile(true, true),
+							plainFiltered: await tile(false, true),
+						},
+					] as const;
+				}),
+			);
+
+			expect(Object.fromEntries(read)).toEqual(
+				Object.fromEntries(
+					clusteringSurfaces.map((surface) => {
+						const kept =
+							surface.kept === 'inside'
+								? mapSurfaceRowIds[surface.name].inside
+								: companionId(surface.name);
+						return [surface.name, { unfiltered: [2], filtered: [kept], plainFiltered: [kept] }];
+					}),
+				),
+			);
+		});
+	});
+
+	// A collection is dated by one of two columns, by its own timing mode, and an
+	// exact timestamp falls on the organization's day rather than the server's.
+	// The window is a predicate like any other, so a cluster must hold exactly
+	// the collections the plain tile draws in that zone.
+	it('clusters collections by the organization’s day, whichever timing mode dates them', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			await seedLateCollection(db);
+			// A second exact-timestamp collection on the same instant, so the day
+			// that keeps the late one has two of them to group.
+			const lateCompanion = mapSurfaceLateCollectionId.replace(/6$/, '9');
+			await copyRow(db, 'collections', mapSurfaceLateCollectionId, lateCompanion, {});
+
+			const day = mapSurfaceLateCollectionDates['America/New_York'];
+			const read = async (timeZone: string, cluster: boolean) =>
+				surfaceFeatures(
+					await MAP_SURFACES.collections.getTile(db, {
+						...ownTile,
+						timeZone,
+						filters: { dateFrom: day, dateTo: day },
+						...(cluster ? { cluster } : {}),
+					}),
+					'collections',
+				);
+
+			for (const timeZone of ['America/New_York', 'UTC']) {
+				const plain = drawn(await read(timeZone, false));
+				const clustered = await read(timeZone, true);
+				// One cell, so the clustered tile is one feature standing for every
+				// collection the plain tile draws there, or nothing at all.
+				expect(pointsDrawn(clustered)).toBe(plain.length);
+				expect(clustered.length).toBe(Math.min(plain.length, 1));
+				if (plain.length > 1) {
+					expect(clustered.filter(isCluster)).toHaveLength(1);
+				}
+			}
+
+			const newYork = drawn(await read('America/New_York', false));
+			expect(newYork).toEqual(expect.arrayContaining([mapSurfaceLateCollectionId, lateCompanion]));
+			const utc = drawn(await read('UTC', false));
+			expect(utc).not.toContain(mapSurfaceLateCollectionId);
+			expect(utc).not.toContain(lateCompanion);
 		});
 	});
 });

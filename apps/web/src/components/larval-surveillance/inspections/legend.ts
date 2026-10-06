@@ -1,6 +1,11 @@
 import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
 import { densityLabel } from '../../larval-display';
-import { INSPECTION_DENSITY_COLORS, INSPECTION_DRY_COLOR, type MapLegendEntry } from '../../map';
+import {
+	clusterLegendEntry,
+	INSPECTION_DENSITY_COLORS,
+	INSPECTION_DRY_COLOR,
+	type MapLegendEntry,
+} from '../../map';
 import type { WaterFilterValue } from '../inspections-search';
 
 /**
@@ -22,7 +27,8 @@ export function inspectionLegend(
 ): readonly MapLegendEntry[] {
 	const wet = wetness === 'dry' ? [] : shownDensities(densities);
 	const dry = wetness === 'wet' ? [] : [{ color: INSPECTION_DRY_COLOR, label: 'Dry' }];
-	return [...wet, ...dry];
+	// A cluster holds several bands at once, so it takes no ramp colour.
+	return [...wet, ...dry, clusterLegendEntry('inspection')];
 }
 
 /** The bands the density filter leaves on the map, in ramp order. */

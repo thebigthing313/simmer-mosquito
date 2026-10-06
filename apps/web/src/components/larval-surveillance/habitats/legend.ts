@@ -1,4 +1,4 @@
-import { HABITAT_STATUS_COLORS, type MapLegendEntry } from '../../map';
+import { clusterLegendEntry, HABITAT_STATUS_COLORS, type MapLegendEntry } from '../../map';
 /** What the Status filter can be set to. Mirrors the segmented control's options. */
 export type StatusFilter = 'all' | 'active' | 'inactive';
 /** What the Access filter can be set to. */
@@ -7,7 +7,8 @@ export type AccessFilter = 'all' | 'accessible' | 'inaccessible';
 /**
  * The key, cut down to the colours the current filters can draw. The paint
  * expression reads inaccessible first, then active, so Status All with Access
- * Accessible paints green and grey and no red.
+ * Accessible paints green and grey and no red. The cluster circle follows
+ * under every filter, since the map draws one once it is zoomed out.
  */
 export function habitatLegend(
 	status: StatusFilter,
@@ -25,5 +26,6 @@ export function habitatLegend(
 	if (access !== 'accessible') {
 		entries.push({ color: HABITAT_STATUS_COLORS.inaccessible, label: 'Inaccessible' });
 	}
+	entries.push(clusterLegendEntry('habitat'));
 	return entries;
 }

@@ -3,7 +3,7 @@ import {
 	collectionLegend,
 	collectionStatusLabel,
 } from '../../../../../components/adult-surveillance/collections/legend';
-import { COLLECTION_STATUS_COLORS } from '../../../../../components/map';
+import { COLLECTION_STATUS_COLORS, TILE_CLUSTER_COLOR } from '../../../../../components/map';
 
 /**
  * The key names the colours the map can currently draw, and the rail's dot reads
@@ -17,11 +17,15 @@ describe('collectionLegend', () => {
 			'Collected',
 			'Zero result',
 			'Problem reported',
+			'Collection Group',
 		]);
 	});
 
 	it('names problems alone when that is all the map can draw', () => {
-		expect(collectionLegend(true).map((entry) => entry.label)).toEqual(['Problem reported']);
+		expect(collectionLegend(true).map((entry) => entry.label)).toEqual([
+			'Problem reported',
+			'Collection Group',
+		]);
 	});
 
 	it('takes its swatches from the colours the layer paints with', () => {
@@ -30,6 +34,7 @@ describe('collectionLegend', () => {
 			COLLECTION_STATUS_COLORS.collected,
 			COLLECTION_STATUS_COLORS.zero_result,
 			COLLECTION_STATUS_COLORS.problem,
+			TILE_CLUSTER_COLOR,
 		]);
 	});
 

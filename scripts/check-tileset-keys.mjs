@@ -14,7 +14,7 @@
  * see a name sitting over the wrong surface's readers, since both names are
  * real. So this reads all four as text.
  *
- * Four assertions:
+ * Five assertions:
  *
  * 1. The surfaces' register keys, the tilesets the server serves and the
  *    client's registry keys are each exactly the register's set.
@@ -28,6 +28,15 @@
  *    exactly one place"; a literal back beside a surface is a second copy of the
  *    name, and this is the walk over `packages/db`'s domain modules that refuses
  *    one.
+ * 5. The server and the client agree on which tilesets cluster their points. A
+ *    server row says `clusters: true` when the tile route takes `cluster=1`, a
+ *    client row says the same when the map asks for it, and the server answers
+ *    400 to the param on any other tileset. Nothing else joins the two:
+ *    `apps/web` cannot import the server's registry, so a tileset opted in on
+ *    one side only either never clusters or draws an empty map (#1387, #1382).
+ *    Both sides are read off the same row bodies the keys come from, and both
+ *    counts are asserted, because two parses that stopped finding the flag
+ *    would agree on two empty sets.
  *
  * What it does not catch, since every comparison is between sets: two surfaces
  * trading entries in the register. Both names are still spelled everywhere, and
@@ -56,6 +65,16 @@ const DB_SURFACE_DIR = join(workspaceRoot, 'packages/db/src/domains');
 const EXPECTED_TILESETS = 12;
 
 /**
+ * How many of them cluster: every tileset but Regions, whose records are
+ * boundaries. Asserted on both the server and the client parse for the reason
+ * `EXPECTED_TILESETS` is, and moved by the same deliberate edit.
+ */
+const EXPECTED_CLUSTERING_TILESETS = 11;
+
+/** The flag a row declares clustering with, on a line of its own, on either side. */
+const CLUSTERS_FLAG = /^\t+clusters: true,$/m;
+
+/**
  * The floor under the fourth assertion's walk, which is the one input that is a
  * directory listing rather than a single declaration. Thirty-five modules sit
  * there today; the floor sits under that rather than on it because a domain
@@ -77,16 +96,18 @@ function main() {
 			spells: 'the surfaces are keyed by',
 			lacks: 'no map surface is registered under it',
 		}),
-		...checkAgainstRegister(register, server, {
-			spells: 'the server serves',
-			lacks: 'the server does not serve it',
-		}),
+		...checkAgainstRegister(
+			register,
+			server.map((row) => row.key),
+			{ spells: 'the server serves', lacks: 'the server does not serve it' },
+		),
 		...checkAgainstRegister(
 			register,
 			client.map((row) => row.key),
 			{ spells: 'the client draws', lacks: 'no client row draws it' },
 		),
 		...checkSourceIdsMatchKeys(client, sourceIds),
+		...checkClusteringAgrees(clusteringKeys(server), clusteringKeys(client)),
 		...checkNoSurfaceLayerLiterals(),
 	];
 
@@ -104,7 +125,10 @@ function main() {
 		return;
 	}
 
-	console.log(`Tileset keys: ${register.length} layers, db, server and client all agree.`);
+	console.log(
+		`Tileset keys: ${register.length} layers, db, server and client all agree; ` +
+			`${clusteringKeys(client).length} cluster on both server and client.`,
+	);
 }
 
 /** The members of the `MapTilesetLayer` union, in declaration order. */
@@ -172,7 +196,10 @@ function* checkNoSurfaceLayerLiterals() {
 	}
 }
 
-/** The registry keys and the `*_SOURCE_ID` each row names, in declaration order. */
+/**
+ * The registry keys, the `*_SOURCE_ID` each row names and whether the row
+ * clusters, in declaration order. A row's body runs to the `}),` that closes it.
+ */
 function readClientRegistry() {
 	const source = readFileSync(CLIENT_REGISTRY, 'utf8');
 	const table = source.match(/const TILE_LAYER_BINDINGS = \{([\s\S]*?)\n\};/);
@@ -180,9 +207,13 @@ function readClientRegistry() {
 		throw new Error(`Could not find TILE_LAYER_BINDINGS in ${CLIENT_REGISTRY}.`);
 	}
 
-	const rows = [
-		...table[1].matchAll(/^\t'?([a-z-]+)'?: defineTileLayer[\s\S]*?sourceId: ([A-Z_]+),/gm),
-	].map((match) => ({ key: match[1], sourceIdName: match[2] }));
+	const rows = [...table[1].matchAll(/^\t'?([a-z-]+)'?: defineTileLayer([\s\S]*?)^\t\}\),$/gm)].map(
+		(match) => ({
+			key: match[1],
+			sourceIdName: match[2].match(/sourceId: ([A-Z_]+),/)?.[1],
+			clusters: CLUSTERS_FLAG.test(match[2]),
+		}),
+	);
 
 	if (rows.length !== EXPECTED_TILESETS) {
 		throw new Error(
@@ -190,10 +221,11 @@ function readClientRegistry() {
 				'Update EXPECTED_TILESETS if the table grew.',
 		);
 	}
+	assertClusteringCount(rows, 'TILE_LAYER_BINDINGS rows');
 	return rows;
 }
 
-/** The key every tileset the server registers is declared under. */
+/** The key every tileset the server registers is declared under, and whether it clusters. */
 function readServerKeys() {
 	const source = readFileSync(SERVER_REGISTRY, 'utf8');
 	const registry = source.match(/function createTileSetRegistry\([\s\S]*?\n\}/);
@@ -201,17 +233,64 @@ function readServerKeys() {
 		throw new Error(`Could not find createTileSetRegistry in ${SERVER_REGISTRY}.`);
 	}
 
-	const keys = [...registry[0].matchAll(/^\t\t'?([a-z-]+)'?: defineTileSet\(\{$/gm)].map(
-		(match) => match[1],
-	);
+	const rows = [
+		...registry[0].matchAll(/^\t\t'?([a-z-]+)'?: defineTileSet\(\{$([\s\S]*?)^\t\t\}\),$/gm),
+	].map((match) => ({ key: match[1], clusters: CLUSTERS_FLAG.test(match[2]) }));
 
-	if (keys.length !== EXPECTED_TILESETS) {
+	if (rows.length !== EXPECTED_TILESETS) {
 		throw new Error(
-			`Expected ${EXPECTED_TILESETS} defineTileSet calls, read ${keys.length}. ` +
+			`Expected ${EXPECTED_TILESETS} defineTileSet calls, read ${rows.length}. ` +
 				'Update EXPECTED_TILESETS if the registry grew.',
 		);
 	}
-	return keys;
+	assertClusteringCount(rows, 'defineTileSet calls');
+	return rows;
+}
+
+/** The keys of the rows that declare `clusters: true`. */
+function clusteringKeys(rows) {
+	return rows.filter((row) => row.clusters).map((row) => row.key);
+}
+
+/**
+ * Refuse a parse that read a different number of clustering rows than expected,
+ * which is how a flag renamed on one side would otherwise arrive: as that side's
+ * set going empty.
+ */
+function assertClusteringCount(rows, what) {
+	const clustering = clusteringKeys(rows).length;
+	if (clustering !== EXPECTED_CLUSTERING_TILESETS) {
+		throw new Error(
+			`Expected ${EXPECTED_CLUSTERING_TILESETS} ${what} declaring clusters: true, read ` +
+				`${clustering}. Update EXPECTED_CLUSTERING_TILESETS if a tileset joined or left.`,
+		);
+	}
+}
+
+/**
+ * Both directions between the server's clustering set and the client's. Both
+ * counts are asserted at the parse, so what this catches is a swap: the same
+ * number of rows on each side with one name differing.
+ */
+function checkClusteringAgrees(serverKeys, clientKeys) {
+	const server = new Set(serverKeys);
+	const client = new Set(clientKeys);
+	return [
+		...absent(
+			server,
+			client,
+			(key) =>
+				`the server lets '${key}' cluster, but its client row does not say clusters: true, ` +
+				'so the map never asks for clusters there.',
+		),
+		...absent(
+			client,
+			server,
+			(key) =>
+				`the client asks '${key}' for clusters, but the server does not let it cluster, ` +
+				'so every tile there answers 400.',
+		),
+	];
 }
 
 /**

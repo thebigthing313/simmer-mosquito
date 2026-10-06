@@ -1,8 +1,14 @@
 import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
-import type { CircleLayerSpecification, ExpressionSpecification } from 'mapbox-gl';
+import type {
+	CircleLayerSpecification,
+	ExpressionSpecification,
+	SymbolLayerSpecification,
+} from 'mapbox-gl';
+import { clusterTileLayers, recordOnly } from './geometry-tiles';
 import {
 	type RegionScopedTileFilters,
 	setRegionTileParam,
+	type TileDrawOptions,
 	tileExtentUrl,
 	tileTemplateUrl,
 } from './tile-urls';
@@ -27,19 +33,31 @@ const colors = {
 	selectedStroke: mapInteraction.selectedStroke,
 } as const;
 
-/** Layers the user can click to select an address. */
-export const ADDRESS_INTERACTIVE_LAYER_IDS = [`${ADDRESS_SOURCE_ID}-points`] as const;
+/**
+ * Layers the user can click, in hit priority: a cluster, which zooms in, then
+ * the address a record is selected from.
+ */
+export const ADDRESS_INTERACTIVE_LAYER_IDS = [
+	`${ADDRESS_SOURCE_ID}-clusters`,
+	`${ADDRESS_SOURCE_ID}-points`,
+] as const;
 
 const ADDRESS_SELECTED_LAYER_IDS = [`${ADDRESS_SOURCE_ID}-selected-point`] as const;
 
 export const ADDRESS_LAYER_IDS = [
 	`${ADDRESS_SOURCE_ID}-points`,
+	`${ADDRESS_SOURCE_ID}-clusters`,
+	`${ADDRESS_SOURCE_ID}-cluster-counts`,
 	...ADDRESS_SELECTED_LAYER_IDS,
 ] as const;
 
 /** Build the tile template URL with the active filters folded into the query. */
-export function buildAddressTileUrl(serverUrl: string, filters?: AddressTileFilters): string {
-	return tileTemplateUrl(serverUrl, ADDRESS_SOURCE_ID, addressTileParams(filters));
+export function buildAddressTileUrl(
+	serverUrl: string,
+	filters?: AddressTileFilters,
+	options?: TileDrawOptions,
+): string {
+	return tileTemplateUrl(serverUrl, ADDRESS_SOURCE_ID, addressTileParams(filters), options);
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */
@@ -61,7 +79,9 @@ function addressTileParams(filters?: AddressTileFilters): URLSearchParams {
 }
 
 /** The GL layers for the address source. `selectedId` drives the highlight. */
-export function addressTileLayers(selectedId: string | null): CircleLayerSpecification[] {
+export function addressTileLayers(
+	selectedId: string | null,
+): (CircleLayerSpecification | SymbolLayerSpecification)[] {
 	// Match the `id` property, not the feature id: tiles use the 4-arg ST_AsMVT (no
 	// native feature id) and promoteId doesn't reach render-time filters, so `['id']`
 	// evaluates to undefined here. An id no feature can carry keeps this empty when
@@ -74,6 +94,8 @@ export function addressTileLayers(selectedId: string | null): CircleLayerSpecifi
 			type: 'circle',
 			source: ADDRESS_SOURCE_ID,
 			'source-layer': ADDRESS_SOURCE_LAYER,
+			// A clustered tile draws a cluster as a point too, on the layers below.
+			filter: recordOnly,
 			paint: {
 				'circle-color': colors.point,
 				'circle-opacity': 0.9,
@@ -82,6 +104,7 @@ export function addressTileLayers(selectedId: string | null): CircleLayerSpecifi
 				'circle-stroke-width': 1.2,
 			},
 		},
+		...clusterTileLayers(ADDRESS_SOURCE_ID),
 		// --- selection highlight: drawn on top, scoped to the selected feature ---
 		{
 			id: `${ADDRESS_SOURCE_ID}-selected-point`,

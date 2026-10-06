@@ -1,4 +1,4 @@
-import { type MapLegendEntry, SERVICE_REQUEST_STATUS_COLORS } from '../../map';
+import { clusterLegendEntry, type MapLegendEntry, SERVICE_REQUEST_STATUS_COLORS } from '../../map';
 /** What the Status filter can be set to. Mirrors the segmented control's options. */
 export type StatusFilter = 'all' | 'open' | 'closed';
 
@@ -14,5 +14,6 @@ export function serviceRequestLegend(status: StatusFilter): readonly MapLegendEn
 	if (status !== 'open') {
 		entries.push({ color: SERVICE_REQUEST_STATUS_COLORS.closed, label: 'Closed' });
 	}
+	entries.push(clusterLegendEntry('serviceRequest'));
 	return entries;
 }

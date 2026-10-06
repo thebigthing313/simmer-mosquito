@@ -10,6 +10,7 @@ import {
 import {
 	type RegionScopedTileFilters,
 	setRegionTileParam,
+	type TileDrawOptions,
 	tileExtentUrl,
 	tileTemplateUrl,
 } from './tile-urls';
@@ -95,8 +96,12 @@ const densityColor: ExpressionSpecification = [
 ];
 
 /** Build the tile template URL with the active filters folded into the query. */
-export function buildInspectionTileUrl(serverUrl: string, filters?: InspectionTileFilters): string {
-	return tileTemplateUrl(serverUrl, INSPECTION_SOURCE_ID, inspectionTileParams(filters));
+export function buildInspectionTileUrl(
+	serverUrl: string,
+	filters?: InspectionTileFilters,
+	options?: TileDrawOptions,
+): string {
+	return tileTemplateUrl(serverUrl, INSPECTION_SOURCE_ID, inspectionTileParams(filters), options);
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */

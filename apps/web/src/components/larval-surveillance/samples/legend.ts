@@ -1,4 +1,4 @@
-import { type MapLegendEntry, SAMPLE_STATUS_COLORS } from '../../map';
+import { clusterLegendEntry, type MapLegendEntry, SAMPLE_STATUS_COLORS } from '../../map';
 import type { SampleStatusValue } from '../samples-search';
 
 /** A sample's status, with the filter's "all" taken off. */
@@ -30,5 +30,9 @@ export function sampleStatusLabel(status: SampleStatus): string {
 
 export function sampleLegend(status: SampleStatusValue): readonly MapLegendEntry[] {
 	const shown: readonly SampleStatus[] = status === 'all' ? SAMPLE_STATUS_ORDER : [status];
-	return shown.map((value) => ({ color: SAMPLE_STATUS_COLORS[value], label: STATUS_LABEL[value] }));
+	// A cluster can hold samples in every status, so it is one colour of its own.
+	return [
+		...shown.map((value) => ({ color: SAMPLE_STATUS_COLORS[value], label: STATUS_LABEL[value] })),
+		clusterLegendEntry('sample'),
+	];
 }

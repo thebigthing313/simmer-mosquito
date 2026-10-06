@@ -428,7 +428,7 @@ describe('MapCanvas cluster control (issue #1380)', () => {
 	});
 
 	const TRAPS = { kind: 'traps', serverUrl: 'https://api.test' } as const;
-	const HABITATS = { kind: 'habitats', serverUrl: 'https://api.test' } as const;
+	const REGIONS = { kind: 'regions', serverUrl: 'https://api.test' } as const;
 	const CLUSTERED = 'https://api.test/map/tiles/traps/{z}/{x}/{y}.mvt?cluster=1';
 	const PLAIN = 'https://api.test/map/tiles/traps/{z}/{x}/{y}.mvt';
 
@@ -492,8 +492,35 @@ describe('MapCanvas cluster control (issue #1380)', () => {
 		expect(trapTiles()).toEqual([PLAIN]);
 	});
 
+	it('turns clustering off on every map when switched off on another one', async () => {
+		const habitats = { kind: 'habitats', serverUrl: 'https://api.test' } as const;
+		const inspections = { kind: 'inspections', serverUrl: 'https://api.test' } as const;
+		const tilesOf = (sourceId: string) =>
+			(latest().style?.sources.get(sourceId) as { tiles?: readonly string[] } | undefined)?.tiles;
+
+		await draw([habitats]);
+		expect(tilesOf('habitats')).toEqual([
+			'https://api.test/map/tiles/habitats/{z}/{x}/{y}.mvt?cluster=1',
+		]);
+		act(() => {
+			clusterButton()?.click();
+		});
+		for (const handle of roots.splice(0)) {
+			handle.unmount();
+			handle.container.remove();
+		}
+		pendingLoader = null;
+
+		await draw([inspections]);
+
+		expect(clusterButton()?.getAttribute('aria-pressed')).toBe('false');
+		expect(tilesOf('inspections')).toEqual([
+			'https://api.test/map/tiles/inspections/{z}/{x}/{y}.mvt',
+		]);
+	});
+
 	it('is absent from a map with no tileset that clusters', async () => {
-		await draw([HABITATS]);
+		await draw([REGIONS]);
 
 		expect(clusterButton()).toBeNull();
 	});
