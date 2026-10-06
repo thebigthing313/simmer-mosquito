@@ -192,6 +192,34 @@ the page says which is which. One endpoint rather than five because one query
 is one timer, and there is no refresh control for the same reason.
 `docs/dashboard-spec.md` is the brief.
 
+### explorer
+
+#### ExplorerSummary
+
+What an explorer rail draws in place of its rows over 100 in view (#1244).
+Paging 50 at a time through 14,000 habitats was not how anyone found one: the
+map fits every filtered record on first load, so the first viewport is the
+whole Organization, and the rail opened on "Page 1 of 285". The summary says
+what is in view and how to narrow it, and the rows come back once a filter or
+a zoom takes the count to 100 or fewer.
+
+It is generic and takes groupings already built, because every surface's
+groupings name different filters and the ten surfaces filed after Habitats
+(#1369 to #1378) each bring their own builder. A group is a button only where
+a filter selects its value, so a habitat with no type is counted as text. A
+button's accessible name carries its count, `Tire, 2,104 habitats`, and its
+pressed state says whether the filter already holds it, which is also how a
+reader widens back out without opening the filter card.
+
+It draws no count, Filters control, create control or Map/Table switch of its
+own. The frame's header already holds all four, and drops the pager so the
+count moves into the header row.
+
+`ExplorerMapPage` takes it through `summary` on the row results rather than as
+a third results shape. The caller still hands over its rows, because the page
+request that counted them is the one that fetched them, and swapping the
+summary out for the rows on a zoom is then one prop going undefined.
+
 ### forms
 
 #### CustomFieldsSection
@@ -320,6 +348,15 @@ Merging is reached from a habitat rather than from a list of proposals, because
 two records for one catch basin agree about nothing except where they are. The
 habitat somebody is already looking at is the one that survives, which is the
 choice a cleanup page has to make with a radio and get wrong in silence.
+
+#### habitatSummaryGroupings
+
+The Habitats summary's four groupings. Status and Access draw in a fixed
+order rather than by count, so Active is in the same place whichever side
+holds more, and a side with no habitats in view is left out, since clicking
+it would empty the panel. Untreated draws one side only, because there is no
+filter for its opposite. `status` defaults to `active`, so the status grouping
+opens on Active alone and pressed, which is correct.
 
 #### habitat-geometry-cache
 

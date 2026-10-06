@@ -12,7 +12,9 @@ import {
 	type Kysely,
 	listMissionItemGeometry,
 	MAP_SURFACES,
+	type MapBoundsSummaryInput,
 	type MapExtent,
+	type MapSummaryResult,
 	type MapTilesetLayer,
 	type OutreachMapFilters,
 	type RegionMvtTileFilters,
@@ -70,6 +72,7 @@ const defaultMapReaders = {
 	getHabitatTile: MAP_SURFACES.habitats.getTile,
 	getHabitatExtent: MAP_SURFACES.habitats.getExtent,
 	listHabitatDisplayRows: MAP_SURFACES.habitats.listByBounds,
+	summarizeHabitats: MAP_SURFACES.habitats.summarizeByBounds,
 	getHabitatDisplayRow: MAP_SURFACES.habitats.getById,
 
 	getInspectionTile: MAP_SURFACES.inspections.getTile,
@@ -236,6 +239,14 @@ export function registerMapTileRoutes(
 		});
 
 		return context.json({ usage });
+	});
+
+	// What the Habitats rail draws in place of the page over 100 in view (#1244).
+	// Registered before `/:id` so the literal segment wins over the UUID param.
+	registerSummaryRoute(app, options, {
+		path: '/map/habitats/summary',
+		parseFilters: parseHabitatTileFilters,
+		summarize: readers.summarizeHabitats,
 	});
 
 	// Name/address search for pickers (e.g. adding a stop to a route). Non-spatial.
@@ -597,6 +608,45 @@ function registerPagedRoute<TInput, TRow>(
 }
 
 /**
+ * A summary read: the box and the filters of a page, without the paging,
+ * answered with the total and the counts per grouping.
+ *
+ * Generic over the surface because the Habitats rail is the first of the
+ * paged surfaces to draw one, and the rest are filed against this.
+ */
+function registerSummaryRoute<TFilters>(
+	app: Hono<{ Variables: AuthVariables }>,
+	options: {
+		readonly db: TileDb;
+		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+	},
+	route: {
+		readonly path: string;
+		readonly parseFilters: (params: URLSearchParams) => FilterResult<TFilters>;
+		readonly summarize: (
+			db: TileDb,
+			input: MapBoundsSummaryInput<TFilters>,
+		) => Promise<MapSummaryResult>;
+	},
+): void {
+	app.get(route.path, options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const queryResult = parseBboxSummaryQuery(
+			new URL(context.req.url).searchParams,
+			authContext.organization.id,
+			authContext.timeZone,
+			route.parseFilters,
+		);
+
+		if (!queryResult.ok) {
+			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
+		}
+
+		return context.json(await route.summarize(options.db, queryResult.input));
+	});
+}
+
+/**
  * A read of one row by id, organization-scoped.
  *
  * Thirteen copies, differing in a noun and a reader. The most recently added one
@@ -827,6 +877,37 @@ function parseBboxPageQuery<TFilters>(
 	}
 
 	return { ok: true, input: { ...page.input, bounds: bbox.bounds } };
+}
+
+/**
+ * The box and the surface's filters, for a summary.
+ *
+ * {@link parseBboxPageQuery} less the paging: `limit` and `offset` mean
+ * nothing to a count, so they are not stripped here, and the filter parser
+ * refuses them as it refuses any param it does not know.
+ */
+function parseBboxSummaryQuery<TFilters>(
+	searchParams: URLSearchParams,
+	organizationId: string,
+	timeZone: string,
+	parseFilters: (params: URLSearchParams) => FilterResult<TFilters>,
+): PageQueryResult<MapBoundsSummaryInput<TFilters>> {
+	const bbox = parseBoundingBoxParam(searchParams.get('bbox'));
+	if (!bbox.ok) {
+		return bbox;
+	}
+
+	const filterParams = new URLSearchParams(searchParams);
+	filterParams.delete('bbox');
+	const filterResult = parseFilters(filterParams);
+	if (!filterResult.ok) {
+		return filterResult;
+	}
+
+	return {
+		ok: true,
+		input: { organizationId, timeZone, bounds: bbox.bounds, filters: filterResult.filters },
+	};
 }
 
 function withoutPageParams(searchParams: URLSearchParams): URLSearchParams {
@@ -1234,7 +1315,8 @@ function parseHabitatSearchQuery(
 	return { ok: true, search: search.value ?? '', limit: parsed };
 }
 
-const maxDisplayLimit = 50;
+/** A rail page, which is also where the rail draws a summary instead (#1244). */
+const maxDisplayLimit = 100;
 const maxSearchLength = 200;
 
 function parseInteger(value: string): number | null {

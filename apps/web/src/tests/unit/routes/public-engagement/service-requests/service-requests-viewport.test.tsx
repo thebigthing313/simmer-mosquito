@@ -235,7 +235,7 @@ describe('the service requests explorer paging the viewport', () => {
 		expect(screen.getByText('#13')).toBeTruthy();
 		expect(screen.queryByText('#99')).toBeNull();
 		expect(pageRequest()?.search).toBe(
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&dateFrom=2026-01-01&dateTo=2026-09-15',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&dateFrom=2026-01-01&dateTo=2026-09-15',
 		);
 		expect(requestCounts()).toEqual({ page: 1, extent: 1 });
 	});
@@ -272,7 +272,7 @@ describe('the service requests explorer paging the viewport', () => {
 		expect(await screen.findByText('#13')).toBeTruthy();
 		expect(screen.queryByText('#12')).toBeNull();
 		expect(pageRequest()?.search).toBe(
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&status=closed&search=%2313' +
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&status=closed&search=%2313' +
 				'&tagId=e1b2c3d4-0000-4000-8000-000000000007' +
 				'&regionId=b1b2c3d4-0000-4000-8000-000000000009',
 		);

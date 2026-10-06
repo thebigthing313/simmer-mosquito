@@ -204,7 +204,7 @@ describe('the addresses explorer paging the viewport', () => {
 		// The third address is this Organization's and is off screen. The rail
 		// used to list it; the map never drew it.
 		expect(screen.queryByText('9 Far Lane')).toBeNull();
-		expect(pageRequest()?.search).toBe('?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0');
+		expect(pageRequest()?.search).toBe('?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0');
 		expect(requestCounts()).toEqual({ page: 1, extent: 1 });
 	});
 
@@ -235,7 +235,7 @@ describe('the addresses explorer paging the viewport', () => {
 		expect(await screen.findByText('2 Elm Court')).toBeTruthy();
 		expect(screen.queryByText('1 11th Street')).toBeNull();
 		expect(pageRequest()?.search).toBe(
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&search=elm&regionId=b1b2c3d4-0000-4000-8000-000000000009',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&search=elm&regionId=b1b2c3d4-0000-4000-8000-000000000009',
 		);
 		// The map's extent request carries the same two filters and no box, so the
 		// tiles and the rail are one filtered set framed whole.

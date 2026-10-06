@@ -10,7 +10,6 @@ import { useHabitatTypeOptions } from '../../../hooks/explorer/use-habitat-type-
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
 import type { HabitatFilterBinding } from '../../../hooks/larval-surveillance/use-habitat-filter-state';
-import type { Tag } from '../../../hooks/queries/tag-view';
 import {
 	ActiveFilterBar,
 	FilterChip,
@@ -45,8 +44,8 @@ export function HabitatFilterFields({
 	readonly wide?: boolean;
 }) {
 	const { filters, setFilters, activeCount, searchInput, setSearchInput, clearSearch } = binding;
-	const { options: habitatTypes, nameById: typeNameById } = useHabitatTypeOptions();
-	const { options: tags, byId: tagById } = useTagOptions();
+	const { options: habitatTypes } = useHabitatTypeOptions();
+	const { options: tags } = useTagOptions();
 	const regions = useRegionOptions();
 
 	const controls = (
@@ -114,31 +113,20 @@ export function HabitatFilterFields({
 		</div>
 	);
 
-	const chips =
-		activeCount === 0 ? null : (
-			<HabitatFilterChips
-				binding={binding}
-				tagById={tagById}
-				typeNameById={typeNameById}
-				regionNameById={regions.nameById}
-			/>
-		);
+	const chips = activeCount === 0 ? null : <HabitatFilterChips binding={binding} />;
 
 	return <FilterFieldsLayout chips={chips} controls={controls} popovers={popovers} wide={wide} />;
 }
 
-/** One chip per filter that is set, each one clearing its own. */
-function HabitatFilterChips({
-	binding,
-	regionNameById,
-	tagById,
-	typeNameById,
-}: {
-	readonly binding: HabitatFilterBinding;
-	readonly regionNameById: ReadonlyMap<string, string>;
-	readonly tagById: ReadonlyMap<string, Tag>;
-	readonly typeNameById: ReadonlyMap<string, string>;
-}) {
+/**
+ * One chip per filter that is set, each one clearing its own. The filter card
+ * draws these under its controls, and the Habitats summary draws them above
+ * its groupings.
+ */
+export function HabitatFilterChips({ binding }: { readonly binding: HabitatFilterBinding }) {
+	const { nameById: typeNameById } = useHabitatTypeOptions();
+	const { byId: tagById } = useTagOptions();
+	const { nameById: regionNameById } = useRegionOptions();
 	const { filters, setFilters, clearSearch, clearAll } = binding;
 	return (
 		<ActiveFilterBar onClearAll={clearAll}>

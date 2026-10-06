@@ -789,6 +789,9 @@ export function collectionSurface(
 		async listByBounds(db, input) {
 			return forZone(input.timeZone).listByBounds(db, input);
 		},
+		async summarizeByBounds(db, input) {
+			return forZone(input.timeZone).summarizeByBounds(db, input);
+		},
 		async getById(db, input) {
 			return forZone(input.timeZone).getById(db, input);
 		},

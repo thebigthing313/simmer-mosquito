@@ -108,6 +108,11 @@ reductions`, beside five that read `titleMany` out of the register.
 `mapQueryParams` exists because every explorer wrote the presence rule out as
 a wall of `if (x !== undefined && x.length > 0)`.
 
+`PAGE_SIZE` is 100 since #1244, and the server's `limit` cap moved with it. It
+is also the threshold `useExplorerSummary` reads: a surface with a summary
+draws its rows only when they fit on one page, so its pager never shows. The
+rail mounts only the rows in view, so a page of 100 costs what 50 did.
+
 The Habitats Table and the Samples Table call this hook directly, with no map,
 and send `WHOLE_WORLD_BBOX` as the box. Both could have read their collections
 the way the Inspections Table does, and neither does, because the collection
@@ -238,6 +243,32 @@ is the copy the rail gave before it could tell.
 
 `holdRailOnSelect` is the switch for `useFlyToSelection`'s `holdRail`, off by
 default so the other explorers keep re-paging for the record they fly to.
+
+`summarize` is the switch for `useExplorerSummary`, off by default. It is a
+flag rather than a second hook the route calls because the summary has to be
+read under the exact params the page went out with, `bbox` first, and this
+hook is the one place those are built.
+
+#### useExplorerSummary
+
+The page request goes first and the summary second, and only when the page's
+`total` is over 100. The issue's first design had the summary replace the page
+above the threshold, but the client cannot know which side of 100 a viewport
+is on until something has counted it, and the page already answers `total`.
+So a zoomed-in viewport stays one request, and a zoomed-out one is two: a page
+of rows nobody draws, then the summary. The brief for #1244 settled that
+trade in favour of the zoomed-in path, which is where people work.
+
+The request waits for the page to settle as well as for the total. While a pan
+is in flight the page shows its previous answer, whose `total` belongs to the
+old box, and reading the threshold off it would send a summary for a box that
+may hold ten records. The previous summary stays on screen through the wait,
+the way the previous page does.
+
+Grouping values arrive as ids, flags and nulls, and the hook turns none of them
+into words. Which value is a button and what it is called is the surface's
+question, and on Habitats the type names come from the same catalog the filter
+chips read.
 
 #### useMapBoundsParam
 

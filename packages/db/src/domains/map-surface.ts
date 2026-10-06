@@ -71,6 +71,12 @@ export interface MapBoundsPageInput<TFilters> extends MapReadContext {
 	readonly offset: number;
 }
 
+/** The box and filters of a page, without the paging: what the summary counts. */
+export type MapBoundsSummaryInput<TFilters> = Omit<
+	MapBoundsPageInput<TFilters>,
+	'limit' | 'offset'
+>;
+
 export interface MapByIdInput extends MapReadContext {
 	readonly id: string;
 }
@@ -80,6 +86,36 @@ export interface MapPageResult<TRow> {
 	readonly total: number;
 	readonly rows: TRow[];
 }
+
+/** One value of a grouping and how many records in the box carry it. */
+export interface MapSummaryGroup {
+	/** The grouping expression's value: an id, a flag, or null where the record has none. */
+	readonly value: string | boolean | null;
+	readonly count: number;
+}
+
+/**
+ * The records in a box counted, whole and by each grouping the surface declares.
+ *
+ * Every declared grouping is a key, an empty list when the box holds nothing,
+ * and each list runs largest count first.
+ */
+export interface MapSummaryResult {
+	readonly total: number;
+	readonly groups: Readonly<Record<string, readonly MapSummaryGroup[]>>;
+}
+
+/**
+ * The groupings a surface's summary counts by, each a named SQL expression over
+ * the surface's from-clause.
+ *
+ * A function of the read context for the reason `filterWhere` is one: the
+ * habitats surface groups by its untreated predicate, whose window ends on the
+ * organization's today.
+ */
+export type MapSurfaceGroupings = (
+	context: MapReadContext,
+) => Readonly<Record<string, RawBuilder<unknown>>>;
 
 /** The table, geometry, and filters of one map surface. */
 export interface MapSurfaceDefinition<TFilters> {
@@ -203,6 +239,18 @@ export interface MapRecordSurfaceReaders<TFilters, TRow> extends MapSurfaceReade
 	 * sets; it went when the last of the six flipped (#920).
 	 */
 	listByBounds(db: DbExecutor, input: MapBoundsPageInput<TFilters>): Promise<MapPageResult<TRow>>;
+	/**
+	 * The same box and filters as {@link listByBounds}, counted rather than
+	 * paged: the total, and the count per value of each declared grouping.
+	 *
+	 * Both reads narrow with one predicate, so the summary's total is the
+	 * page's total for the same request, which is the rule #920 set for a rail
+	 * and the map beside it.
+	 */
+	summarizeByBounds(
+		db: DbExecutor,
+		input: MapBoundsSummaryInput<TFilters>,
+	): Promise<MapSummaryResult>;
 	/** One row, or nothing when it is another organization's, deleted, or absent. */
 	getById(db: DbExecutor, input: MapByIdInput): Promise<TRow | undefined>;
 }
@@ -254,6 +302,8 @@ export function mapSurface<TFilters>(
 export function mapRecordSurface<TFilters, TRow>(
 	definition: MapSurfaceDefinition<TFilters> & {
 		readonly display: MapSurfaceDisplay<TRow, TFilters>;
+		/** What the in-view summary counts by. A surface with none answers a total alone. */
+		readonly groupings?: MapSurfaceGroupings;
 	},
 ): MapRecordSurfaceReaders<TFilters, TRow> {
 	const { display } = definition;
@@ -299,6 +349,10 @@ export function mapRecordSurface<TFilters, TRow>(
 			return { total: result.rows[0]?.total ?? 0, rows: result.rows };
 		},
 
+		async summarizeByBounds(db, input) {
+			return readMapSummary(db, definition, input);
+		},
+
 		async getById(db, input) {
 			const result = await sql<TRow>`
 				select ${columns}
@@ -317,6 +371,92 @@ export function mapRecordSurface<TFilters, TRow>(
 			return result.rows[0];
 		},
 	};
+}
+
+interface SummaryCountRow {
+	/** The grouping's name, or null on the one row that counts the whole box. */
+	readonly grouping: string | null;
+	readonly value: string | boolean | null;
+	readonly count: number;
+}
+
+/**
+ * The summary read: the records in the box once, then counted whole and by
+ * each grouping.
+ *
+ * One statement, so the total and the groups are counted off the same rows.
+ * The box's records are selected once into `in_view` with one column per
+ * grouping, and each count reads that. The value goes out as `jsonb` because
+ * the groupings are of different types, an id beside a flag, and a union needs
+ * one: `to_jsonb` keeps a boolean a boolean and a null a null, where a `text`
+ * cast would hand the client `'true'`.
+ *
+ * The grouping expressions are emitted under positional aliases, `g0`, `g1`,
+ * and named by parameter in the union, so a grouping's name never reaches the
+ * SQL as an identifier.
+ */
+async function readMapSummary<TFilters>(
+	db: DbExecutor,
+	definition: MapSurfaceDefinition<TFilters> & { readonly groupings?: MapSurfaceGroupings },
+	input: MapBoundsSummaryInput<TFilters>,
+): Promise<MapSummaryResult> {
+	const groupings = Object.entries(definition.groupings?.(input) ?? {});
+	const alias = (index: number) => sql.raw(`"g${index}"`);
+	const selected =
+		groupings.length === 0
+			? sql`1`
+			: sql.join(
+					groupings.map(([, expression], index) => sql`${expression} as ${alias(index)}`),
+					sql`, `,
+				);
+	const counts = groupings.map(
+		([name], index) => sql`
+			union all
+			select ${name}::text, to_jsonb(${alias(index)}), count(*)::int
+			from in_view
+			group by ${alias(index)}
+		`,
+	);
+
+	const result = await sql<SummaryCountRow>`
+		with bounds as (
+			select st_makeenvelope(
+				${input.bounds.west},
+				${input.bounds.south},
+				${input.bounds.east},
+				${input.bounds.north},
+				4326
+			) as geom_4326
+		),
+		in_view as materialized (
+			select ${selected}
+			from ${definition.from}
+			cross join bounds
+			where ${sql.join(
+				[...surfaceWhere(definition, input, input.filters), ...envelopeWhere(definition.geom)],
+				sql` and `,
+			)}
+		)
+		select null::text as "grouping", null::jsonb as "value", count(*)::int as "count"
+		from in_view
+		${counts.length === 0 ? sql`` : sql.join(counts, sql``)}
+	`.execute(db);
+
+	const groups: Record<string, MapSummaryGroup[]> = Object.fromEntries(
+		groupings.map(([name]) => [name, []]),
+	);
+	let total = 0;
+	for (const row of result.rows) {
+		if (row.grouping === null) {
+			total = row.count;
+		} else {
+			groups[row.grouping]?.push({ value: row.value, count: row.count });
+		}
+	}
+	for (const list of Object.values(groups)) {
+		list.sort((first, second) => second.count - first.count);
+	}
+	return { total, groups };
 }
 
 /**
