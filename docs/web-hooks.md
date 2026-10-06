@@ -667,15 +667,8 @@ must not reach a tileset that cannot take it (#1380). A switch is a new URL on
 the source already there, the same path a filter change takes, so the camera
 does not move and the selection highlight keeps its record.
 
-Every row whose records are points says `clusters: true` since #1382, eleven
-of the twelve, and Regions does not, because a Region is a boundary. Nothing
-in TypeScript joins a row's flag to the server's `clusters: true` in
-`createTileSetRegistry`, since `apps/web` cannot import the server, so
-`pnpm check:tileset-keys` reads both sets off the two registries and fails when
-they differ. A cluster paints the one `mapCluster.fill` on every map, not the
-domain's colour: Inspections and Samples paint their points by a ramp and a
-cluster holds several bands, and the off-white count holds 9.15:1 on the slate
-against 3.19:1 on the source reduction mark and 3.22:1 on the biocontrol one.
+Since #1382 every row whose records are points says `clusters: true`, which is
+eleven of the twelve; Regions does not, because a Region is a boundary.
 
 #### useMapClustering
 

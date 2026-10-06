@@ -75,6 +75,7 @@ import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
+import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { useServiceRequestFilterDefaults } from '../../../hooks/public-engagement/use-service-request-filter-defaults';
 import type { Address } from '../../../hooks/queries/address-view';
 import type { ContactSummary } from '../../../hooks/queries/contact-view';
@@ -186,7 +187,8 @@ function ServiceRequestsExplorerRoute() {
 	// whole Organization's requests out of the sync collection and draw them as a
 	// GeoJSON overlay, 1,180 rows in the prod clone over three years (#963).
 	const filters = requestTileFilters(query);
-	const legend = serviceRequestLegend(status);
+	const [clustered] = useMapClustering();
+	const legend = serviceRequestLegend(status, clustered);
 	const layer: MapTileLayer = {
 		kind: 'service-requests',
 		serverUrl: getServerUrl(),

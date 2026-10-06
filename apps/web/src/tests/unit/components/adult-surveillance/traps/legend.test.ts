@@ -3,7 +3,7 @@ import { trapLegend } from '../../../../../components/adult-surveillance/traps/l
 import { TILE_CLUSTER_COLOR, TRAP_STATUS_COLORS } from '../../../../../components/map';
 
 const labels = (status: 'all' | 'active' | 'inactive') =>
-	trapLegend(status).map((entry) => entry.label);
+	trapLegend(status, true).map((entry) => entry.label);
 
 /**
  * The key names the colours the map can currently draw. With the status pill
@@ -21,7 +21,7 @@ describe('trapLegend', () => {
 	});
 
 	it('takes its swatches from the colours the layer paints with', () => {
-		expect(trapLegend('all').map((entry) => entry.color)).toEqual([
+		expect(trapLegend('all', true).map((entry) => entry.color)).toEqual([
 			TRAP_STATUS_COLORS.active,
 			TRAP_STATUS_COLORS.inactive,
 			TILE_CLUSTER_COLOR,

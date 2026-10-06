@@ -55,6 +55,7 @@ import {
 	useInspectionFilterOptions,
 } from '../../../hooks/larval-surveillance/use-inspection-filter-options';
 import { useInspectionFilterState } from '../../../hooks/larval-surveillance/use-inspection-filter-state';
+import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -185,7 +186,8 @@ function InspectionsExplorerRoute() {
 			summarize: true,
 		});
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
-	const legend = inspectionLegend(wetness, densities);
+	const [clustered] = useMapClustering();
+	const legend = inspectionLegend(wetness, densities, clustered);
 
 	const resetDates = () => setFilters({ from: defaults.from, to: defaults.to });
 	const clearAll = reset;

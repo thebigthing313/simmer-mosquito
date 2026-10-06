@@ -32,6 +32,7 @@ import { useCollectionMethodOptions } from '../../../hooks/explorer/use-collecti
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useDebouncedTextFilter } from '../../../hooks/use-debounced-text-filter';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
@@ -126,7 +127,8 @@ function TrapsExplorerRoute() {
 		...whenAny('regionIds', regionIds),
 		...whenText('search', search),
 	};
-	const legend = trapLegend(status);
+	const [clustered] = useMapClustering();
+	const legend = trapLegend(status, clustered);
 	const layer: MapTileLayer = {
 		kind: 'traps',
 		serverUrl: getServerUrl(),

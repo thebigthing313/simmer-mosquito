@@ -16,7 +16,7 @@ const labels = (...args: Parameters<typeof inspectionLegend>) =>
  */
 describe('inspectionLegend', () => {
 	it('names the ramp, the dry tone and the cluster when nothing is filtered out', () => {
-		expect(labels('all', new Set())).toEqual([
+		expect(labels('all', new Set(), true)).toEqual([
 			'Wet only',
 			'Light',
 			'Medium',
@@ -28,15 +28,15 @@ describe('inspectionLegend', () => {
 	});
 
 	it('keeps the cluster swatch when Water Dry leaves one colour on the points', () => {
-		expect(labels('dry', new Set())).toEqual(['Dry', 'Inspection Group']);
+		expect(labels('dry', new Set(), true)).toEqual(['Dry', 'Inspection Group']);
 	});
 
 	it('takes its swatches from the colours the layers paint with', () => {
-		expect(inspectionLegend('wet', new Set(['heavy'])).map((entry) => entry.color)).toEqual([
+		expect(inspectionLegend('wet', new Set(['heavy']), true).map((entry) => entry.color)).toEqual([
 			INSPECTION_DENSITY_COLORS.heavy,
 			TILE_CLUSTER_COLOR,
 		]);
-		expect(inspectionLegend('dry', new Set()).map((entry) => entry.color)).toEqual([
+		expect(inspectionLegend('dry', new Set(), true).map((entry) => entry.color)).toEqual([
 			INSPECTION_DRY_COLOR,
 			TILE_CLUSTER_COLOR,
 		]);

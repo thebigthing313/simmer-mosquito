@@ -9,7 +9,6 @@ import { MAP_TILE_CLUSTERING, MAP_TILE_ENCODING, readMapTile } from '../../../do
 import type { SimmerDatabase } from '../../../index.js';
 import {
 	type MapSurfaceName,
-	mapSurfaceLateCollectionDates,
 	mapSurfaceLateCollectionId,
 	mapSurfaceOrganizationIds,
 	mapSurfacePlace,
@@ -596,21 +595,33 @@ describeDbIntegration('clustered map surfaces against Postgres', () => {
 		});
 	});
 
-	// A collection is dated by one of two columns, by its own timing mode, and an
-	// exact timestamp falls on the organization's day rather than the server's.
-	// The window is a predicate like any other, so a cluster must hold exactly
-	// the collections the plain tile draws in that zone.
+	// A collection is dated by one of two columns, by its own timing mode: a plain
+	// `collection_date` no zone moves, or an exact `collected_at` that falls on the
+	// organization's day rather than the server's. The window is a predicate like
+	// any other, so a cluster must hold exactly the collections the plain tile
+	// draws, in either mode and in either zone.
 	it('clusters collections by the organization’s day, whichever timing mode dates them', async () => {
 		await withTestDb(async ({ db }) => {
 			await seedMapSurfaces(db);
 			await seedLateCollection(db);
-			// A second exact-timestamp collection on the same instant, so the day
-			// that keeps the late one has two of them to group.
-			const lateCompanion = mapSurfaceLateCollectionId.replace(/6$/, '9');
-			await copyRow(db, 'collections', mapSurfaceLateCollectionId, lateCompanion, {});
 
-			const day = mapSurfaceLateCollectionDates['America/New_York'];
-			const read = async (timeZone: string, cluster: boolean) =>
+			const ids = mapSurfaceRowIds.collection;
+			// Two exact-timestamp collections on the late instant, which is the 15th
+			// in New York and the 16th in UTC.
+			const exact = [mapSurfaceLateCollectionId, mapSurfaceLateCollectionId.replace(/6$/, '9')];
+			await copyRow(db, 'collections', mapSurfaceLateCollectionId, exact[1] ?? '', {});
+			// Two date-and-duration collections typed as the 15th, which no zone moves.
+			const typed = [ids.inside.replace(/1$/, '7'), ids.inside.replace(/1$/, '8')];
+			for (const id of typed) {
+				await copyRow(db, 'collections', ids.inside, id, { collection_date: '2026-03-15' });
+			}
+			// The seeded collection's day depends on the zone the driver wrote its
+			// date in, so it is moved out of every window asked about here.
+			await sql`update collections set collection_date = '2026-03-01' where id = ${ids.inside}`.execute(
+				db,
+			);
+
+			const read = async (timeZone: string, day: string, cluster: boolean) =>
 				surfaceFeatures(
 					await MAP_SURFACES.collections.getTile(db, {
 						...ownTile,
@@ -621,23 +632,23 @@ describeDbIntegration('clustered map surfaces against Postgres', () => {
 					'collections',
 				);
 
-			for (const timeZone of ['America/New_York', 'UTC']) {
-				const plain = drawn(await read(timeZone, false));
-				const clustered = await read(timeZone, true);
-				// One cell, so the clustered tile is one feature standing for every
-				// collection the plain tile draws there, or nothing at all.
-				expect(pointsDrawn(clustered)).toBe(plain.length);
-				expect(clustered.length).toBe(Math.min(plain.length, 1));
-				if (plain.length > 1) {
-					expect(clustered.filter(isCluster)).toHaveLength(1);
-				}
-			}
+			const passes = [
+				// Both modes at once: the organization's 15th holds all four.
+				{ timeZone: 'America/New_York', day: '2026-03-15', expected: [...typed, ...exact] },
+				// The date mode alone: in UTC the exact instant has moved to the 16th.
+				{ timeZone: 'UTC', day: '2026-03-15', expected: typed },
+				// The exact mode alone, on the day UTC files it under.
+				{ timeZone: 'UTC', day: '2026-03-16', expected: exact },
+			];
+			for (const { timeZone, day, expected } of passes) {
+				const plain = drawn(await read(timeZone, day, false));
+				const clustered = await read(timeZone, day, true);
 
-			const newYork = drawn(await read('America/New_York', false));
-			expect(newYork).toEqual(expect.arrayContaining([mapSurfaceLateCollectionId, lateCompanion]));
-			const utc = drawn(await read('UTC', false));
-			expect(utc).not.toContain(mapSurfaceLateCollectionId);
-			expect(utc).not.toContain(lateCompanion);
+				expect([...plain].sort()).toEqual([...expected].sort());
+				// One cell, so the clustered tile is one cluster standing for every
+				// collection the plain tile draws.
+				expect(drawn(clustered)).toEqual([expected.length]);
+			}
 		});
 	});
 });

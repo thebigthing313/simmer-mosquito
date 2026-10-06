@@ -30,6 +30,7 @@ import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { useSpeciesOptions } from '../../../hooks/explorer/use-species-options';
 import { useSampleFilterState } from '../../../hooks/larval-surveillance/use-sample-filter-state';
+import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { sampleName } from '../../../lib/sample-name';
@@ -86,7 +87,8 @@ function SamplesExplorerRoute() {
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 
-	const legend = sampleLegend(query.status);
+	const [clustered] = useMapClustering();
+	const legend = sampleLegend(query.status, clustered);
 
 	return (
 		<ExplorerMapPage

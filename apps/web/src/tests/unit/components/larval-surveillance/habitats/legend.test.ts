@@ -5,7 +5,7 @@ import { HABITAT_STATUS_COLORS, TILE_CLUSTER_COLOR } from '../../../../../compon
 const labels = (
 	status: 'all' | 'active' | 'inactive',
 	access: 'all' | 'accessible' | 'inaccessible',
-) => habitatLegend(status, access).map((entry) => entry.label);
+) => habitatLegend(status, access, true).map((entry) => entry.label);
 
 /**
  * The key names the colours the map can currently draw. The paint expression
@@ -35,7 +35,7 @@ describe('habitatLegend', () => {
 	});
 
 	it('takes its swatches from the colours the layer paints with', () => {
-		expect(habitatLegend('all', 'all').map((entry) => entry.color)).toEqual([
+		expect(habitatLegend('all', 'all', true).map((entry) => entry.color)).toEqual([
 			HABITAT_STATUS_COLORS.active,
 			HABITAT_STATUS_COLORS.inactive,
 			HABITAT_STATUS_COLORS.inaccessible,

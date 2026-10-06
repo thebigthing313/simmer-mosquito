@@ -12,7 +12,7 @@ import { COLLECTION_STATUS_COLORS, TILE_CLUSTER_COLOR } from '../../../../../com
  */
 describe('collectionLegend', () => {
 	it('names every colour when nothing is filtered out', () => {
-		expect(collectionLegend(false).map((entry) => entry.label)).toEqual([
+		expect(collectionLegend(false, true).map((entry) => entry.label)).toEqual([
 			'Trap out',
 			'Collected',
 			'Zero result',
@@ -22,14 +22,14 @@ describe('collectionLegend', () => {
 	});
 
 	it('names problems alone when that is all the map can draw', () => {
-		expect(collectionLegend(true).map((entry) => entry.label)).toEqual([
+		expect(collectionLegend(true, true).map((entry) => entry.label)).toEqual([
 			'Problem reported',
 			'Collection Group',
 		]);
 	});
 
 	it('takes its swatches from the colours the layer paints with', () => {
-		expect(collectionLegend(false).map((entry) => entry.color)).toEqual([
+		expect(collectionLegend(false, true).map((entry) => entry.color)).toEqual([
 			COLLECTION_STATUS_COLORS.pending,
 			COLLECTION_STATUS_COLORS.collected,
 			COLLECTION_STATUS_COLORS.zero_result,
