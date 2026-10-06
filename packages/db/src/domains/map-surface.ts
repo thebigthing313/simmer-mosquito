@@ -105,7 +105,10 @@ export interface MapSummaryGroup {
 export interface MapSummaryResult {
 	readonly total: number;
 	readonly groups: Readonly<Record<string, readonly MapSummaryGroup[]>>;
-	/** Each declared figure summed over the box. Absent on a surface that declares none. */
+	/**
+	 * Each declared figure over the box. Absent on a surface that declares none,
+	 * and a `max` figure is absent from it when no record in the box carries one.
+	 */
 	readonly figures?: Readonly<Record<string, number>>;
 }
 
@@ -132,12 +135,23 @@ export type MapSurfaceGroupings = (
 ) => Readonly<Record<string, RawBuilder<unknown> | MapSummaryGroupingEach>>;
 
 /**
+ * A figure read as the largest value over the box rather than the sum: the
+ * expression is null on a record that has no value, and the figure is left out
+ * when no record has one. How long the oldest open service request has waited
+ * is the case, where a sum of ages means nothing and zero would read as a
+ * request received today.
+ */
+export interface MapSummaryFigureMax {
+	readonly max: RawBuilder<number | null>;
+}
+
+/**
  * The figures a surface's summary adds up, each a named numeric expression per
- * record, summed over the box.
+ * record, summed over the box, or the largest of them under `max`.
  */
 export type MapSurfaceFigures = (
 	context: MapReadContext,
-) => Readonly<Record<string, RawBuilder<number>>>;
+) => Readonly<Record<string, RawBuilder<number> | MapSummaryFigureMax>>;
 
 /** The table, geometry, and filters of one map surface. */
 export interface MapSurfaceDefinition<TFilters> {
@@ -424,8 +438,8 @@ interface MapSummaryDefinition<TFilters> extends MapSurfaceDefinition<TFilters> 
  *
  * The grouping expressions are emitted under positional aliases, `g0`, `g1`,
  * and named by parameter in the union, so a grouping's name never reaches the
- * SQL as an identifier. Figures go the same way under `f0`, `f1`, summed on
- * the whole-box row into its own `figures` column, a `jsonb` object keyed by
+ * SQL as an identifier. Figures go the same way under `f0`, `f1`, summed or
+ * maxed on the whole-box row into its own `figures` column, a `jsonb` object keyed by
  * name, which every grouping row leaves null.
  */
 async function readMapSummary<TFilters>(
@@ -472,7 +486,7 @@ async function readMapSummary<TFilters>(
 }
 
 type SummaryGroupingEntry = readonly [string, RawBuilder<unknown> | MapSummaryGroupingEach];
-type SummaryFigureEntry = readonly [string, RawBuilder<number>];
+type SummaryFigureEntry = readonly [string, RawBuilder<number> | MapSummaryFigureMax];
 
 const groupAlias = (index: number) => sql.raw(`"g${index}"`);
 const figureAlias = (index: number) => sql.raw(`"f${index}"`);
@@ -487,20 +501,29 @@ function summarySelectList(
 			([, grouping], index) =>
 				sql`${'each' in grouping ? grouping.each : grouping} as ${groupAlias(index)}`,
 		),
-		...figures.map(([, expression], index) => sql`${expression} as ${figureAlias(index)}`),
+		...figures.map(
+			([, figure], index) => sql`${'max' in figure ? figure.max : figure} as ${figureAlias(index)}`,
+		),
 	];
 	return columns.length === 0 ? sql`1` : sql.join(columns, sql`, `);
 }
 
-/** The figures summed over the box as one `jsonb` object, or null when there are none. */
+/**
+ * The figures over the box as one `jsonb` object, or null when there are none.
+ * A sum over no records is zero; a `max` over none is null and stripped out.
+ */
 function figureSums(figures: readonly SummaryFigureEntry[]): RawBuilder<unknown> {
 	if (figures.length === 0) {
 		return sql`null::jsonb`;
 	}
-	return sql`jsonb_build_object(${sql.join(
-		figures.map(([name], index) => sql`${name}::text, coalesce(sum(${figureAlias(index)}), 0)`),
+	return sql`jsonb_strip_nulls(jsonb_build_object(${sql.join(
+		figures.map(([name, figure], index) =>
+			'max' in figure
+				? sql`${name}::text, max(${figureAlias(index)})`
+				: sql`${name}::text, coalesce(sum(${figureAlias(index)}), 0)`,
+		),
 		sql`, `,
-	)})`;
+	)}))`;
 }
 
 /** One grouping's counts, unnesting an `each` grouping so a record counts under every value. */
