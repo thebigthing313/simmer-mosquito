@@ -17,11 +17,16 @@ afterEach(() => {
 
 const SERVER = 'https://api.test';
 
-function mount(fake: FakeMap, layer: MapTileLayer | undefined) {
-	return renderHook(
-		(props: { readonly layer: MapTileLayer | undefined }) =>
-			useTileLayer(fake.map, true, props.layer),
-		{ layer },
+interface MountProps {
+	readonly layer: MapTileLayer | undefined;
+	/** The clustering setting; a rerender that leaves it out keeps the mounted one. */
+	readonly cluster?: boolean;
+}
+
+function mount(fake: FakeMap, layer: MapTileLayer | undefined, cluster = false) {
+	return renderHook<MountProps, void>(
+		(props) => useTileLayer(fake.map, true, props.layer, { cluster: props.cluster ?? cluster }),
+		{ layer, cluster },
 	);
 }
 
@@ -133,9 +138,9 @@ describe('useTileLayer', () => {
 		]);
 	});
 
-	it('asks the trap tiles for clusters', () => {
+	it('asks the trap tiles for clusters when clustering is on', () => {
 		const fake = createFakeMap();
-		mount(fake, { kind: 'traps', serverUrl: SERVER });
+		mount(fake, { kind: 'traps', serverUrl: SERVER }, true);
 
 		expect(fake.tilesOf('traps')).toEqual([
 			'https://api.test/map/tiles/traps/{z}/{x}/{y}.mvt?cluster=1',
@@ -143,6 +148,26 @@ describe('useTileLayer', () => {
 		expect(fake.layerIds()).toEqual(
 			expect.arrayContaining(['traps-clusters', 'traps-cluster-counts']),
 		);
+	});
+
+	// Switching is a new tile URL on the source already there, the way a filter
+	// change is: no camera move, and the highlight keeps the selected record.
+	it('swaps the tiles in place when clustering is switched', () => {
+		const fake = createFakeMap();
+		const layer: MapTileLayer = { kind: 'traps', serverUrl: SERVER, selectedId: 'trap-1' };
+		const handle = mount(fake, layer, true);
+		const before = fake.sourceSpecs.get('traps');
+
+		handle.rerender({ layer, cluster: false });
+		expect(fake.sourceSpecs.get('traps')).toBe(before);
+		expect(fake.tilesOf('traps')).toEqual(['https://api.test/map/tiles/traps/{z}/{x}/{y}.mvt']);
+
+		handle.rerender({ layer, cluster: true });
+		expect(fake.tilesOf('traps')).toEqual([
+			'https://api.test/map/tiles/traps/{z}/{x}/{y}.mvt?cluster=1',
+		]);
+		expect(fake.cameraCalls).toEqual([]);
+		expect(JSON.stringify(fake.layers.get('traps-selected-point')?.filter)).toContain('trap-1');
 	});
 
 	it('does nothing at all without a layer', () => {

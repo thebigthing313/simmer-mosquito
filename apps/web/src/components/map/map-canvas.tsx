@@ -7,6 +7,7 @@ import { type ActivityLayerConfig, useActivityLayer } from '../../hooks/map/use-
 import { useContextGeoJsonLayer } from '../../hooks/map/use-context-geojson-layer';
 import { useExplorerCamera } from '../../hooks/map/use-explorer-camera';
 import { type GeoJsonLayerInteraction, useGeoJsonLayer } from '../../hooks/map/use-geojson-layer';
+import { useMapClustering } from '../../hooks/map/use-map-clustering';
 import { type MapExtentFitSource, useMapExtentFit } from '../../hooks/map/use-map-extent-fit';
 import { useMapMeasure } from '../../hooks/map/use-map-measure';
 import { useMapPadding } from '../../hooks/map/use-map-padding';
@@ -16,6 +17,7 @@ import { type RouteLayerConfig, useRouteLayer } from '../../hooks/map/use-route-
 import { useTileLayer } from '../../hooks/map/use-tile-layer';
 import { watchExplorerCamera } from '../../lib/explorer-camera';
 import { BasemapSwitcher } from './basemap-switcher';
+import { ClusterControl } from './cluster-control';
 import type { MapSourceGeoJson } from './geojson-adapter';
 import { GeolocateControl } from './geolocate-control';
 import { MapContextMenu, type MapContextMenuConfig } from './map-context-menu';
@@ -28,7 +30,7 @@ import { type BasemapId, DEFAULT_BASEMAP_ID, type MapCamera } from './map-styles
 import { MapZoomControls } from './map-zoom-controls';
 import { MeasureControl, MeasureControlButton } from './measure-control';
 import { NorthControl } from './north-control';
-import { type MapTileLayer, tileLayerExtentUrl } from './tile-layers';
+import { type MapTileLayer, tileLayerClusters, tileLayerExtentUrl } from './tile-layers';
 
 /**
  * Which on-map controls to render. Every control defaults to on; a consuming
@@ -153,6 +155,7 @@ export function MapCanvas({
 	const [container, setContainer] = useState<HTMLDivElement | null>(null);
 	const [basemapId, setBasemapId] = useState<BasemapId>(DEFAULT_BASEMAP_ID);
 	const [measureOpen, setMeasureOpen] = useState(false);
+	const [clustering, setClustering] = useMapClustering();
 	const clear = inset ?? NO_MAP_INSET;
 
 	const show = {
@@ -167,6 +170,9 @@ export function MapCanvas({
 		readout: controls?.readout ?? false,
 		minimal: controls?.minimal ?? false,
 	};
+	// No config flag: the switch shows whenever it would change what is drawn,
+	// and never on a map inside a form, a card or a detail page.
+	const showClustering = !show.minimal && (layers ?? []).some(tileLayerClusters);
 
 	const remembered = useExplorerCamera(rememberCamera);
 	const openingCamera = camera ?? remembered.initialCamera;
@@ -236,7 +242,13 @@ export function MapCanvas({
 			 * takes them away.
 			 */}
 			{(layers ?? []).map((layer) => (
-				<TileLayerMount isLoaded={isLoaded} key={layer.kind} layer={layer} map={map} />
+				<TileLayerMount
+					cluster={clustering}
+					isLoaded={isLoaded}
+					key={layer.kind}
+					layer={layer}
+					map={map}
+				/>
 			))}
 			{/*
 			 * Explicit size-full (not just inset-0): Mapbox adds `.mapboxgl-map`,
@@ -307,9 +319,11 @@ export function MapCanvas({
 								<MapReadout map={map} />
 							</div>
 						) : null}
-						{show.measure || show.geolocate || show.zoom ? (
-							// One right-edge stack, reading down in order of how often it is
-							// reached for: measure, then locate, then zoom. It sits at the
+						{showClustering || show.measure || show.geolocate || show.zoom ? (
+							// One right-edge stack. The cluster switch heads it, being about
+							// what the map draws rather than where it looks, and the rest read
+							// down in order of how often they are reached for: measure, then
+							// locate, then zoom. It sits at the
 							// middle of whatever strip of map the panels leave uncovered,
 							// rather than in the corner, where Mapbox's own attribution and
 							// info buttons live.
@@ -322,6 +336,9 @@ export function MapCanvas({
 								}}
 							>
 								<div className="pointer-events-auto flex flex-col items-end gap-2">
+									{showClustering ? (
+										<ClusterControl onChange={setClustering} on={clustering} />
+									) : null}
 									{show.measure ? (
 										<>
 											{measureOpen ? (
@@ -368,15 +385,17 @@ const EDGE = 16;
 
 /** Holds one entry of the `layers` list on the map for as long as it is listed. */
 function TileLayerMount({
+	cluster,
 	isLoaded,
 	layer,
 	map,
 }: {
+	readonly cluster: boolean;
 	readonly isLoaded: boolean;
 	readonly layer: MapTileLayer;
 	readonly map: MapboxMap | null;
 }) {
-	useTileLayer(map, isLoaded, layer);
+	useTileLayer(map, isLoaded, layer, { cluster });
 	return null;
 }
 

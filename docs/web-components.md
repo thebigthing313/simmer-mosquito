@@ -450,6 +450,18 @@ typed text when the selection is cleared, which is what its effect did.
 
 ### map
 
+#### ClusterControl
+
+`MapCanvas` draws it when a listed tileset accepts clustering
+(`tileLayerClusters`) and the map is not `minimal`, and there is no
+`MapControlsConfig` flag for it: the switch would change nothing on a map with
+no such tileset, and a map inside a form, a card or a detail page has no room
+for another control (#1380). It heads the right-edge stack, above measure,
+because it is about what the map draws rather than where it looks. The label is
+the same in both states and the state is on `aria-pressed`, which is
+`MapControlButton`'s `pressed` prop; a label that flipped between "group" and
+"ungroup" would announce the action and the state at once and read as neither.
+
 #### MapSearch
 
 Two resets that were effects are read off the state they key on (#1183). The

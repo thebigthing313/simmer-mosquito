@@ -17,7 +17,11 @@ import {
 } from '../../../../components/map/habitat-tiles';
 import { buildRegionExtentUrl, buildRegionTileUrl } from '../../../../components/map/region-tiles';
 import { buildSampleExtentUrl, buildSampleTileUrl } from '../../../../components/map/sample-tiles';
-import { tileLayerBinding } from '../../../../components/map/tile-layers';
+import {
+	tileLayerClusters,
+	tileLayerExtentUrl,
+	tileLayerTileUrl,
+} from '../../../../components/map/tile-layers';
 import { buildTrapExtentUrl, buildTrapTileUrl } from '../../../../components/map/trap-tiles';
 
 const serverUrl = 'https://api.example.test/';
@@ -132,19 +136,27 @@ describe('clustered tile URLs', () => {
 		expect(queryOf(buildTrapExtentUrl(serverUrl, filters))).toBe('status=active&search=CDC');
 	});
 
-	it('clusters the Traps map and no other tileset', () => {
+	it('clusters the Traps map when clustering is on, and no other tileset ever', () => {
 		const traps = { kind: 'traps', serverUrl } as const;
 		const habitats = { kind: 'habitats', serverUrl } as const;
 
-		expect(tileLayerBinding(traps).buildTileUrl(traps)).toBe(
+		expect(tileLayerTileUrl(traps, { cluster: true })).toBe(
 			'https://api.example.test/map/tiles/traps/{z}/{x}/{y}.mvt?cluster=1',
 		);
-		expect(tileLayerBinding(traps).buildExtentUrl(traps)).toBe(
-			'https://api.example.test/map/tiles/traps/extent',
+		expect(tileLayerTileUrl(traps, { cluster: false })).toBe(
+			'https://api.example.test/map/tiles/traps/{z}/{x}/{y}.mvt',
 		);
-		expect(tileLayerBinding(habitats).buildTileUrl(habitats)).toBe(
+		expect(tileLayerExtentUrl(traps)).toBe('https://api.example.test/map/tiles/traps/extent');
+		// Every other tileset answers 400 to the param, so it never carries it.
+		expect(tileLayerTileUrl(habitats, { cluster: true })).toBe(
 			'https://api.example.test/map/tiles/habitats/{z}/{x}/{y}.mvt',
 		);
+	});
+
+	it('says which tilesets accept clustering', () => {
+		expect(tileLayerClusters({ kind: 'traps', serverUrl })).toBe(true);
+		expect(tileLayerClusters({ kind: 'habitats', serverUrl })).toBe(false);
+		expect(tileLayerClusters({ kind: 'regions', serverUrl })).toBe(false);
 	});
 });
 
