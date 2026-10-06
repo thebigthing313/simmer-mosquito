@@ -1,11 +1,13 @@
 import type { Map as MapboxMap, MapMouseEvent, VectorTileSource } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
-import { clusterBounds, fitMapToCluster } from '../../components/map/cluster-fit';
+import { fitMapToCluster, resolveTileClick } from '../../components/map/cluster-fit';
+import { selectionOverlayLayerId } from '../../components/map/geometry-tiles';
 import { registerHoverLayers } from '../../components/map/hover-cursor';
 import {
 	type MapTileLayer,
 	tileLayerBinding,
 	tileLayerFilterKey,
+	tileLayerSpecs,
 	tileLayerTileUrl,
 } from '../../components/map/tile-layers';
 import type { TileDrawOptions } from '../../components/map/tile-urls';
@@ -25,10 +27,12 @@ export function useTileLayer(
 ): void {
 	const enabled = layer !== undefined;
 	const url = layer === undefined ? null : tileLayerTileUrl(layer, draw);
-	const filterKey = layer === undefined ? '' : tileLayerFilterKey(layer);
+	const filterKey = layer === undefined ? '' : tileLayerFilterKey(layer, draw);
+	const cluster = draw.cluster === true;
 
 	const layerRef = useRef(layer);
 	const urlRef = useRef(url);
+	const clusterRef = useRef(cluster);
 	// The writes are an effect rather than render-phase assignments, which is what
 	// the React Compiler permits. Every read below happens after a commit, from an
 	// effect or from a Mapbox or user event, so the value each one sees is unchanged.
@@ -37,6 +41,7 @@ export function useTileLayer(
 	useEffect(() => {
 		layerRef.current = layer;
 		urlRef.current = url;
+		clusterRef.current = cluster;
 	});
 
 	// Source + layers + interaction. Re-runs only on map identity / load / enable.
@@ -46,7 +51,11 @@ export function useTileLayer(
 			return;
 		}
 		const activeMap = map;
-		const { sourceId, interactiveLayerIds, allLayerIds, buildLayers } = tileLayerBinding(active);
+		const { sourceId, interactiveLayerIds, allLayerIds } = tileLayerBinding(active);
+		// The selection overlay sits above every tile layer, so it is hit first.
+		// `useSelectionOverlayLayer` owns it; this hook only answers its clicks.
+		const overlayLayerId = selectionOverlayLayerId(sourceId);
+		const clickableLayerIds = [overlayLayerId, ...interactiveLayerIds];
 
 		function ensureLayers() {
 			const currentUrl = urlRef.current;
@@ -61,7 +70,7 @@ export function useTileLayer(
 					promoteId: 'id',
 				});
 			}
-			for (const spec of buildLayers(currentLayer)) {
+			for (const spec of tileLayerSpecs(currentLayer, { cluster: clusterRef.current })) {
 				if (activeMap.getLayer(spec.id) === undefined) {
 					activeMap.addLayer(spec);
 				}
@@ -73,7 +82,7 @@ export function useTileLayer(
 		activeMap.on('style.load', ensureLayers);
 
 		function presentInteractiveLayers(): string[] {
-			return interactiveLayerIds.filter((id) => activeMap.getLayer(id) !== undefined);
+			return clickableLayerIds.filter((id) => activeMap.getLayer(id) !== undefined);
 		}
 		function handleClick(event: MapMouseEvent) {
 			const layers = presentInteractiveLayers();
@@ -81,15 +90,13 @@ export function useTileLayer(
 				return;
 			}
 			const feature = activeMap.queryRenderedFeatures(event.point, { layers })[0];
-			// A cluster is no record: it zooms in to the records under it and
-			// leaves the selection where it was.
-			const cluster = clusterBounds(feature?.properties);
-			if (cluster !== null) {
-				fitMapToCluster(activeMap, cluster);
+			const current = layerRef.current;
+			const click = resolveTileClick(feature, overlayLayerId, current?.selectedId ?? null);
+			if (click.kind === 'cluster') {
+				fitMapToCluster(activeMap, click.bounds);
 				return;
 			}
-			const id = feature === undefined || feature.id === undefined ? null : String(feature.id);
-			layerRef.current?.onSelectFeature?.(id);
+			current?.onSelectFeature?.(click.id);
 		}
 		activeMap.on('click', handleClick);
 		const releaseHover = registerHoverLayers(activeMap, presentInteractiveLayers);
@@ -122,17 +129,25 @@ export function useTileLayer(
 		if (!isMapLive(map) || !isLoaded || !enabled || active === undefined) {
 			return;
 		}
-		applyLayerFilters(map, active);
+		applyLayerFilters(map, active, { cluster: clusterRef.current });
 	}, [map, isLoaded, enabled, filterKey]);
 }
 
-/** Point every layer this tileset owns at the filters it should now be drawing. */
-function applyLayerFilters(map: MapboxMap, layer: MapTileLayer): void {
+/**
+ * Point every layer this tileset owns at the filters and the zoom range it
+ * should now be drawing. The range moves when the selection overlay starts or
+ * stops drawing the selected point below the cut-off zoom.
+ */
+function applyLayerFilters(map: MapboxMap, layer: MapTileLayer, draw: TileDrawOptions): void {
 	try {
-		for (const spec of tileLayerBinding(layer).buildLayers(layer)) {
-			if (map.getLayer(spec.id) !== undefined && spec.filter !== undefined) {
+		for (const spec of tileLayerSpecs(layer, draw)) {
+			if (map.getLayer(spec.id) === undefined) {
+				continue;
+			}
+			if (spec.filter !== undefined) {
 				map.setFilter(spec.id, spec.filter);
 			}
+			map.setLayerZoomRange(spec.id, spec.minzoom ?? 0, spec.maxzoom ?? 24);
 		}
 	} catch {
 		// Map style not available; nothing to re-scope.

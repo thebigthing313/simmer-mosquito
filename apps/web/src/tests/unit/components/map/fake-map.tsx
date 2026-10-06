@@ -128,6 +128,14 @@ export function createFakeMap() {
 			layers.set(id, { ...layer, filter } as LayerSpecification);
 			filterCalls.push(id);
 		},
+		setLayerZoomRange(id: string, minzoom: number, maxzoom: number) {
+			assertLive();
+			const layer = layers.get(id);
+			if (layer === undefined) {
+				return;
+			}
+			layers.set(id, { ...layer, minzoom, maxzoom } as LayerSpecification);
+		},
 		getCanvas: () => canvas,
 		getCanvasContainer: () => canvasContainer,
 		getContainer: () => container,

@@ -14,6 +14,7 @@ import { useMapPadding } from '../../hooks/map/use-map-padding';
 import { isMapLive, useMapboxMap } from '../../hooks/map/use-mapbox-map';
 import { type NearbyLayerConfig, useNearbyLayer } from '../../hooks/map/use-nearby-layer';
 import { type RouteLayerConfig, useRouteLayer } from '../../hooks/map/use-route-layer';
+import { useSelectionOverlayLayer } from '../../hooks/map/use-selection-overlay-layer';
 import { useTileLayer } from '../../hooks/map/use-tile-layer';
 import { watchExplorerCamera } from '../../lib/explorer-camera';
 import { BasemapSwitcher } from './basemap-switcher';
@@ -382,7 +383,10 @@ export function MapCanvas({
 /** Gap (px) between a floating control group and the map edge, matching `*-4`. */
 const EDGE = 16;
 
-/** Holds one entry of the `layers` list on the map for as long as it is listed. */
+/**
+ * Holds one entry of the `layers` list on the map for as long as it is listed,
+ * with the selection overlay a clustered tileset draws over it.
+ */
 function TileLayerMount({
 	cluster,
 	isLoaded,
@@ -395,6 +399,7 @@ function TileLayerMount({
 	readonly map: MapboxMap | null;
 }) {
 	useTileLayer(map, isLoaded, layer, { cluster });
+	useSelectionOverlayLayer(map, isLoaded, layer, { cluster });
 	return null;
 }
 

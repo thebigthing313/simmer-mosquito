@@ -41,6 +41,12 @@ export interface ExplorerResource<TRow> extends PagedMapResource<TRow> {
 	 * surface that asked for one with `summarize`.
 	 */
 	readonly summary: ExplorerSummaryState;
+	/**
+	 * The `layers` list for the surface's `MapCanvas`: the tile layer it passed
+	 * in, carrying the selected record, so a clustered tileset draws the record
+	 * over the cluster that holds it. See `tileLayerSelectionOverlay`.
+	 */
+	readonly layers: readonly MapTileLayer[];
 }
 
 /**
@@ -150,6 +156,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 		selected,
 		empty,
 		summary,
+		layers: [{ ...layer, selectedRecord: selected }],
 	};
 }
 

@@ -244,6 +244,12 @@ is the copy the rail gave before it could tell.
 `holdRailOnSelect` is the switch for `useFlyToSelection`'s `holdRail`, off by
 default so the other explorers keep re-paging for the record they fly to.
 
+`layers` is the list the route hands its `MapCanvas`: the tile layer it passed
+in, with the selected row on it as `selectedRecord`. That is the read the
+selection overlay draws from on a clustered tileset (see
+`useSelectionOverlayLayer`), and every explorer passes it, so a tileset that
+starts clustering gets the overlay without its route changing.
+
 `summarize` is the switch for `useExplorerSummary`, off by default. It is a
 flag rather than a second hook the route calls because the summary has to be
 read under the exact params the page went out with, `bbox` first, and this
@@ -666,6 +672,44 @@ the server answers 400 to the param there, so a setting that is on everywhere
 must not reach a tileset that cannot take it (#1380). A switch is a new URL on
 the source already there, the same path a filter change takes, so the camera
 does not move and the selection highlight keeps its record.
+
+A click on the selection overlay is answered here too, and it comes first,
+because the overlay is drawn over the cluster holding the record and a click
+there means the record. The overlay only ever draws the selected record, so the
+click hands `onSelectFeature` the selected id rather than reading one off the
+feature, and the cluster under it is never fitted.
+
+#### useSelectionOverlayLayer
+
+Below `MAP_CLUSTER_UNTIL_ZOOM` a clustered tile can carry the selected record
+only inside a cluster's count, and the tile's selected-point layer filters by
+record id, so it has no feature to match and the selection vanished into the
+cluster (#1383). Sending the selected id to the server would have fixed that
+inside the tile and put the id in every tile URL, which re-fetches every tile
+on each click. So the record's own point is drawn client side instead, from the
+row the explorer already holds: `useExplorerResource` hands the canvas its tile
+layer with the selected row on it as `selectedRecord`, and `TileLayerMount`
+calls this hook beside `useTileLayer`. No new request is made.
+
+The rule for when it draws is `tileLayerSelectionOverlay` in `tile-layers.ts`:
+the tiles are drawn clustered, a record is selected, the row in hand is that
+record, and its geometry is a single `Point`. Drawn clustered means what puts
+`cluster=1` on the tile URL: the tileset's row says `clusters: true` and the
+map's clustering setting is on, which reaches this hook as `draw.cluster` the
+way it reaches `useTileLayer`. Switching clustering off takes the overlay off
+and gives the tile its highlight back at every zoom. A `MultiPoint` is left out
+because the tile query never folds one into a cluster.
+
+The overlay and the tile's own highlight split the zoom range at the cut-off,
+the overlay layer carrying `maxzoom` and the tile's selected point `minzoom`,
+so the record is drawn selected once at every zoom. Above the cut-off, and on a
+tileset that does not cluster, the highlight is the tile's alone, as it was
+before. The tile highlight only steps aside once the overlay has a point to
+draw, so a selection whose row is still being fetched keeps the tile's
+highlight in the meantime. The overlay's data is the row's own geometry object
+rather than a feature built around it, because `useGeoJsonSource` holds `data`
+in an effect dependency and a new object every render would `setData` every
+render.
 
 #### useMapClustering
 

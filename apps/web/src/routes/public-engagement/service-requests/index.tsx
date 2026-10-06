@@ -194,21 +194,31 @@ function ServiceRequestsExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<RequestListing>({
-			path: PATH,
-			rowsKey: 'serviceRequests',
-			rowKey: 'serviceRequest',
-			recordType: RECORD_TYPE,
-			params: requestPageParams(filters, railOrder.order),
-			layer,
-			map,
-			selectedId,
-			// A pick moves the map to the record and leaves the list as it was, so
-			// the reader working down the queue does not lose their place.
-			holdRailOnSelect: true,
-		});
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		page,
+		pageCount,
+		setPage,
+		selected,
+		empty,
+		layers,
+	} = useExplorerResource<RequestListing>({
+		path: PATH,
+		rowsKey: 'serviceRequests',
+		rowKey: 'serviceRequest',
+		recordType: RECORD_TYPE,
+		params: requestPageParams(filters, railOrder.order),
+		layer,
+		map,
+		selectedId,
+		// A pick moves the map to the record and leaves the list as it was, so
+		// the reader working down the queue does not lose their place.
+		holdRailOnSelect: true,
+	});
 
 	// Resolve the related on-demand rows for the page alone, a subset of at most
 	// fifty ids that loads reliably, instead of one join over the whole request set.
