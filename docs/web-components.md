@@ -202,6 +202,25 @@ The page needs two floors. `update*Method` is `MANAGER` while `create*`,
 `deactivate*`, `reactivate*` and `delete*` are `ADMIN`, and gating all of it at
 `canManage` was #65: a manager who may rename a method saw no Edit control.
 
+#### sourceReductionSummaryGroupings
+
+The Source Reductions summary, built the way `applicationSummaryGroupings`
+builds the Chemical Applications one (#1375). A method is added to `methods`
+and a technician to `people`, each drawn top 5 and "n more". A source
+reduction recorded with no technician is counted on the server and not drawn,
+because no filter selects "none".
+
+Sources Eliminated is drawn as text, one line per unit, through the summary's
+`breakdowns` keyed by `sources_eliminated_unit_id`. A count of containers and
+an area in acres do not add up, so the server never sums across units. Each
+line is labelled with the unit's name and reads the amount with the unit's
+abbreviation, through the same `formatAmount` the rows use.
+
+The filter card and its chips moved out of the route into
+`source-reduction-filters.tsx` so the Source Reductions Table could share
+them, and the row type and the name lookups into
+`source-reduction-row-parts.ts`.
+
 #### applicationSummaryGroupings
 
 The Chemical Applications summary, built the way `collectionSummaryGroupings`

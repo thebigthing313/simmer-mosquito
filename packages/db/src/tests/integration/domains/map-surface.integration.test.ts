@@ -6,6 +6,7 @@ import type { CollectionMapFilters, TrapMapFilters } from '../../../domains/adul
 import {
 	type ApplicationMapFilters,
 	getRequestedControlActionDisplayRowById,
+	type SourceReductionMapFilters,
 } from '../../../domains/control-operations-map.js';
 import type { HabitatMvtTileFilters } from '../../../domains/habitats.js';
 import {
@@ -2060,6 +2061,201 @@ async function seedApplicationVariety(db: Kysely<SimmerDatabase>): Promise<{
 				applicator_profile_id: ids.secondApplicatorId,
 				amount_applied: 10,
 				application_unit_id: ids.gallonId,
+			},
+		])
+		.execute();
+	return ids;
+}
+
+// Over 100 source reductions in view the Source Reductions rail draws the same
+// summary (#1375). The seeded world's one live source reduction in the box, 4
+// gallons eliminated, is joined by five more across a second method, a second
+// technician and a second unit, one of them dated in January. Sources
+// eliminated are added up per unit and never across units, so gallons and
+// acres are two sums.
+describeDbIntegration('source reduction summary against Postgres', () => {
+	it('counts the source reductions the page counts, and sums sources eliminated per unit', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = await seedSourceReductionVariety(db);
+			const read = (filters: SourceReductionMapFilters) =>
+				summaryAndPage(db, MAP_SURFACES['source-reduction'], filters);
+
+			const all = await read({});
+			expect(all.pageTotal).toBe(6);
+			expect(all.summary).toEqual({
+				total: 6,
+				groups: {
+					sourceReductionMethodId: [
+						{ value: ids.drainMethodId, count: 4 },
+						{ value: ids.seededMethodId, count: 2 },
+					],
+					technicianProfileId: [
+						{ value: ids.secondTechnicianId, count: 3 },
+						{ value: ids.seededTechnicianId, count: 2 },
+						{ value: null, count: 1 },
+					],
+				},
+				breakdowns: {
+					sourcesEliminated: [
+						{ by: { unitId: ids.gallonId }, count: 3, sum: 20 },
+						{ by: { unitId: ids.acreId }, count: 3, sum: 4.5 },
+					],
+				},
+			});
+
+			// Each group's count is the total of the page its button narrows to.
+			const narrowed: readonly (readonly [string, string, SourceReductionMapFilters])[] = [
+				[
+					'sourceReductionMethodId',
+					ids.drainMethodId,
+					{ sourceReductionMethodIds: [ids.drainMethodId] },
+				],
+				[
+					'sourceReductionMethodId',
+					ids.seededMethodId,
+					{ sourceReductionMethodIds: [ids.seededMethodId] },
+				],
+				[
+					'technicianProfileId',
+					ids.secondTechnicianId,
+					{ technicianProfileIds: [ids.secondTechnicianId] },
+				],
+				[
+					'technicianProfileId',
+					ids.seededTechnicianId,
+					{ technicianProfileIds: [ids.seededTechnicianId] },
+				],
+			];
+			const answers = await Promise.all(narrowed.map(([, , filters]) => read(filters)));
+			narrowed.forEach(([grouping, value], index) => {
+				const answer = answers[index];
+				expect(answer?.summary.total).toBe(answer?.pageTotal);
+				expect(all.summary.groups[grouping]?.find((group) => group.value === value)?.count).toBe(
+					answer?.pageTotal,
+				);
+			});
+
+			// March alone drops the January source reduction, and the sums follow
+			// the page, so gallons fall behind acres on record count.
+			const march = await read({ dateFrom: '2026-03-01', dateTo: '2026-03-31' });
+			expect(march.pageTotal).toBe(5);
+			expect(march.summary.total).toBe(5);
+			expect(march.summary.breakdowns).toEqual({
+				sourcesEliminated: [
+					{ by: { unitId: ids.acreId }, count: 3, sum: 4.5 },
+					{ by: { unitId: ids.gallonId }, count: 2, sum: 10 },
+				],
+			});
+
+			// Outside the date window nothing is counted and nothing is added up.
+			expect((await read({ dateFrom: '2026-04-01' })).summary).toEqual({
+				total: 0,
+				groups: { sourceReductionMethodId: [], technicianProfileId: [] },
+				breakdowns: { sourcesEliminated: [] },
+			});
+		});
+	});
+});
+
+/**
+ * Five more live source reductions in the box beside the seeded one: a
+ * drainage method, a second technician and a unit in acres, with one source
+ * reduction carrying no technician and one dated in January.
+ */
+async function seedSourceReductionVariety(db: Kysely<SimmerDatabase>): Promise<{
+	readonly seededMethodId: string;
+	readonly drainMethodId: string;
+	readonly seededTechnicianId: string;
+	readonly secondTechnicianId: string;
+	readonly gallonId: string;
+	readonly acreId: string;
+}> {
+	const inside = await db
+		.selectFrom('source_reductions')
+		.select(['source_reduction_method_id', 'technician_profile_id', 'sources_eliminated_unit_id'])
+		.where('id', '=', mapSurfaceRowIds.sourceReduction.inside)
+		.executeTakeFirstOrThrow();
+	const organizationId = mapSurfaceOrganizationIds.own;
+
+	const acre = await db
+		.insertInto('units')
+		.values({
+			code: 'map_surface_acre',
+			unit_name: 'Acre',
+			abbreviation: 'ac',
+			unit_type: 'area',
+			unit_system: 'us_customary',
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const drain = await db
+		.insertInto('source_reduction_methods')
+		.values({ organization_id: organizationId, name: 'Drainage' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const second = await db
+		.insertInto('profiles')
+		.values({
+			organization_id: organizationId,
+			display_name: 'Second Technician',
+			email: 'second.technician@example.test',
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const ids = {
+		seededMethodId: String(inside.source_reduction_method_id),
+		drainMethodId: String(drain.id),
+		seededTechnicianId: String(inside.technician_profile_id),
+		secondTechnicianId: String(second.id),
+		gallonId: String(inside.sources_eliminated_unit_id),
+		acreId: String(acre.id),
+	};
+
+	// The date goes in as text, since a `Date` is sent in the machine's own zone.
+	const base = {
+		organization_id: organizationId,
+		geom: sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`,
+		source_reduction_date: sql<Date>`date '2026-03-15'`,
+	};
+	await db
+		.insertInto('source_reductions')
+		.values([
+			{
+				...base,
+				source_reduction_method_id: ids.seededMethodId,
+				technician_profile_id: ids.seededTechnicianId,
+				sources_eliminated_amount: 6,
+				sources_eliminated_unit_id: ids.gallonId,
+			},
+			{
+				...base,
+				source_reduction_method_id: ids.drainMethodId,
+				technician_profile_id: null,
+				sources_eliminated_amount: 2.5,
+				sources_eliminated_unit_id: ids.acreId,
+			},
+			{
+				...base,
+				source_reduction_method_id: ids.drainMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				sources_eliminated_amount: 1.5,
+				sources_eliminated_unit_id: ids.acreId,
+			},
+			{
+				...base,
+				source_reduction_method_id: ids.drainMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				sources_eliminated_amount: 0.5,
+				sources_eliminated_unit_id: ids.acreId,
+			},
+			{
+				...base,
+				source_reduction_date: sql<Date>`date '2026-01-10'`,
+				source_reduction_method_id: ids.drainMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				sources_eliminated_amount: 10,
+				sources_eliminated_unit_id: ids.gallonId,
 			},
 		])
 		.execute();

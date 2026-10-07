@@ -32,6 +32,8 @@ import { TrapSurfaceSwitch } from '../../components/adult-surveillance/traps/tra
 import { sharedTrapSearch } from '../../components/adult-surveillance/traps/traps-search';
 import { ApplicationSurfaceSwitch } from '../../components/control-operations/chemical/application-surface-switch';
 import { sharedApplicationSearch } from '../../components/control-operations/chemical/applications-search';
+import { SourceReductionSurfaceSwitch } from '../../components/control-operations/source-reduction/source-reduction-surface-switch';
+import { sharedSourceReductionSearch } from '../../components/control-operations/source-reduction/source-reductions-search';
 import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
 import { DashboardPage } from '../../components/dashboard/dashboard-page';
 import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
@@ -588,6 +590,45 @@ describe('the Chemical Applications Map/Table switch', () => {
 		);
 
 		expect(linkHref('Map')).toBe(`/control-operations/chemical?${CARRIED}`);
+	});
+});
+
+/**
+ * The Source Reductions Map/Table switch. Both surfaces read
+ * `/map/source-reduction`, so every filter is carried, the date window
+ * included.
+ */
+describe('the Source Reductions Map/Table switch', () => {
+	const ADDRESS = {
+		from: '2026-09-01',
+		to: '2026-09-28',
+		people: ['person-1'],
+		methods: ['method-1'],
+		regions: ['region-1'],
+	};
+	const CARRIED =
+		'from=2026-09-01&to=2026-09-28&people=%5B%22person-1%22%5D&methods=%5B%22method-1%22%5D&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<SourceReductionSurfaceSwitch
+				current="map"
+				search={sharedSourceReductionSearch({ ...ADDRESS, page: 3 })}
+			/>,
+		);
+
+		expect(linkHref('Table')).toBe(`/control-operations/source-reduction/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(
+			<SourceReductionSurfaceSwitch
+				current="table"
+				search={sharedSourceReductionSearch(ADDRESS)}
+			/>,
+		);
+
+		expect(linkHref('Map')).toBe(`/control-operations/source-reduction?${CARRIED}`);
 	});
 });
 
