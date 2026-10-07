@@ -1148,6 +1148,74 @@ describe('registerMapTileRoutes — trap summary', () => {
 	});
 });
 
+// The Collections rail's summary over 100 in view (#1373).
+describe('registerMapTileRoutes — collection summary', () => {
+	const methodId = '7a4c2e19-8b3d-4f60-9c15-2e8d6b0f3a47';
+
+	it('passes the box and every collection filter to the summary, and answers its figures', async () => {
+		const summary = {
+			total: 240,
+			groups: {
+				problem: [{ value: true, count: 240 }],
+				awaiting: [{ value: true, count: 240 }],
+				collectionMethodId: [{ value: methodId, count: 240 }],
+			},
+			figures: { zeroResult: 0, collected: 0 },
+		};
+		const summarizeCollections = vi.fn(async () => summary);
+		const getCollectionDisplayRow = vi.fn();
+		const app = createApp({ summarizeCollections, getCollectionDisplayRow });
+
+		const response = await app.request(
+			`/map/collections/summary?bbox=-91,35,-90,36&collectionMethodId=${methodId}&problem=true&awaiting=true&regionId=${regionId}&dateFrom=2026-07-01&dateTo=2026-09-28`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(summarizeCollections).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				collectionMethodIds: [methodId],
+				problemOnly: true,
+				awaitingOnly: true,
+				regionIds: [regionId],
+				dateFrom: '2026-07-01',
+				dateTo: '2026-09-28',
+			},
+		});
+		expect(getCollectionDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', '?problem=true'],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a date that is not a date', '?bbox=-91,35,-90,36&dateFrom=last-week'],
+		['a param no collection filter admits', '?bbox=-91,35,-90,36&status=active'],
+	])('refuses %s before reading the collection summary', async (_case, query) => {
+		const summarizeCollections = vi.fn();
+		const getCollectionDisplayRow = vi.fn();
+		const app = createApp({ summarizeCollections, getCollectionDisplayRow });
+
+		const response = await app.request(`/map/collections/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeCollections).not.toHaveBeenCalled();
+		expect(getCollectionDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no collection summary for a request with no session', async () => {
+		const summarizeCollections = vi.fn();
+		const app = createApp({ authenticated: false, summarizeCollections });
+
+		const response = await app.request('/map/collections/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeCollections).not.toHaveBeenCalled();
+	});
+});
+
 // The four routes whose readers were called directly rather than injected, so
 // none of them could be driven without a database until the readers became one
 // object. Three answer geometry the Electric shape does not carry (ADR 0009).

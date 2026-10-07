@@ -440,6 +440,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.generic.map.icon,
 					},
 					{
+						id: 'collections-table',
+						label: 'Table',
+						to: '/adult-surveillance/collections/table',
+						icon: iconRegistry.generic.table.icon,
+					},
+					{
 						id: 'collections-create',
 						label: createLabel('collection'),
 						to: '/adult-surveillance/collections/create',

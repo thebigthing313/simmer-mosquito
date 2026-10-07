@@ -113,17 +113,20 @@ is also the threshold `useExplorerSummary` reads: a surface with a summary
 draws its rows only when they fit on one page, so its pager never shows. The
 rail mounts only the rows in view, so a page of 100 costs what 50 did.
 
-The Habitats Table, the Samples Table and the Traps Table call this hook
-directly, with no map, and send `WHOLE_WORLD_BBOX` as the box. Each could
-have read its collection the way the Inspections Table does, and none does,
-because the collection can only push down a filter or a sort that names a
-column of its own table. Three of the habitat filters are not columns (Tags,
-Region, Untreated), a sample's date, status and species all live on other
-tables, and a trap's Region is ADR 0015's membership computed on read. The
-endpoint answers every filter the Map has, so the two surfaces agree on the
-set and the switch between them carries everything. What it costs is the
-column sort: the order is the surface's own, habitats by name, samples by
-newest inspection and traps by code.
+The Habitats Table, the Samples Table, the Traps Table and the Collections
+Table call this hook directly, with no map, and send `WHOLE_WORLD_BBOX` as the
+box. Each could have read its collection the way the Inspections Table does,
+and none does, because the collection can only push down a filter or a sort
+that names a column of its own table. Three of the habitat filters are not
+columns (Tags, Region, Untreated), a sample's date, status and species all
+live on other tables, a trap's Region is ADR 0015's membership computed on
+read, and a collection's date is one of two columns by its timing mode, in
+the Organization's zone, while Awaiting identification reads
+`collection_species`. The endpoint answers every filter the Map has, so the
+two surfaces agree on the set and the switch between them carries
+everything. What it costs is the column sort: the order is the surface's own,
+habitats by name, samples by newest inspection, traps by code and collections
+by newest date.
 
 #### useSelectedMapRecord
 
@@ -1201,6 +1204,16 @@ the partial test, so a client whose clock disagrees with the server draws the
 server's day. `docs/today-spec.md`, "The client half".
 
 ### adult-surveillance
+
+#### useCollectionFilterState
+
+The Collections Map and the Collections Table read one filter set off the
+URL, so the switch between them carries every filter, the date window
+included (#1373). It is `useSampleFilterState` over the collection codecs: the
+window opens on the last 90 days and ends on the Organization's today rather
+than the browser's, because the server cuts a collection's day in that zone
+too, and a window ending on the browser's day would drop the evening's
+collections for a reader west of the Organization.
 
 #### useTrapDirectory
 

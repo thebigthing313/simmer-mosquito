@@ -26,6 +26,8 @@ import { Suspense } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActivityEntry } from '../../components/activity/activity-data';
 import { ActivityLog } from '../../components/activity/activity-log';
+import { CollectionSurfaceSwitch } from '../../components/adult-surveillance/collections/collection-surface-switch';
+import { sharedCollectionSearch } from '../../components/adult-surveillance/collections/collections-search';
 import { TrapSurfaceSwitch } from '../../components/adult-surveillance/traps/trap-surface-switch';
 import { sharedTrapSearch } from '../../components/adult-surveillance/traps/traps-search';
 import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
@@ -512,6 +514,42 @@ describe('the Traps Map/Table switch', () => {
 		renderWithRouter(<TrapSurfaceSwitch current="table" search={sharedTrapSearch(ADDRESS)} />);
 
 		expect(linkHref('Map')).toBe(`/adult-surveillance/traps?${CARRIED}`);
+	});
+});
+
+/**
+ * The Collections Map/Table switch. Both surfaces read `/map/collections`, so
+ * every filter is carried, the date window and both flags included.
+ */
+describe('the Collections Map/Table switch', () => {
+	const ADDRESS = {
+		from: '2026-09-01',
+		to: '2026-09-28',
+		methods: ['method-1'],
+		problems: true,
+		awaiting: true,
+		regions: ['region-1'],
+	};
+	const CARRIED =
+		'from=2026-09-01&to=2026-09-28&methods=%5B%22method-1%22%5D&problems=true&awaiting=true&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<CollectionSurfaceSwitch
+				current="map"
+				search={sharedCollectionSearch({ ...ADDRESS, page: 3 })}
+			/>,
+		);
+
+		expect(linkHref('Table')).toBe(`/adult-surveillance/collections/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(
+			<CollectionSurfaceSwitch current="table" search={sharedCollectionSearch(ADDRESS)} />,
+		);
+
+		expect(linkHref('Map')).toBe(`/adult-surveillance/collections?${CARRIED}`);
 	});
 });
 

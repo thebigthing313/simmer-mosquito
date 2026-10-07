@@ -114,6 +114,7 @@ import { Route as AdultSurveillanceTrapsTableRouteImport } from './routes/adult-
 import { Route as AdultSurveillanceTrapsStatsRouteImport } from './routes/adult-surveillance/traps/stats'
 import { Route as AdultSurveillanceTrapsCreateRouteImport } from './routes/adult-surveillance/traps/create'
 import { Route as AdultSurveillanceTrapsIdRouteImport } from './routes/adult-surveillance/traps/$id'
+import { Route as AdultSurveillanceCollectionsTableRouteImport } from './routes/adult-surveillance/collections/table'
 import { Route as AdultSurveillanceCollectionsStatsRouteImport } from './routes/adult-surveillance/collections/stats'
 import { Route as AdultSurveillanceCollectionsCreateRouteImport } from './routes/adult-surveillance/collections/create'
 import { Route as AdultSurveillanceCollectionsIdRouteImport } from './routes/adult-surveillance/collections/$id'
@@ -736,6 +737,12 @@ const AdultSurveillanceTrapsIdRoute =
     path: '/adult-surveillance/traps/$id',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AdultSurveillanceCollectionsTableRoute =
+  AdultSurveillanceCollectionsTableRouteImport.update({
+    id: '/adult-surveillance/collections/table',
+    path: '/adult-surveillance/collections/table',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdultSurveillanceCollectionsStatsRoute =
   AdultSurveillanceCollectionsStatsRouteImport.update({
     id: '/adult-surveillance/collections/stats',
@@ -944,6 +951,7 @@ export interface FileRoutesByFullPath {
   '/adult-surveillance/collections/$id': typeof AdultSurveillanceCollectionsIdRoute
   '/adult-surveillance/collections/create': typeof AdultSurveillanceCollectionsCreateRoute
   '/adult-surveillance/collections/stats': typeof AdultSurveillanceCollectionsStatsRoute
+  '/adult-surveillance/collections/table': typeof AdultSurveillanceCollectionsTableRoute
   '/adult-surveillance/traps/$id': typeof AdultSurveillanceTrapsIdRoute
   '/adult-surveillance/traps/create': typeof AdultSurveillanceTrapsCreateRoute
   '/adult-surveillance/traps/stats': typeof AdultSurveillanceTrapsStatsRoute
@@ -1079,6 +1087,7 @@ export interface FileRoutesByTo {
   '/adult-surveillance/collections/$id': typeof AdultSurveillanceCollectionsIdRoute
   '/adult-surveillance/collections/create': typeof AdultSurveillanceCollectionsCreateRoute
   '/adult-surveillance/collections/stats': typeof AdultSurveillanceCollectionsStatsRoute
+  '/adult-surveillance/collections/table': typeof AdultSurveillanceCollectionsTableRoute
   '/adult-surveillance/traps/$id': typeof AdultSurveillanceTrapsIdRoute
   '/adult-surveillance/traps/create': typeof AdultSurveillanceTrapsCreateRoute
   '/adult-surveillance/traps/stats': typeof AdultSurveillanceTrapsStatsRoute
@@ -1216,6 +1225,7 @@ export interface FileRoutesById {
   '/adult-surveillance/collections/$id': typeof AdultSurveillanceCollectionsIdRoute
   '/adult-surveillance/collections/create': typeof AdultSurveillanceCollectionsCreateRoute
   '/adult-surveillance/collections/stats': typeof AdultSurveillanceCollectionsStatsRoute
+  '/adult-surveillance/collections/table': typeof AdultSurveillanceCollectionsTableRoute
   '/adult-surveillance/traps/$id': typeof AdultSurveillanceTrapsIdRoute
   '/adult-surveillance/traps/create': typeof AdultSurveillanceTrapsCreateRoute
   '/adult-surveillance/traps/stats': typeof AdultSurveillanceTrapsStatsRoute
@@ -1354,6 +1364,7 @@ export interface FileRouteTypes {
     | '/adult-surveillance/collections/$id'
     | '/adult-surveillance/collections/create'
     | '/adult-surveillance/collections/stats'
+    | '/adult-surveillance/collections/table'
     | '/adult-surveillance/traps/$id'
     | '/adult-surveillance/traps/create'
     | '/adult-surveillance/traps/stats'
@@ -1489,6 +1500,7 @@ export interface FileRouteTypes {
     | '/adult-surveillance/collections/$id'
     | '/adult-surveillance/collections/create'
     | '/adult-surveillance/collections/stats'
+    | '/adult-surveillance/collections/table'
     | '/adult-surveillance/traps/$id'
     | '/adult-surveillance/traps/create'
     | '/adult-surveillance/traps/stats'
@@ -1625,6 +1637,7 @@ export interface FileRouteTypes {
     | '/adult-surveillance/collections/$id'
     | '/adult-surveillance/collections/create'
     | '/adult-surveillance/collections/stats'
+    | '/adult-surveillance/collections/table'
     | '/adult-surveillance/traps/$id'
     | '/adult-surveillance/traps/create'
     | '/adult-surveillance/traps/stats'
@@ -1754,6 +1767,7 @@ export interface RootRouteChildren {
   AdultSurveillanceCollectionsIdRoute: typeof AdultSurveillanceCollectionsIdRoute
   AdultSurveillanceCollectionsCreateRoute: typeof AdultSurveillanceCollectionsCreateRoute
   AdultSurveillanceCollectionsStatsRoute: typeof AdultSurveillanceCollectionsStatsRoute
+  AdultSurveillanceCollectionsTableRoute: typeof AdultSurveillanceCollectionsTableRoute
   AdultSurveillanceTrapsIdRoute: typeof AdultSurveillanceTrapsIdRoute
   AdultSurveillanceTrapsCreateRoute: typeof AdultSurveillanceTrapsCreateRoute
   AdultSurveillanceTrapsStatsRoute: typeof AdultSurveillanceTrapsStatsRoute
@@ -2591,6 +2605,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdultSurveillanceTrapsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/adult-surveillance/collections/table': {
+      id: '/adult-surveillance/collections/table'
+      path: '/adult-surveillance/collections/table'
+      fullPath: '/adult-surveillance/collections/table'
+      preLoaderRoute: typeof AdultSurveillanceCollectionsTableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/adult-surveillance/collections/stats': {
       id: '/adult-surveillance/collections/stats'
       path: '/adult-surveillance/collections/stats'
@@ -2857,6 +2878,8 @@ const rootRouteChildren: RootRouteChildren = {
     AdultSurveillanceCollectionsCreateRoute,
   AdultSurveillanceCollectionsStatsRoute:
     AdultSurveillanceCollectionsStatsRoute,
+  AdultSurveillanceCollectionsTableRoute:
+    AdultSurveillanceCollectionsTableRoute,
   AdultSurveillanceTrapsIdRoute: AdultSurveillanceTrapsIdRoute,
   AdultSurveillanceTrapsCreateRoute: AdultSurveillanceTrapsCreateRoute,
   AdultSurveillanceTrapsStatsRoute: AdultSurveillanceTrapsStatsRoute,
