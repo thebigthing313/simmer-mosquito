@@ -392,25 +392,37 @@ function ResultsPanel<TRow>({
 				{content}
 			</ResultList>
 
-			{footer === undefined ? (
-				<CountFooter heading={heading} />
-			) : shownFooter === undefined ? null : (
-				// `tabIndex={-1}`: the skip control focuses this, and the next Tab
-				// carries on into the pager's own buttons from here.
-				<div className="border-border/50 border-t p-3" ref={footerRef} tabIndex={-1}>
-					{footer}
-				</div>
-			)}
+			<RailFooter footer={footer} footerRef={footerRef} heading={heading} shown={shownFooter} />
 		</div>
 	);
 }
 
 /**
- * The count, under the results of a rail with no pager. It stood in the header
- * row until the summary took the pagers away (#1244), where it crowded the
- * title on every map page; the footer is where the pager used to state it.
+ * What closes the rail: the caller's pager when it passed one, held back while
+ * the rail waits, and otherwise the count. The count stood in the header row
+ * until the summary took the pagers away (#1244), where it crowded the title on
+ * every map page; the footer is where the pager used to state it.
  */
-function CountFooter({ heading }: { readonly heading: ExplorerHeading }) {
+function RailFooter({
+	footer,
+	footerRef,
+	heading,
+	shown,
+}: {
+	readonly footer: ReactNode;
+	readonly footerRef: RefObject<HTMLDivElement | null>;
+	readonly heading: ExplorerHeading;
+	readonly shown: ReactNode;
+}) {
+	if (footer !== undefined) {
+		return shown === undefined ? null : (
+			// `tabIndex={-1}`: the skip control focuses this, and the next Tab
+			// carries on into the pager's own buttons from here.
+			<div className="border-border/50 border-t p-3" ref={footerRef} tabIndex={-1}>
+				{footer}
+			</div>
+		);
+	}
 	return (
 		<div className="border-border/50 border-t px-3 py-2">
 			<ResultMeta
