@@ -372,10 +372,6 @@ function ResultsPanel<TRow>({
 				menuItems={menuItems}
 				counts={heading.counts}
 				onResetFilters={onResetFilters}
-				// The count lives in the pager when there is one. Without a pager the
-				// header is the only place left for it, and a rail that never states its
-				// size is a rail a reader has to scroll to the end of to size.
-				showTotal={footer === undefined}
 				surface="chrome"
 				title={heading.title}
 				total={heading.total}
@@ -396,13 +392,44 @@ function ResultsPanel<TRow>({
 				{content}
 			</ResultList>
 
-			{shownFooter === undefined ? null : (
-				// `tabIndex={-1}`: the skip control focuses this, and the next Tab
-				// carries on into the pager's own buttons from here.
-				<div className="border-border/50 border-t p-3" ref={footerRef} tabIndex={-1}>
-					{footer}
-				</div>
-			)}
+			<RailFooter footer={footer} footerRef={footerRef} heading={heading} shown={shownFooter} />
+		</div>
+	);
+}
+
+/**
+ * What closes the rail: the caller's pager when it passed one, held back while
+ * the rail waits, and otherwise the count. The count stood in the header row
+ * until the summary took the pagers away (#1244), where it crowded the title on
+ * every map page; the footer is where the pager used to state it.
+ */
+function RailFooter({
+	footer,
+	footerRef,
+	heading,
+	shown,
+}: {
+	readonly footer: ReactNode;
+	readonly footerRef: RefObject<HTMLDivElement | null>;
+	readonly heading: ExplorerHeading;
+	readonly shown: ReactNode;
+}) {
+	if (footer !== undefined) {
+		return shown === undefined ? null : (
+			// `tabIndex={-1}`: the skip control focuses this, and the next Tab
+			// carries on into the pager's own buttons from here.
+			<div className="border-border/50 border-t p-3" ref={footerRef} tabIndex={-1}>
+				{footer}
+			</div>
+		);
+	}
+	return (
+		<div className="border-border/50 border-t px-3 py-2">
+			<ResultMeta
+				isLoading={heading.isLoading}
+				noun={countNoun(heading.counts)}
+				total={heading.total}
+			/>
 		</div>
 	);
 }
