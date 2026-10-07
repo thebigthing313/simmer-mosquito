@@ -803,6 +803,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.actions.searchCheck.icon,
 					},
 					{
+						id: 'addresses-table',
+						label: 'Table',
+						to: '/gis/addresses/table',
+						icon: iconRegistry.generic.table.icon,
+					},
+					{
 						id: 'addresses-create',
 						label: createLabel('address'),
 						to: '/gis/addresses/create',

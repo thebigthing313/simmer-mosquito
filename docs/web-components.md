@@ -383,6 +383,31 @@ button for the retry would be a second control for one question.
 
 ### gis
 
+#### addressSummaryGroupings
+
+The Address Book summary (#1378). Addresses filter on search and Region
+alone, so nothing in it is a button: locality and postal code are drawn as
+text, each top 5 and "n more", and no click sets a filter.
+
+They are groupings drawn without a click target, the way Service Requests
+draws intake type, rather than `breakdowns`. A grouping answers a count per
+value, largest first, which is all either figure is. A breakdown answers a
+count and a summed amount per combination of keys, and there is no amount to
+sum here, so it would carry a `sum` column nothing reads.
+
+The server trims each value and counts a blank one with the nulls, so
+` Monroe Township ` and `Monroe Township` are one line and an address with no
+locality is never split between null and the empty string. That count is not
+drawn: "no locality" is not a place, and on an address book imported without
+localities it would take a top 5 slot. Values are not case-folded, because
+picking which spelling to show would be a guess.
+
+The filter card, its chips and the row's lines (`address-row-parts.ts`) moved
+out of the route so the Addresses Table could share them. The Table's title is
+the Map's, `Address Book`, rather than the register's `Addresses`: CONTEXT.md
+glosses an Address as an address book entry, so both views are the book, and
+the two switch segments name one page in two forms (#985).
+
 #### RegionBoundary (import-parse)
 
 Read from the geometry register rather than a hand-written pair. The pair

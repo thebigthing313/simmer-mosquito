@@ -1,94 +1,48 @@
-import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
+import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import {
-	ActiveFilterBar,
-	ExplorerMapPage,
-	ExplorerRow,
-	FilterChip,
-	MultiSelectFilter,
-	toggle,
-	whenAny,
-	whenText,
-} from '../../../components/explorer';
-import { ExplorerPagination } from '../../../components/explorer-pagination';
+	AddressFilterChips,
+	AddressFilterFields,
+} from '../../../components/gis/addresses/address-filters';
 import { AddressMapCard } from '../../../components/gis/addresses/address-map-card';
 import {
-	type AddressTileFilters,
-	MAP_CREATE_TARGETS,
-	MapCanvas,
-	type MapTileLayer,
-} from '../../../components/map';
+	type AddressListing,
+	addressName,
+	fullAddress,
+} from '../../../components/gis/addresses/address-row-parts';
+import { addressSummaryGroupings } from '../../../components/gis/addresses/address-summary';
+import { AddressSurfaceSwitch } from '../../../components/gis/addresses/address-surface-switch';
+import {
+	addressFilterCodecs,
+	addressListParams,
+	addressTileFilters,
+	sharedAddressSearch,
+} from '../../../components/gis/addresses/addresses-search';
+import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
-import { useAddressSearch } from '../../../hooks/gis/use-address-search';
-import { useSearchFilters } from '../../../hooks/use-search-filters';
-import { type RecordType, recordNoun } from '../../../lib/record-nouns';
-import {
-	type FilterCodecs,
-	idSetParam,
-	searchValidator,
-	textParam,
-} from '../../../lib/search-filters';
-
-/**
- * An address as `/map/addresses` lists it: what the row shows, and where on
- * the map it sits. The whole postal address rides along because the row's
- * subtitle is what the title has not said, and `country` because the rail
- * surfaces it only when it is something other than the US default.
- */
-interface AddressListing {
-	readonly id: string;
-	readonly lat: number;
-	readonly lng: number;
-	readonly displayName: string;
-	readonly country: string;
-	readonly addressLine1: string | null;
-	readonly addressLine2: string | null;
-	readonly locality: string | null;
-	readonly region: string | null;
-	readonly postalCode: string | null;
-}
-
-interface AddressFilters {
-	readonly search: string;
-	readonly regions: ReadonlySet<string>;
-}
-
-const ADDRESS_FILTER_DEFAULTS: AddressFilters = { search: '', regions: new Set() };
-const ADDRESS_FILTER_CODECS: FilterCodecs<AddressFilters> = {
-	search: textParam,
-	regions: idSetParam,
-};
+import { useAddressFilterState } from '../../../hooks/gis/use-address-filter-state';
+import { searchValidator } from '../../../lib/search-filters';
 
 export const Route = createFileRoute('/gis/addresses/')({
 	component: AddressesExplorerRoute,
-	validateSearch: searchValidator(ADDRESS_FILTER_CODECS),
+	validateSearch: searchValidator(addressFilterCodecs),
 });
 
 const AddressIcon = iconRegistry.actions.searchCheck.icon;
-const RECORD_TYPE: RecordType = 'address';
 const PATH = '/map/addresses';
 
 function AddressesExplorerRoute() {
-	// The search term lives in the URL, so a shared link and Back out of an
-	// address both land on the list the operator had narrowed to.
-	const {
-		filters: query,
-		setFilters,
-		activeCount: activeFilterCount,
-	} = useSearchFilters(ADDRESS_FILTER_DEFAULTS, ADDRESS_FILTER_CODECS);
-	const search = query.search;
-	const regionIds = query.regions;
-	const commitSearch = (next: string) => setFilters({ search: next });
-	const { searchInput, setSearch, clearSearch } = useAddressSearch(search, commitSearch);
-	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
-	const regions = useRegionOptions();
+	// The filters live in the URL, so a shared link and Back out of an address
+	// both land on the list the operator had narrowed to.
+	const binding = useAddressFilterState();
+	const { activeCount: activeFilterCount, clearAll } = binding;
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const panel = useExplorerPanel();
@@ -97,10 +51,10 @@ function AddressesExplorerRoute() {
 	// the map and the rail stay in lockstep. The rail used to filter and page the
 	// whole address book out of the sync collection beside a map drawing one
 	// viewport, so the two showed different sets (#962).
-	const filters: AddressTileFilters = {
-		...whenText('search', search.trim()),
-		...whenAny('regionIds', regionIds),
-	};
+	const filters = addressTileFilters(binding.filters);
+	// What a move to the Table takes with it: every filter, since the Table
+	// applies each one.
+	const carried = sharedAddressSearch(Route.useSearch());
 	const layer: MapTileLayer = {
 		kind: 'addresses',
 		serverUrl: getServerUrl(),
@@ -108,79 +62,24 @@ function AddressesExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const {
-		rows,
-		total,
-		isLoading,
-		isError,
-		retry,
-		page,
-		pageCount,
-		setPage,
-		selected,
-		empty,
-		layers,
-	} = useExplorerResource<AddressListing>({
-		path: PATH,
-		rowsKey: 'addresses',
-		rowKey: 'address',
-		recordType: RECORD_TYPE,
-		params: { search: filters.search, regionId: filters.regionIds },
-		layer,
-		map,
-		selectedId,
-	});
-
-	const clearAll = () => {
-		setFilters({ search: '', regions: new Set() });
-	};
+	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
+		useExplorerResource<AddressListing>({
+			path: PATH,
+			rowsKey: 'addresses',
+			rowKey: 'address',
+			recordType: 'address',
+			params: addressListParams(filters),
+			layer,
+			map,
+			selectedId,
+			summarize: true,
+		});
 
 	return (
 		<ExplorerMapPage
+			actions={<AddressSurfaceSwitch compact current="map" search={carried} />}
 			activeFilterCount={activeFilterCount}
-			filters={
-				<>
-					<SearchInput
-						label="Search addresses"
-						onChange={(event) => setSearch(event.target.value)}
-						onClear={clearSearch}
-						placeholder="Search addresses…"
-						value={searchInput}
-					/>
-
-					<MultiSelectFilter
-						empty="No regions"
-						label="Region"
-						onChange={setRegionIds}
-						options={regions.options}
-						selected={regionIds}
-					/>
-
-					{activeFilterCount > 0 ? (
-						<ActiveFilterBar onClearAll={clearAll}>
-							{search.trim().length > 0 ? (
-								<FilterChip label={`Search: ${search}`} onRemove={() => commitSearch('')} />
-							) : null}
-							{[...regionIds].map((id) => (
-								<FilterChip
-									key={`region-${id}`}
-									label={regions.nameById.get(id) ?? 'Unknown region'}
-									onRemove={() => setRegionIds(toggle(regionIds, id))}
-								/>
-							))}
-						</ActiveFilterBar>
-					) : null}
-				</>
-			}
-			footer={
-				<ExplorerPagination
-					noun={recordNoun(RECORD_TYPE)}
-					onPageChange={setPage}
-					page={page}
-					pageCount={pageCount}
-					total={total}
-				/>
-			}
+			filters={<AddressFilterFields binding={binding} />}
 			heading={{
 				// Not the register's `Addresses`, and deliberately. CONTEXT.md glosses an
 				// Address as an "Organization-owned address book entry", so this surface
@@ -222,6 +121,16 @@ function AddressesExplorerRoute() {
 				isError,
 				onRetry: retry,
 				empty,
+				// Over 100 in view the rows would not fit on one page, so the panel
+				// says what is in view instead (#1244, #1378).
+				summary: summary.isShown ? (
+					<ExplorerSummary
+						chips={activeFilterCount === 0 ? null : <AddressFilterChips binding={binding} />}
+						groupings={summary.data === null ? [] : addressSummaryGroupings(summary.data)}
+						recordType="address"
+						state={summary}
+					/>
+				) : undefined,
 				renderRow: (address) => (
 					<AddressRowItem
 						address={address}
@@ -249,7 +158,7 @@ function AddressRowItem({
 	// over "1 11th Street · Monroe Township, NJ 08831" and spent its second line
 	// repeating its first. The subtitle carries what the title has not said.
 	const line = fullAddress(address);
-	const name = address.displayName.trim() || line || 'Unnamed address';
+	const name = addressName(address);
 	const rest = line.startsWith(name) ? line.slice(name.length).replace(/^\s*·\s*/, '') : line;
 	return (
 		<ExplorerRow
@@ -263,24 +172,4 @@ function AddressRowItem({
 			titleLink={{ to: '/gis/addresses/$id', params: { id: address.id } }}
 		/>
 	);
-}
-
-/** The complete postal address as a readable line: street, unit · city, state postal · country. */
-function fullAddress(address: AddressListing): string {
-	const street = joinParts([address.addressLine1, address.addressLine2], ', ');
-	const cityStateZip = joinParts(
-		[joinParts([address.locality, address.region], ', '), address.postalCode],
-		' ',
-	);
-	// US is the default and appears on nearly every row, so only surface a country
-	// when it adds information.
-	const country = address.country.trim() === 'US' ? null : address.country;
-	return joinParts([street, cityStateZip, country], ' · ');
-}
-
-function joinParts(parts: readonly (string | null | undefined)[], separator: string): string {
-	return parts
-		.map((part) => part?.trim() ?? '')
-		.filter((part) => part.length > 0)
-		.join(separator);
 }

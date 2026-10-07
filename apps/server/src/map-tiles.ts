@@ -136,6 +136,7 @@ const defaultMapReaders = {
 	getAddressTile: MAP_SURFACES.addresses.getTile,
 	getAddressExtent: MAP_SURFACES.addresses.getExtent,
 	listAddressDisplayRows: MAP_SURFACES.addresses.listByBounds,
+	summarizeAddresses: MAP_SURFACES.addresses.summarizeByBounds,
 	getAddressDisplayRow: MAP_SURFACES.addresses.getById,
 
 	getServiceRequestTile: MAP_SURFACES['service-requests'].getTile,
@@ -328,6 +329,14 @@ export function registerMapTileRoutes(
 		parseQuery: (searchParams, organizationId, timeZone) =>
 			parseBboxPageQuery(searchParams, organizationId, timeZone, parseAddressTileFilters),
 		list: readers.listAddressDisplayRows,
+	});
+
+	// What the Address Book rail draws in place of the page over 100 in view
+	// (#1378). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/addresses/summary',
+		parseFilters: parseAddressTileFilters,
+		summarize: readers.summarizeAddresses,
 	});
 
 	registerByIdRoute(app, options, {

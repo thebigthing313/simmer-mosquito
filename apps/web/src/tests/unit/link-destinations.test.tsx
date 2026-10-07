@@ -38,6 +38,8 @@ import { SourceReductionSurfaceSwitch } from '../../components/control-operation
 import { sharedSourceReductionSearch } from '../../components/control-operations/source-reduction/source-reductions-search';
 import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
 import { DashboardPage } from '../../components/dashboard/dashboard-page';
+import { AddressSurfaceSwitch } from '../../components/gis/addresses/address-surface-switch';
+import { sharedAddressSearch } from '../../components/gis/addresses/addresses-search';
 import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
 import { HabitatSurfaceSwitch } from '../../components/larval-surveillance/habitats/habitat-surface-switch';
 import { sharedHabitatSearch } from '../../components/larval-surveillance/habitats/habitats-search';
@@ -705,6 +707,31 @@ describe('the Outreach Actions Map/Table switch', () => {
 		);
 
 		expect(linkHref('Map')).toBe(`/public-engagement/outreach?${CARRIED}`);
+	});
+});
+
+/**
+ * The Addresses Map/Table switch. Both surfaces read `/map/addresses`, so
+ * both filters are carried, the search and the regions.
+ */
+describe('the Addresses Map/Table switch', () => {
+	const ADDRESS = { search: 'elm', regions: ['region-1'] };
+	const CARRIED = 'search=elm&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<AddressSurfaceSwitch current="map" search={sharedAddressSearch({ ...ADDRESS, page: 3 })} />,
+		);
+
+		expect(linkHref('Table')).toBe(`/gis/addresses/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(
+			<AddressSurfaceSwitch current="table" search={sharedAddressSearch(ADDRESS)} />,
+		);
+
+		expect(linkHref('Map')).toBe(`/gis/addresses?${CARRIED}`);
 	});
 });
 

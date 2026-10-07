@@ -1498,6 +1498,62 @@ describe('registerMapTileRoutes — outreach summary', () => {
 	});
 });
 
+// The Address Book rail's summary over 100 in view (#1378).
+describe('registerMapTileRoutes — address summary', () => {
+	it('passes the box and both address filters to the summary, and answers its counts', async () => {
+		const summary = {
+			total: 140,
+			groups: {
+				locality: [{ value: 'Monroe Township', count: 140 }],
+				postalCode: [{ value: '08831', count: 140 }],
+			},
+		};
+		const summarizeAddresses = vi.fn(async () => summary);
+		const getAddressDisplayRow = vi.fn();
+		const app = createApp({ summarizeAddresses, getAddressDisplayRow });
+
+		const response = await app.request(
+			`/map/addresses/summary?bbox=-75,40,-74,41&search=Main&regionId=${regionId}`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(summarizeAddresses).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -75, south: 40, east: -74, north: 41 },
+			filters: { search: 'Main', regionIds: [regionId] },
+		});
+		expect(getAddressDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', '?search=Main'],
+		['a page offset', '?bbox=-75,40,-74,41&offset=100'],
+		['a param no address filter admits', '?bbox=-75,40,-74,41&status=active'],
+	])('refuses %s before reading the address summary', async (_case, query) => {
+		const summarizeAddresses = vi.fn();
+		const getAddressDisplayRow = vi.fn();
+		const app = createApp({ summarizeAddresses, getAddressDisplayRow });
+
+		const response = await app.request(`/map/addresses/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeAddresses).not.toHaveBeenCalled();
+		expect(getAddressDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no address summary for a request with no session', async () => {
+		const summarizeAddresses = vi.fn();
+		const app = createApp({ authenticated: false, summarizeAddresses });
+
+		const response = await app.request('/map/addresses/summary?bbox=-75,40,-74,41');
+
+		expect(response.status).toBe(401);
+		expect(summarizeAddresses).not.toHaveBeenCalled();
+	});
+});
+
 // The four routes whose readers were called directly rather than injected, so
 // none of them could be driven without a database until the readers became one
 // object. Three answer geometry the Electric shape does not carry (ADR 0009).

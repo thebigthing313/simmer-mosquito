@@ -94,6 +94,7 @@ import { Route as GisWeatherIdRouteImport } from './routes/gis/weather/$id'
 import { Route as GisRegionsImportRouteImport } from './routes/gis/regions/import'
 import { Route as GisRegionsCreateRouteImport } from './routes/gis/regions/create'
 import { Route as GisRegionsIdRouteImport } from './routes/gis/regions/$id'
+import { Route as GisAddressesTableRouteImport } from './routes/gis/addresses/table'
 import { Route as GisAddressesCreateRouteImport } from './routes/gis/addresses/create'
 import { Route as GisAddressesCleanupRouteImport } from './routes/gis/addresses/cleanup'
 import { Route as GisAddressesIdRouteImport } from './routes/gis/addresses/$id'
@@ -624,6 +625,11 @@ const GisRegionsIdRoute = GisRegionsIdRouteImport.update({
   path: '/gis/regions/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GisAddressesTableRoute = GisAddressesTableRouteImport.update({
+  id: '/gis/addresses/table',
+  path: '/gis/addresses/table',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GisAddressesCreateRoute = GisAddressesCreateRouteImport.update({
   id: '/gis/addresses/create',
   path: '/gis/addresses/create',
@@ -1004,6 +1010,7 @@ export interface FileRoutesByFullPath {
   '/gis/addresses/$id': typeof GisAddressesIdRoute
   '/gis/addresses/cleanup': typeof GisAddressesCleanupRoute
   '/gis/addresses/create': typeof GisAddressesCreateRoute
+  '/gis/addresses/table': typeof GisAddressesTableRoute
   '/gis/regions/$id': typeof GisRegionsIdRoute
   '/gis/regions/create': typeof GisRegionsCreateRoute
   '/gis/regions/import': typeof GisRegionsImportRoute
@@ -1144,6 +1151,7 @@ export interface FileRoutesByTo {
   '/gis/addresses/$id': typeof GisAddressesIdRoute
   '/gis/addresses/cleanup': typeof GisAddressesCleanupRoute
   '/gis/addresses/create': typeof GisAddressesCreateRoute
+  '/gis/addresses/table': typeof GisAddressesTableRoute
   '/gis/regions/$id': typeof GisRegionsIdRoute
   '/gis/regions/create': typeof GisRegionsCreateRoute
   '/gis/regions/import': typeof GisRegionsImportRoute
@@ -1286,6 +1294,7 @@ export interface FileRoutesById {
   '/gis/addresses/$id': typeof GisAddressesIdRoute
   '/gis/addresses/cleanup': typeof GisAddressesCleanupRoute
   '/gis/addresses/create': typeof GisAddressesCreateRoute
+  '/gis/addresses/table': typeof GisAddressesTableRoute
   '/gis/regions/$id': typeof GisRegionsIdRoute
   '/gis/regions/create': typeof GisRegionsCreateRoute
   '/gis/regions/import': typeof GisRegionsImportRoute
@@ -1429,6 +1438,7 @@ export interface FileRouteTypes {
     | '/gis/addresses/$id'
     | '/gis/addresses/cleanup'
     | '/gis/addresses/create'
+    | '/gis/addresses/table'
     | '/gis/regions/$id'
     | '/gis/regions/create'
     | '/gis/regions/import'
@@ -1569,6 +1579,7 @@ export interface FileRouteTypes {
     | '/gis/addresses/$id'
     | '/gis/addresses/cleanup'
     | '/gis/addresses/create'
+    | '/gis/addresses/table'
     | '/gis/regions/$id'
     | '/gis/regions/create'
     | '/gis/regions/import'
@@ -1710,6 +1721,7 @@ export interface FileRouteTypes {
     | '/gis/addresses/$id'
     | '/gis/addresses/cleanup'
     | '/gis/addresses/create'
+    | '/gis/addresses/table'
     | '/gis/regions/$id'
     | '/gis/regions/create'
     | '/gis/regions/import'
@@ -1844,6 +1856,7 @@ export interface RootRouteChildren {
   GisAddressesIdRoute: typeof GisAddressesIdRoute
   GisAddressesCleanupRoute: typeof GisAddressesCleanupRoute
   GisAddressesCreateRoute: typeof GisAddressesCreateRoute
+  GisAddressesTableRoute: typeof GisAddressesTableRoute
   GisRegionsIdRoute: typeof GisRegionsIdRoute
   GisRegionsCreateRoute: typeof GisRegionsCreateRoute
   GisRegionsImportRoute: typeof GisRegionsImportRoute
@@ -2521,6 +2534,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GisRegionsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gis/addresses/table': {
+      id: '/gis/addresses/table'
+      path: '/gis/addresses/table'
+      fullPath: '/gis/addresses/table'
+      preLoaderRoute: typeof GisAddressesTableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gis/addresses/create': {
       id: '/gis/addresses/create'
       path: '/gis/addresses/create'
@@ -2997,6 +3017,7 @@ const rootRouteChildren: RootRouteChildren = {
   GisAddressesIdRoute: GisAddressesIdRoute,
   GisAddressesCleanupRoute: GisAddressesCleanupRoute,
   GisAddressesCreateRoute: GisAddressesCreateRoute,
+  GisAddressesTableRoute: GisAddressesTableRoute,
   GisRegionsIdRoute: GisRegionsIdRoute,
   GisRegionsCreateRoute: GisRegionsCreateRoute,
   GisRegionsImportRoute: GisRegionsImportRoute,
