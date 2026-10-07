@@ -147,26 +147,36 @@ function ApplicationsExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<ApplicationRow>({
-			path: PATH,
-			rowsKey: 'applications',
-			rowKey: 'application',
-			recordType: 'application',
-			params: {
-				insecticideId: filters.insecticideIds,
-				applicationMethodId: filters.applicationMethodIds,
-				applicator: filters.applicatorProfileIds,
-				regionId: filters.regionIds,
-				dateFrom: filters.dateFrom,
-				dateTo: filters.dateTo,
-			},
-			layer,
-			map,
-			selectedId,
-			normalizeRow: normalizeApplication,
-		});
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		page,
+		pageCount,
+		setPage,
+		selected,
+		empty,
+		layers,
+	} = useExplorerResource<ApplicationRow>({
+		path: PATH,
+		rowsKey: 'applications',
+		rowKey: 'application',
+		recordType: 'application',
+		params: {
+			insecticideId: filters.insecticideIds,
+			applicationMethodId: filters.applicationMethodIds,
+			applicator: filters.applicatorProfileIds,
+			regionId: filters.regionIds,
+			dateFrom: filters.dateFrom,
+			dateTo: filters.dateTo,
+		},
+		layer,
+		map,
+		selectedId,
+		normalizeRow: normalizeApplication,
+	});
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 

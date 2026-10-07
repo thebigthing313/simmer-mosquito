@@ -151,25 +151,35 @@ function BiocontrolExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<BiocontrolRow>({
-			path: PATH,
-			rowsKey: 'biocontrolActions',
-			rowKey: 'biocontrolAction',
-			recordType: 'biocontrolAction',
-			params: {
-				biocontrolMethodId: filters.biocontrolMethodIds,
-				technician: filters.technicianProfileIds,
-				regionId: filters.regionIds,
-				habitatLinked: filters.habitatLinkedOnly,
-				dateFrom: filters.dateFrom,
-				dateTo: filters.dateTo,
-			},
-			layer,
-			map,
-			selectedId,
-		});
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		page,
+		pageCount,
+		setPage,
+		selected,
+		empty,
+		layers,
+	} = useExplorerResource<BiocontrolRow>({
+		path: PATH,
+		rowsKey: 'biocontrolActions',
+		rowKey: 'biocontrolAction',
+		recordType: 'biocontrolAction',
+		params: {
+			biocontrolMethodId: filters.biocontrolMethodIds,
+			technician: filters.technicianProfileIds,
+			regionId: filters.regionIds,
+			habitatLinked: filters.habitatLinkedOnly,
+			dateFrom: filters.dateFrom,
+			dateTo: filters.dateTo,
+		},
+		layer,
+		map,
+		selectedId,
+	});
 
 	// `habitats` syncs on demand, so resolve only the referenced ids as a bounded
 	// live subset rather than reading the whole collection eagerly.

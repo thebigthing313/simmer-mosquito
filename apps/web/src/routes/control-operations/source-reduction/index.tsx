@@ -138,24 +138,34 @@ function SourceReductionExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<SourceReductionRow>({
-			path: PATH,
-			rowsKey: 'sourceReductions',
-			rowKey: 'sourceReduction',
-			recordType: 'sourceReduction',
-			params: {
-				sourceReductionMethodId: filters.sourceReductionMethodIds,
-				technician: filters.technicianProfileIds,
-				regionId: filters.regionIds,
-				dateFrom: filters.dateFrom,
-				dateTo: filters.dateTo,
-			},
-			layer,
-			map,
-			selectedId,
-		});
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		page,
+		pageCount,
+		setPage,
+		selected,
+		empty,
+		layers,
+	} = useExplorerResource<SourceReductionRow>({
+		path: PATH,
+		rowsKey: 'sourceReductions',
+		rowKey: 'sourceReduction',
+		recordType: 'sourceReduction',
+		params: {
+			sourceReductionMethodId: filters.sourceReductionMethodIds,
+			technician: filters.technicianProfileIds,
+			regionId: filters.regionIds,
+			dateFrom: filters.dateFrom,
+			dateTo: filters.dateTo,
+		},
+		layer,
+		map,
+		selectedId,
+	});
 
 	// `habitats` syncs on demand, so resolve only the referenced ids as a bounded
 	// live subset rather than reading the whole collection eagerly.

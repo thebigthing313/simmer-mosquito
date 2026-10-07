@@ -57,3 +57,38 @@ export function fitMapToCluster(map: MapboxMap, bounds: ClusterBounds): void {
 		{ padding: 48, maxZoom: MAP_CLUSTER_UNTIL_ZOOM },
 	);
 }
+
+/** What a click on a tileset's layers asks for. */
+export type TileClick =
+	| { readonly kind: 'cluster'; readonly bounds: ClusterBounds }
+	| { readonly kind: 'select'; readonly id: string | null };
+
+/**
+ * What a click on the feature under the pointer means.
+ *
+ * The selection overlay only ever draws the selected record, so a click on it
+ * selects that record, even where a cluster holding it lies underneath. A
+ * cluster is no record: it zooms in to the records under it and leaves the
+ * selection where it was. Anything else selects the feature's record, and a
+ * click on empty map selects nothing.
+ */
+export function resolveTileClick(
+	feature:
+		| {
+				readonly id?: string | number | undefined;
+				readonly layer?: { readonly id: string } | null | undefined;
+				readonly properties?: Readonly<Record<string, unknown>> | null | undefined;
+		  }
+		| undefined,
+	overlayLayerId: string,
+	selectedId: string | null,
+): TileClick {
+	if (feature?.layer?.id === overlayLayerId) {
+		return { kind: 'select', id: selectedId };
+	}
+	const bounds = clusterBounds(feature?.properties);
+	if (bounds !== null) {
+		return { kind: 'cluster', bounds };
+	}
+	return { kind: 'select', id: feature?.id === undefined ? null : String(feature.id) };
+}

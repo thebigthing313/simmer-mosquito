@@ -171,8 +171,7 @@ function InspectionsExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, selected, empty, summary } =
+	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
 		useExplorerResource<InspectionRow>({
 			path: PATH,
 			rowsKey: 'inspections',
