@@ -119,14 +119,14 @@ describe('the selection overlay on a clustered tileset', () => {
 	it('draws no overlay over a tileset whose tiles are not clustered', () => {
 		const fake = createFakeMap();
 		mount(fake, {
-			kind: 'habitats',
+			kind: 'regions',
 			serverUrl: SERVER,
 			selectedId: TRAP_ID,
 			selectedRecord: { id: TRAP_ID, geojson: point },
 		});
 
-		expect(fake.sources.has('habitats-selection')).toBe(false);
-		expect(fake.layers.get('habitats-selected-point')?.minzoom ?? 0).toBe(0);
+		expect(fake.sources.has('regions-selection')).toBe(false);
+		expect(fake.layers.get('regions-selected-fill')?.minzoom ?? 0).toBe(0);
 	});
 
 	// Switching clustering off is a new tile URL and plain tiles, so the tile's
