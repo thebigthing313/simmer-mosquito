@@ -233,8 +233,11 @@ describe('ExplorerMapPage', () => {
 		expect(screen.getByText('in-view summary')).toBeTruthy();
 		expect(screen.queryByText('Culvert 12')).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Skip to paging' })).toBeNull();
-		// No pager, so the header states the count.
-		expect(screen.getByText('2 habitats')).toBeTruthy();
+		// No pager, so a footer under the summary states the count.
+		expect(
+			screen.getByText('in-view summary').compareDocumentPosition(screen.getByText('2 habitats')) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
 	});
 
 	it('draws the rows again once the summary is taken away', () => {
@@ -393,14 +396,20 @@ describe('ExplorerMapPage', () => {
 		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
 	});
 
-	// The pager states the count, so the header would be saying it twice. Without
-	// a pager the header is the only place left.
-	it('states the count in the header only when there is no pager under it', () => {
+	// The pager states the count, so a second one would be saying it twice.
+	// Without a pager the frame draws the count in a footer of its own, under the
+	// rows, and never in the header row, where it crowded the title (#1244).
+	it('states the count under the rows, and only when there is no pager to state it', () => {
 		const { rerender } = render(<Page />);
 		expect(screen.queryByText('2 habitats')).toBeNull();
 
 		rerender(<Page hasPager={false} />);
-		expect(screen.getByText('2 habitats')).toBeTruthy();
+		const count = screen.getByText('2 habitats');
+		expect(
+			screen.getByText('Culvert 12').compareDocumentPosition(count) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+		expect(count.closest('[data-slot="scroll-area-viewport"]')).toBeNull();
 	});
 
 	it('shows neither rows nor a reason while the first page is still loading', () => {

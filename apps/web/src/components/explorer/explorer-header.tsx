@@ -78,7 +78,6 @@ export function ExplorerHeader({
 	onResetFilters,
 	children,
 	surface = 'page',
-	showTotal = false,
 }: {
 	/**
 	 * Controls that belong to this surface rather than to its records, drawn at
@@ -128,17 +127,10 @@ export function ExplorerHeader({
 	 * What the header sits on. `page` is the opaque bar a scrolling page needs.
 	 * `chrome` paints nothing, for the map frame's panel, which already carries
 	 * the translucent surface the map's own controls wear. It also drops the
-	 * count from this row: that panel ends in a footer stating the same number
-	 * beside the page, and the pill it collapses into carries it too. A panel with
-	 * no footer passes `showTotal` and gets it back.
+	 * count from this row: that panel ends in a footer stating the number, and
+	 * the pill it collapses into carries it too.
 	 */
 	readonly surface?: 'page' | 'chrome';
-	/**
-	 * Draw the count in this row even on `chrome`. The map frame passes it for a
-	 * panel with no pager under it, which is otherwise a panel that never says how
-	 * many records it is holding.
-	 */
-	readonly showTotal?: boolean;
 }) {
 	const isChrome = surface === 'chrome';
 
@@ -162,13 +154,7 @@ export function ExplorerHeader({
 			<div className="flex min-w-0 items-center justify-between gap-3">
 				<HeaderTitle icon={Icon} isChrome={isChrome} title={title} />
 				<div className={cn('flex shrink-0 items-center', isChrome ? 'gap-0.5' : 'gap-2.5')}>
-					<HeaderCount
-						isChrome={isChrome}
-						isLoading={isLoading}
-						counts={counts}
-						showTotal={showTotal}
-						total={total}
-					/>
+					<HeaderCount isChrome={isChrome} isLoading={isLoading} counts={counts} total={total} />
 					{actions}
 					<CreateButton create={create} isChrome={isChrome} />
 					<FilterToggleButton toggle={filterToggle} />
@@ -192,23 +178,20 @@ export function ExplorerHeader({
  * How many records matched.
  *
  * A `chrome` panel ends in a footer stating the same number, and the pill it
- * collapses into carries it too, so the row leaves it out unless the panel has
- * no pager under it and asks for it back.
+ * collapses into carries it too, so the row leaves it out.
  */
 function HeaderCount({
 	isChrome,
 	counts,
 	isLoading,
-	showTotal,
 	total,
 }: {
 	readonly counts: RecordType | CountNoun | undefined;
 	readonly isChrome: boolean;
 	readonly isLoading: boolean;
-	readonly showTotal: boolean;
 	readonly total: number;
 }) {
-	if (isChrome && !showTotal) {
+	if (isChrome) {
 		return null;
 	}
 	return <ResultMeta isLoading={isLoading} noun={countNoun(counts)} total={total} />;
