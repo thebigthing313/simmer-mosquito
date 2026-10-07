@@ -111,6 +111,25 @@ the Traps Table draw the same card. The Active and Inactive labels are
 `TRAP_STATUS_LABELS` in `legend.ts`, read by the control, the chip, the map
 key, the Table and the summary.
 
+#### collectionSummaryGroupings
+
+The Collections summary, built the way `trapSummaryGroupings` builds the Traps
+one (#1373). Problem reported sets `problems`, Awaiting identification sets
+`awaiting`, and a collection method is added to `methods`, drawn top 5 and "n
+more". Each flag draws only its flagged side, since no filter selects the
+opposite, and a flag no collection in view carries is not drawn at all.
+
+Zero result and Collected are figures rather than groups, drawn as text under
+Status, because the Collections filters have no status control for them to
+write. The server counts them off the same status expression the row's dot
+and the map read, so a figure cannot call a collection something its row does
+not. Problem reported is the flag and not the status of that name: a trap
+still out with a problem on it is flagged, and reads Trap out.
+
+The filter card, its chips and the pieces a row draws (`collection-row-parts.ts`)
+moved out of the route so the Collections Table could share them. The chips
+are the route's as they were, so a moved date window still draws no chip.
+
 #### trap-directory-data
 
 Undated collections sort ahead of the years because work that is not finished

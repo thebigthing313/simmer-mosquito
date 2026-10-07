@@ -106,6 +106,7 @@ const defaultMapReaders = {
 	getCollectionTile: MAP_SURFACES.collections.getTile,
 	getCollectionExtent: MAP_SURFACES.collections.getExtent,
 	listCollectionDisplayRows: MAP_SURFACES.collections.listByBounds,
+	summarizeCollections: MAP_SURFACES.collections.summarizeByBounds,
 	getCollectionDisplayRow: MAP_SURFACES.collections.getById,
 
 	getApplicationTile: MAP_SURFACES.chemical.getTile,
@@ -536,6 +537,14 @@ export function registerMapTileRoutes(
 		parseQuery: (searchParams, organizationId, timeZone) =>
 			parseBboxPageQuery(searchParams, organizationId, timeZone, parseCollectionMapFilters),
 		list: readers.listCollectionDisplayRows,
+	});
+
+	// What the Collections rail draws in place of the page over 100 in view
+	// (#1373). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/collections/summary',
+		parseFilters: parseCollectionMapFilters,
+		summarize: readers.summarizeCollections,
 	});
 
 	registerByIdRoute(app, options, {

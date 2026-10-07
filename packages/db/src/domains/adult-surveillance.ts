@@ -699,6 +699,11 @@ export const collectionStatusValues: readonly CollectionStatus[] = [
 
 const collectionStatusExpression = sql.raw(collectionStatusSql('c'));
 
+/** One for a collection in this status and zero otherwise, for a summary figure to add up. */
+function collectionStatusCount(status: CollectionStatus): RawBuilder<number> {
+	return sql<number>`case when (${collectionStatusExpression}) = ${status} then 1 else 0 end`;
+}
+
 // The one join the display reader takes: the address label a collection with no
 // trap names itself by.
 const collectionDisplayJoins = sql`
@@ -771,6 +776,20 @@ export function collectionSurface(
 			geom: sql`c.geom`,
 			properties: [sql`c.id`, sql`(${collectionStatusExpression}) as "status"`],
 			filterWhere: (filters) => collectionFilterWhere(filters, effectiveDate),
+			// What the Collections rail counts by over 100 in view (#1373), each one
+			// a filter the rail already has, so a group is a button that applies it.
+			// Awaiting is the filter's own fragment over the same effective date.
+			groupings: () => ({
+				problem: sql`c.has_problem`,
+				awaiting: collectionAwaitingCondition(effectiveDate),
+				collectionMethodId: sql`c.collection_method_id`,
+			}),
+			// Counted off the status the rail's badge and the map's dot read, so a
+			// figure cannot call a collection something the row does not.
+			figures: () => ({
+				zeroResult: collectionStatusCount('zero_result'),
+				collected: collectionStatusCount('collected'),
+			}),
 			display: {
 				columns: collectionDisplayColumns,
 				joins: collectionDisplayJoins,

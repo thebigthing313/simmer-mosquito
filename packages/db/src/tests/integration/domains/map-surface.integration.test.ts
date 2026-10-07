@@ -2,7 +2,7 @@ import { VectorTile, type VectorTileFeature } from '@mapbox/vector-tile';
 import { type Kysely, sql } from 'kysely';
 import { PbfReader } from 'pbf';
 import { expect, it } from 'vitest';
-import type { TrapMapFilters } from '../../../domains/adult-surveillance.js';
+import type { CollectionMapFilters, TrapMapFilters } from '../../../domains/adult-surveillance.js';
 import { getRequestedControlActionDisplayRowById } from '../../../domains/control-operations-map.js';
 import type { HabitatMvtTileFilters } from '../../../domains/habitats.js';
 import {
@@ -1288,10 +1288,11 @@ async function summaryAndPage<TFilters>(
 	db: Kysely<SimmerDatabase>,
 	surface: Pick<MapRecordSurfaceReaders<TFilters, unknown>, 'summarizeByBounds' | 'listByBounds'>,
 	filters: TFilters,
+	timeZone = mapSurfaceTimeZone,
 ) {
 	const input = {
 		organizationId: mapSurfaceOrganizationIds.own,
-		timeZone: mapSurfaceTimeZone,
+		timeZone,
 		bounds: mapSurfacePlace.bounds,
 		filters,
 	};
@@ -1682,5 +1683,151 @@ async function seedTrapVariety(
 			{ ...base, collection_method_id: lightMethodId, is_active: false },
 		])
 		.execute();
+	return { seededMethodId, lightMethodId };
+}
+
+// Over 100 collections in view the Collections rail draws the same summary
+// (#1373). The seeded world's one live collection in the box, dated by a plain
+// `collection_date`, is joined by the six status cases and the late one, so the
+// box holds both timing modes. A collection's day is `collected_at` in the
+// Organization's zone or `collection_date`, whichever its mode fills, and the
+// summary reads the page's own predicate, so one day is asked for in two zones
+// and the late collection moves out of it in the summary and the page at once.
+describeDbIntegration('collection summary against Postgres', () => {
+	it('counts the collections the page counts, by problem, awaiting and method', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			await seedStatusCollections(db);
+			await seedLateCollection(db);
+			const { seededMethodId, lightMethodId } = await moveCollectionsToSecondMethod(db);
+			const read = (filters: CollectionMapFilters, timeZone = mapSurfaceTimeZone) =>
+				summaryAndPage(db, MAP_SURFACES.collections, filters, timeZone);
+
+			// Eight in the box: the seeded one, the six status cases and the late one.
+			const all = await read({});
+			expect(all.pageTotal).toBe(8);
+			expect(all.summary).toEqual({
+				total: 8,
+				groups: {
+					problem: [
+						{ value: false, count: 6 },
+						{ value: true, count: 2 },
+					],
+					awaiting: [
+						{ value: true, count: 5 },
+						{ value: false, count: 3 },
+					],
+					collectionMethodId: [
+						{ value: seededMethodId, count: 6 },
+						{ value: lightMethodId, count: 2 },
+					],
+				},
+				figures: { zeroResult: 1, collected: 4 },
+			});
+
+			// Each group's count is the total of the page its button narrows to.
+			const narrowed: readonly (readonly [string, string | boolean, CollectionMapFilters])[] = [
+				['problem', true, { problemOnly: true }],
+				['awaiting', true, { awaitingOnly: true }],
+				['collectionMethodId', seededMethodId, { collectionMethodIds: [seededMethodId] }],
+				['collectionMethodId', lightMethodId, { collectionMethodIds: [lightMethodId] }],
+			];
+			const answers = await Promise.all(narrowed.map(([, , filters]) => read(filters)));
+			narrowed.forEach(([grouping, value], index) => {
+				const answer = answers[index];
+				expect(answer?.summary.total).toBe(answer?.pageTotal);
+				expect(all.summary.groups[grouping]?.find((group) => group.value === value)?.count).toBe(
+					answer?.pageTotal,
+				);
+			});
+
+			// One day, asked for in two zones. The late collection was emptied at
+			// 02:30Z on the 16th, which is the 15th in New York and the 16th in
+			// UTC, and the `collection_date` rows are the 15th in both. A trap still
+			// out has no day at all, so the window drops both pending cases.
+			const day = { dateFrom: '2026-03-15', dateTo: '2026-03-15' };
+			const newYork = await read(day);
+			const utc = await read(day, 'UTC');
+			expect(newYork.pageTotal).toBe(6);
+			expect(newYork.summary).toEqual({
+				total: 6,
+				groups: {
+					problem: [
+						{ value: false, count: 5 },
+						{ value: true, count: 1 },
+					],
+					awaiting: [
+						{ value: true, count: 5 },
+						{ value: false, count: 1 },
+					],
+					collectionMethodId: [
+						{ value: seededMethodId, count: 4 },
+						{ value: lightMethodId, count: 2 },
+					],
+				},
+				figures: { zeroResult: 1, collected: 4 },
+			});
+			expect(utc.pageTotal).toBe(5);
+			expect(utc.summary).toEqual({
+				total: 5,
+				groups: {
+					problem: [
+						{ value: false, count: 4 },
+						{ value: true, count: 1 },
+					],
+					awaiting: [
+						{ value: true, count: 4 },
+						{ value: false, count: 1 },
+					],
+					collectionMethodId: [
+						{ value: seededMethodId, count: 4 },
+						{ value: lightMethodId, count: 1 },
+					],
+				},
+				figures: { zeroResult: 1, collected: 3 },
+			});
+
+			// Outside the window nothing is counted and nothing is added up.
+			expect((await read({ dateFrom: '2026-03-17' })).summary).toEqual({
+				total: 0,
+				groups: { problem: [], awaiting: [], collectionMethodId: [] },
+				figures: { zeroResult: 0, collected: 0 },
+			});
+		});
+	});
+});
+
+/**
+ * Moves the problem case and the late collection onto a second method, and
+ * pins every `collection_date` to the 15th.
+ */
+async function moveCollectionsToSecondMethod(
+	db: Kysely<SimmerDatabase>,
+): Promise<{ readonly seededMethodId: string; readonly lightMethodId: string }> {
+	const inside = await db
+		.selectFrom('collections')
+		.select(['collection_method_id'])
+		.where('id', '=', mapSurfaceRowIds.collection.inside)
+		.executeTakeFirstOrThrow();
+	const seededMethodId = String(inside.collection_method_id);
+	const light = await db
+		.insertInto('collection_methods')
+		.values({ organization_id: mapSurfaceOrganizationIds.own, name: 'CDC light trap' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const lightMethodId = String(light.id);
+	await db
+		.updateTable('collections')
+		.set({ collection_method_id: lightMethodId })
+		.where('id', 'in', [mapSurfaceStatusCollectionIds.problem, mapSurfaceLateCollectionId])
+		.execute();
+	// The seed writes `collection_date` from a `Date`, which the driver sends in
+	// the machine's own zone, so west of UTC the column holds the 14th. Written
+	// as text it is the 15th wherever the suite runs.
+	await sql`
+		update collections
+		set collection_date = '2026-03-15'
+		where collection_timing_mode = 'collection_date_duration'
+	`.execute(db);
 	return { seededMethodId, lightMethodId };
 }
