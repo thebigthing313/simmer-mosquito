@@ -8,19 +8,19 @@ import {
 } from '../../../lib/search-filters';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
 import type { HabitatTileFilters } from '../../map';
-import type { AccessFilter, StatusFilter } from './legend';
+import type { AccessFilter, HabitatStatusFilter } from './legend';
 
 // The habitats URL filter contract, outside the route modules so the Map and
 // the Table read the same params. Every codec drops what it cannot read, so a
 // malformed URL degrades to the defaults.
 
-const STATUS_VALUES: readonly StatusFilter[] = ['all', 'active', 'inactive'];
+const STATUS_VALUES: readonly HabitatStatusFilter[] = ['all', 'active', 'inactive'];
 const ACCESS_VALUES: readonly AccessFilter[] = ['all', 'accessible', 'inaccessible'];
 
 /** The filter state, keyed by the param each field appears under. */
 export interface HabitatFilters {
 	readonly search: string;
-	readonly status: StatusFilter;
+	readonly status: HabitatStatusFilter;
 	readonly access: AccessFilter;
 	readonly typeIds: ReadonlySet<string>;
 	readonly tagIds: ReadonlySet<string>;

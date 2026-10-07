@@ -1,6 +1,6 @@
 import { clusterLegendEntries, HABITAT_STATUS_COLORS, type MapLegendEntry } from '../../map';
 /** What the Status filter can be set to. Mirrors the segmented control's options. */
-export type StatusFilter = 'all' | 'active' | 'inactive';
+export type HabitatStatusFilter = 'all' | 'active' | 'inactive';
 /** What the Access filter can be set to. */
 export type AccessFilter = 'all' | 'accessible' | 'inaccessible';
 
@@ -11,7 +11,7 @@ export type AccessFilter = 'all' | 'accessible' | 'inaccessible';
  * when the map is clustering.
  */
 export function habitatLegend(
-	status: StatusFilter,
+	status: HabitatStatusFilter,
 	access: AccessFilter,
 	clustered: boolean,
 ): readonly MapLegendEntry[] {

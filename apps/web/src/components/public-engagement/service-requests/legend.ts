@@ -4,10 +4,10 @@ import {
 	SERVICE_REQUEST_STATUS_COLORS,
 } from '../../map';
 /** What the Status filter can be set to. Mirrors the segmented control's options. */
-export type StatusFilter = 'all' | 'open' | 'closed';
+export type ServiceRequestStatusFilter = 'all' | 'open' | 'closed';
 
 /** A request's status: open until it is closed. */
-type ServiceRequestStatus = Exclude<StatusFilter, 'all'>;
+type ServiceRequestStatus = Exclude<ServiceRequestStatusFilter, 'all'>;
 
 /** The two statuses in the order the Status filter, the chip and the summary list them. */
 export const SERVICE_REQUEST_STATUS_ORDER: readonly ServiceRequestStatus[] = ['open', 'closed'];
@@ -23,7 +23,7 @@ export function serviceRequestStatusLabel(status: ServiceRequestStatus): string 
  * follows when the map is clustering.
  */
 export function serviceRequestLegend(
-	status: StatusFilter,
+	status: ServiceRequestStatusFilter,
 	clustered: boolean,
 ): readonly MapLegendEntry[] {
 	const entries: MapLegendEntry[] = [];

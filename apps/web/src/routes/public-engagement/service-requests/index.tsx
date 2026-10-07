@@ -13,8 +13,6 @@ import {
 	whenText,
 } from '../../../components/explorer';
 import {
-	MAP_CREATE_TARGETS,
-	MapCanvas,
 	type MapTileLayer,
 	SERVICE_REQUEST_STATUS_COLORS,
 	type ServiceRequestTileFilters,
@@ -27,14 +25,14 @@ import {
 	serviceRequestTitle,
 } from '../../../components/public-engagement/public-engagement-display';
 import { ServiceRequestMapCard } from '../../../components/public-engagement/service-request-map-card';
-import type { StatusFilter } from '../../../components/public-engagement/service-requests/legend';
-import { serviceRequestLegend } from '../../../components/public-engagement/service-requests/legend';
+import type { ServiceRequestStatusFilter } from '../../../components/public-engagement/service-requests/legend';
 import {
 	type ServiceRequestFilterChipProps,
 	ServiceRequestFilterFields,
 } from '../../../components/public-engagement/service-requests/service-request-filters';
 import { ServiceRequestSummaryPanel } from '../../../components/public-engagement/service-requests/service-request-summary-panel';
 import { ServiceRequestSurfaceSwitch } from '../../../components/public-engagement/service-requests/service-request-surface-switch';
+import { ServiceRequestsMapCanvas } from '../../../components/public-engagement/service-requests/service-requests-map-canvas';
 import {
 	type ServiceRequestFilters,
 	type ServiceRequestRailOrder,
@@ -49,7 +47,6 @@ import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
-import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { useServiceRequestFilterDefaults } from '../../../hooks/public-engagement/use-service-request-filter-defaults';
 import type { Address } from '../../../hooks/queries/address-view';
 import type { ContactSummary } from '../../../hooks/queries/contact-view';
@@ -123,7 +120,7 @@ function ServiceRequestsExplorerRoute() {
 	const status = query.status;
 	const selectedTagIds = query.tags;
 	const selectedRegionIds = query.regions;
-	const setStatus = (next: StatusFilter) => setFilters({ status: next });
+	const setStatus = (next: ServiceRequestStatusFilter) => setFilters({ status: next });
 	const setSelectedTagIds = (next: ReadonlySet<string>) => setFilters({ tags: next });
 	const setSelectedRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const commitSearch = (next: string) => setFilters({ search: next });
@@ -157,8 +154,6 @@ function ServiceRequestsExplorerRoute() {
 	// whole Organization's requests out of the sync collection and draw them as a
 	// GeoJSON overlay, 1,180 rows in the prod clone over three years (#963).
 	const filters = requestTileFilters(query);
-	const [clustered] = useMapClustering();
-	const legend = serviceRequestLegend(status, clustered);
 	const layer: MapTileLayer = {
 		kind: 'service-requests',
 		serverUrl: getServerUrl(),
@@ -229,18 +224,12 @@ function ServiceRequestsExplorerRoute() {
 			onResetFilters={clearAll}
 			map={
 				<>
-					<MapCanvas
-						contextMenu={{
-							create: [MAP_CREATE_TARGETS.serviceRequest, MAP_CREATE_TARGETS.outreach],
-						}}
-						controls={{ measure: true, readout: true }}
-						fitToData
-						rememberCamera
+					<ServiceRequestsMapCanvas
 						inset={panel.inset}
 						layers={layers}
-						legend={legend}
 						onMapReady={setMap}
 						searchWidth={panel.width}
+						status={status}
 					/>
 					{selected === null ? null : (
 						<ServiceRequestMapCard

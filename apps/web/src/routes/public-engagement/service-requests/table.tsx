@@ -31,7 +31,7 @@ import {
 	serviceRequestTitle,
 } from '../../../components/public-engagement/public-engagement-display';
 import { RequestStatusBadge } from '../../../components/public-engagement/public-engagement-ui';
-import type { StatusFilter } from '../../../components/public-engagement/service-requests/legend';
+import type { ServiceRequestStatusFilter } from '../../../components/public-engagement/service-requests/legend';
 import { ServiceRequestSurfaceSwitch } from '../../../components/public-engagement/service-requests/service-request-surface-switch';
 import {
 	type ServiceRequestFilters,
@@ -102,7 +102,10 @@ export const Route = createFileRoute('/public-engagement/service-requests/table'
 
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 
-const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: string }[] = [
+const STATUS_OPTIONS: readonly {
+	readonly value: ServiceRequestStatusFilter;
+	readonly label: string;
+}[] = [
 	{ value: 'all', label: 'All' },
 	{ value: 'open', label: 'Open' },
 	{ value: 'closed', label: 'Closed' },
@@ -235,7 +238,7 @@ function RequestsFilterBar({
 				<DateRangeFilter {...dateRange} />
 				<SegmentedFilter
 					label="Status"
-					onChange={(status: StatusFilter) => setFilters({ status })}
+					onChange={(status: ServiceRequestStatusFilter) => setFilters({ status })}
 					options={STATUS_OPTIONS}
 					value={filters.status}
 				/>

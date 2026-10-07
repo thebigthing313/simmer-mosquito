@@ -6,17 +6,17 @@ import {
 	idSetParam,
 	textParam,
 } from '../../../lib/search-filters';
-import type { StatusFilter } from './legend';
+import type { ServiceRequestStatusFilter } from './legend';
 
 // The service requests explorer's URL filter contract, outside the route module
 // so the Table can read the same params. Every codec drops what it cannot read,
 // so a malformed URL degrades to the explorer's defaults.
 
-const STATUS_VALUES: readonly StatusFilter[] = ['all', 'open', 'closed'];
+const STATUS_VALUES: readonly ServiceRequestStatusFilter[] = ['all', 'open', 'closed'];
 
 /** The explorer's filter state, keyed by the param each field appears under. */
 export interface ServiceRequestFilters {
-	readonly status: StatusFilter;
+	readonly status: ServiceRequestStatusFilter;
 	readonly search: string;
 	readonly tags: ReadonlySet<string>;
 	readonly regions: ReadonlySet<string>;

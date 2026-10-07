@@ -40,11 +40,14 @@ import {
 import { TagBadge } from '../../tag-badge';
 import {
 	SERVICE_REQUEST_STATUS_ORDER,
-	type StatusFilter,
+	type ServiceRequestStatusFilter,
 	serviceRequestStatusLabel,
 } from './legend';
 
-const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: string }[] = [
+const STATUS_OPTIONS: readonly {
+	readonly value: ServiceRequestStatusFilter;
+	readonly label: string;
+}[] = [
 	{ value: 'all', label: 'All' },
 	...SERVICE_REQUEST_STATUS_ORDER.map((value) => ({
 		value,
@@ -64,8 +67,8 @@ export interface ServiceRequestFilterChipProps {
 	readonly setSearch: (next: string) => void;
 	readonly setSelectedRegionIds: (next: ReadonlySet<string>) => void;
 	readonly setSelectedTagIds: (next: ReadonlySet<string>) => void;
-	readonly setStatus: (next: StatusFilter) => void;
-	readonly status: StatusFilter;
+	readonly setStatus: (next: ServiceRequestStatusFilter) => void;
+	readonly status: ServiceRequestStatusFilter;
 }
 
 /** The filter card's contents: the five controls and the chips that undo them. */
@@ -179,7 +182,7 @@ function StatusChip({
 	status,
 }: {
 	readonly onReset: () => void;
-	readonly status: StatusFilter;
+	readonly status: ServiceRequestStatusFilter;
 }) {
 	if (status === 'all') {
 		return null;
