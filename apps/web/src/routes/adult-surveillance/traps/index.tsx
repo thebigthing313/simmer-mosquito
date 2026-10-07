@@ -5,7 +5,11 @@ import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { TrapMapCard } from '../../../components/adult-surveillance/trap-map-card';
 import { trapLegend } from '../../../components/adult-surveillance/traps/legend';
-import { TrapFilterFields } from '../../../components/adult-surveillance/traps/trap-filters';
+import {
+	TrapFilterChips,
+	TrapFilterFields,
+} from '../../../components/adult-surveillance/traps/trap-filters';
+import { trapSummaryGroupings } from '../../../components/adult-surveillance/traps/trap-summary';
 import { TrapSurfaceSwitch } from '../../../components/adult-surveillance/traps/trap-surface-switch';
 import {
 	sharedTrapSearch,
@@ -15,7 +19,7 @@ import {
 } from '../../../components/adult-surveillance/traps/traps-search';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
-import { ExplorerPagination } from '../../../components/explorer-pagination';
+import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import {
 	MAP_CREATE_TARGETS,
 	MapCanvas,
@@ -28,7 +32,7 @@ import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
-import { type RecordType, recordNoun } from '../../../lib/record-nouns';
+import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
 interface TrapRow {
@@ -49,7 +53,6 @@ export const Route = createFileRoute('/adult-surveillance/traps/')({
 	validateSearch: searchValidator(trapFilterCodecs),
 });
 
-const RECORD_TYPE: RecordType = 'trap';
 const PATH = '/map/traps';
 const TrapEntityIcon = iconRegistry.entities.trap.icon;
 
@@ -57,7 +60,7 @@ function TrapsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a trap
 	// both land on the list the operator had narrowed to.
 	const binding = useTrapFilterState();
-	const { filters: query, activeCount: activeFilterCount, clearAll } = binding;
+	const { filters: query, activeCount: activeFilterCount, clearAll, setFilters } = binding;
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -79,28 +82,18 @@ function TrapsExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const {
-		rows,
-		total,
-		isLoading,
-		isError,
-		retry,
-		page,
-		pageCount,
-		setPage,
-		selected,
-		empty,
-		layers,
-	} = useExplorerResource<TrapRow>({
-		path: PATH,
-		rowsKey: 'traps',
-		rowKey: 'trap',
-		recordType: 'trap',
-		params: trapListParams(filters),
-		layer,
-		map,
-		selectedId,
-	});
+	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
+		useExplorerResource<TrapRow>({
+			path: PATH,
+			rowsKey: 'traps',
+			rowKey: 'trap',
+			recordType: 'trap',
+			params: trapListParams(filters),
+			layer,
+			map,
+			selectedId,
+			summarize: true,
+		});
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 
@@ -109,15 +102,6 @@ function TrapsExplorerRoute() {
 			actions={<TrapSurfaceSwitch compact current="map" search={carried} />}
 			activeFilterCount={activeFilterCount}
 			filters={<TrapFilterFields binding={binding} />}
-			footer={
-				<ExplorerPagination
-					noun={recordNoun(RECORD_TYPE)}
-					onPageChange={setPage}
-					page={page}
-					pageCount={pageCount}
-					total={total}
-				/>
-			}
 			heading={{
 				title: recordNoun('trap').titleMany,
 				icon: TrapEntityIcon,
@@ -154,6 +138,25 @@ function TrapsExplorerRoute() {
 				isError,
 				onRetry: retry,
 				empty,
+				// Over 100 in view the rows would not fit on one page, so the panel
+				// says what is in view instead (#1244).
+				summary: summary.isShown ? (
+					<ExplorerSummary
+						chips={activeFilterCount === 0 ? null : <TrapFilterChips binding={binding} />}
+						groupings={
+							summary.data === null
+								? []
+								: trapSummaryGroupings({
+										summary: summary.data,
+										filters: query,
+										setFilters,
+										methodNameById,
+									})
+						}
+						recordType="trap"
+						state={summary}
+					/>
+				) : undefined,
 				renderRow: (trap) => (
 					<TrapListItem
 						isSelected={trap.id === selectedId}

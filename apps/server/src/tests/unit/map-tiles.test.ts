@@ -1084,6 +1084,70 @@ describe('registerMapTileRoutes — service request summary', () => {
 	});
 });
 
+// The Traps rail's summary over 100 in view (#1372).
+describe('registerMapTileRoutes — trap summary', () => {
+	const methodId = '5d1e8b37-2c4f-4a96-8e01-9b6f3c7a2d58';
+
+	it('passes the box and every trap filter to the summary, and answers its counts', async () => {
+		const summary = {
+			total: 180,
+			groups: {
+				collectionMethodId: [{ value: methodId, count: 180 }],
+				isActive: [{ value: false, count: 180 }],
+			},
+		};
+		const summarizeTraps = vi.fn(async () => summary);
+		const getTrapDisplayRow = vi.fn();
+		const app = createApp({ summarizeTraps, getTrapDisplayRow });
+
+		const response = await app.request(
+			`/map/traps/summary?bbox=-91,35,-90,36&status=inactive&collectionMethodId=${methodId}&search=gravid&regionId=${regionId}`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(summarizeTraps).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				isActive: false,
+				collectionMethodIds: [methodId],
+				search: 'gravid',
+				regionIds: [regionId],
+			},
+		});
+		expect(getTrapDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', '?status=active'],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a status that is not active or inactive', '?bbox=-91,35,-90,36&status=maybe'],
+		['a param no trap filter admits', '?bbox=-91,35,-90,36&isWet=true'],
+	])('refuses %s before reading the trap summary', async (_case, query) => {
+		const summarizeTraps = vi.fn();
+		const getTrapDisplayRow = vi.fn();
+		const app = createApp({ summarizeTraps, getTrapDisplayRow });
+
+		const response = await app.request(`/map/traps/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeTraps).not.toHaveBeenCalled();
+		expect(getTrapDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no trap summary for a request with no session', async () => {
+		const summarizeTraps = vi.fn();
+		const app = createApp({ authenticated: false, summarizeTraps });
+
+		const response = await app.request('/map/traps/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeTraps).not.toHaveBeenCalled();
+	});
+});
+
 // The four routes whose readers were called directly rather than injected, so
 // none of them could be driven without a database until the readers became one
 // object. Three answer geometry the Electric shape does not carry (ADR 0009).

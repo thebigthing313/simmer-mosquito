@@ -100,6 +100,7 @@ const defaultMapReaders = {
 	getTrapTile: MAP_SURFACES.traps.getTile,
 	getTrapExtent: MAP_SURFACES.traps.getExtent,
 	listTrapDisplayRows: MAP_SURFACES.traps.listByBounds,
+	summarizeTraps: MAP_SURFACES.traps.summarizeByBounds,
 	getTrapDisplayRow: MAP_SURFACES.traps.getById,
 
 	getCollectionTile: MAP_SURFACES.collections.getTile,
@@ -512,6 +513,14 @@ export function registerMapTileRoutes(
 		parseQuery: (searchParams, organizationId, timeZone) =>
 			parseBboxPageQuery(searchParams, organizationId, timeZone, parseTrapMapFilters),
 		list: readers.listTrapDisplayRows,
+	});
+
+	// What the Traps rail draws in place of the page over 100 in view (#1372).
+	// Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/traps/summary',
+		parseFilters: parseTrapMapFilters,
+		summarize: readers.summarizeTraps,
 	});
 
 	registerByIdRoute(app, options, {
