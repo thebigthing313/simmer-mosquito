@@ -30,6 +30,8 @@ import { CollectionSurfaceSwitch } from '../../components/adult-surveillance/col
 import { sharedCollectionSearch } from '../../components/adult-surveillance/collections/collections-search';
 import { TrapSurfaceSwitch } from '../../components/adult-surveillance/traps/trap-surface-switch';
 import { sharedTrapSearch } from '../../components/adult-surveillance/traps/traps-search';
+import { ApplicationSurfaceSwitch } from '../../components/control-operations/chemical/application-surface-switch';
+import { sharedApplicationSearch } from '../../components/control-operations/chemical/applications-search';
 import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
 import { DashboardPage } from '../../components/dashboard/dashboard-page';
 import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
@@ -550,6 +552,42 @@ describe('the Collections Map/Table switch', () => {
 		);
 
 		expect(linkHref('Map')).toBe(`/adult-surveillance/collections?${CARRIED}`);
+	});
+});
+
+/**
+ * The Chemical Applications Map/Table switch. Both surfaces read
+ * `/map/chemical`, so every filter is carried, the date window included.
+ */
+describe('the Chemical Applications Map/Table switch', () => {
+	const ADDRESS = {
+		from: '2026-09-01',
+		to: '2026-09-28',
+		insecticides: ['insecticide-1'],
+		people: ['person-1'],
+		methods: ['method-1'],
+		regions: ['region-1'],
+	};
+	const CARRIED =
+		'from=2026-09-01&to=2026-09-28&insecticides=%5B%22insecticide-1%22%5D&people=%5B%22person-1%22%5D&methods=%5B%22method-1%22%5D&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<ApplicationSurfaceSwitch
+				current="map"
+				search={sharedApplicationSearch({ ...ADDRESS, page: 3 })}
+			/>,
+		);
+
+		expect(linkHref('Table')).toBe(`/control-operations/chemical/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(
+			<ApplicationSurfaceSwitch current="table" search={sharedApplicationSearch(ADDRESS)} />,
+		);
+
+		expect(linkHref('Map')).toBe(`/control-operations/chemical?${CARRIED}`);
 	});
 });
 

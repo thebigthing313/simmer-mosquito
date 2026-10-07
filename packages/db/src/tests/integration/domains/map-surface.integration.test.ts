@@ -3,7 +3,10 @@ import { type Kysely, sql } from 'kysely';
 import { PbfReader } from 'pbf';
 import { expect, it } from 'vitest';
 import type { CollectionMapFilters, TrapMapFilters } from '../../../domains/adult-surveillance.js';
-import { getRequestedControlActionDisplayRowById } from '../../../domains/control-operations-map.js';
+import {
+	type ApplicationMapFilters,
+	getRequestedControlActionDisplayRowById,
+} from '../../../domains/control-operations-map.js';
 import type { HabitatMvtTileFilters } from '../../../domains/habitats.js';
 import {
 	type InspectionMvtTileFilters,
@@ -1830,4 +1833,235 @@ async function moveCollectionsToSecondMethod(
 		where collection_timing_mode = 'collection_date_duration'
 	`.execute(db);
 	return { seededMethodId, lightMethodId };
+}
+
+// Over 100 chemical applications in view the Chemical Applications rail draws
+// the same summary (#1374). The seeded world's one live application in the box,
+// 2 gallons of Larvicide A by backpack, is joined by five more across a second
+// insecticide, a second method, a second applicator and a second unit, one of
+// them dated in January. The amount applied is added up per insecticide and per
+// unit and never across units, so one insecticide recorded in gallons and in
+// ounces is two sums.
+describeDbIntegration('chemical application summary against Postgres', () => {
+	it('counts the applications the page counts, and sums the amount per insecticide and unit', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = await seedApplicationVariety(db);
+			const read = (filters: ApplicationMapFilters) =>
+				summaryAndPage(db, MAP_SURFACES.chemical, filters);
+
+			const all = await read({});
+			expect(all.pageTotal).toBe(6);
+			expect(all.summary).toEqual({
+				total: 6,
+				groups: {
+					insecticideId: [
+						{ value: ids.larvicideId, count: 4 },
+						{ value: ids.adulticideId, count: 2 },
+					],
+					applicationMethodId: [
+						{ value: ids.truckMethodId, count: 3 },
+						{ value: ids.backpackMethodId, count: 2 },
+						{ value: null, count: 1 },
+					],
+					applicatorProfileId: [
+						{ value: ids.secondApplicatorId, count: 3 },
+						{ value: ids.seededApplicatorId, count: 2 },
+						{ value: null, count: 1 },
+					],
+				},
+				breakdowns: {
+					amountApplied: [
+						{ by: { insecticideId: ids.larvicideId, unitId: ids.gallonId }, count: 3, sum: 15 },
+						{ by: { insecticideId: ids.adulticideId, unitId: ids.gallonId }, count: 2, sum: 2 },
+						{ by: { insecticideId: ids.larvicideId, unitId: ids.ounceId }, count: 1, sum: 4 },
+					],
+				},
+			});
+
+			// Each group's count is the total of the page its button narrows to.
+			const narrowed: readonly (readonly [string, string, ApplicationMapFilters])[] = [
+				['insecticideId', ids.larvicideId, { insecticideIds: [ids.larvicideId] }],
+				['insecticideId', ids.adulticideId, { insecticideIds: [ids.adulticideId] }],
+				['applicationMethodId', ids.truckMethodId, { applicationMethodIds: [ids.truckMethodId] }],
+				[
+					'applicationMethodId',
+					ids.backpackMethodId,
+					{ applicationMethodIds: [ids.backpackMethodId] },
+				],
+				[
+					'applicatorProfileId',
+					ids.secondApplicatorId,
+					{ applicatorProfileIds: [ids.secondApplicatorId] },
+				],
+				[
+					'applicatorProfileId',
+					ids.seededApplicatorId,
+					{ applicatorProfileIds: [ids.seededApplicatorId] },
+				],
+			];
+			const answers = await Promise.all(narrowed.map(([, , filters]) => read(filters)));
+			narrowed.forEach(([grouping, value], index) => {
+				const answer = answers[index];
+				expect(answer?.summary.total).toBe(answer?.pageTotal);
+				expect(all.summary.groups[grouping]?.find((group) => group.value === value)?.count).toBe(
+					answer?.pageTotal,
+				);
+			});
+
+			// March alone drops the January application, and the sums follow the page.
+			const march = await read({ dateFrom: '2026-03-01', dateTo: '2026-03-31' });
+			expect(march.pageTotal).toBe(5);
+			expect(march.summary.total).toBe(5);
+			expect(march.summary.breakdowns).toEqual({
+				amountApplied: [
+					{ by: { insecticideId: ids.larvicideId, unitId: ids.gallonId }, count: 2, sum: 5 },
+					{ by: { insecticideId: ids.adulticideId, unitId: ids.gallonId }, count: 2, sum: 2 },
+					{ by: { insecticideId: ids.larvicideId, unitId: ids.ounceId }, count: 1, sum: 4 },
+				],
+			});
+
+			// Outside the date window nothing is counted and nothing is added up.
+			expect((await read({ dateFrom: '2026-04-01' })).summary).toEqual({
+				total: 0,
+				groups: { insecticideId: [], applicationMethodId: [], applicatorProfileId: [] },
+				breakdowns: { amountApplied: [] },
+			});
+		});
+	});
+});
+
+/**
+ * Five more live applications in the box beside the seeded one: a second
+ * insecticide, a truck method, a second applicator and a unit in ounces, with
+ * one application carrying no method, one no applicator, and one dated in
+ * January.
+ */
+async function seedApplicationVariety(db: Kysely<SimmerDatabase>): Promise<{
+	readonly larvicideId: string;
+	readonly adulticideId: string;
+	readonly backpackMethodId: string;
+	readonly truckMethodId: string;
+	readonly seededApplicatorId: string;
+	readonly secondApplicatorId: string;
+	readonly gallonId: string;
+	readonly ounceId: string;
+}> {
+	const inside = await db
+		.selectFrom('applications')
+		.select([
+			'insecticide_id',
+			'application_method_id',
+			'applicator_profile_id',
+			'application_unit_id',
+		])
+		.where('id', '=', mapSurfaceRowIds.application.inside)
+		.executeTakeFirstOrThrow();
+	const larvicideId = String(inside.insecticide_id);
+	const backpackMethodId = String(inside.application_method_id);
+	const seededApplicatorId = String(inside.applicator_profile_id);
+	const gallonId = String(inside.application_unit_id);
+	const organizationId = mapSurfaceOrganizationIds.own;
+
+	const ounce = await db
+		.insertInto('units')
+		.values({
+			code: 'map_surface_ounce',
+			unit_name: 'Fluid ounce',
+			abbreviation: 'fl oz',
+			unit_type: 'volume',
+			unit_system: 'us_customary',
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const adulticide = await db
+		.insertInto('insecticides')
+		.values({
+			organization_id: organizationId,
+			trade_name: 'Adulticide B',
+			active_ingredient: 'Permethrin',
+			type: 'adulticide',
+			registration_number: 'reg-map-surface-adulticide',
+			default_unit_id: gallonId,
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const truck = await db
+		.insertInto('application_methods')
+		.values({ organization_id: organizationId, name: 'Truck ULV' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const second = await db
+		.insertInto('profiles')
+		.values({
+			organization_id: organizationId,
+			display_name: 'Second Applicator',
+			email: 'second.applicator@example.test',
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const ids = {
+		larvicideId,
+		adulticideId: String(adulticide.id),
+		backpackMethodId,
+		truckMethodId: String(truck.id),
+		seededApplicatorId,
+		secondApplicatorId: String(second.id),
+		gallonId,
+		ounceId: String(ounce.id),
+	};
+
+	// The date goes in as text, since a `Date` is sent in the machine's own zone.
+	const base = {
+		organization_id: organizationId,
+		geom: sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`,
+		application_date: sql<Date>`date '2026-03-15'`,
+	};
+	await db
+		.insertInto('applications')
+		.values([
+			{
+				...base,
+				insecticide_id: ids.larvicideId,
+				application_method_id: ids.backpackMethodId,
+				applicator_profile_id: ids.seededApplicatorId,
+				amount_applied: 3,
+				application_unit_id: ids.gallonId,
+			},
+			{
+				...base,
+				insecticide_id: ids.larvicideId,
+				application_method_id: ids.truckMethodId,
+				applicator_profile_id: null,
+				amount_applied: 4,
+				application_unit_id: ids.ounceId,
+			},
+			{
+				...base,
+				insecticide_id: ids.adulticideId,
+				application_method_id: ids.truckMethodId,
+				applicator_profile_id: ids.secondApplicatorId,
+				amount_applied: 1.5,
+				application_unit_id: ids.gallonId,
+			},
+			{
+				...base,
+				insecticide_id: ids.adulticideId,
+				application_method_id: null,
+				applicator_profile_id: ids.secondApplicatorId,
+				amount_applied: 0.5,
+				application_unit_id: ids.gallonId,
+			},
+			{
+				...base,
+				application_date: sql<Date>`date '2026-01-10'`,
+				insecticide_id: ids.larvicideId,
+				application_method_id: ids.truckMethodId,
+				applicator_profile_id: ids.secondApplicatorId,
+				amount_applied: 10,
+				application_unit_id: ids.gallonId,
+			},
+		])
+		.execute();
+	return ids;
 }
