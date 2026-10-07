@@ -1312,8 +1312,13 @@ same way habitats and regions do. `seedAddressGeometryCache` beside it puts
 a shape the client just wrote into the cache so the detail page draws it
 before the request answers.
 
-#### useAddressSearch
+#### useAddressFilterState
 
+The Address Book Map and the Addresses Table read one filter set off the URL,
+so the switch between them carries both filters and Back out of an address
+lands on the list the reader had narrowed to. It is `useTrapFilterState` over
+the address codecs (#1378), and it replaced `useAddressSearch`, which held
+only the search box beside a `useSearchFilters` call the route made itself.
 Clearing has to reach both the field the operator is looking at and the
 committed term on the URL, or the box empties and the list stays narrowed.
 
@@ -1396,7 +1401,7 @@ active, matching Traps: a retired station keeps its readings and stays
 reportable, so it is history rather than work, and a map that opens on every
 station an organization ever ran is a map nobody can read. Clearing the
 search reaches both the field and the committed term, for the reason
-`useAddressSearch` records.
+`useAddressFilterState` records.
 
 #### useInspectionFilterDefaults
 

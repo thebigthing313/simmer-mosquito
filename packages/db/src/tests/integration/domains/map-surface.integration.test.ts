@@ -10,6 +10,7 @@ import {
 	type OutreachMapFilters,
 	type SourceReductionMapFilters,
 } from '../../../domains/control-operations-map.js';
+import type { AddressMvtTileFilters } from '../../../domains/foundation-geography.js';
 import type { HabitatMvtTileFilters } from '../../../domains/habitats.js';
 import {
 	type InspectionMvtTileFilters,
@@ -2620,4 +2621,89 @@ async function seedOutreachVariety(db: Kysely<SimmerDatabase>): Promise<{
 		])
 		.execute();
 	return ids;
+}
+
+// Over 100 addresses in view the Address Book rail draws a summary (#1378):
+// the count, then locality and postal code as text, since neither has a
+// filter behind it. A value counts as written less its surrounding
+// whitespace, so ` Monroe Township ` and `Monroe Township` are one locality,
+// and a null or blank one counts under a single null value rather than under
+// an empty string. The seeded `inside` address carries no locality and no
+// postal code, so it is the second null beside the blank one seeded here.
+describeDbIntegration('address summary against Postgres', () => {
+	it('counts the addresses the page counts, by trimmed locality and postal code', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedAddressVariety(db);
+			const read = (filters: AddressMvtTileFilters) =>
+				summaryAndPage(db, MAP_SURFACES.addresses, filters);
+
+			const all = await read({});
+			expect(all.pageTotal).toBe(7);
+			expect(all.summary).toEqual({
+				total: 7,
+				groups: {
+					locality: [
+						{ value: 'Monroe Township', count: 4 },
+						{ value: null, count: 2 },
+						{ value: 'Jamesburg', count: 1 },
+					],
+					postalCode: [
+						{ value: '08831', count: 4 },
+						{ value: null, count: 2 },
+						{ value: '08850', count: 1 },
+					],
+				},
+			});
+
+			// The search narrows the summary the way it narrows the page.
+			const jamesburg = await read({ search: 'jamesburg' });
+			expect(jamesburg.pageTotal).toBe(1);
+			expect(jamesburg.summary).toEqual({
+				total: 1,
+				groups: {
+					locality: [{ value: 'Jamesburg', count: 1 }],
+					postalCode: [{ value: '08850', count: 1 }],
+				},
+			});
+
+			// The Region filter narrows them together too. Every address here sits
+			// inside the seeded `inside` region and none inside the `outside` one.
+			const ownRegion = await read({ regionIds: [mapSurfaceRowIds.region.inside] });
+			expect(ownRegion.pageTotal).toBe(7);
+			expect(ownRegion.summary).toEqual(all.summary);
+			const farRegion = await read({ regionIds: [mapSurfaceRowIds.region.outside] });
+			expect(farRegion.pageTotal).toBe(0);
+			expect(farRegion.summary.total).toBe(0);
+
+			// A search matching nothing counts nothing, and both groupings are still keys.
+			const none = await read({ search: 'no address is named this' });
+			expect(none.pageTotal).toBe(0);
+			expect(none.summary).toEqual({ total: 0, groups: { locality: [], postalCode: [] } });
+		});
+	});
+});
+
+/**
+ * Six more live addresses in the box beside the seeded `inside` one: four in
+ * Monroe Township, one written with padding and one with a padded postal
+ * code, one in Jamesburg, and one whose locality and postal code are blank.
+ */
+async function seedAddressVariety(db: Kysely<SimmerDatabase>): Promise<void> {
+	await seedMapSurfaces(db);
+	const base = {
+		organization_id: mapSurfaceOrganizationIds.own,
+		country: 'US',
+		geom: sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`,
+	};
+	await db
+		.insertInto('addresses')
+		.values([
+			{ ...base, display_name: '1 Elm St', locality: ' Monroe Township ', postal_code: '08831' },
+			{ ...base, display_name: '2 Elm St', locality: 'Monroe Township', postal_code: '08831' },
+			{ ...base, display_name: '3 Elm St', locality: 'Monroe Township', postal_code: ' 08831 ' },
+			{ ...base, display_name: '4 Elm St', locality: 'Monroe Township', postal_code: '08831' },
+			{ ...base, display_name: '5 Oak St', locality: 'Jamesburg', postal_code: '08850' },
+			{ ...base, display_name: '6 Oak St', locality: '   ', postal_code: '' },
+		])
+		.execute();
 }

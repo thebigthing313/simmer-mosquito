@@ -11,6 +11,8 @@
  * reports ahead of the surface's filters, that the rail lists what the page
  * answered and nothing else, that the collapsed panel counts it `in view`, and
  * that the three things an empty rail can say (#958) are what this surface says.
+ * Over 100 in view the rail draws the summary in place of the rows (#1378),
+ * and neither branch draws a pager.
  *
  * The server stand-in applies the box itself, holding one address outside the
  * fake map's viewport beside two inside it, so "only rows inside the viewport"
@@ -93,6 +95,10 @@ const harness = vi.hoisted(() => ({
 	}[],
 	/** Who is signed in, for the role floor the create pointer sits behind. */
 	role: 'admin' as string,
+	/** A page total to answer in place of the box's own count, or null for the count. */
+	pageTotal: null as number | null,
+	/** What the summary endpoint answers. */
+	summary: null as unknown,
 }));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
@@ -104,11 +110,15 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
 	const { sessionFetchStandIn } = await import('../../route-mock-stand-ins');
 	return {
 		...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
-		sessionFetch: sessionFetchStandIn(harness.sent, (url) =>
-			url.pathname.endsWith('/extent')
-				? { extent: harness.extent }
-				: pageInsideBox(url.searchParams.get('bbox'), url.searchParams.get('search')),
-		),
+		sessionFetch: sessionFetchStandIn(harness.sent, (url) => {
+			if (url.pathname.endsWith('/extent')) {
+				return { extent: harness.extent };
+			}
+			if (url.pathname.endsWith('/summary')) {
+				return harness.summary;
+			}
+			return pageInsideBox(url.searchParams.get('bbox'), url.searchParams.get('search'));
+		}),
 	};
 });
 
@@ -137,7 +147,7 @@ function pageInsideBox(bbox: string | null, search: string | null) {
 			row.lat <= north &&
 			row.displayName.toLowerCase().includes(needle),
 	);
-	return { addresses, total: addresses.length };
+	return { addresses, total: harness.pageTotal ?? addresses.length };
 }
 
 vi.mock('../../../../../hooks/use-can-write', async () => {
@@ -172,6 +182,8 @@ beforeEach(() => {
 	harness.extent = null;
 	harness.book = [];
 	harness.role = 'admin';
+	harness.pageTotal = null;
+	harness.summary = null;
 });
 
 afterEach(() => {
@@ -214,13 +226,14 @@ describe('the addresses explorer paging the viewport', () => {
 		renderAddresses();
 
 		await screen.findByText('1 11th Street');
-		// Expanded, the count is the pager's, under the register's noun.
-		expect(screen.getByText('2 addresses')).toBeTruthy();
+		// Expanded, the header counts it, since no pager sits under the rail.
+		expect(screen.getByText('2 in view')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
 
 		fireEvent.click(screen.getByRole('button', { name: 'Hide results' }));
 
 		expect(screen.getByText('2 in view')).toBeTruthy();
-		expect(screen.queryByText('3 addresses')).toBeNull();
+		expect(screen.queryByText('3 in view')).toBeNull();
 	});
 
 	it('carries the search and the region as query params the reader takes', async () => {
@@ -284,5 +297,49 @@ describe('the addresses explorer with nothing on the page', () => {
 			screen.getByText('Pan or zoom the map, or loosen the filters to bring addresses into range.'),
 		).toBeTruthy();
 		await waitFor(() => expect(requestCounts()).toEqual({ page: 1, extent: 1 }));
+	});
+});
+
+// Over 100 in view the rail draws the summary in place of the rows (#1378),
+// asked for under the page's own box and filters, and at 100 or fewer it draws
+// the rows, all on one page. What the summary draws is `address-summary.test.tsx`'s.
+describe('the addresses explorer with addresses in view', () => {
+	it('draws the summary instead of the rows over 100 in view, with no pager', async () => {
+		harness.search = { search: 'elm', regions: 'b1b2c3d4-0000-4000-8000-000000000009' };
+		harness.book = [INSIDE_B];
+		harness.extent = { west: 0, south: -1, east: 1, north: 0 };
+		harness.pageTotal = 140;
+		harness.summary = {
+			total: 140,
+			groups: {
+				locality: [{ value: 'Monroe Township', count: 140 }],
+				postalCode: [{ value: '08831', count: 140 }],
+			},
+		};
+		renderAddresses();
+
+		const locality = await screen.findByRole('region', { name: 'Locality' });
+		expect(locality.textContent).toBe('LocalityMonroe Township140');
+		expect(screen.getByRole('region', { name: 'Postal Code' }).textContent).toBe(
+			'Postal Code08831140',
+		);
+		expect(screen.queryByText('2 Elm Court')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
+		const summaryRequest = harness.sent.find((url) => url.pathname === '/map/addresses/summary');
+		expect(Object.fromEntries(summaryRequest?.searchParams ?? [])).toEqual({
+			bbox: '0,-0.8,1,0',
+			search: 'elm',
+			regionId: 'b1b2c3d4-0000-4000-8000-000000000009',
+		});
+	});
+
+	it('draws the rows at 100 or fewer, with no pager and no summary request', async () => {
+		harness.book = [INSIDE_A, INSIDE_B];
+		harness.extent = { west: 0, south: -1, east: 1, north: 0 };
+		renderAddresses();
+
+		expect(await screen.findByText('1 11th Street')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
+		expect(harness.sent.some((url) => url.pathname === '/map/addresses/summary')).toBe(false);
 	});
 });
