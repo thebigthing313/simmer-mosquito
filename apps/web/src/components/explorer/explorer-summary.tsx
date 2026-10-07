@@ -24,6 +24,11 @@ export interface SummaryGroup {
 	readonly key: string;
 	readonly label: string;
 	readonly count: number;
+	/**
+	 * What the value reads in place of its count, such as an amount with its
+	 * unit. A figure has no filter behind it, so it is drawn as text.
+	 */
+	readonly figure?: string;
 	/** The filter holds this value, so clicking it takes the value back out. */
 	readonly isSelected?: boolean;
 	/** Writes the filter this value names. Absent where no filter selects it. */
@@ -166,7 +171,9 @@ function SummaryValue({
 				) : null}
 				<span className="truncate">{group.label}</span>
 			</span>
-			<span className="text-muted-foreground tabular-nums">{formatCount(group.count)}</span>
+			<span className="text-muted-foreground tabular-nums">
+				{group.figure ?? formatCount(group.count)}
+			</span>
 		</>
 	);
 	const row = 'flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm';

@@ -23,6 +23,18 @@ export interface MapSummary {
 	readonly groups: Readonly<Record<string, readonly MapSummaryGroup[]>>;
 	/** Each figure the surface adds up over the box, keyed by name. Absent where it declares none. */
 	readonly figures?: Readonly<Record<string, number>>;
+	/**
+	 * Each breakdown the surface sums over the box, keyed by name: one row per
+	 * combination of its keys, largest count first. Absent where it declares none.
+	 */
+	readonly breakdowns?: Readonly<Record<string, readonly MapSummaryBreakdownRow[]>>;
+}
+
+/** One combination of a breakdown's keys, how many records carry it, and their amounts summed. */
+interface MapSummaryBreakdownRow {
+	readonly by: Readonly<Record<string, string | boolean | null>>;
+	readonly count: number;
+	readonly sum: number;
 }
 
 export interface ExplorerSummaryState {
@@ -104,5 +116,6 @@ async function fetchSummary(
 		total: typeof body.total === 'number' ? body.total : 0,
 		groups: body.groups ?? {},
 		...(body.figures === undefined ? {} : { figures: body.figures }),
+		...(body.breakdowns === undefined ? {} : { breakdowns: body.breakdowns }),
 	};
 }

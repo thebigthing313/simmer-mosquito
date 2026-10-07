@@ -5,141 +5,68 @@ import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ApplicationMapCard } from '../../../components/control-operations/application-map-card';
+import {
+	ApplicationFilterChips,
+	ApplicationFilterFields,
+} from '../../../components/control-operations/chemical/application-filters';
+import {
+	type ApplicationListRow,
+	applicationMethodName,
+	insecticideName,
+	normalizeApplication,
+} from '../../../components/control-operations/chemical/application-row-parts';
+import { applicationSummaryGroupings } from '../../../components/control-operations/chemical/application-summary';
+import { ApplicationSurfaceSwitch } from '../../../components/control-operations/chemical/application-surface-switch';
+import {
+	applicationFilterCodecs,
+	applicationListParams,
+	applicationTileFilters,
+	sharedApplicationSearch,
+} from '../../../components/control-operations/chemical/applications-search';
 import { formatAmount } from '../../../components/control-operations/control-display';
-import { DateRangeFilter } from '../../../components/date-range-filter';
-import {
-	ActiveFilterBar,
-	ExplorerMapPage,
-	ExplorerRow,
-	FilterChip,
-	FilterGrid,
-	MultiSelectFilter,
-	toggle,
-	whenAny,
-	whenText,
-} from '../../../components/explorer';
-import { ExplorerPagination } from '../../../components/explorer-pagination';
-import {
-	type ChemicalTileFilters,
-	MAP_CREATE_TARGETS,
-	MapCanvas,
-	type MapTileLayer,
-} from '../../../components/map';
+import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
+import { useApplicationFilterState } from '../../../hooks/control-operations/use-application-filter-state';
 import { useApplicationMethodOptions } from '../../../hooks/explorer/use-application-method-options';
-import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { useInsecticideOptions } from '../../../hooks/explorer/use-insecticide-options';
 import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
-import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { useSearchFilters } from '../../../hooks/use-search-filters';
-import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
-import { type RecordType, recordNoun } from '../../../lib/record-nouns';
-import {
-	DATE_RANGE_COUNTING,
-	dateParam,
-	type FilterCodecs,
-	idSetParam,
-	searchValidator,
-} from '../../../lib/search-filters';
-
-interface ApplicationRow {
-	readonly id: string;
-	readonly lat: number;
-	readonly lng: number;
-	readonly insecticideId: string;
-	readonly applicationMethodId: string | null;
-	readonly applicationDate: string;
-	readonly amountApplied: number;
-	readonly applicationUnitId: string;
-	readonly habitatId: string | null;
-	readonly applicatorProfileId: string | null;
-	readonly applicatorName: string | null;
-	readonly batchNames: string[];
-}
-
-interface ApplicationFilters {
-	readonly from: string;
-	readonly to: string;
-	readonly insecticides: ReadonlySet<string>;
-	readonly people: ReadonlySet<string>;
-	readonly methods: ReadonlySet<string>;
-	readonly regions: ReadonlySet<string>;
-}
-
-const FILTER_CODECS: FilterCodecs<ApplicationFilters> = {
-	from: dateParam,
-	to: dateParam,
-	insecticides: idSetParam,
-	people: idSetParam,
-	methods: idSetParam,
-	regions: idSetParam,
-};
+import { formatListDate } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
+import { searchValidator } from '../../../lib/search-filters';
 
 const ApplicationEntityIcon = iconRegistry.entities.application.icon;
 
 export const Route = createFileRoute('/control-operations/chemical/')({
 	component: ApplicationsExplorerRoute,
-	validateSearch: searchValidator(FILTER_CODECS),
+	validateSearch: searchValidator(applicationFilterCodecs),
 });
 
-const DEFAULT_WINDOW_DAYS = 90;
-const RECORD_TYPE: RecordType = 'application';
 const PATH = '/map/chemical';
 
 function ApplicationsExplorerRoute() {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
-	const defaultFrom = addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1));
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
-	const filterDefaults: ApplicationFilters = {
-		from: defaultFrom,
-		to: today,
-		insecticides: new Set(),
-		people: new Set(),
-		methods: new Set(),
-		regions: new Set(),
-	};
-	const {
-		filters: query,
-		setFilters,
-		reset,
-		activeCount: activeFilterCount,
-	} = useSearchFilters(filterDefaults, FILTER_CODECS, DATE_RANGE_COUNTING);
-	const dateFrom = query.from;
-	const dateTo = query.to;
-	const insecticideIds = query.insecticides;
-	const personIds = query.people;
-	const methodIds = query.methods;
-	const regionIds = query.regions;
-	const setInsecticideIds = (next: ReadonlySet<string>) => setFilters({ insecticides: next });
-	const setPersonIds = (next: ReadonlySet<string>) => setFilters({ people: next });
-	const setMethodIds = (next: ReadonlySet<string>) => setFilters({ methods: next });
-	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
+	const binding = useApplicationFilterState();
+	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
-	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
-	const { options: methodOptions, nameById: methodNameById } = useApplicationMethodOptions();
-	const { options: productOptions, nameById: insecticideNameById } = useInsecticideOptions();
+	const { nameById: methodNameById } = useApplicationMethodOptions();
+	const { nameById: insecticideNameById } = useInsecticideOptions();
+	const { nameById: personNameById } = usePersonnelOptions();
 	const unitById = useUnitLabels().byId;
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
-	const personnel = usePersonnelOptions();
-	const regions = useRegionOptions();
-	const filters: ChemicalTileFilters = {
-		...whenAny('insecticideIds', insecticideIds),
-		...whenAny('applicationMethodIds', methodIds),
-		...whenAny('applicatorProfileIds', personIds),
-		...whenAny('regionIds', regionIds),
-		...whenText('dateFrom', dateFrom),
-		...whenText('dateTo', dateTo),
-	};
+	const filters = applicationTileFilters(query);
+	// What a move to the Table takes with it: every filter, since the Table
+	// applies each one.
+	const carried = sharedApplicationSearch(Route.useSearch());
 	const layer: MapTileLayer = {
 		kind: 'chemical',
 		serverUrl: getServerUrl(),
@@ -147,122 +74,27 @@ function ApplicationsExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const {
-		rows,
-		total,
-		isLoading,
-		isError,
-		retry,
-		page,
-		pageCount,
-		setPage,
-		selected,
-		empty,
-		layers,
-	} = useExplorerResource<ApplicationRow>({
-		path: PATH,
-		rowsKey: 'applications',
-		rowKey: 'application',
-		recordType: 'application',
-		params: {
-			insecticideId: filters.insecticideIds,
-			applicationMethodId: filters.applicationMethodIds,
-			applicator: filters.applicatorProfileIds,
-			regionId: filters.regionIds,
-			dateFrom: filters.dateFrom,
-			dateTo: filters.dateTo,
-		},
-		layer,
-		map,
-		selectedId,
-		normalizeRow: normalizeApplication,
-	});
+	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
+		useExplorerResource<ApplicationListRow>({
+			path: PATH,
+			rowsKey: 'applications',
+			rowKey: 'application',
+			recordType: 'application',
+			params: applicationListParams(filters),
+			layer,
+			map,
+			selectedId,
+			normalizeRow: normalizeApplication,
+			summarize: true,
+		});
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 
-	const clearAll = reset;
-
 	return (
 		<ExplorerMapPage
+			actions={<ApplicationSurfaceSwitch compact current="map" search={carried} />}
 			activeFilterCount={activeFilterCount}
-			filters={
-				<>
-					<DateRangeFilter {...dateRange} />
-
-					<FilterGrid>
-						<MultiSelectFilter
-							empty="No insecticides"
-							label="Product"
-							onChange={setInsecticideIds}
-							options={productOptions}
-							selected={insecticideIds}
-						/>
-						<MultiSelectFilter
-							empty="No application methods"
-							label="Method"
-							onChange={setMethodIds}
-							options={methodOptions}
-							selected={methodIds}
-						/>
-						<MultiSelectFilter
-							empty="No people"
-							label="Applicator"
-							onChange={setPersonIds}
-							options={personnel.options}
-							selected={personIds}
-						/>
-						<MultiSelectFilter
-							empty="No regions"
-							label="Region"
-							onChange={setRegionIds}
-							options={regions.options}
-							selected={regionIds}
-						/>
-					</FilterGrid>
-
-					{activeFilterCount > 0 ? (
-						<ActiveFilterBar onClearAll={clearAll}>
-							{[...insecticideIds].map((id) => (
-								<FilterChip
-									key={id}
-									label={insecticideNameById.get(id) ?? 'Unknown product'}
-									onRemove={() => setInsecticideIds(toggle(insecticideIds, id))}
-								/>
-							))}
-							{[...methodIds].map((id) => (
-								<FilterChip
-									key={id}
-									label={methodNameById.get(id) ?? 'Unknown method'}
-									onRemove={() => setMethodIds(toggle(methodIds, id))}
-								/>
-							))}
-							{[...personIds].map((id) => (
-								<FilterChip
-									key={`person-${id}`}
-									label={personnel.nameById.get(id) ?? 'Unknown person'}
-									onRemove={() => setPersonIds(toggle(personIds, id))}
-								/>
-							))}
-							{[...regionIds].map((id) => (
-								<FilterChip
-									key={`region-${id}`}
-									label={regions.nameById.get(id) ?? 'Unknown region'}
-									onRemove={() => setRegionIds(toggle(regionIds, id))}
-								/>
-							))}
-						</ActiveFilterBar>
-					) : null}
-				</>
-			}
-			footer={
-				<ExplorerPagination
-					noun={recordNoun(RECORD_TYPE)}
-					onPageChange={setPage}
-					page={page}
-					pageCount={pageCount}
-					total={total}
-				/>
-			}
+			filters={<ApplicationFilterFields binding={binding} />}
 			heading={{
 				title: recordNoun('application').titleMany,
 				icon: ApplicationEntityIcon,
@@ -298,34 +130,42 @@ function ApplicationsExplorerRoute() {
 				isError,
 				onRetry: retry,
 				empty,
+				// Over 100 in view the rows would not fit on one page, so the panel
+				// says what is in view instead (#1374).
+				summary: summary.isShown ? (
+					<ExplorerSummary
+						chips={activeFilterCount === 0 ? null : <ApplicationFilterChips binding={binding} />}
+						groupings={
+							summary.data === null
+								? []
+								: applicationSummaryGroupings({
+										summary: summary.data,
+										filters: query,
+										setFilters,
+										insecticideNameById,
+										methodNameById,
+										personNameById,
+										unitById,
+									})
+						}
+						recordType="application"
+						state={summary}
+					/>
+				) : undefined,
 				renderRow: (row) => (
 					<ApplicationListItem
 						amount={formatAmount(row.amountApplied, unitById.get(row.applicationUnitId))}
 						isSelected={row.id === selectedId}
 						key={row.id}
-						methodName={
-							row.applicationMethodId === null
-								? null
-								: (methodNameById.get(row.applicationMethodId) ?? 'Unknown method')
-						}
+						methodName={applicationMethodName(row, methodNameById)}
 						onSelect={setSelectedId}
-						productName={insecticideNameById.get(row.insecticideId) ?? 'Unknown product'}
+						productName={insecticideName(row.insecticideId, insecticideNameById)}
 						row={row}
 					/>
 				),
 			}}
 		/>
 	);
-}
-
-// The applicator + batch fields are newer than some deployed servers; default
-// them so a row that predates them can never crash the list/card render.
-function normalizeApplication(row: ApplicationRow): ApplicationRow {
-	return {
-		...row,
-		applicatorName: row.applicatorName ?? null,
-		batchNames: row.batchNames ?? [],
-	};
 }
 
 function ApplicationListItem({
@@ -336,7 +176,7 @@ function ApplicationListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly row: ApplicationRow;
+	readonly row: ApplicationListRow;
 	readonly productName: string;
 	readonly methodName: string | null;
 	readonly amount: string;

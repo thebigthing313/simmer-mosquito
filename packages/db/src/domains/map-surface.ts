@@ -110,7 +110,41 @@ export interface MapSummaryResult {
 	 * and a `max` figure is absent from it when no record in the box carries one.
 	 */
 	readonly figures?: Readonly<Record<string, number>>;
+	/**
+	 * Each declared breakdown over the box, one row per combination of its keys.
+	 * Absent on a surface that declares none, an empty list when the box holds
+	 * nothing.
+	 */
+	readonly breakdowns?: Readonly<Record<string, readonly MapSummaryBreakdownRow[]>>;
 }
+
+/**
+ * One combination of a breakdown's keys: the value of each key, how many
+ * records in the box carry that combination, and their amounts summed.
+ */
+export interface MapSummaryBreakdownRow {
+	readonly by: Readonly<Record<string, string | boolean | null>>;
+	readonly count: number;
+	readonly sum: number;
+}
+
+/**
+ * A sum split by one or more keys rather than taken over the whole box, for an
+ * amount that cannot be added across some of its records. An insecticide
+ * applied in gallons and in ounces is the case: the amount is summed per
+ * insecticide and per unit, so each row is one insecticide in one unit.
+ */
+export interface MapSummaryBreakdown {
+	/** The keys, each a named expression whose values split the sum. */
+	readonly by: Readonly<Record<string, RawBuilder<unknown>>>;
+	/** The amount per record, summed within each combination of the keys. */
+	readonly sum: RawBuilder<number>;
+}
+
+/** The breakdowns a surface's summary sums, keyed by name. */
+export type MapSurfaceBreakdowns = (
+	context: MapReadContext,
+) => Readonly<Record<string, MapSummaryBreakdown>>;
 
 /**
  * A grouping that files one record under several values: the expression is an
@@ -415,6 +449,8 @@ interface SummaryCountRow {
 	readonly count: number;
 	/** The figures summed, keyed by name, on the whole-box row of a surface declaring any. */
 	readonly figures: Readonly<Record<string, number>> | null;
+	/** The breakdowns, keyed by name, on the whole-box row of a surface declaring any. */
+	readonly breakdowns: Readonly<Record<string, readonly MapSummaryBreakdownRow[]>> | null;
 }
 
 /** A surface definition with what its in-view summary counts and adds up. */
@@ -423,6 +459,8 @@ export interface MapSummaryDefinition<TFilters> extends MapSurfaceDefinition<TFi
 	readonly groupings?: MapSurfaceGroupings;
 	/** What the in-view summary adds up. A surface with none answers no figures. */
 	readonly figures?: MapSurfaceFigures;
+	/** What the in-view summary sums by key. A surface with none answers no breakdowns. */
+	readonly breakdowns?: MapSurfaceBreakdowns;
 }
 
 /**
@@ -440,7 +478,8 @@ export interface MapSummaryDefinition<TFilters> extends MapSurfaceDefinition<TFi
  * and named by parameter in the union, so a grouping's name never reaches the
  * SQL as an identifier. Figures go the same way under `f0`, `f1`, summed or
  * maxed on the whole-box row into its own `figures` column, a `jsonb` object keyed by
- * name, which every grouping row leaves null.
+ * name, which every grouping row leaves null. Breakdowns take `b0_0`, `b0_sum`
+ * and so on, and land in a `breakdowns` column on the same row.
  */
 async function readMapSummary<TFilters>(
 	db: DbExecutor,
@@ -449,6 +488,7 @@ async function readMapSummary<TFilters>(
 ): Promise<MapSummaryResult> {
 	const groupings = Object.entries(definition.groupings?.(input) ?? {});
 	const figures = Object.entries(definition.figures?.(input) ?? {});
+	const breakdowns = Object.entries(definition.breakdowns?.(input) ?? {});
 	const counts = groupings.map(([name, grouping], index) => groupingCount(name, grouping, index));
 
 	const result = await sql<SummaryCountRow>`
@@ -462,7 +502,7 @@ async function readMapSummary<TFilters>(
 			) as geom_4326
 		),
 		in_view as materialized (
-			select ${summarySelectList(groupings, figures)}
+			select ${summarySelectList(groupings, figures, breakdowns)}
 			from ${definition.from}
 			cross join bounds
 			where ${sql.join(
@@ -474,7 +514,8 @@ async function readMapSummary<TFilters>(
 			null::text as "grouping",
 			null::jsonb as "value",
 			count(*)::int as "count",
-			${figureTotals(figures)} as "figures"
+			${figureTotals(figures)} as "figures",
+			${breakdownTotals(breakdowns)} as "breakdowns"
 		from in_view
 		${counts.length === 0 ? sql`` : sql.join(counts, sql``)}
 	`.execute(db);
@@ -487,14 +528,21 @@ async function readMapSummary<TFilters>(
 
 type SummaryGroupingEntry = readonly [string, RawBuilder<unknown> | MapSummaryGroupingEach];
 type SummaryFigureEntry = readonly [string, RawBuilder<number> | MapSummaryFigureMax];
+type SummaryBreakdownEntry = readonly [string, MapSummaryBreakdown];
 
 const groupAlias = (index: number) => sql.raw(`"g${index}"`);
 const figureAlias = (index: number) => sql.raw(`"f${index}"`);
+const breakdownKeyAlias = (index: number, key: number) => sql.raw(`"b${index}_${key}"`);
+const breakdownSumAlias = (index: number) => sql.raw(`"b${index}_sum"`);
 
-/** One column per grouping and per figure, or a bare `1` when the surface declares neither. */
+/**
+ * One column per grouping, per figure, and per breakdown key and amount, or a
+ * bare `1` when the surface declares none of them.
+ */
 function summarySelectList(
 	groupings: readonly SummaryGroupingEntry[],
 	figures: readonly SummaryFigureEntry[],
+	breakdowns: readonly SummaryBreakdownEntry[],
 ): RawBuilder<unknown> {
 	const columns = [
 		...groupings.map(
@@ -504,8 +552,59 @@ function summarySelectList(
 		...figures.map(
 			([, figure], index) => sql`${'max' in figure ? figure.max : figure} as ${figureAlias(index)}`,
 		),
+		...breakdowns.flatMap(([, breakdown], index) => [
+			...Object.values(breakdown.by).map(
+				(key, keyIndex) => sql`${key} as ${breakdownKeyAlias(index, keyIndex)}`,
+			),
+			sql`${breakdown.sum} as ${breakdownSumAlias(index)}`,
+		]),
 	];
 	return columns.length === 0 ? sql`1` : sql.join(columns, sql`, `);
+}
+
+/**
+ * The breakdowns over the box as one `jsonb` object, each a list of rows
+ * largest count first, or null when there are none.
+ *
+ * Each is an uncorrelated subquery over `in_view`, grouped by its keys, so it
+ * sits beside the whole-box aggregates on the one row that carries them. The
+ * key names go in by parameter, as a grouping's name does.
+ */
+function breakdownTotals(breakdowns: readonly SummaryBreakdownEntry[]): RawBuilder<unknown> {
+	if (breakdowns.length === 0) {
+		return sql`null::jsonb`;
+	}
+	return sql`jsonb_build_object(${sql.join(
+		breakdowns.map(([name, breakdown], index) => {
+			const keys = Object.keys(breakdown.by).map((key, keyIndex) => ({
+				key,
+				alias: breakdownKeyAlias(index, keyIndex),
+			}));
+			const by = sql`jsonb_build_object(${sql.join(
+				keys.map(({ key, alias }) => sql`${key}::text, breakdown_rows.${alias}`),
+				sql`, `,
+			)})`;
+			const keyColumns = sql.join(
+				keys.map(({ alias }) => alias),
+				sql`, `,
+			);
+			return sql`${name}::text, (
+				select coalesce(
+					jsonb_agg(
+						jsonb_build_object('by', ${by}, 'count', breakdown_rows.record_count, 'sum', breakdown_rows.amount)
+						order by breakdown_rows.record_count desc, breakdown_rows.amount desc, ${by}::text
+					),
+					'[]'::jsonb
+				)
+				from (
+					select ${keyColumns}, count(*)::int as record_count, coalesce(sum(${breakdownSumAlias(index)}), 0) as amount
+					from in_view
+					group by ${keyColumns}
+				) as breakdown_rows
+			)`;
+		}),
+		sql`, `,
+	)})`;
 }
 
 /**
@@ -535,7 +634,7 @@ function groupingCount(
 	if ('each' in grouping) {
 		return sql`
 			union all
-			select ${name}::text, to_jsonb(each_value.value), count(*)::int, null::jsonb
+			select ${name}::text, to_jsonb(each_value.value), count(*)::int, null::jsonb, null::jsonb
 			from in_view
 			cross join lateral unnest(${groupAlias(index)}) as each_value(value)
 			group by each_value.value
@@ -543,7 +642,7 @@ function groupingCount(
 	}
 	return sql`
 		union all
-		select ${name}::text, to_jsonb(${groupAlias(index)}), count(*)::int, null::jsonb
+		select ${name}::text, to_jsonb(${groupAlias(index)}), count(*)::int, null::jsonb, null::jsonb
 		from in_view
 		group by ${groupAlias(index)}
 	`;
@@ -566,9 +665,24 @@ function summaryFromRows(
 	for (const list of Object.values(groups)) {
 		list.sort((first, second) => second.count - first.count);
 	}
-	const total = whole?.count ?? 0;
-	const figures = whole?.figures ?? null;
-	return figures === null ? { total, groups } : { total, groups, figures };
+	return { total: whole?.count ?? 0, groups, ...wholeBoxSums(whole) };
+}
+
+/** The figures and breakdowns off the whole-box row, each left out where the surface declares none. */
+function wholeBoxSums(
+	whole: SummaryCountRow | undefined,
+): Pick<MapSummaryResult, 'figures' | 'breakdowns'> {
+	const sums: {
+		figures?: NonNullable<MapSummaryResult['figures']>;
+		breakdowns?: NonNullable<MapSummaryResult['breakdowns']>;
+	} = {};
+	if (whole?.figures != null) {
+		sums.figures = whole.figures;
+	}
+	if (whole?.breakdowns != null) {
+		sums.breakdowns = whole.breakdowns;
+	}
+	return sums;
 }
 
 /**

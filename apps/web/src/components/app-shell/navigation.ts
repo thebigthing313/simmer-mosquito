@@ -506,6 +506,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.generic.map.icon,
 					},
 					{
+						id: 'chemical-table',
+						label: 'Table',
+						to: '/control-operations/chemical/table',
+						icon: iconRegistry.generic.table.icon,
+					},
+					{
 						id: 'chemical-create',
 						label: createLabel('application'),
 						to: '/control-operations/chemical/create',

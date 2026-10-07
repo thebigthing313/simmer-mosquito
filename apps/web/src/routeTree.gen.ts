@@ -100,6 +100,7 @@ import { Route as ControlOperationsSourceReductionStatsRouteImport } from './rou
 import { Route as ControlOperationsSourceReductionMethodsRouteImport } from './routes/control-operations/source-reduction/methods'
 import { Route as ControlOperationsSourceReductionCreateRouteImport } from './routes/control-operations/source-reduction/create'
 import { Route as ControlOperationsSourceReductionIdRouteImport } from './routes/control-operations/source-reduction/$id'
+import { Route as ControlOperationsChemicalTableRouteImport } from './routes/control-operations/chemical/table'
 import { Route as ControlOperationsChemicalStatsRouteImport } from './routes/control-operations/chemical/stats'
 import { Route as ControlOperationsChemicalMethodsRouteImport } from './routes/control-operations/chemical/methods'
 import { Route as ControlOperationsChemicalInsecticidesRouteImport } from './routes/control-operations/chemical/insecticides'
@@ -653,6 +654,12 @@ const ControlOperationsSourceReductionIdRoute =
     path: '/control-operations/source-reduction/$id',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ControlOperationsChemicalTableRoute =
+  ControlOperationsChemicalTableRouteImport.update({
+    id: '/control-operations/chemical/table',
+    path: '/control-operations/chemical/table',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ControlOperationsChemicalStatsRoute =
   ControlOperationsChemicalStatsRouteImport.update({
     id: '/control-operations/chemical/stats',
@@ -966,6 +973,7 @@ export interface FileRoutesByFullPath {
   '/control-operations/chemical/insecticides': typeof ControlOperationsChemicalInsecticidesRoute
   '/control-operations/chemical/methods': typeof ControlOperationsChemicalMethodsRoute
   '/control-operations/chemical/stats': typeof ControlOperationsChemicalStatsRoute
+  '/control-operations/chemical/table': typeof ControlOperationsChemicalTableRoute
   '/control-operations/source-reduction/$id': typeof ControlOperationsSourceReductionIdRoute
   '/control-operations/source-reduction/create': typeof ControlOperationsSourceReductionCreateRoute
   '/control-operations/source-reduction/methods': typeof ControlOperationsSourceReductionMethodsRoute
@@ -1102,6 +1110,7 @@ export interface FileRoutesByTo {
   '/control-operations/chemical/insecticides': typeof ControlOperationsChemicalInsecticidesRoute
   '/control-operations/chemical/methods': typeof ControlOperationsChemicalMethodsRoute
   '/control-operations/chemical/stats': typeof ControlOperationsChemicalStatsRoute
+  '/control-operations/chemical/table': typeof ControlOperationsChemicalTableRoute
   '/control-operations/source-reduction/$id': typeof ControlOperationsSourceReductionIdRoute
   '/control-operations/source-reduction/create': typeof ControlOperationsSourceReductionCreateRoute
   '/control-operations/source-reduction/methods': typeof ControlOperationsSourceReductionMethodsRoute
@@ -1240,6 +1249,7 @@ export interface FileRoutesById {
   '/control-operations/chemical/insecticides': typeof ControlOperationsChemicalInsecticidesRoute
   '/control-operations/chemical/methods': typeof ControlOperationsChemicalMethodsRoute
   '/control-operations/chemical/stats': typeof ControlOperationsChemicalStatsRoute
+  '/control-operations/chemical/table': typeof ControlOperationsChemicalTableRoute
   '/control-operations/source-reduction/$id': typeof ControlOperationsSourceReductionIdRoute
   '/control-operations/source-reduction/create': typeof ControlOperationsSourceReductionCreateRoute
   '/control-operations/source-reduction/methods': typeof ControlOperationsSourceReductionMethodsRoute
@@ -1379,6 +1389,7 @@ export interface FileRouteTypes {
     | '/control-operations/chemical/insecticides'
     | '/control-operations/chemical/methods'
     | '/control-operations/chemical/stats'
+    | '/control-operations/chemical/table'
     | '/control-operations/source-reduction/$id'
     | '/control-operations/source-reduction/create'
     | '/control-operations/source-reduction/methods'
@@ -1515,6 +1526,7 @@ export interface FileRouteTypes {
     | '/control-operations/chemical/insecticides'
     | '/control-operations/chemical/methods'
     | '/control-operations/chemical/stats'
+    | '/control-operations/chemical/table'
     | '/control-operations/source-reduction/$id'
     | '/control-operations/source-reduction/create'
     | '/control-operations/source-reduction/methods'
@@ -1652,6 +1664,7 @@ export interface FileRouteTypes {
     | '/control-operations/chemical/insecticides'
     | '/control-operations/chemical/methods'
     | '/control-operations/chemical/stats'
+    | '/control-operations/chemical/table'
     | '/control-operations/source-reduction/$id'
     | '/control-operations/source-reduction/create'
     | '/control-operations/source-reduction/methods'
@@ -1782,6 +1795,7 @@ export interface RootRouteChildren {
   ControlOperationsChemicalInsecticidesRoute: typeof ControlOperationsChemicalInsecticidesRoute
   ControlOperationsChemicalMethodsRoute: typeof ControlOperationsChemicalMethodsRoute
   ControlOperationsChemicalStatsRoute: typeof ControlOperationsChemicalStatsRoute
+  ControlOperationsChemicalTableRoute: typeof ControlOperationsChemicalTableRoute
   ControlOperationsSourceReductionIdRoute: typeof ControlOperationsSourceReductionIdRoute
   ControlOperationsSourceReductionCreateRoute: typeof ControlOperationsSourceReductionCreateRoute
   ControlOperationsSourceReductionMethodsRoute: typeof ControlOperationsSourceReductionMethodsRoute
@@ -2507,6 +2521,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ControlOperationsSourceReductionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/control-operations/chemical/table': {
+      id: '/control-operations/chemical/table'
+      path: '/control-operations/chemical/table'
+      fullPath: '/control-operations/chemical/table'
+      preLoaderRoute: typeof ControlOperationsChemicalTableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/control-operations/chemical/stats': {
       id: '/control-operations/chemical/stats'
       path: '/control-operations/chemical/stats'
@@ -2898,6 +2919,7 @@ const rootRouteChildren: RootRouteChildren = {
     ControlOperationsChemicalInsecticidesRoute,
   ControlOperationsChemicalMethodsRoute: ControlOperationsChemicalMethodsRoute,
   ControlOperationsChemicalStatsRoute: ControlOperationsChemicalStatsRoute,
+  ControlOperationsChemicalTableRoute: ControlOperationsChemicalTableRoute,
   ControlOperationsSourceReductionIdRoute:
     ControlOperationsSourceReductionIdRoute,
   ControlOperationsSourceReductionCreateRoute:

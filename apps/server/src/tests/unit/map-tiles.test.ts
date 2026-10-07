@@ -1216,6 +1216,79 @@ describe('registerMapTileRoutes — collection summary', () => {
 	});
 });
 
+// The Chemical Applications rail's summary over 100 in view (#1374).
+describe('registerMapTileRoutes — chemical application summary', () => {
+	const insecticideId = '3c9e7a52-1f4b-4d86-a0e3-58b2c7d91f06';
+	const methodId = 'b41f8d27-6c3e-4a95-8e10-7d2a5c9f3b68';
+	const applicatorId = 'e7a2c5d1-9b48-4f30-b6e2-1c8d4f7a9e53';
+	const unitId = '5d8b1e3a-7c2f-4e69-9a04-b3f6c8d2e175';
+
+	it('passes the box and every application filter to the summary, and answers its breakdowns', async () => {
+		const summary = {
+			total: 240,
+			groups: {
+				insecticideId: [{ value: insecticideId, count: 240 }],
+				applicationMethodId: [{ value: methodId, count: 240 }],
+				applicatorProfileId: [{ value: applicatorId, count: 240 }],
+			},
+			breakdowns: {
+				amountApplied: [{ by: { insecticideId, unitId }, count: 240, sum: 480 }],
+			},
+		};
+		const summarizeApplications = vi.fn(async () => summary);
+		const getApplicationDisplayRow = vi.fn();
+		const app = createApp({ summarizeApplications, getApplicationDisplayRow });
+
+		const response = await app.request(
+			`/map/chemical/summary?bbox=-91,35,-90,36&insecticideId=${insecticideId}&applicationMethodId=${methodId}&applicator=${applicatorId}&regionId=${regionId}&dateFrom=2026-07-01&dateTo=2026-09-28`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(summarizeApplications).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				insecticideIds: [insecticideId],
+				applicationMethodIds: [methodId],
+				applicatorProfileIds: [applicatorId],
+				regionIds: [regionId],
+				dateFrom: '2026-07-01',
+				dateTo: '2026-09-28',
+			},
+		});
+		expect(getApplicationDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', `?insecticideId=${insecticideId}`],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a date that is not a date', '?bbox=-91,35,-90,36&dateFrom=last-week'],
+		['a param no application filter admits', '?bbox=-91,35,-90,36&status=active'],
+	])('refuses %s before reading the application summary', async (_case, query) => {
+		const summarizeApplications = vi.fn();
+		const getApplicationDisplayRow = vi.fn();
+		const app = createApp({ summarizeApplications, getApplicationDisplayRow });
+
+		const response = await app.request(`/map/chemical/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeApplications).not.toHaveBeenCalled();
+		expect(getApplicationDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no application summary for a request with no session', async () => {
+		const summarizeApplications = vi.fn();
+		const app = createApp({ authenticated: false, summarizeApplications });
+
+		const response = await app.request('/map/chemical/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeApplications).not.toHaveBeenCalled();
+	});
+});
+
 // The four routes whose readers were called directly rather than injected, so
 // none of them could be driven without a database until the readers became one
 // object. Three answer geometry the Electric shape does not carry (ADR 0009).

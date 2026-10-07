@@ -113,20 +113,22 @@ is also the threshold `useExplorerSummary` reads: a surface with a summary
 draws its rows only when they fit on one page, so its pager never shows. The
 rail mounts only the rows in view, so a page of 100 costs what 50 did.
 
-The Habitats Table, the Samples Table, the Traps Table and the Collections
-Table call this hook directly, with no map, and send `WHOLE_WORLD_BBOX` as the
-box. Each could have read its collection the way the Inspections Table does,
-and none does, because the collection can only push down a filter or a sort
-that names a column of its own table. Three of the habitat filters are not
-columns (Tags, Region, Untreated), a sample's date, status and species all
-live on other tables, a trap's Region is ADR 0015's membership computed on
-read, and a collection's date is one of two columns by its timing mode, in
-the Organization's zone, while Awaiting identification reads
-`collection_species`. The endpoint answers every filter the Map has, so the
-two surfaces agree on the set and the switch between them carries
-everything. What it costs is the column sort: the order is the surface's own,
-habitats by name, samples by newest inspection, traps by code and collections
-by newest date.
+The Habitats Table, the Samples Table, the Traps Table, the Collections Table
+and the Chemical Applications Table call this hook directly, with no map, and
+send `WHOLE_WORLD_BBOX` as the box. Each could have read its collection the
+way the Inspections Table does, and none does, because the collection can
+only push down a filter or a sort that names a column of its own table. Three
+of the habitat filters are not columns (Tags, Region, Untreated), a sample's
+date, status and species all live on other tables, a trap's Region is ADR
+0015's membership computed on read, and a collection's date is one of two
+columns by its timing mode, in the Organization's zone, while Awaiting
+identification reads `collection_species`. A chemical application's Region is
+the same membership as a trap's, and its rows carry the applicator's name and
+batch names, which the endpoint joins. The endpoint answers every filter the
+Map has, so the two surfaces agree on the set and the switch between them
+carries everything. What it costs is the column sort: the order is the
+surface's own, habitats by name, samples by newest inspection, traps by code,
+and collections and chemical applications by newest date.
 
 #### useSelectedMapRecord
 
@@ -1202,6 +1204,17 @@ screen under a header naming the new one; a refetch of the same key keeps the
 render and dims it. The response's `today` is the picker's upper bound and
 the partial test, so a client whose clock disagrees with the server draws the
 server's day. `docs/today-spec.md`, "The client half".
+
+### control-operations
+
+#### useApplicationFilterState
+
+The Chemical Applications Map and the Chemical Applications Table read one
+filter set off the URL, so the switch between them carries every filter, the
+date window included (#1374). It is `useCollectionFilterState` over the
+application codecs: the window opens on the last 90 days and ends on the
+Organization's today rather than the browser's, which is the day an
+application is recorded against.
 
 ### adult-surveillance
 

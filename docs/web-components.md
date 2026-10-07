@@ -202,6 +202,30 @@ The page needs two floors. `update*Method` is `MANAGER` while `create*`,
 `deactivate*`, `reactivate*` and `delete*` are `ADMIN`, and gating all of it at
 `canManage` was #65: a manager who may rename a method saw no Edit control.
 
+#### applicationSummaryGroupings
+
+The Chemical Applications summary, built the way `collectionSummaryGroupings`
+builds the Collections one (#1374). An insecticide is added to `insecticides`,
+an application method to `methods` and an applicator to `people`, each drawn
+top 5 and "n more". An application recorded with no method or no applicator
+is counted on the server and not drawn, because no filter selects "none".
+
+Amount Applied is drawn as text, one line per insecticide and unit. An amount
+only adds up within one unit, so the server sums it per insecticide and per
+`application_unit_id` through the summary's `breakdowns`, and one insecticide
+recorded in gallons and in fluid ounces is two lines. The lines run largest
+record count first, so they are cut at 5 like every other section. The rail
+does not convert between units: `usageTotal` can, for a set of units that
+convert, but a total in one unit beside lines it was converted from is more
+than the rail has room for.
+
+The filter card and its chips moved out of the route into
+`application-filters.tsx` so the Chemical Applications Table could share them,
+and the row type, its normalizer and the name lookups into
+`application-row-parts.ts`. The filter was labelled Product while the summary
+section over the same field said Insecticide, so the filter, its chips and the
+Table column now say Insecticide, which is the `CONTEXT.md` term.
+
 #### HabitatPicker (control-pickers)
 
 A habitat the picker did not pick still has to say its name, through a subset
@@ -249,6 +273,11 @@ reader widens back out without opening the filter card.
 It draws no count, Filters control, create control or Map/Table switch of its
 own. The frame's header already holds all four, and drops the pager so the
 count moves into the header row.
+
+A group can carry a `figure`, text drawn where its count would be, which is
+how the Chemical Applications summary draws an amount with its unit (#1374).
+A figure is not a count, so it is never a button: nothing filters by an
+amount.
 
 `ExplorerMapPage` takes it through `summary` on the row results rather than as
 a third results shape. The caller still hands over its rows, because the page

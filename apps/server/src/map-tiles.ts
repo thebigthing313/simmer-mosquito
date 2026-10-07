@@ -112,6 +112,7 @@ const defaultMapReaders = {
 	getApplicationTile: MAP_SURFACES.chemical.getTile,
 	getApplicationExtent: MAP_SURFACES.chemical.getExtent,
 	listApplicationDisplayRows: MAP_SURFACES.chemical.listByBounds,
+	summarizeApplications: MAP_SURFACES.chemical.summarizeByBounds,
 	getApplicationDisplayRow: MAP_SURFACES.chemical.getById,
 
 	getSourceReductionTile: MAP_SURFACES['source-reduction'].getTile,
@@ -383,6 +384,14 @@ export function registerMapTileRoutes(
 		parseQuery: (searchParams, organizationId, timeZone) =>
 			parseBboxPageQuery(searchParams, organizationId, timeZone, parseApplicationMapFilters),
 		list: readers.listApplicationDisplayRows,
+	});
+
+	// What the Chemical Applications rail draws in place of the page over 100 in
+	// view (#1374). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/chemical/summary',
+		parseFilters: parseApplicationMapFilters,
+		summarize: readers.summarizeApplications,
 	});
 
 	registerByIdRoute(app, options, {

@@ -115,6 +115,22 @@ export function applicationSurface(
 		geom: sql`a.geom`,
 		properties: [sql`a.id`],
 		filterWhere: applicationFilterWhere,
+		// What the Chemical Applications rail counts by over 100 in view (#1374),
+		// each one a filter the rail already has, so a group is a button that
+		// applies it.
+		groupings: () => ({
+			insecticideId: sql`a.insecticide_id`,
+			applicationMethodId: sql`a.application_method_id`,
+			applicatorProfileId: sql`a.applicator_profile_id`,
+		}),
+		// An amount only adds up within one unit, so it is summed per
+		// insecticide and per unit rather than across the box.
+		breakdowns: () => ({
+			amountApplied: {
+				by: { insecticideId: sql`a.insecticide_id`, unitId: sql`a.application_unit_id` },
+				sum: sql<number>`a.amount_applied`,
+			},
+		}),
 		display: {
 			columns: applicationDisplayColumns,
 			joins: applicationDisplayJoins,
