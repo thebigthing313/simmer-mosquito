@@ -2,7 +2,8 @@
 
 /**
  * The traps explorer, rendered whole, through the three things its rail can say
- * when the page holds nothing (#958).
+ * when the page holds nothing (#958), and the two it draws when the page holds
+ * traps: the rows at 100 or fewer, and the summary over that (#1372).
  *
  * `use-explorer-resource.test.tsx` holds the rule at the hook, and
  * `explorer-map-page.test.tsx` holds the copy at the frame. This is the seam
@@ -46,6 +47,10 @@ const harness = vi.hoisted(() => ({
 	extent: null as unknown,
 	/** Who is signed in, for the role floor the create pointer sits behind. */
 	role: 'admin' as string,
+	/** What the page endpoint answers. */
+	page: { traps: [], total: 0 } as { readonly traps: readonly unknown[]; readonly total: number },
+	/** What the summary endpoint answers. */
+	summary: null as unknown,
 }));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
@@ -57,9 +62,12 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
 	const { sessionFetchStandIn } = await import('../../route-mock-stand-ins');
 	return {
 		...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
-		sessionFetch: sessionFetchStandIn(harness.sent, (url) =>
-			url.pathname.endsWith('/extent') ? { extent: harness.extent } : { traps: [], total: 0 },
-		),
+		sessionFetch: sessionFetchStandIn(harness.sent, (url) => {
+			if (url.pathname.endsWith('/extent')) {
+				return { extent: harness.extent };
+			}
+			return url.pathname.endsWith('/summary') ? harness.summary : harness.page;
+		}),
 	};
 });
 
@@ -94,6 +102,8 @@ beforeEach(() => {
 	harness.sent.length = 0;
 	harness.extent = null;
 	harness.role = 'admin';
+	harness.page = { traps: [], total: 0 };
+	harness.summary = null;
 });
 
 afterEach(() => {
@@ -188,5 +198,55 @@ describe('the traps explorer with nothing on the page', () => {
 			screen.getByText('Pan or zoom the map, or loosen the filters to bring traps into range.'),
 		).toBeTruthy();
 		await waitFor(() => expect(requestCounts()).toEqual({ page: 1, extent: 1 }));
+	});
+});
+
+// Over 100 in view the rail draws the summary in place of the rows (#1372),
+// asked for under the page's own box and filters, and at 100 or fewer it draws
+// the rows, all on one page. What a click writes is `trap-summary.test.tsx`'s.
+describe('the traps explorer with traps in view', () => {
+	const TRAP = {
+		id: 'trap-1',
+		lat: -0.5,
+		lng: 0.5,
+		collectionMethodId: 'method-1',
+		collectionLureId: null,
+		addressId: null,
+		trapName: 'Gravid 7',
+		trapCode: 'G7',
+		description: null,
+		isActive: true,
+	};
+
+	it('draws the summary instead of the rows over 100 in view, with no pager', async () => {
+		harness.extent = { west: 0, south: -1, east: 1, north: 0 };
+		harness.page = { traps: [TRAP], total: 150 };
+		harness.summary = {
+			total: 150,
+			groups: {
+				collectionMethodId: [{ value: 'method-1', count: 150 }],
+				isActive: [{ value: true, count: 150 }],
+			},
+		};
+		renderTraps();
+
+		// The default status is drawn as the selected group.
+		const active = await screen.findByRole('button', { name: 'Active, 150 traps' });
+		expect(active.getAttribute('aria-pressed')).toBe('true');
+		expect(screen.queryByText('G7 - Gravid 7')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
+		const summaryRequest = harness.sent.find((url) => url.pathname === '/map/traps/summary');
+		expect(summaryRequest?.searchParams.get('bbox')).toBe('0,-0.8,1,0');
+		expect(summaryRequest?.searchParams.get('status')).toBe('active');
+	});
+
+	it('draws the rows at 100 or fewer, with no pager and no summary request', async () => {
+		harness.extent = { west: 0, south: -1, east: 1, north: 0 };
+		harness.page = { traps: [TRAP], total: 1 };
+		renderTraps();
+
+		expect(await screen.findByText('G7 - Gravid 7')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
+		expect(harness.sent.some((url) => url.pathname === '/map/traps/summary')).toBe(false);
 	});
 });

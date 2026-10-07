@@ -26,6 +26,8 @@ import { Suspense } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActivityEntry } from '../../components/activity/activity-data';
 import { ActivityLog } from '../../components/activity/activity-log';
+import { TrapSurfaceSwitch } from '../../components/adult-surveillance/traps/trap-surface-switch';
+import { sharedTrapSearch } from '../../components/adult-surveillance/traps/traps-search';
 import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
 import { DashboardPage } from '../../components/dashboard/dashboard-page';
 import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
@@ -481,6 +483,35 @@ describe('the Samples Map/Table switch', () => {
 		renderWithRouter(<SampleSurfaceSwitch current="table" search={sharedSampleSearch(ADDRESS)} />);
 
 		expect(linkHref('Map')).toBe(`/larval-surveillance/samples?${CARRIED}`);
+	});
+});
+
+/**
+ * The Traps Map/Table switch. Both surfaces read `/map/traps`, so every filter
+ * is carried, collection methods and regions included.
+ */
+describe('the Traps Map/Table switch', () => {
+	const ADDRESS = {
+		search: 'gravid',
+		status: 'all',
+		methods: ['method-1'],
+		regions: ['region-1'],
+	};
+	const CARRIED =
+		'search=gravid&status=all&methods=%5B%22method-1%22%5D&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<TrapSurfaceSwitch current="map" search={sharedTrapSearch({ ...ADDRESS, page: 3 })} />,
+		);
+
+		expect(linkHref('Table')).toBe(`/adult-surveillance/traps/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(<TrapSurfaceSwitch current="table" search={sharedTrapSearch(ADDRESS)} />);
+
+		expect(linkHref('Map')).toBe(`/adult-surveillance/traps?${CARRIED}`);
 	});
 });
 

@@ -95,6 +95,22 @@ The shared `TabStrip` in `packages/ui-web` is unchanged. Every other strip in
 the app has a fixed set of tabs, so the bound belongs to the one surface whose
 length comes from years of data.
 
+#### trapSummaryGroupings
+
+The Traps summary, built the way `habitatSummaryGroupings` builds the Habitats
+one (#1372). A collection method is added to `methods` and drawn top 5 and "n
+more", and Active and Inactive set `status`, drawn Active first whichever
+holds more. The map opens on `status=active`, so the server counts active
+traps only, and the first summary a reader sees draws Active alone and
+selected. Clicking it widens to `all`, and Inactive appears beside it. Every
+trap carries a method, so there is no "No method" group to draw as text.
+
+The filter card and its chips sit in `trap-filters.tsx` rather than in the
+route, which is what lets the summary draw the chips above its groupings and
+the Traps Table draw the same card. The Active and Inactive labels are
+`TRAP_STATUS_LABELS` in `legend.ts`, read by the control, the chip, the map
+key, the Table and the summary.
+
 #### trap-directory-data
 
 Undated collections sort ahead of the years because work that is not finished

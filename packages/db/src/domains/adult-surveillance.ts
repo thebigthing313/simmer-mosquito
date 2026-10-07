@@ -536,6 +536,12 @@ export function trapSurface(
 		geom: sql`t.geom`,
 		properties: [sql`t.id`, sql`t.is_active as "isActive"`],
 		filterWhere: trapFilterWhere,
+		// What the Traps rail counts by over 100 in view (#1372), each one a
+		// filter the rail already has, so a group is a button that applies it.
+		groupings: () => ({
+			collectionMethodId: sql`t.collection_method_id`,
+			isActive: sql`t.is_active`,
+		}),
 		display: {
 			columns: trapDisplayColumns,
 			// Sorted by what the client shows first ("code - name"), so the list reads

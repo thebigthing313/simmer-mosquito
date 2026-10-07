@@ -2,6 +2,7 @@ import { VectorTile, type VectorTileFeature } from '@mapbox/vector-tile';
 import { type Kysely, sql } from 'kysely';
 import { PbfReader } from 'pbf';
 import { expect, it } from 'vitest';
+import type { TrapMapFilters } from '../../../domains/adult-surveillance.js';
 import { getRequestedControlActionDisplayRowById } from '../../../domains/control-operations-map.js';
 import type { HabitatMvtTileFilters } from '../../../domains/habitats.js';
 import {
@@ -1588,4 +1589,98 @@ function daysBetween(from: string, to: string): number {
 	return Math.round(
 		(Date.parse(`${to}T00:00:00.000Z`) - Date.parse(`${from}T00:00:00.000Z`)) / 86_400_000,
 	);
+}
+
+// Over 100 traps in view the Traps rail draws the same summary (#1372). The
+// seeded world's one live trap in the box, an active one under the seeded
+// method, is joined by four more that differ on method and status, and each
+// count is checked against the page its button narrows to.
+describeDbIntegration('trap summary against Postgres', () => {
+	it('counts the traps the page counts, by collection method and status', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const { seededMethodId, lightMethodId } = await seedTrapVariety(db);
+
+			const filterSets: readonly TrapMapFilters[] = [
+				{},
+				{ isActive: true },
+				{ isActive: false },
+				{ collectionMethodIds: [lightMethodId] },
+				{ collectionMethodIds: [seededMethodId, lightMethodId] },
+				{ isActive: false, collectionMethodIds: [lightMethodId] },
+				{ search: 'no trap is named this' },
+			];
+			const answers = await Promise.all(
+				filterSets.map((filters) => summaryAndPage(db, MAP_SURFACES.traps, filters)),
+			);
+
+			for (const { summary, pageTotal } of answers) {
+				expect(summary.total).toBe(pageTotal);
+				for (const groups of Object.values(summary.groups)) {
+					expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(summary.total);
+				}
+			}
+
+			expect(answers[0]?.summary).toEqual({
+				total: 5,
+				groups: {
+					collectionMethodId: [
+						{ value: lightMethodId, count: 3 },
+						{ value: seededMethodId, count: 2 },
+					],
+					isActive: [
+						{ value: true, count: 3 },
+						{ value: false, count: 2 },
+					],
+				},
+			});
+			expect(answers[5]?.summary).toEqual({
+				total: 1,
+				groups: {
+					collectionMethodId: [{ value: lightMethodId, count: 1 }],
+					isActive: [{ value: false, count: 1 }],
+				},
+			});
+			// A search matching nothing counts nothing, and every grouping is still a key.
+			expect(answers[6]?.summary).toEqual({
+				total: 0,
+				groups: { collectionMethodId: [], isActive: [] },
+			});
+		});
+	});
+});
+
+/**
+ * Four more live traps beside the seeded `inside` one: an inactive one under
+ * the seeded method, and three under a second method, one of them inactive.
+ */
+async function seedTrapVariety(
+	db: Kysely<SimmerDatabase>,
+): Promise<{ readonly seededMethodId: string; readonly lightMethodId: string }> {
+	const inside = await db
+		.selectFrom('traps')
+		.select(['collection_method_id'])
+		.where('id', '=', mapSurfaceRowIds.trap.inside)
+		.executeTakeFirstOrThrow();
+	const seededMethodId = String(inside.collection_method_id);
+	const light = await db
+		.insertInto('collection_methods')
+		.values({ organization_id: mapSurfaceOrganizationIds.own, name: 'CDC light trap' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const lightMethodId = String(light.id);
+	const base = {
+		organization_id: mapSurfaceOrganizationIds.own,
+		geom: sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`,
+	};
+	await db
+		.insertInto('traps')
+		.values([
+			{ ...base, collection_method_id: seededMethodId, is_active: false },
+			{ ...base, collection_method_id: lightMethodId, is_active: true },
+			{ ...base, collection_method_id: lightMethodId, is_active: true },
+			{ ...base, collection_method_id: lightMethodId, is_active: false },
+		])
+		.execute();
+	return { seededMethodId, lightMethodId };
 }
