@@ -96,6 +96,7 @@ import { Route as GisRegionsIdRouteImport } from './routes/gis/regions/$id'
 import { Route as GisAddressesCreateRouteImport } from './routes/gis/addresses/create'
 import { Route as GisAddressesCleanupRouteImport } from './routes/gis/addresses/cleanup'
 import { Route as GisAddressesIdRouteImport } from './routes/gis/addresses/$id'
+import { Route as ControlOperationsSourceReductionTableRouteImport } from './routes/control-operations/source-reduction/table'
 import { Route as ControlOperationsSourceReductionStatsRouteImport } from './routes/control-operations/source-reduction/stats'
 import { Route as ControlOperationsSourceReductionMethodsRouteImport } from './routes/control-operations/source-reduction/methods'
 import { Route as ControlOperationsSourceReductionCreateRouteImport } from './routes/control-operations/source-reduction/create'
@@ -630,6 +631,12 @@ const GisAddressesIdRoute = GisAddressesIdRouteImport.update({
   path: '/gis/addresses/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ControlOperationsSourceReductionTableRoute =
+  ControlOperationsSourceReductionTableRouteImport.update({
+    id: '/control-operations/source-reduction/table',
+    path: '/control-operations/source-reduction/table',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ControlOperationsSourceReductionStatsRoute =
   ControlOperationsSourceReductionStatsRouteImport.update({
     id: '/control-operations/source-reduction/stats',
@@ -978,6 +985,7 @@ export interface FileRoutesByFullPath {
   '/control-operations/source-reduction/create': typeof ControlOperationsSourceReductionCreateRoute
   '/control-operations/source-reduction/methods': typeof ControlOperationsSourceReductionMethodsRoute
   '/control-operations/source-reduction/stats': typeof ControlOperationsSourceReductionStatsRoute
+  '/control-operations/source-reduction/table': typeof ControlOperationsSourceReductionTableRoute
   '/gis/addresses/$id': typeof GisAddressesIdRoute
   '/gis/addresses/cleanup': typeof GisAddressesCleanupRoute
   '/gis/addresses/create': typeof GisAddressesCreateRoute
@@ -1115,6 +1123,7 @@ export interface FileRoutesByTo {
   '/control-operations/source-reduction/create': typeof ControlOperationsSourceReductionCreateRoute
   '/control-operations/source-reduction/methods': typeof ControlOperationsSourceReductionMethodsRoute
   '/control-operations/source-reduction/stats': typeof ControlOperationsSourceReductionStatsRoute
+  '/control-operations/source-reduction/table': typeof ControlOperationsSourceReductionTableRoute
   '/gis/addresses/$id': typeof GisAddressesIdRoute
   '/gis/addresses/cleanup': typeof GisAddressesCleanupRoute
   '/gis/addresses/create': typeof GisAddressesCreateRoute
@@ -1254,6 +1263,7 @@ export interface FileRoutesById {
   '/control-operations/source-reduction/create': typeof ControlOperationsSourceReductionCreateRoute
   '/control-operations/source-reduction/methods': typeof ControlOperationsSourceReductionMethodsRoute
   '/control-operations/source-reduction/stats': typeof ControlOperationsSourceReductionStatsRoute
+  '/control-operations/source-reduction/table': typeof ControlOperationsSourceReductionTableRoute
   '/gis/addresses/$id': typeof GisAddressesIdRoute
   '/gis/addresses/cleanup': typeof GisAddressesCleanupRoute
   '/gis/addresses/create': typeof GisAddressesCreateRoute
@@ -1394,6 +1404,7 @@ export interface FileRouteTypes {
     | '/control-operations/source-reduction/create'
     | '/control-operations/source-reduction/methods'
     | '/control-operations/source-reduction/stats'
+    | '/control-operations/source-reduction/table'
     | '/gis/addresses/$id'
     | '/gis/addresses/cleanup'
     | '/gis/addresses/create'
@@ -1531,6 +1542,7 @@ export interface FileRouteTypes {
     | '/control-operations/source-reduction/create'
     | '/control-operations/source-reduction/methods'
     | '/control-operations/source-reduction/stats'
+    | '/control-operations/source-reduction/table'
     | '/gis/addresses/$id'
     | '/gis/addresses/cleanup'
     | '/gis/addresses/create'
@@ -1669,6 +1681,7 @@ export interface FileRouteTypes {
     | '/control-operations/source-reduction/create'
     | '/control-operations/source-reduction/methods'
     | '/control-operations/source-reduction/stats'
+    | '/control-operations/source-reduction/table'
     | '/gis/addresses/$id'
     | '/gis/addresses/cleanup'
     | '/gis/addresses/create'
@@ -1800,6 +1813,7 @@ export interface RootRouteChildren {
   ControlOperationsSourceReductionCreateRoute: typeof ControlOperationsSourceReductionCreateRoute
   ControlOperationsSourceReductionMethodsRoute: typeof ControlOperationsSourceReductionMethodsRoute
   ControlOperationsSourceReductionStatsRoute: typeof ControlOperationsSourceReductionStatsRoute
+  ControlOperationsSourceReductionTableRoute: typeof ControlOperationsSourceReductionTableRoute
   GisAddressesIdRoute: typeof GisAddressesIdRoute
   GisAddressesCleanupRoute: typeof GisAddressesCleanupRoute
   GisAddressesCreateRoute: typeof GisAddressesCreateRoute
@@ -2493,6 +2507,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GisAddressesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/control-operations/source-reduction/table': {
+      id: '/control-operations/source-reduction/table'
+      path: '/control-operations/source-reduction/table'
+      fullPath: '/control-operations/source-reduction/table'
+      preLoaderRoute: typeof ControlOperationsSourceReductionTableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/control-operations/source-reduction/stats': {
       id: '/control-operations/source-reduction/stats'
       path: '/control-operations/source-reduction/stats'
@@ -2928,6 +2949,8 @@ const rootRouteChildren: RootRouteChildren = {
     ControlOperationsSourceReductionMethodsRoute,
   ControlOperationsSourceReductionStatsRoute:
     ControlOperationsSourceReductionStatsRoute,
+  ControlOperationsSourceReductionTableRoute:
+    ControlOperationsSourceReductionTableRoute,
   GisAddressesIdRoute: GisAddressesIdRoute,
   GisAddressesCleanupRoute: GisAddressesCleanupRoute,
   GisAddressesCreateRoute: GisAddressesCreateRoute,

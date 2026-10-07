@@ -558,6 +558,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.generic.map.icon,
 					},
 					{
+						id: 'source-reduction-table',
+						label: 'Table',
+						to: '/control-operations/source-reduction/table',
+						icon: iconRegistry.generic.table.icon,
+					},
+					{
 						id: 'source-reduction-create',
 						label: createLabel('sourceReduction'),
 						to: '/control-operations/source-reduction/create',

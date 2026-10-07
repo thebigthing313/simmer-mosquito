@@ -118,6 +118,7 @@ const defaultMapReaders = {
 	getSourceReductionTile: MAP_SURFACES['source-reduction'].getTile,
 	getSourceReductionExtent: MAP_SURFACES['source-reduction'].getExtent,
 	listSourceReductionDisplayRows: MAP_SURFACES['source-reduction'].listByBounds,
+	summarizeSourceReductions: MAP_SURFACES['source-reduction'].summarizeByBounds,
 	getSourceReductionDisplayRow: MAP_SURFACES['source-reduction'].getById,
 
 	getBiocontrolTile: MAP_SURFACES.biocontrol.getTile,
@@ -407,6 +408,14 @@ export function registerMapTileRoutes(
 		parseQuery: (searchParams, organizationId, timeZone) =>
 			parseBboxPageQuery(searchParams, organizationId, timeZone, parseSourceReductionMapFilters),
 		list: readers.listSourceReductionDisplayRows,
+	});
+
+	// What the Source Reductions rail draws in place of the page over 100 in
+	// view (#1375). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/source-reduction/summary',
+		parseFilters: parseSourceReductionMapFilters,
+		summarize: readers.summarizeSourceReductions,
 	});
 
 	registerByIdRoute(app, options, {

@@ -236,6 +236,21 @@ export function sourceReductionSurface(
 		geom: sql`sr.geom`,
 		properties: [sql`sr.id`],
 		filterWhere: sourceReductionFilterWhere,
+		// What the Source Reductions rail counts by over 100 in view (#1375),
+		// each one a filter the rail already has, so a group is a button that
+		// applies it.
+		groupings: () => ({
+			sourceReductionMethodId: sql`sr.source_reduction_method_id`,
+			technicianProfileId: sql`sr.technician_profile_id`,
+		}),
+		// Sources eliminated only add up within one unit, so the amount is
+		// summed per unit rather than across the box.
+		breakdowns: () => ({
+			sourcesEliminated: {
+				by: { unitId: sql`sr.sources_eliminated_unit_id` },
+				sum: sql<number>`sr.sources_eliminated_amount`,
+			},
+		}),
 		display: {
 			columns: sourceReductionDisplayColumns,
 			orderBy: sql`sr.source_reduction_date desc, sr.created_at desc, sr.id`,

@@ -1289,6 +1289,76 @@ describe('registerMapTileRoutes — chemical application summary', () => {
 	});
 });
 
+// The Source Reductions rail's summary over 100 in view (#1375).
+describe('registerMapTileRoutes — source reduction summary', () => {
+	const methodId = '8f2d6b41-3a7c-4e95-b0d8-2c6e9a1f5b37';
+	const technicianId = 'a5c3e8f2-6d1b-4b70-9e24-7f8a3d5c1e96';
+	const unitId = 'd1e7b4a9-2f5c-4c83-a6b0-9e3d7f2a8c54';
+
+	it('passes the box and every source reduction filter to the summary, and answers its breakdowns', async () => {
+		const summary = {
+			total: 180,
+			groups: {
+				sourceReductionMethodId: [{ value: methodId, count: 180 }],
+				technicianProfileId: [{ value: technicianId, count: 180 }],
+			},
+			breakdowns: {
+				sourcesEliminated: [{ by: { unitId }, count: 180, sum: 360 }],
+			},
+		};
+		const summarizeSourceReductions = vi.fn(async () => summary);
+		const getSourceReductionDisplayRow = vi.fn();
+		const app = createApp({ summarizeSourceReductions, getSourceReductionDisplayRow });
+
+		const response = await app.request(
+			`/map/source-reduction/summary?bbox=-91,35,-90,36&sourceReductionMethodId=${methodId}&technician=${technicianId}&regionId=${regionId}&dateFrom=2026-07-01&dateTo=2026-09-28`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(summarizeSourceReductions).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				sourceReductionMethodIds: [methodId],
+				technicianProfileIds: [technicianId],
+				regionIds: [regionId],
+				dateFrom: '2026-07-01',
+				dateTo: '2026-09-28',
+			},
+		});
+		expect(getSourceReductionDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', `?sourceReductionMethodId=${methodId}`],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a date that is not a date', '?bbox=-91,35,-90,36&dateFrom=last-week'],
+		['a param no source reduction filter admits', '?bbox=-91,35,-90,36&applicator=someone'],
+	])('refuses %s before reading the source reduction summary', async (_case, query) => {
+		const summarizeSourceReductions = vi.fn();
+		const getSourceReductionDisplayRow = vi.fn();
+		const app = createApp({ summarizeSourceReductions, getSourceReductionDisplayRow });
+
+		const response = await app.request(`/map/source-reduction/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeSourceReductions).not.toHaveBeenCalled();
+		expect(getSourceReductionDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no source reduction summary for a request with no session', async () => {
+		const summarizeSourceReductions = vi.fn();
+		const app = createApp({ authenticated: false, summarizeSourceReductions });
+
+		const response = await app.request('/map/source-reduction/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeSourceReductions).not.toHaveBeenCalled();
+	});
+});
+
 // The four routes whose readers were called directly rather than injected, so
 // none of them could be driven without a database until the readers became one
 // object. Three answer geometry the Electric shape does not carry (ADR 0009).
