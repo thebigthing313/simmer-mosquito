@@ -108,6 +108,7 @@ import { Route as ControlOperationsChemicalInsecticidesRouteImport } from './rou
 import { Route as ControlOperationsChemicalFormulationsRouteImport } from './routes/control-operations/chemical/formulations'
 import { Route as ControlOperationsChemicalCreateRouteImport } from './routes/control-operations/chemical/create'
 import { Route as ControlOperationsChemicalIdRouteImport } from './routes/control-operations/chemical/$id'
+import { Route as ControlOperationsBiocontrolTableRouteImport } from './routes/control-operations/biocontrol/table'
 import { Route as ControlOperationsBiocontrolStatsRouteImport } from './routes/control-operations/biocontrol/stats'
 import { Route as ControlOperationsBiocontrolMethodsRouteImport } from './routes/control-operations/biocontrol/methods'
 import { Route as ControlOperationsBiocontrolCreateRouteImport } from './routes/control-operations/biocontrol/create'
@@ -703,6 +704,12 @@ const ControlOperationsChemicalIdRoute =
     path: '/control-operations/chemical/$id',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ControlOperationsBiocontrolTableRoute =
+  ControlOperationsBiocontrolTableRouteImport.update({
+    id: '/control-operations/biocontrol/table',
+    path: '/control-operations/biocontrol/table',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ControlOperationsBiocontrolStatsRoute =
   ControlOperationsBiocontrolStatsRouteImport.update({
     id: '/control-operations/biocontrol/stats',
@@ -974,6 +981,7 @@ export interface FileRoutesByFullPath {
   '/control-operations/biocontrol/create': typeof ControlOperationsBiocontrolCreateRoute
   '/control-operations/biocontrol/methods': typeof ControlOperationsBiocontrolMethodsRoute
   '/control-operations/biocontrol/stats': typeof ControlOperationsBiocontrolStatsRoute
+  '/control-operations/biocontrol/table': typeof ControlOperationsBiocontrolTableRoute
   '/control-operations/chemical/$id': typeof ControlOperationsChemicalIdRoute
   '/control-operations/chemical/create': typeof ControlOperationsChemicalCreateRoute
   '/control-operations/chemical/formulations': typeof ControlOperationsChemicalFormulationsRoute
@@ -1112,6 +1120,7 @@ export interface FileRoutesByTo {
   '/control-operations/biocontrol/create': typeof ControlOperationsBiocontrolCreateRoute
   '/control-operations/biocontrol/methods': typeof ControlOperationsBiocontrolMethodsRoute
   '/control-operations/biocontrol/stats': typeof ControlOperationsBiocontrolStatsRoute
+  '/control-operations/biocontrol/table': typeof ControlOperationsBiocontrolTableRoute
   '/control-operations/chemical/$id': typeof ControlOperationsChemicalIdRoute
   '/control-operations/chemical/create': typeof ControlOperationsChemicalCreateRoute
   '/control-operations/chemical/formulations': typeof ControlOperationsChemicalFormulationsRoute
@@ -1252,6 +1261,7 @@ export interface FileRoutesById {
   '/control-operations/biocontrol/create': typeof ControlOperationsBiocontrolCreateRoute
   '/control-operations/biocontrol/methods': typeof ControlOperationsBiocontrolMethodsRoute
   '/control-operations/biocontrol/stats': typeof ControlOperationsBiocontrolStatsRoute
+  '/control-operations/biocontrol/table': typeof ControlOperationsBiocontrolTableRoute
   '/control-operations/chemical/$id': typeof ControlOperationsChemicalIdRoute
   '/control-operations/chemical/create': typeof ControlOperationsChemicalCreateRoute
   '/control-operations/chemical/formulations': typeof ControlOperationsChemicalFormulationsRoute
@@ -1393,6 +1403,7 @@ export interface FileRouteTypes {
     | '/control-operations/biocontrol/create'
     | '/control-operations/biocontrol/methods'
     | '/control-operations/biocontrol/stats'
+    | '/control-operations/biocontrol/table'
     | '/control-operations/chemical/$id'
     | '/control-operations/chemical/create'
     | '/control-operations/chemical/formulations'
@@ -1531,6 +1542,7 @@ export interface FileRouteTypes {
     | '/control-operations/biocontrol/create'
     | '/control-operations/biocontrol/methods'
     | '/control-operations/biocontrol/stats'
+    | '/control-operations/biocontrol/table'
     | '/control-operations/chemical/$id'
     | '/control-operations/chemical/create'
     | '/control-operations/chemical/formulations'
@@ -1670,6 +1682,7 @@ export interface FileRouteTypes {
     | '/control-operations/biocontrol/create'
     | '/control-operations/biocontrol/methods'
     | '/control-operations/biocontrol/stats'
+    | '/control-operations/biocontrol/table'
     | '/control-operations/chemical/$id'
     | '/control-operations/chemical/create'
     | '/control-operations/chemical/formulations'
@@ -1802,6 +1815,7 @@ export interface RootRouteChildren {
   ControlOperationsBiocontrolCreateRoute: typeof ControlOperationsBiocontrolCreateRoute
   ControlOperationsBiocontrolMethodsRoute: typeof ControlOperationsBiocontrolMethodsRoute
   ControlOperationsBiocontrolStatsRoute: typeof ControlOperationsBiocontrolStatsRoute
+  ControlOperationsBiocontrolTableRoute: typeof ControlOperationsBiocontrolTableRoute
   ControlOperationsChemicalIdRoute: typeof ControlOperationsChemicalIdRoute
   ControlOperationsChemicalCreateRoute: typeof ControlOperationsChemicalCreateRoute
   ControlOperationsChemicalFormulationsRoute: typeof ControlOperationsChemicalFormulationsRoute
@@ -2591,6 +2605,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ControlOperationsChemicalIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/control-operations/biocontrol/table': {
+      id: '/control-operations/biocontrol/table'
+      path: '/control-operations/biocontrol/table'
+      fullPath: '/control-operations/biocontrol/table'
+      preLoaderRoute: typeof ControlOperationsBiocontrolTableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/control-operations/biocontrol/stats': {
       id: '/control-operations/biocontrol/stats'
       path: '/control-operations/biocontrol/stats'
@@ -2932,6 +2953,7 @@ const rootRouteChildren: RootRouteChildren = {
   ControlOperationsBiocontrolMethodsRoute:
     ControlOperationsBiocontrolMethodsRoute,
   ControlOperationsBiocontrolStatsRoute: ControlOperationsBiocontrolStatsRoute,
+  ControlOperationsBiocontrolTableRoute: ControlOperationsBiocontrolTableRoute,
   ControlOperationsChemicalIdRoute: ControlOperationsChemicalIdRoute,
   ControlOperationsChemicalCreateRoute: ControlOperationsChemicalCreateRoute,
   ControlOperationsChemicalFormulationsRoute:

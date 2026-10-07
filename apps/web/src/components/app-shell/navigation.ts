@@ -596,6 +596,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.generic.map.icon,
 					},
 					{
+						id: 'biocontrol-table',
+						label: 'Table',
+						to: '/control-operations/biocontrol/table',
+						icon: iconRegistry.generic.table.icon,
+					},
+					{
 						id: 'biocontrol-create',
 						label: createLabel('biocontrolAction'),
 						to: '/control-operations/biocontrol/create',

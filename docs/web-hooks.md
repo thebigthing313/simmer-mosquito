@@ -114,23 +114,24 @@ draws its rows only when they fit on one page, so its pager never shows. The
 rail mounts only the rows in view, so a page of 100 costs what 50 did.
 
 The Habitats Table, the Samples Table, the Traps Table, the Collections
-Table, the Chemical Applications Table and the Source Reductions Table call
-this hook directly, with no map, and send `WHOLE_WORLD_BBOX` as the box. Each
-could have read its collection the way the Inspections Table does, and none
-does, because the collection can only push down a filter or a sort that names
-a column of its own table. Three of the habitat filters are not columns (Tags,
-Region, Untreated), a sample's date, status and species all live on other
-tables, a trap's Region is ADR 0015's membership computed on read, and a
-collection's date is one of two columns by its timing mode, in the
-Organization's zone, while Awaiting identification reads `collection_species`.
-A chemical application's Region and a source reduction's Region are the same
-membership as a trap's, and a chemical application's rows carry the
-applicator's name and batch names, which the endpoint joins. The endpoint
-answers every filter the Map has, so the two surfaces agree on the set and the
-switch between them carries everything. What it costs is the column sort: the
-order is the surface's own, habitats by name, samples by newest inspection,
-traps by code, and collections, chemical applications and source reductions by
-newest date.
+Table, the Chemical Applications Table, the Source Reductions Table and the
+Biocontrol Actions Table call this hook directly, with no map, and send
+`WHOLE_WORLD_BBOX` as the box. Each could have read its collection the way the
+Inspections Table does, and none does, because the collection can only push
+down a filter or a sort that names a column of its own table. Three of the
+habitat filters are not columns (Tags, Region, Untreated), a sample's date,
+status and species all live on other tables, a trap's Region is ADR 0015's
+membership computed on read, and a collection's date is one of two columns by
+its timing mode, in the Organization's zone, while Awaiting identification
+reads `collection_species`. The Region of a chemical application, a source
+reduction or a biocontrol action is the same membership as a trap's, and a
+chemical application's rows carry the applicator's name and batch names,
+which the endpoint joins. The endpoint answers every filter the Map has, so
+the two surfaces agree on the set and the switch between them carries
+everything. What it costs is the column sort: the order is the surface's own,
+habitats by name, samples by newest inspection, traps by code, and
+collections, chemical applications, source reductions and biocontrol actions
+by newest date.
 
 #### useSelectedMapRecord
 
@@ -1225,6 +1226,16 @@ off the URL, so the switch between them carries every filter, the date window
 included (#1375). It is `useApplicationFilterState` over the source reduction
 codecs: the window opens on the last 90 days and ends on the Organization's
 today rather than the browser's.
+
+#### useBiocontrolFilterState
+
+The Biocontrol Actions Map and the Biocontrol Actions Table read one filter
+set off the URL, so the switch between them carries every filter, the date
+window and the Habitat-linked flag included (#1376). It calls
+`useSearchFilters` the way `useApplicationFilterState` does, over the
+biocontrol codecs: the window opens on
+the last 90 days and ends on the Organization's today rather than the
+browser's.
 
 ### adult-surveillance
 

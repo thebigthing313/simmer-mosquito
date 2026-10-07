@@ -30,6 +30,8 @@ import { CollectionSurfaceSwitch } from '../../components/adult-surveillance/col
 import { sharedCollectionSearch } from '../../components/adult-surveillance/collections/collections-search';
 import { TrapSurfaceSwitch } from '../../components/adult-surveillance/traps/trap-surface-switch';
 import { sharedTrapSearch } from '../../components/adult-surveillance/traps/traps-search';
+import { sharedBiocontrolSearch } from '../../components/control-operations/biocontrol/biocontrol-actions-search';
+import { BiocontrolSurfaceSwitch } from '../../components/control-operations/biocontrol/biocontrol-surface-switch';
 import { ApplicationSurfaceSwitch } from '../../components/control-operations/chemical/application-surface-switch';
 import { sharedApplicationSearch } from '../../components/control-operations/chemical/applications-search';
 import { SourceReductionSurfaceSwitch } from '../../components/control-operations/source-reduction/source-reduction-surface-switch';
@@ -629,6 +631,43 @@ describe('the Source Reductions Map/Table switch', () => {
 		);
 
 		expect(linkHref('Map')).toBe(`/control-operations/source-reduction?${CARRIED}`);
+	});
+});
+
+/**
+ * The Biocontrol Actions Map/Table switch. Both surfaces read
+ * `/map/biocontrol`, so every filter is carried, the date window and the
+ * habitat flag included.
+ */
+describe('the Biocontrol Actions Map/Table switch', () => {
+	const ADDRESS = {
+		from: '2026-09-01',
+		to: '2026-09-28',
+		people: ['person-1'],
+		methods: ['method-1'],
+		habitat: true,
+		regions: ['region-1'],
+	};
+	const CARRIED =
+		'from=2026-09-01&to=2026-09-28&people=%5B%22person-1%22%5D&methods=%5B%22method-1%22%5D&habitat=true&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<BiocontrolSurfaceSwitch
+				current="map"
+				search={sharedBiocontrolSearch({ ...ADDRESS, page: 3 })}
+			/>,
+		);
+
+		expect(linkHref('Table')).toBe(`/control-operations/biocontrol/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(
+			<BiocontrolSurfaceSwitch current="table" search={sharedBiocontrolSearch(ADDRESS)} />,
+		);
+
+		expect(linkHref('Map')).toBe(`/control-operations/biocontrol?${CARRIED}`);
 	});
 });
 
