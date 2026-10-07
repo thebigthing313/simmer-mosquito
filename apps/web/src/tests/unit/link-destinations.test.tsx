@@ -48,6 +48,8 @@ import { sharedSampleSearch } from '../../components/larval-surveillance/samples
 import { PeopleSection } from '../../components/my-organization/people';
 import { OverviewTable } from '../../components/overview/overview-table';
 import { UpwardLine } from '../../components/overview/overview-upward-line';
+import { sharedOutreachSearch } from '../../components/public-engagement/outreach/outreach-actions-search';
+import { OutreachSurfaceSwitch } from '../../components/public-engagement/outreach/outreach-surface-switch';
 import { ServiceRequestDetailHeader } from '../../components/public-engagement/service-requests/service-request-detail-header';
 import type {
 	NearbyCategory,
@@ -668,6 +670,41 @@ describe('the Biocontrol Actions Map/Table switch', () => {
 		);
 
 		expect(linkHref('Map')).toBe(`/control-operations/biocontrol?${CARRIED}`);
+	});
+});
+
+/**
+ * The Outreach Actions Map/Table switch. Both surfaces read `/map/outreach`,
+ * so every filter is carried, the date window included.
+ */
+describe('the Outreach Actions Map/Table switch', () => {
+	const ADDRESS = {
+		from: '2026-09-01',
+		to: '2026-09-28',
+		people: ['person-1'],
+		methods: ['method-1'],
+		regions: ['region-1'],
+	};
+	const CARRIED =
+		'from=2026-09-01&to=2026-09-28&people=%5B%22person-1%22%5D&methods=%5B%22method-1%22%5D&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<OutreachSurfaceSwitch
+				current="map"
+				search={sharedOutreachSearch({ ...ADDRESS, page: 3 })}
+			/>,
+		);
+
+		expect(linkHref('Table')).toBe(`/public-engagement/outreach/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(
+			<OutreachSurfaceSwitch current="table" search={sharedOutreachSearch(ADDRESS)} />,
+		);
+
+		expect(linkHref('Map')).toBe(`/public-engagement/outreach?${CARRIED}`);
 	});
 });
 

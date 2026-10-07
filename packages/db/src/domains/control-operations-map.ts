@@ -484,6 +484,15 @@ export function outreachSurface(
 		geom: sql`oa.geom`,
 		properties: [sql`oa.id`],
 		filterWhere: outreachFilterWhere,
+		// What the Outreach Actions rail counts by over 100 in view (#1377), each
+		// one a filter the rail already has, so a group is a button that applies it.
+		groupings: () => ({
+			outreachMethodId: sql`oa.outreach_method_id`,
+			technicianProfileId: sql`oa.technician_profile_id`,
+		}),
+		// `reach` is `not null` and checked above zero, so every outreach action in
+		// view adds to the total and the sum never skips a null.
+		figures: () => ({ reachTotal: sql<number>`oa.reach` }),
 		display: {
 			columns: outreachDisplayColumns,
 			orderBy: sql`oa.outreach_date desc, oa.created_at desc, oa.id`,
