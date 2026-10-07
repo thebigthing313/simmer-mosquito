@@ -4,146 +4,72 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
+import {
+	biocontrolFilterCodecs,
+	biocontrolListParams,
+	biocontrolTileFilters,
+	sharedBiocontrolSearch,
+} from '../../../components/control-operations/biocontrol/biocontrol-actions-search';
+import {
+	BiocontrolFilterChips,
+	BiocontrolFilterFields,
+} from '../../../components/control-operations/biocontrol/biocontrol-filters';
+import {
+	type BiocontrolListRow,
+	biocontrolMethodName,
+	biocontrolTechnicianName,
+	linkedHabitatIds,
+} from '../../../components/control-operations/biocontrol/biocontrol-row-parts';
+import { biocontrolSummaryGroupings } from '../../../components/control-operations/biocontrol/biocontrol-summary';
+import { BiocontrolSurfaceSwitch } from '../../../components/control-operations/biocontrol/biocontrol-surface-switch';
 import { BiocontrolMapCard } from '../../../components/control-operations/biocontrol-map-card';
 import {
 	controlContext,
 	formatAmount,
 } from '../../../components/control-operations/control-display';
-import { DateRangeFilter } from '../../../components/date-range-filter';
-import {
-	ActiveFilterBar,
-	ExplorerMapPage,
-	ExplorerRow,
-	FilterChip,
-	FilterGrid,
-	MultiSelectFilter,
-	ToggleFilter,
-	toggle,
-	whenAny,
-	whenOn,
-	whenText,
-} from '../../../components/explorer';
-import { ExplorerPagination } from '../../../components/explorer-pagination';
-import {
-	type BiocontrolTileFilters,
-	MAP_CREATE_TARGETS,
-	MapCanvas,
-	type MapTileLayer,
-} from '../../../components/map';
+import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
 import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
+import { useBiocontrolFilterState } from '../../../hooks/control-operations/use-biocontrol-filter-state';
 import { useBiocontrolMethodOptions } from '../../../hooks/explorer/use-biocontrol-method-options';
-import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
-import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { useSearchFilters } from '../../../hooks/use-search-filters';
-import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
-import { type RecordType, recordNoun } from '../../../lib/record-nouns';
-import {
-	DATE_RANGE_COUNTING,
-	dateParam,
-	type FilterCodecs,
-	flagParam,
-	idSetParam,
-	searchValidator,
-} from '../../../lib/search-filters';
-
-interface BiocontrolRow {
-	readonly id: string;
-	readonly lat: number;
-	readonly lng: number;
-	readonly biocontrolMethodId: string;
-	readonly biocontrolDate: string;
-	readonly amountReleased: number;
-	readonly releaseUnitId: string;
-	readonly technicianProfileId: string | null;
-	readonly habitatId: string | null;
-	readonly inspectionId: string | null;
-}
-
-interface BiocontrolFilters {
-	readonly from: string;
-	readonly to: string;
-	readonly people: ReadonlySet<string>;
-	readonly methods: ReadonlySet<string>;
-	readonly habitat: boolean;
-	readonly regions: ReadonlySet<string>;
-}
-
-const FILTER_CODECS: FilterCodecs<BiocontrolFilters> = {
-	from: dateParam,
-	to: dateParam,
-	people: idSetParam,
-	methods: idSetParam,
-	habitat: flagParam,
-	regions: idSetParam,
-};
+import { formatListDate } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
+import { searchValidator } from '../../../lib/search-filters';
 
 const BiocontrolEntityIcon = iconRegistry.entities.biocontrolAction.icon;
 
 export const Route = createFileRoute('/control-operations/biocontrol/')({
 	component: BiocontrolExplorerRoute,
-	validateSearch: searchValidator(FILTER_CODECS),
+	validateSearch: searchValidator(biocontrolFilterCodecs),
 });
 
-const DEFAULT_WINDOW_DAYS = 90;
-const RECORD_TYPE: RecordType = 'biocontrolAction';
 const PATH = '/map/biocontrol';
 
 function BiocontrolExplorerRoute() {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
-	const defaultFrom = addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1));
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
-	const filterDefaults: BiocontrolFilters = {
-		from: defaultFrom,
-		to: today,
-		people: new Set(),
-		methods: new Set(),
-		habitat: false,
-		regions: new Set(),
-	};
-	const {
-		filters: query,
-		setFilters,
-		reset,
-		activeCount: activeFilterCount,
-	} = useSearchFilters(filterDefaults, FILTER_CODECS, DATE_RANGE_COUNTING);
-	const dateFrom = query.from;
-	const dateTo = query.to;
-	const personIds = query.people;
-	const methodIds = query.methods;
-	const regionIds = query.regions;
-	const habitatOnly = query.habitat;
-	const setPersonIds = (next: ReadonlySet<string>) => setFilters({ people: next });
-	const setMethodIds = (next: ReadonlySet<string>) => setFilters({ methods: next });
-	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
-	const setHabitatOnly = (next: boolean) => setFilters({ habitat: next });
+	const binding = useBiocontrolFilterState();
+	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
-	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
-	const { options: methodOptions, nameById: methodNameById } = useBiocontrolMethodOptions();
+	const { nameById: methodNameById } = useBiocontrolMethodOptions();
+	const { nameById: personNameById } = usePersonnelOptions();
 	const unitById = useUnitLabels().byId;
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no toggle) drop out.
-	const personnel = usePersonnelOptions();
-	const regions = useRegionOptions();
-	const filters: BiocontrolTileFilters = {
-		...whenAny('biocontrolMethodIds', methodIds),
-		...whenAny('technicianProfileIds', personIds),
-		...whenOn('habitatLinkedOnly', habitatOnly),
-		...whenAny('regionIds', regionIds),
-		...whenText('dateFrom', dateFrom),
-		...whenText('dateTo', dateTo),
-	};
+	const filters = biocontrolTileFilters(query);
+	// What a move to the Table takes with it: every filter, since the Table
+	// applies each one.
+	const carried = sharedBiocontrolSearch(Route.useSearch());
 	const layer: MapTileLayer = {
 		kind: 'biocontrol',
 		serverUrl: getServerUrl(),
@@ -151,122 +77,32 @@ function BiocontrolExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const {
-		rows,
-		total,
-		isLoading,
-		isError,
-		retry,
-		page,
-		pageCount,
-		setPage,
-		selected,
-		empty,
-		layers,
-	} = useExplorerResource<BiocontrolRow>({
-		path: PATH,
-		rowsKey: 'biocontrolActions',
-		rowKey: 'biocontrolAction',
-		recordType: 'biocontrolAction',
-		params: {
-			biocontrolMethodId: filters.biocontrolMethodIds,
-			technician: filters.technicianProfileIds,
-			regionId: filters.regionIds,
-			habitatLinked: filters.habitatLinkedOnly,
-			dateFrom: filters.dateFrom,
-			dateTo: filters.dateTo,
-		},
-		layer,
-		map,
-		selectedId,
-	});
+	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
+		useExplorerResource<BiocontrolListRow>({
+			path: PATH,
+			rowsKey: 'biocontrolActions',
+			rowKey: 'biocontrolAction',
+			recordType: 'biocontrolAction',
+			params: biocontrolListParams(filters),
+			layer,
+			map,
+			selectedId,
+			summarize: true,
+		});
 
 	// `habitats` syncs on demand, so resolve only the referenced ids as a bounded
 	// live subset rather than reading the whole collection eagerly.
-	const habitatIds = rows.flatMap((row) => (row.habitatId === null ? [] : [row.habitatId]));
-	const habitatNameById = useHabitatNames(habitatIds);
+	const habitatNameById = useHabitatNames(linkedHabitatIds(rows));
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 
-	const clearAll = reset;
-
 	return (
 		<ExplorerMapPage
+			actions={<BiocontrolSurfaceSwitch compact current="map" search={carried} />}
 			activeFilterCount={activeFilterCount}
-			filters={
-				<>
-					<DateRangeFilter {...dateRange} />
-
-					<FilterGrid>
-						<MultiSelectFilter
-							empty="No biocontrol methods"
-							label="Method"
-							onChange={setMethodIds}
-							options={methodOptions}
-							selected={methodIds}
-						/>
-						<MultiSelectFilter
-							empty="No people"
-							label="Technician"
-							onChange={setPersonIds}
-							options={personnel.options}
-							selected={personIds}
-						/>
-						<MultiSelectFilter
-							empty="No regions"
-							label="Region"
-							onChange={setRegionIds}
-							options={regions.options}
-							selected={regionIds}
-						/>
-						<ToggleFilter
-							label="Habitat-linked only"
-							onChange={setHabitatOnly}
-							value={habitatOnly}
-						/>
-					</FilterGrid>
-
-					{activeFilterCount > 0 ? (
-						<ActiveFilterBar onClearAll={clearAll}>
-							{[...methodIds].map((id) => (
-								<FilterChip
-									key={id}
-									label={methodNameById.get(id) ?? 'Unknown method'}
-									onRemove={() => setMethodIds(toggle(methodIds, id))}
-								/>
-							))}
-							{[...personIds].map((id) => (
-								<FilterChip
-									key={`person-${id}`}
-									label={personnel.nameById.get(id) ?? 'Unknown person'}
-									onRemove={() => setPersonIds(toggle(personIds, id))}
-								/>
-							))}
-							{[...regionIds].map((id) => (
-								<FilterChip
-									key={`region-${id}`}
-									label={regions.nameById.get(id) ?? 'Unknown region'}
-									onRemove={() => setRegionIds(toggle(regionIds, id))}
-								/>
-							))}
-							{habitatOnly ? (
-								<FilterChip label="Habitat-linked only" onRemove={() => setHabitatOnly(false)} />
-							) : null}
-						</ActiveFilterBar>
-					) : null}
-				</>
-			}
-			footer={
-				<ExplorerPagination
-					noun={recordNoun(RECORD_TYPE)}
-					onPageChange={setPage}
-					page={page}
-					pageCount={pageCount}
-					total={total}
-				/>
-			}
+			filters={<BiocontrolFilterFields binding={binding} />}
 			heading={{
-				title: recordNoun(RECORD_TYPE).titleMany,
+				title: recordNoun('biocontrolAction').titleMany,
 				icon: BiocontrolEntityIcon,
 				total,
 				isLoading,
@@ -303,6 +139,27 @@ function BiocontrolExplorerRoute() {
 				isError,
 				onRetry: retry,
 				empty,
+				// Over 100 in view the rows would not fit on one page, so the panel
+				// says what is in view instead (#1376).
+				summary: summary.isShown ? (
+					<ExplorerSummary
+						chips={activeFilterCount === 0 ? null : <BiocontrolFilterChips binding={binding} />}
+						groupings={
+							summary.data === null
+								? []
+								: biocontrolSummaryGroupings({
+										summary: summary.data,
+										filters: query,
+										setFilters,
+										methodNameById,
+										personNameById,
+										unitById,
+									})
+						}
+						recordType="biocontrolAction"
+						state={summary}
+					/>
+				) : undefined,
 				renderRow: (row) => (
 					<BiocontrolListItem
 						amount={formatAmount(row.amountReleased, unitById.get(row.releaseUnitId))}
@@ -313,14 +170,10 @@ function BiocontrolExplorerRoute() {
 						}
 						isSelected={row.id === selectedId}
 						key={row.id}
-						methodName={methodNameById.get(row.biocontrolMethodId) ?? 'Unknown method'}
+						methodName={biocontrolMethodName(row, methodNameById)}
 						onSelect={setSelectedId}
 						row={row}
-						technicianName={
-							row.technicianProfileId === null
-								? null
-								: (personnel.nameById.get(row.technicianProfileId) ?? null)
-						}
+						technicianName={biocontrolTechnicianName(row, personNameById)}
 					/>
 				),
 			}}
@@ -337,7 +190,7 @@ function BiocontrolListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly row: BiocontrolRow;
+	readonly row: BiocontrolListRow;
 	readonly methodName: string;
 	readonly amount: string;
 	readonly habitatName: string | null;

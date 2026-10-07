@@ -5,6 +5,7 @@ import { expect, it } from 'vitest';
 import type { CollectionMapFilters, TrapMapFilters } from '../../../domains/adult-surveillance.js';
 import {
 	type ApplicationMapFilters,
+	type BiocontrolMapFilters,
 	getRequestedControlActionDisplayRowById,
 	type SourceReductionMapFilters,
 } from '../../../domains/control-operations-map.js';
@@ -2256,6 +2257,203 @@ async function seedSourceReductionVariety(db: Kysely<SimmerDatabase>): Promise<{
 				technician_profile_id: ids.secondTechnicianId,
 				sources_eliminated_amount: 10,
 				sources_eliminated_unit_id: ids.gallonId,
+			},
+		])
+		.execute();
+	return ids;
+}
+
+// Over 100 biocontrol actions in view the Biocontrol Actions rail draws the
+// same summary (#1376). The seeded world's one live biocontrol action in the
+// box, 25 gallons released with no habitat, is joined by five more across a
+// second method, a second technician, a unit counting fish and a linked
+// habitat, one of them dated in January. The amount released is added up per
+// unit and never across units, so gallons and fish are two sums.
+describeDbIntegration('biocontrol summary against Postgres', () => {
+	it('counts the biocontrol actions the page counts, and sums the amount released per unit', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = await seedBiocontrolVariety(db);
+			const read = (filters: BiocontrolMapFilters) =>
+				summaryAndPage(db, MAP_SURFACES.biocontrol, filters);
+
+			const all = await read({});
+			expect(all.pageTotal).toBe(6);
+			expect(all.summary).toEqual({
+				total: 6,
+				groups: {
+					biocontrolMethodId: [
+						{ value: ids.fishMethodId, count: 4 },
+						{ value: ids.seededMethodId, count: 2 },
+					],
+					technicianProfileId: [
+						{ value: ids.secondTechnicianId, count: 3 },
+						{ value: ids.seededTechnicianId, count: 2 },
+						{ value: null, count: 1 },
+					],
+					habitat: [
+						{ value: true, count: 4 },
+						{ value: false, count: 2 },
+					],
+				},
+				breakdowns: {
+					amountReleased: [
+						{ by: { unitId: ids.gallonId }, count: 4, sum: 110 },
+						{ by: { unitId: ids.fishId }, count: 2, sum: 500 },
+					],
+				},
+			});
+
+			// Each group's count is the total of the page its button narrows to.
+			const narrowed: readonly (readonly [string, string | boolean, BiocontrolMapFilters])[] = [
+				['biocontrolMethodId', ids.fishMethodId, { biocontrolMethodIds: [ids.fishMethodId] }],
+				['biocontrolMethodId', ids.seededMethodId, { biocontrolMethodIds: [ids.seededMethodId] }],
+				[
+					'technicianProfileId',
+					ids.secondTechnicianId,
+					{ technicianProfileIds: [ids.secondTechnicianId] },
+				],
+				[
+					'technicianProfileId',
+					ids.seededTechnicianId,
+					{ technicianProfileIds: [ids.seededTechnicianId] },
+				],
+				['habitat', true, { habitatLinkedOnly: true }],
+			];
+			const answers = await Promise.all(narrowed.map(([, , filters]) => read(filters)));
+			narrowed.forEach(([grouping, value], index) => {
+				const answer = answers[index];
+				expect(answer?.summary.total).toBe(answer?.pageTotal);
+				expect(all.summary.groups[grouping]?.find((group) => group.value === value)?.count).toBe(
+					answer?.pageTotal,
+				);
+			});
+
+			// March alone drops the January release, and the sums follow the page.
+			const march = await read({ dateFrom: '2026-03-01', dateTo: '2026-03-31' });
+			expect(march.pageTotal).toBe(5);
+			expect(march.summary.total).toBe(5);
+			expect(march.summary.breakdowns).toEqual({
+				amountReleased: [
+					{ by: { unitId: ids.gallonId }, count: 3, sum: 50 },
+					{ by: { unitId: ids.fishId }, count: 2, sum: 500 },
+				],
+			});
+
+			// Outside the date window nothing is counted and nothing is added up.
+			expect((await read({ dateFrom: '2026-04-01' })).summary).toEqual({
+				total: 0,
+				groups: { biocontrolMethodId: [], technicianProfileId: [], habitat: [] },
+				breakdowns: { amountReleased: [] },
+			});
+		});
+	});
+});
+
+/**
+ * Five more live biocontrol actions in the box beside the seeded one: a second
+ * method, a second technician, a unit counting fish and four linked to the
+ * seeded habitat, with one action carrying no technician and one dated in
+ * January.
+ */
+async function seedBiocontrolVariety(db: Kysely<SimmerDatabase>): Promise<{
+	readonly seededMethodId: string;
+	readonly fishMethodId: string;
+	readonly seededTechnicianId: string;
+	readonly secondTechnicianId: string;
+	readonly gallonId: string;
+	readonly fishId: string;
+}> {
+	const inside = await db
+		.selectFrom('biocontrol_actions')
+		.select(['biocontrol_method_id', 'technician_profile_id', 'release_unit_id'])
+		.where('id', '=', mapSurfaceRowIds.biocontrol.inside)
+		.executeTakeFirstOrThrow();
+	const organizationId = mapSurfaceOrganizationIds.own;
+
+	const fish = await db
+		.insertInto('units')
+		.values({
+			code: 'map_surface_fish',
+			unit_name: 'Fish',
+			abbreviation: 'fish',
+			unit_type: 'count',
+			unit_system: 'us_customary',
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const fishMethod = await db
+		.insertInto('biocontrol_methods')
+		.values({ organization_id: organizationId, name: 'Gambusia release' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const second = await db
+		.insertInto('profiles')
+		.values({
+			organization_id: organizationId,
+			display_name: 'Second Technician',
+			email: 'second.technician@example.test',
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const ids = {
+		seededMethodId: String(inside.biocontrol_method_id),
+		fishMethodId: String(fishMethod.id),
+		seededTechnicianId: String(inside.technician_profile_id),
+		secondTechnicianId: String(second.id),
+		gallonId: String(inside.release_unit_id),
+		fishId: String(fish.id),
+	};
+	const habitatId = mapSurfaceRowIds.habitat.inside;
+
+	// The date goes in as text, since a `Date` is sent in the machine's own zone.
+	const base = {
+		organization_id: organizationId,
+		geom: sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`,
+		biocontrol_date: sql<Date>`date '2026-03-15'`,
+	};
+	await db
+		.insertInto('biocontrol_actions')
+		.values([
+			{
+				...base,
+				biocontrol_method_id: ids.seededMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				amount_released: 15,
+				release_unit_id: ids.gallonId,
+				habitat_id: habitatId,
+			},
+			{
+				...base,
+				biocontrol_method_id: ids.fishMethodId,
+				technician_profile_id: null,
+				amount_released: 200,
+				release_unit_id: ids.fishId,
+				habitat_id: habitatId,
+			},
+			{
+				...base,
+				biocontrol_method_id: ids.fishMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				amount_released: 300,
+				release_unit_id: ids.fishId,
+				habitat_id: habitatId,
+			},
+			{
+				...base,
+				biocontrol_method_id: ids.fishMethodId,
+				technician_profile_id: ids.seededTechnicianId,
+				amount_released: 10,
+				release_unit_id: ids.gallonId,
+			},
+			{
+				...base,
+				biocontrol_date: sql<Date>`date '2026-01-10'`,
+				biocontrol_method_id: ids.fishMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				amount_released: 60,
+				release_unit_id: ids.gallonId,
+				habitat_id: habitatId,
 			},
 		])
 		.execute();

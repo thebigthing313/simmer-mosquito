@@ -1359,6 +1359,78 @@ describe('registerMapTileRoutes — source reduction summary', () => {
 	});
 });
 
+// The Biocontrol Actions rail's summary over 100 in view (#1376).
+describe('registerMapTileRoutes — biocontrol summary', () => {
+	const methodId = '3b9e1f72-5c4a-4d86-9f03-6a2e8d7b1c45';
+	const technicianId = 'c7d2a9e4-1f6b-4e38-8a51-0b3f9c6e2d17';
+	const unitId = 'e4a8c1f6-9b2d-4f57-b3e0-5d7c2a9f8b61';
+
+	it('passes the box and every biocontrol filter to the summary, and answers its breakdowns', async () => {
+		const summary = {
+			total: 160,
+			groups: {
+				biocontrolMethodId: [{ value: methodId, count: 160 }],
+				technicianProfileId: [{ value: technicianId, count: 160 }],
+				habitat: [{ value: true, count: 160 }],
+			},
+			breakdowns: {
+				amountReleased: [{ by: { unitId }, count: 160, sum: 4000 }],
+			},
+		};
+		const summarizeBiocontrolActions = vi.fn(async () => summary);
+		const getBiocontrolDisplayRow = vi.fn();
+		const app = createApp({ summarizeBiocontrolActions, getBiocontrolDisplayRow });
+
+		const response = await app.request(
+			`/map/biocontrol/summary?bbox=-91,35,-90,36&biocontrolMethodId=${methodId}&technician=${technicianId}&habitatLinked=true&regionId=${regionId}&dateFrom=2026-07-01&dateTo=2026-09-28`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(summarizeBiocontrolActions).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				biocontrolMethodIds: [methodId],
+				technicianProfileIds: [technicianId],
+				habitatLinkedOnly: true,
+				regionIds: [regionId],
+				dateFrom: '2026-07-01',
+				dateTo: '2026-09-28',
+			},
+		});
+		expect(getBiocontrolDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', `?biocontrolMethodId=${methodId}`],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a date that is not a date', '?bbox=-91,35,-90,36&dateFrom=last-week'],
+		['a param no biocontrol filter admits', '?bbox=-91,35,-90,36&applicator=someone'],
+	])('refuses %s before reading the biocontrol summary', async (_case, query) => {
+		const summarizeBiocontrolActions = vi.fn();
+		const getBiocontrolDisplayRow = vi.fn();
+		const app = createApp({ summarizeBiocontrolActions, getBiocontrolDisplayRow });
+
+		const response = await app.request(`/map/biocontrol/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeBiocontrolActions).not.toHaveBeenCalled();
+		expect(getBiocontrolDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no biocontrol summary for a request with no session', async () => {
+		const summarizeBiocontrolActions = vi.fn();
+		const app = createApp({ authenticated: false, summarizeBiocontrolActions });
+
+		const response = await app.request('/map/biocontrol/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeBiocontrolActions).not.toHaveBeenCalled();
+	});
+});
+
 // The four routes whose readers were called directly rather than injected, so
 // none of them could be driven without a database until the readers became one
 // object. Three answer geometry the Electric shape does not carry (ADR 0009).

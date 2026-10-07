@@ -124,6 +124,7 @@ const defaultMapReaders = {
 	getBiocontrolTile: MAP_SURFACES.biocontrol.getTile,
 	getBiocontrolExtent: MAP_SURFACES.biocontrol.getExtent,
 	listBiocontrolDisplayRows: MAP_SURFACES.biocontrol.listByBounds,
+	summarizeBiocontrolActions: MAP_SURFACES.biocontrol.summarizeByBounds,
 	getBiocontrolDisplayRow: MAP_SURFACES.biocontrol.getById,
 
 	getOutreachTile: MAP_SURFACES.outreach.getTile,
@@ -431,6 +432,14 @@ export function registerMapTileRoutes(
 		parseQuery: (searchParams, organizationId, timeZone) =>
 			parseBboxPageQuery(searchParams, organizationId, timeZone, parseBiocontrolMapFilters),
 		list: readers.listBiocontrolDisplayRows,
+	});
+
+	// What the Biocontrol Actions rail draws in place of the page over 100 in
+	// view (#1376). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/biocontrol/summary',
+		parseFilters: parseBiocontrolMapFilters,
+		summarize: readers.summarizeBiocontrolActions,
 	});
 
 	registerByIdRoute(app, options, {

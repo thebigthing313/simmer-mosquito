@@ -202,6 +202,30 @@ The page needs two floors. `update*Method` is `MANAGER` while `create*`,
 `deactivate*`, `reactivate*` and `delete*` are `ADMIN`, and gating all of it at
 `canManage` was #65: a manager who may rename a method saw no Edit control.
 
+#### biocontrolSummaryGroupings
+
+The Biocontrol Actions summary, built the way
+`sourceReductionSummaryGroupings` builds the Source Reductions one (#1376). A
+method is added to `methods` and a technician to `people`, each drawn top 5
+and "n more". A biocontrol action recorded with no technician is counted on
+the server and not drawn, because no filter selects "none".
+
+Linked to a Habitat sets `habitat`, and a second click clears it. The server
+groups on `habitat_id is not null`, and only the linked side is drawn, since
+no filter selects the unlinked side. Like Problem and Awaiting on the
+Collections summary, the grouping is left out when no biocontrol action in
+view is linked, because clicking it would empty the panel.
+
+Amount Released is drawn as text, one line per unit, through the summary's
+`breakdowns` keyed by `release_unit_id`. Fish counted and gallons poured do
+not add up, so the server never sums across units. Each line is labelled with
+the unit's name and reads the amount with the unit's abbreviation, through the
+same `formatAmount` the rows use.
+
+The filter card and its chips moved out of the route into
+`biocontrol-filters.tsx` so the Biocontrol Actions Table could share them, and
+the row type and the name lookups into `biocontrol-row-parts.ts`.
+
 #### sourceReductionSummaryGroupings
 
 The Source Reductions summary, built the way `applicationSummaryGroupings`

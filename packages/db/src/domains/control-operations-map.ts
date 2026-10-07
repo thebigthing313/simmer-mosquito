@@ -359,6 +359,22 @@ export function biocontrolSurface(
 		geom: sql`ba.geom`,
 		properties: [sql`ba.id`],
 		filterWhere: biocontrolFilterWhere,
+		// What the Biocontrol Actions rail counts by over 100 in view (#1376),
+		// each one a filter the rail already has, so a group is a button that
+		// applies it.
+		groupings: () => ({
+			biocontrolMethodId: sql`ba.biocontrol_method_id`,
+			technicianProfileId: sql`ba.technician_profile_id`,
+			habitat: sql`ba.habitat_id is not null`,
+		}),
+		// An amount released only adds up within one unit, so it is summed per
+		// unit rather than across the box.
+		breakdowns: () => ({
+			amountReleased: {
+				by: { unitId: sql`ba.release_unit_id` },
+				sum: sql<number>`ba.amount_released`,
+			},
+		}),
 		display: {
 			columns: biocontrolDisplayColumns,
 			orderBy: sql`ba.biocontrol_date desc, ba.created_at desc, ba.id`,
