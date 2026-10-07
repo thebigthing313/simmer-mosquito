@@ -1,49 +1,35 @@
-import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { TrapMapCard } from '../../../components/adult-surveillance/trap-map-card';
-import type { TrapStatusFilter } from '../../../components/adult-surveillance/traps/legend';
 import { trapLegend } from '../../../components/adult-surveillance/traps/legend';
-import { createLabel } from '../../../components/app-shell/navigation';
+import { TrapFilterFields } from '../../../components/adult-surveillance/traps/trap-filters';
+import { TrapSurfaceSwitch } from '../../../components/adult-surveillance/traps/trap-surface-switch';
 import {
-	ActiveFilterBar,
-	ExplorerMapPage,
-	ExplorerRow,
-	FilterChip,
-	FilterGrid,
-	MultiSelectFilter,
-	SegmentedFilter,
-	toggle,
-	whenAny,
-	whenText,
-} from '../../../components/explorer';
+	sharedTrapSearch,
+	trapFilterCodecs,
+	trapListParams,
+	trapTileFilters,
+} from '../../../components/adult-surveillance/traps/traps-search';
+import { createLabel } from '../../../components/app-shell/navigation';
+import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
 	MAP_CREATE_TARGETS,
 	MapCanvas,
 	type MapTileLayer,
 	TRAP_STATUS_COLORS,
-	type TrapTileFilters,
 } from '../../../components/map';
+import { useTrapFilterState } from '../../../hooks/adult-surveillance/use-trap-filter-state';
 import { useCollectionMethodOptions } from '../../../hooks/explorer/use-collection-method-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
-import { useDebouncedTextFilter } from '../../../hooks/use-debounced-text-filter';
-import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
-import {
-	choiceParam,
-	type FilterCodecs,
-	idSetParam,
-	searchValidator,
-	textParam,
-} from '../../../lib/search-filters';
+import { searchValidator } from '../../../lib/search-filters';
 
 interface TrapRow {
 	readonly id: string;
@@ -58,32 +44,9 @@ interface TrapRow {
 	readonly isActive: boolean;
 }
 
-const STATUS_VALUES: readonly TrapStatusFilter[] = ['all', 'active', 'inactive'];
-
-interface TrapFilters {
-	readonly search: string;
-	readonly status: TrapStatusFilter;
-	readonly methods: ReadonlySet<string>;
-	readonly regions: ReadonlySet<string>;
-}
-
-const TRAP_FILTER_DEFAULTS: TrapFilters = {
-	search: '',
-	status: 'active',
-	methods: new Set(),
-	regions: new Set(),
-};
-
-const TRAP_FILTER_CODECS: FilterCodecs<TrapFilters> = {
-	search: textParam,
-	status: choiceParam(STATUS_VALUES, TRAP_FILTER_DEFAULTS.status),
-	methods: idSetParam,
-	regions: idSetParam,
-};
-
 export const Route = createFileRoute('/adult-surveillance/traps/')({
 	component: TrapsExplorerRoute,
-	validateSearch: searchValidator(TRAP_FILTER_CODECS),
+	validateSearch: searchValidator(trapFilterCodecs),
 });
 
 const RECORD_TYPE: RecordType = 'trap';
@@ -93,42 +56,22 @@ const TrapEntityIcon = iconRegistry.entities.trap.icon;
 function TrapsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a trap
 	// both land on the list the operator had narrowed to.
-	const {
-		filters: query,
-		setFilters,
-		reset,
-		activeCount: activeFilterCount,
-	} = useSearchFilters(TRAP_FILTER_DEFAULTS, TRAP_FILTER_CODECS);
-	const search = query.search.toLowerCase();
-	const status = query.status;
-	const methodIds = query.methods;
-	const regionIds = query.regions;
-	const commitSearch = (next: string) => setFilters({ search: next });
-	const {
-		input: searchInput,
-		setInput: setSearchInput,
-		clear: clearSearchInput,
-	} = useDebouncedTextFilter(query.search, commitSearch, 200);
-	const setStatus = (next: TrapStatusFilter) => setFilters({ status: next });
-	const setMethodIds = (next: ReadonlySet<string>) => setFilters({ methods: next });
-	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
+	const binding = useTrapFilterState();
+	const { filters: query, activeCount: activeFilterCount, clearAll } = binding;
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
-	const { options: methodOptions, nameById: methodNameById } = useCollectionMethodOptions();
-	const regions = useRegionOptions();
+	const { nameById: methodNameById } = useCollectionMethodOptions();
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (no selection / no search) drop out.
-	const filters: TrapTileFilters = {
-		...whenAny('collectionMethodIds', methodIds),
-		...(status === 'all' ? {} : { isActive: status === 'active' }),
-		...whenAny('regionIds', regionIds),
-		...whenText('search', search),
-	};
+	const filters = trapTileFilters(query);
+	// What a move to the Table takes with it: every filter, since the Table
+	// applies each one.
+	const carried = sharedTrapSearch(Route.useSearch());
 	const [clustered] = useMapClustering();
-	const legend = trapLegend(status, clustered);
+	const legend = trapLegend(query.status, clustered);
 	const layer: MapTileLayer = {
 		kind: 'traps',
 		serverUrl: getServerUrl(),
@@ -153,12 +96,7 @@ function TrapsExplorerRoute() {
 		rowsKey: 'traps',
 		rowKey: 'trap',
 		recordType: 'trap',
-		params: {
-			collectionMethodId: filters.collectionMethodIds,
-			status: filters.isActive === undefined ? undefined : filters.isActive ? 'active' : 'inactive',
-			search: filters.search,
-			regionId: filters.regionIds,
-		},
+		params: trapListParams(filters),
 		layer,
 		map,
 		selectedId,
@@ -166,83 +104,11 @@ function TrapsExplorerRoute() {
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 
-	const clearAll = () => {
-		clearSearchInput();
-		reset();
-	};
-	// Both halves: the field the operator is looking at, and the committed term on
-	// the URL that is actually cutting the list.
-	const clearSearch = () => {
-		clearSearchInput();
-		commitSearch('');
-	};
-
 	return (
 		<ExplorerMapPage
+			actions={<TrapSurfaceSwitch compact current="map" search={carried} />}
 			activeFilterCount={activeFilterCount}
-			filters={
-				<>
-					<SearchInput
-						label="Search traps by name or code"
-						onChange={(event) => setSearchInput(event.target.value)}
-						onClear={clearSearch}
-						placeholder="Search name or code…"
-						value={searchInput}
-					/>
-
-					<SegmentedFilter
-						label="Status"
-						onChange={setStatus}
-						options={STATUS_OPTIONS}
-						value={status}
-					/>
-
-					<FilterGrid>
-						<MultiSelectFilter
-							empty="No collection methods"
-							label="Method"
-							onChange={setMethodIds}
-							options={methodOptions}
-							selected={methodIds}
-						/>
-						<MultiSelectFilter
-							empty="No regions"
-							label="Region"
-							onChange={setRegionIds}
-							options={regions.options}
-							selected={regionIds}
-						/>
-					</FilterGrid>
-
-					{activeFilterCount > 0 ? (
-						<ActiveFilterBar onClearAll={clearAll}>
-							{status !== 'active' ? (
-								<FilterChip
-									label={`Status: ${status === 'all' ? 'All' : 'Inactive'}`}
-									onRemove={() => setStatus('active')}
-								/>
-							) : null}
-							{search.length > 0 ? (
-								<FilterChip label={`Search: ${query.search}`} onRemove={clearSearch} />
-							) : null}
-							{[...methodIds].map((id) => (
-								<FilterChip
-									key={id}
-									label={methodNameById.get(id) ?? 'Unknown method'}
-									onRemove={() => setMethodIds(toggle(methodIds, id))}
-								/>
-							))}
-							{[...regionIds].map((id) => (
-								<FilterChip
-									key={`region-${id}`}
-									label={regions.nameById.get(id) ?? 'Unknown region'}
-									onRemove={() => setRegionIds(toggle(regionIds, id))}
-								/>
-							))}
-						</ActiveFilterBar>
-					) : null}
-				</>
-			}
+			filters={<TrapFilterFields binding={binding} />}
 			footer={
 				<ExplorerPagination
 					noun={recordNoun(RECORD_TYPE)}
@@ -301,14 +167,6 @@ function TrapsExplorerRoute() {
 		/>
 	);
 }
-
-// --- filter controls --------------------------------------------------------
-
-const STATUS_OPTIONS: readonly { readonly value: TrapStatusFilter; readonly label: string }[] = [
-	{ value: 'all', label: 'All' },
-	{ value: 'active', label: 'Active' },
-	{ value: 'inactive', label: 'Inactive' },
-];
 
 function TrapListItem({
 	trap,

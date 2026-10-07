@@ -396,6 +396,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.generic.map.icon,
 					},
 					{
+						id: 'traps-table',
+						label: 'Table',
+						to: '/adult-surveillance/traps/table',
+						icon: iconRegistry.generic.table.icon,
+					},
+					{
 						id: 'traps-directory',
 						label: 'Directory',
 						to: '/adult-surveillance/trap-directory',

@@ -110,6 +110,7 @@ import { Route as ControlOperationsBiocontrolStatsRouteImport } from './routes/c
 import { Route as ControlOperationsBiocontrolMethodsRouteImport } from './routes/control-operations/biocontrol/methods'
 import { Route as ControlOperationsBiocontrolCreateRouteImport } from './routes/control-operations/biocontrol/create'
 import { Route as ControlOperationsBiocontrolIdRouteImport } from './routes/control-operations/biocontrol/$id'
+import { Route as AdultSurveillanceTrapsTableRouteImport } from './routes/adult-surveillance/traps/table'
 import { Route as AdultSurveillanceTrapsStatsRouteImport } from './routes/adult-surveillance/traps/stats'
 import { Route as AdultSurveillanceTrapsCreateRouteImport } from './routes/adult-surveillance/traps/create'
 import { Route as AdultSurveillanceTrapsIdRouteImport } from './routes/adult-surveillance/traps/$id'
@@ -711,6 +712,12 @@ const ControlOperationsBiocontrolIdRoute =
     path: '/control-operations/biocontrol/$id',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AdultSurveillanceTrapsTableRoute =
+  AdultSurveillanceTrapsTableRouteImport.update({
+    id: '/adult-surveillance/traps/table',
+    path: '/adult-surveillance/traps/table',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdultSurveillanceTrapsStatsRoute =
   AdultSurveillanceTrapsStatsRouteImport.update({
     id: '/adult-surveillance/traps/stats',
@@ -940,6 +947,7 @@ export interface FileRoutesByFullPath {
   '/adult-surveillance/traps/$id': typeof AdultSurveillanceTrapsIdRoute
   '/adult-surveillance/traps/create': typeof AdultSurveillanceTrapsCreateRoute
   '/adult-surveillance/traps/stats': typeof AdultSurveillanceTrapsStatsRoute
+  '/adult-surveillance/traps/table': typeof AdultSurveillanceTrapsTableRoute
   '/control-operations/biocontrol/$id': typeof ControlOperationsBiocontrolIdRoute
   '/control-operations/biocontrol/create': typeof ControlOperationsBiocontrolCreateRoute
   '/control-operations/biocontrol/methods': typeof ControlOperationsBiocontrolMethodsRoute
@@ -1074,6 +1082,7 @@ export interface FileRoutesByTo {
   '/adult-surveillance/traps/$id': typeof AdultSurveillanceTrapsIdRoute
   '/adult-surveillance/traps/create': typeof AdultSurveillanceTrapsCreateRoute
   '/adult-surveillance/traps/stats': typeof AdultSurveillanceTrapsStatsRoute
+  '/adult-surveillance/traps/table': typeof AdultSurveillanceTrapsTableRoute
   '/control-operations/biocontrol/$id': typeof ControlOperationsBiocontrolIdRoute
   '/control-operations/biocontrol/create': typeof ControlOperationsBiocontrolCreateRoute
   '/control-operations/biocontrol/methods': typeof ControlOperationsBiocontrolMethodsRoute
@@ -1210,6 +1219,7 @@ export interface FileRoutesById {
   '/adult-surveillance/traps/$id': typeof AdultSurveillanceTrapsIdRoute
   '/adult-surveillance/traps/create': typeof AdultSurveillanceTrapsCreateRoute
   '/adult-surveillance/traps/stats': typeof AdultSurveillanceTrapsStatsRoute
+  '/adult-surveillance/traps/table': typeof AdultSurveillanceTrapsTableRoute
   '/control-operations/biocontrol/$id': typeof ControlOperationsBiocontrolIdRoute
   '/control-operations/biocontrol/create': typeof ControlOperationsBiocontrolCreateRoute
   '/control-operations/biocontrol/methods': typeof ControlOperationsBiocontrolMethodsRoute
@@ -1347,6 +1357,7 @@ export interface FileRouteTypes {
     | '/adult-surveillance/traps/$id'
     | '/adult-surveillance/traps/create'
     | '/adult-surveillance/traps/stats'
+    | '/adult-surveillance/traps/table'
     | '/control-operations/biocontrol/$id'
     | '/control-operations/biocontrol/create'
     | '/control-operations/biocontrol/methods'
@@ -1481,6 +1492,7 @@ export interface FileRouteTypes {
     | '/adult-surveillance/traps/$id'
     | '/adult-surveillance/traps/create'
     | '/adult-surveillance/traps/stats'
+    | '/adult-surveillance/traps/table'
     | '/control-operations/biocontrol/$id'
     | '/control-operations/biocontrol/create'
     | '/control-operations/biocontrol/methods'
@@ -1616,6 +1628,7 @@ export interface FileRouteTypes {
     | '/adult-surveillance/traps/$id'
     | '/adult-surveillance/traps/create'
     | '/adult-surveillance/traps/stats'
+    | '/adult-surveillance/traps/table'
     | '/control-operations/biocontrol/$id'
     | '/control-operations/biocontrol/create'
     | '/control-operations/biocontrol/methods'
@@ -1744,6 +1757,7 @@ export interface RootRouteChildren {
   AdultSurveillanceTrapsIdRoute: typeof AdultSurveillanceTrapsIdRoute
   AdultSurveillanceTrapsCreateRoute: typeof AdultSurveillanceTrapsCreateRoute
   AdultSurveillanceTrapsStatsRoute: typeof AdultSurveillanceTrapsStatsRoute
+  AdultSurveillanceTrapsTableRoute: typeof AdultSurveillanceTrapsTableRoute
   ControlOperationsBiocontrolIdRoute: typeof ControlOperationsBiocontrolIdRoute
   ControlOperationsBiocontrolCreateRoute: typeof ControlOperationsBiocontrolCreateRoute
   ControlOperationsBiocontrolMethodsRoute: typeof ControlOperationsBiocontrolMethodsRoute
@@ -2549,6 +2563,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ControlOperationsBiocontrolIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/adult-surveillance/traps/table': {
+      id: '/adult-surveillance/traps/table'
+      path: '/adult-surveillance/traps/table'
+      fullPath: '/adult-surveillance/traps/table'
+      preLoaderRoute: typeof AdultSurveillanceTrapsTableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/adult-surveillance/traps/stats': {
       id: '/adult-surveillance/traps/stats'
       path: '/adult-surveillance/traps/stats'
@@ -2839,6 +2860,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdultSurveillanceTrapsIdRoute: AdultSurveillanceTrapsIdRoute,
   AdultSurveillanceTrapsCreateRoute: AdultSurveillanceTrapsCreateRoute,
   AdultSurveillanceTrapsStatsRoute: AdultSurveillanceTrapsStatsRoute,
+  AdultSurveillanceTrapsTableRoute: AdultSurveillanceTrapsTableRoute,
   ControlOperationsBiocontrolIdRoute: ControlOperationsBiocontrolIdRoute,
   ControlOperationsBiocontrolCreateRoute:
     ControlOperationsBiocontrolCreateRoute,
