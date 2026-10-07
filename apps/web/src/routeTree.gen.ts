@@ -62,6 +62,7 @@ import { Route as AdultSurveillanceCollectionsIndexRouteImport } from './routes/
 import { Route as PublicEngagementServiceRequestsTableRouteImport } from './routes/public-engagement/service-requests/table'
 import { Route as PublicEngagementServiceRequestsCreateRouteImport } from './routes/public-engagement/service-requests/create'
 import { Route as PublicEngagementServiceRequestsIdRouteImport } from './routes/public-engagement/service-requests/$id'
+import { Route as PublicEngagementOutreachTableRouteImport } from './routes/public-engagement/outreach/table'
 import { Route as PublicEngagementOutreachStatsRouteImport } from './routes/public-engagement/outreach/stats'
 import { Route as PublicEngagementOutreachMethodsRouteImport } from './routes/public-engagement/outreach/methods'
 import { Route as PublicEngagementOutreachCreateRouteImport } from './routes/public-engagement/outreach/create'
@@ -437,6 +438,12 @@ const PublicEngagementServiceRequestsIdRoute =
   PublicEngagementServiceRequestsIdRouteImport.update({
     id: '/public-engagement/service-requests/$id',
     path: '/public-engagement/service-requests/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PublicEngagementOutreachTableRoute =
+  PublicEngagementOutreachTableRouteImport.update({
+    id: '/public-engagement/outreach/table',
+    path: '/public-engagement/outreach/table',
     getParentRoute: () => rootRouteImport,
   } as any)
 const PublicEngagementOutreachStatsRoute =
@@ -1028,6 +1035,7 @@ export interface FileRoutesByFullPath {
   '/public-engagement/outreach/create': typeof PublicEngagementOutreachCreateRoute
   '/public-engagement/outreach/methods': typeof PublicEngagementOutreachMethodsRoute
   '/public-engagement/outreach/stats': typeof PublicEngagementOutreachStatsRoute
+  '/public-engagement/outreach/table': typeof PublicEngagementOutreachTableRoute
   '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
   '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
   '/public-engagement/service-requests/table': typeof PublicEngagementServiceRequestsTableRoute
@@ -1167,6 +1175,7 @@ export interface FileRoutesByTo {
   '/public-engagement/outreach/create': typeof PublicEngagementOutreachCreateRoute
   '/public-engagement/outreach/methods': typeof PublicEngagementOutreachMethodsRoute
   '/public-engagement/outreach/stats': typeof PublicEngagementOutreachStatsRoute
+  '/public-engagement/outreach/table': typeof PublicEngagementOutreachTableRoute
   '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
   '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
   '/public-engagement/service-requests/table': typeof PublicEngagementServiceRequestsTableRoute
@@ -1308,6 +1317,7 @@ export interface FileRoutesById {
   '/public-engagement/outreach/create': typeof PublicEngagementOutreachCreateRoute
   '/public-engagement/outreach/methods': typeof PublicEngagementOutreachMethodsRoute
   '/public-engagement/outreach/stats': typeof PublicEngagementOutreachStatsRoute
+  '/public-engagement/outreach/table': typeof PublicEngagementOutreachTableRoute
   '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
   '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
   '/public-engagement/service-requests/table': typeof PublicEngagementServiceRequestsTableRoute
@@ -1450,6 +1460,7 @@ export interface FileRouteTypes {
     | '/public-engagement/outreach/create'
     | '/public-engagement/outreach/methods'
     | '/public-engagement/outreach/stats'
+    | '/public-engagement/outreach/table'
     | '/public-engagement/service-requests/$id'
     | '/public-engagement/service-requests/create'
     | '/public-engagement/service-requests/table'
@@ -1589,6 +1600,7 @@ export interface FileRouteTypes {
     | '/public-engagement/outreach/create'
     | '/public-engagement/outreach/methods'
     | '/public-engagement/outreach/stats'
+    | '/public-engagement/outreach/table'
     | '/public-engagement/service-requests/$id'
     | '/public-engagement/service-requests/create'
     | '/public-engagement/service-requests/table'
@@ -1729,6 +1741,7 @@ export interface FileRouteTypes {
     | '/public-engagement/outreach/create'
     | '/public-engagement/outreach/methods'
     | '/public-engagement/outreach/stats'
+    | '/public-engagement/outreach/table'
     | '/public-engagement/service-requests/$id'
     | '/public-engagement/service-requests/create'
     | '/public-engagement/service-requests/table'
@@ -1862,6 +1875,7 @@ export interface RootRouteChildren {
   PublicEngagementOutreachCreateRoute: typeof PublicEngagementOutreachCreateRoute
   PublicEngagementOutreachMethodsRoute: typeof PublicEngagementOutreachMethodsRoute
   PublicEngagementOutreachStatsRoute: typeof PublicEngagementOutreachStatsRoute
+  PublicEngagementOutreachTableRoute: typeof PublicEngagementOutreachTableRoute
   PublicEngagementServiceRequestsIdRoute: typeof PublicEngagementServiceRequestsIdRoute
   PublicEngagementServiceRequestsCreateRoute: typeof PublicEngagementServiceRequestsCreateRoute
   PublicEngagementServiceRequestsTableRoute: typeof PublicEngagementServiceRequestsTableRoute
@@ -2281,6 +2295,13 @@ declare module '@tanstack/react-router' {
       path: '/public-engagement/service-requests/$id'
       fullPath: '/public-engagement/service-requests/$id'
       preLoaderRoute: typeof PublicEngagementServiceRequestsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/public-engagement/outreach/table': {
+      id: '/public-engagement/outreach/table'
+      path: '/public-engagement/outreach/table'
+      fullPath: '/public-engagement/outreach/table'
+      preLoaderRoute: typeof PublicEngagementOutreachTableRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/public-engagement/outreach/stats': {
@@ -3011,6 +3032,7 @@ const rootRouteChildren: RootRouteChildren = {
   PublicEngagementOutreachCreateRoute: PublicEngagementOutreachCreateRoute,
   PublicEngagementOutreachMethodsRoute: PublicEngagementOutreachMethodsRoute,
   PublicEngagementOutreachStatsRoute: PublicEngagementOutreachStatsRoute,
+  PublicEngagementOutreachTableRoute: PublicEngagementOutreachTableRoute,
   PublicEngagementServiceRequestsIdRoute:
     PublicEngagementServiceRequestsIdRoute,
   PublicEngagementServiceRequestsCreateRoute:

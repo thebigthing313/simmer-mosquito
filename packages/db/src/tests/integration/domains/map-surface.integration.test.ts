@@ -7,6 +7,7 @@ import {
 	type ApplicationMapFilters,
 	type BiocontrolMapFilters,
 	getRequestedControlActionDisplayRowById,
+	type OutreachMapFilters,
 	type SourceReductionMapFilters,
 } from '../../../domains/control-operations-map.js';
 import type { HabitatMvtTileFilters } from '../../../domains/habitats.js';
@@ -2454,6 +2455,167 @@ async function seedBiocontrolVariety(db: Kysely<SimmerDatabase>): Promise<{
 				amount_released: 60,
 				release_unit_id: ids.gallonId,
 				habitat_id: habitatId,
+			},
+		])
+		.execute();
+	return ids;
+}
+
+// Over 100 outreach actions in view the Outreach Actions rail draws the same
+// summary (#1377). The seeded world's one live outreach action in the box, 30
+// people reached, is joined by five more across a second method, a second
+// technician and one recorded with none, one of them dated in January. `reach`
+// is `not null` and checked above zero, so every outreach action in view adds
+// to Total reach and no null is ever skipped by the sum.
+describeDbIntegration('outreach summary against Postgres', () => {
+	it('counts the outreach actions the page counts, and sums the reach', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = await seedOutreachVariety(db);
+			const read = (filters: OutreachMapFilters) =>
+				summaryAndPage(db, MAP_SURFACES.outreach, filters);
+
+			const all = await read({});
+			expect(all.pageTotal).toBe(6);
+			expect(all.summary).toEqual({
+				total: 6,
+				groups: {
+					outreachMethodId: [
+						{ value: ids.secondMethodId, count: 4 },
+						{ value: ids.seededMethodId, count: 2 },
+					],
+					technicianProfileId: [
+						{ value: ids.secondTechnicianId, count: 3 },
+						{ value: ids.seededTechnicianId, count: 2 },
+						{ value: null, count: 1 },
+					],
+				},
+				figures: { reachTotal: 255 },
+			});
+
+			// Each group's count is the total of the page its button narrows to.
+			const narrowed: readonly (readonly [string, string, OutreachMapFilters])[] = [
+				['outreachMethodId', ids.secondMethodId, { outreachMethodIds: [ids.secondMethodId] }],
+				['outreachMethodId', ids.seededMethodId, { outreachMethodIds: [ids.seededMethodId] }],
+				[
+					'technicianProfileId',
+					ids.secondTechnicianId,
+					{ technicianProfileIds: [ids.secondTechnicianId] },
+				],
+				[
+					'technicianProfileId',
+					ids.seededTechnicianId,
+					{ technicianProfileIds: [ids.seededTechnicianId] },
+				],
+			];
+			const answers = await Promise.all(narrowed.map(([, , filters]) => read(filters)));
+			narrowed.forEach(([grouping, value], index) => {
+				const answer = answers[index];
+				expect(answer?.summary.total).toBe(answer?.pageTotal);
+				expect(all.summary.groups[grouping]?.find((group) => group.value === value)?.count).toBe(
+					answer?.pageTotal,
+				);
+			});
+
+			// The reach follows the filters: the second technician reached 12, 45 and 60.
+			expect(
+				(await read({ technicianProfileIds: [ids.secondTechnicianId] })).summary.figures,
+			).toEqual({ reachTotal: 117 });
+
+			// March alone drops the January outreach, and its 60 people with it.
+			const march = await read({ dateFrom: '2026-03-01', dateTo: '2026-03-31' });
+			expect(march.pageTotal).toBe(5);
+			expect(march.summary.total).toBe(5);
+			expect(march.summary.figures).toEqual({ reachTotal: 195 });
+
+			// Outside the date window nothing is counted and the reach is zero.
+			expect((await read({ dateFrom: '2026-04-01' })).summary).toEqual({
+				total: 0,
+				groups: { outreachMethodId: [], technicianProfileId: [] },
+				figures: { reachTotal: 0 },
+			});
+		});
+	});
+});
+
+/**
+ * Five more live outreach actions in the box beside the seeded one: a second
+ * method, a second technician, one recorded with no technician and one dated
+ * in January.
+ */
+async function seedOutreachVariety(db: Kysely<SimmerDatabase>): Promise<{
+	readonly seededMethodId: string;
+	readonly secondMethodId: string;
+	readonly seededTechnicianId: string;
+	readonly secondTechnicianId: string;
+}> {
+	const inside = await db
+		.selectFrom('outreach_actions')
+		.select(['outreach_method_id', 'technician_profile_id'])
+		.where('id', '=', mapSurfaceRowIds.outreach.inside)
+		.executeTakeFirstOrThrow();
+	const organizationId = mapSurfaceOrganizationIds.own;
+
+	const secondMethod = await db
+		.insertInto('outreach_methods')
+		.values({ organization_id: organizationId, name: 'School talk' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const second = await db
+		.insertInto('profiles')
+		.values({
+			organization_id: organizationId,
+			display_name: 'Second Technician',
+			email: 'second.technician@example.test',
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const ids = {
+		seededMethodId: String(inside.outreach_method_id),
+		secondMethodId: String(secondMethod.id),
+		seededTechnicianId: String(inside.technician_profile_id),
+		secondTechnicianId: String(second.id),
+	};
+
+	// The date goes in as text, since a `Date` is sent in the machine's own zone.
+	const base = {
+		organization_id: organizationId,
+		geom: sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`,
+		outreach_date: sql<Date>`date '2026-03-15'`,
+	};
+	await db
+		.insertInto('outreach_actions')
+		.values([
+			{
+				...base,
+				outreach_method_id: ids.seededMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				reach: 12,
+			},
+			{
+				...base,
+				outreach_method_id: ids.secondMethodId,
+				technician_profile_id: null,
+				reach: 100,
+			},
+			{
+				...base,
+				outreach_method_id: ids.secondMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				reach: 45,
+			},
+			{
+				...base,
+				outreach_method_id: ids.secondMethodId,
+				technician_profile_id: ids.seededTechnicianId,
+				reach: 8,
+			},
+			{
+				...base,
+				outreach_date: sql<Date>`date '2026-01-10'`,
+				outreach_method_id: ids.secondMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				reach: 60,
 			},
 		])
 		.execute();

@@ -1431,6 +1431,73 @@ describe('registerMapTileRoutes — biocontrol summary', () => {
 	});
 });
 
+// The Outreach Actions rail's summary over 100 in view (#1377).
+describe('registerMapTileRoutes — outreach summary', () => {
+	const methodId = '6f1c3a85-2d7e-4b90-a4c6-8e5b0d3f7a29';
+	const technicianId = 'a2e7c4b9-5d18-4f63-9b0a-7c3e1f8d6b52';
+
+	it('passes the box and every outreach filter to the summary, and answers its figure', async () => {
+		const summary = {
+			total: 140,
+			groups: {
+				outreachMethodId: [{ value: methodId, count: 140 }],
+				technicianProfileId: [{ value: technicianId, count: 140 }],
+			},
+			figures: { reachTotal: 3200 },
+		};
+		const summarizeOutreachActions = vi.fn(async () => summary);
+		const getOutreachDisplayRow = vi.fn();
+		const app = createApp({ summarizeOutreachActions, getOutreachDisplayRow });
+
+		const response = await app.request(
+			`/map/outreach/summary?bbox=-91,35,-90,36&outreachMethodId=${methodId}&technician=${technicianId}&regionId=${regionId}&dateFrom=2026-07-01&dateTo=2026-09-28`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(summarizeOutreachActions).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				outreachMethodIds: [methodId],
+				technicianProfileIds: [technicianId],
+				regionIds: [regionId],
+				dateFrom: '2026-07-01',
+				dateTo: '2026-09-28',
+			},
+		});
+		expect(getOutreachDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', `?outreachMethodId=${methodId}`],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a date that is not a date', '?bbox=-91,35,-90,36&dateFrom=last-week'],
+		['a param no outreach filter admits', '?bbox=-91,35,-90,36&habitatLinked=true'],
+	])('refuses %s before reading the outreach summary', async (_case, query) => {
+		const summarizeOutreachActions = vi.fn();
+		const getOutreachDisplayRow = vi.fn();
+		const app = createApp({ summarizeOutreachActions, getOutreachDisplayRow });
+
+		const response = await app.request(`/map/outreach/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeOutreachActions).not.toHaveBeenCalled();
+		expect(getOutreachDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no outreach summary for a request with no session', async () => {
+		const summarizeOutreachActions = vi.fn();
+		const app = createApp({ authenticated: false, summarizeOutreachActions });
+
+		const response = await app.request('/map/outreach/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeOutreachActions).not.toHaveBeenCalled();
+	});
+});
+
 // The four routes whose readers were called directly rather than injected, so
 // none of them could be driven without a database until the readers became one
 // object. Three answer geometry the Electric shape does not carry (ADR 0009).

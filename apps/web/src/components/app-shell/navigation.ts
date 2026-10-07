@@ -690,6 +690,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.generic.map.icon,
 					},
 					{
+						id: 'outreach-table',
+						label: 'Table',
+						to: '/public-engagement/outreach/table',
+						icon: iconRegistry.generic.table.icon,
+					},
+					{
 						id: 'outreach-create',
 						label: createLabel('outreachAction'),
 						to: '/public-engagement/outreach/create',

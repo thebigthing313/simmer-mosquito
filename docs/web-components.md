@@ -997,6 +997,27 @@ because the page's own failed sentence told the reader to try again shortly
 with nothing to try. The rows are the rail's virtualised list now that a family
 tab owns the column's height.
 
+#### outreachSummaryGroupings
+
+The Outreach Actions summary, built the way `biocontrolSummaryGroupings`
+builds the Biocontrol Actions one (#1377). A method is added to `methods` and
+a technician to `people`, each drawn top 5 and "n more". An outreach action
+recorded with no technician is counted on the server and not drawn, because
+no filter selects "none". There is no habitat grouping, because outreach
+carries no habitat link.
+
+Total reach is a plain sum figure, the way the larvae identified are on the
+Samples summary, and draws as text through the same `formatReach` the rows
+use. `reach` is `not null` and checked above zero, so every outreach action in
+view adds to it and no null is skipped. Over no outreach actions the sum is
+zero rather than absent, which is the shared reader's rule for a sum.
+
+The filter card and its chips moved out of the route into
+`outreach-filters.tsx` so the Outreach Actions Table could share them, and the
+row type and the name lookups into `outreach-row-parts.ts`. These sit under
+`components/public-engagement/outreach`, beside the route they serve, though
+Outreach writes through `controlOperations.*` commands.
+
 #### serviceRequestSummaryGroupings
 
 The Service Requests summary, built the way `sampleSummaryGroupings` builds

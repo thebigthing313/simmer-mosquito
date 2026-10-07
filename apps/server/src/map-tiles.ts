@@ -130,6 +130,7 @@ const defaultMapReaders = {
 	getOutreachTile: MAP_SURFACES.outreach.getTile,
 	getOutreachExtent: MAP_SURFACES.outreach.getExtent,
 	listOutreachDisplayRows: MAP_SURFACES.outreach.listByBounds,
+	summarizeOutreachActions: MAP_SURFACES.outreach.summarizeByBounds,
 	getOutreachDisplayRow: MAP_SURFACES.outreach.getById,
 
 	getAddressTile: MAP_SURFACES.addresses.getTile,
@@ -456,6 +457,14 @@ export function registerMapTileRoutes(
 		parseQuery: (searchParams, organizationId, timeZone) =>
 			parseBboxPageQuery(searchParams, organizationId, timeZone, parseOutreachMapFilters),
 		list: readers.listOutreachDisplayRows,
+	});
+
+	// What the Outreach Actions rail draws in place of the page over 100 in
+	// view (#1377). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/outreach/summary',
+		parseFilters: parseOutreachMapFilters,
+		summarize: readers.summarizeOutreachActions,
 	});
 
 	registerByIdRoute(app, options, {
