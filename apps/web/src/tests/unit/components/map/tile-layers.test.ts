@@ -55,7 +55,7 @@ function selectedPointMinZoom(layer: MapTileLayer): number | undefined {
 describe('tileLayerClusters', () => {
 	it('says which tilesets the server lets cluster', () => {
 		expect(tileLayerClusters(traps())).toBe(true);
-		expect(tileLayerClusters({ kind: 'habitats', serverUrl })).toBe(false);
+		expect(tileLayerClusters({ kind: 'regions', serverUrl })).toBe(false);
 	});
 });
 
@@ -120,7 +120,7 @@ describe('the selection overlay', () => {
 
 	it('draws nothing over a tileset whose tiles are not clustered', () => {
 		const layer: MapTileLayer = {
-			kind: 'habitats',
+			kind: 'regions',
 			serverUrl,
 			selectedId,
 			selectedRecord: { id: selectedId, geojson: point },

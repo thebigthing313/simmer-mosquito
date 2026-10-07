@@ -6,7 +6,9 @@ import {
 	allLayerIds,
 	geometryTileLayers,
 	interactiveLayerIds,
+	TILE_CLUSTER_COLOR,
 } from '../../../../components/map/geometry-tiles';
+import { tileLayerBinding, tileLayerClusters } from '../../../../components/map/tile-layers';
 
 // --- which layer draws which feature -----------------------------------------
 //
@@ -99,6 +101,62 @@ describe('the shared record layer stack', () => {
 		expect(geometryTileLayers(sourceId, palette, null).map((l) => l.id)).toEqual([
 			...allLayerIds(sourceId),
 		]);
+	});
+});
+
+// Every tileset the map asks for clusters, through the table the map reads it
+// from, so a tileset that clusters with a layer stack of its own is held to the
+// same split as the shared one. A layer with no filter draws every feature.
+const clusteringKinds = [
+	'habitats',
+	'addresses',
+	'inspections',
+	'samples',
+	'chemical',
+	'source-reduction',
+	'biocontrol',
+	'outreach',
+	'traps',
+	'collections',
+	'service-requests',
+] as const;
+
+describe.each(clusteringKinds)('the %s layers', (kind) => {
+	const layer = { kind, serverUrl: 'https://api.example.test', selectedId } as const;
+	const binding = tileLayerBinding(layer);
+	const drawing = (feature: TileFeature) =>
+		binding
+			.buildLayers(layer)
+			.filter((spec) => {
+				const filter = 'filter' in spec ? spec.filter : undefined;
+				return filter === undefined || evaluate(filter, feature) === true;
+			})
+			.map((spec) => spec.id);
+
+	it('says it clusters', () => {
+		expect(tileLayerClusters(layer)).toBe(true);
+	});
+
+	it('draws a cluster as a circle with its count and as nothing else', () => {
+		expect(drawing(cluster)).toEqual([`${kind}-clusters`, `${kind}-cluster-counts`]);
+	});
+
+	it('draws a lone record point and its highlight, and no cluster', () => {
+		expect(drawing({ type: 'Point', properties: { id: 'a-record' } })).toEqual([`${kind}-points`]);
+		expect(drawing({ type: 'Point', properties: { id: selectedId } })).toEqual([
+			`${kind}-points`,
+			`${kind}-selected-point`,
+		]);
+	});
+
+	it('paints its clusters in the one cluster colour, whatever its palette', () => {
+		const clusters = binding.buildLayers(layer).find((spec) => spec.id === `${kind}-clusters`);
+		expect(clusters?.paint).toMatchObject({ 'circle-color': TILE_CLUSTER_COLOR });
+	});
+
+	it('lets a cluster be clicked first and tears both cluster layers down', () => {
+		expect(binding.interactiveLayerIds[0]).toBe(`${kind}-clusters`);
+		expect(binding.buildLayers(layer).map((spec) => spec.id)).toEqual([...binding.allLayerIds]);
 	});
 });
 

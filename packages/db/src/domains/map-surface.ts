@@ -418,7 +418,7 @@ interface SummaryCountRow {
 }
 
 /** A surface definition with what its in-view summary counts and adds up. */
-interface MapSummaryDefinition<TFilters> extends MapSurfaceDefinition<TFilters> {
+export interface MapSummaryDefinition<TFilters> extends MapSurfaceDefinition<TFilters> {
 	/** What the in-view summary counts by. A surface with none answers a total alone. */
 	readonly groupings?: MapSurfaceGroupings;
 	/** What the in-view summary adds up. A surface with none answers no figures. */

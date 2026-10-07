@@ -21,9 +21,9 @@ import {
 	toggle,
 } from '../../explorer';
 import { HABITAT_FILTER_DEFAULTS } from './habitats-search';
-import type { AccessFilter, StatusFilter } from './legend';
+import type { AccessFilter, HabitatStatusFilter } from './legend';
 
-const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: string }[] = [
+const STATUS_OPTIONS: readonly { readonly value: HabitatStatusFilter; readonly label: string }[] = [
 	{ value: 'all', label: 'All' },
 	{ value: 'active', label: 'Active' },
 	{ value: 'inactive', label: 'Inactive' },
@@ -61,7 +61,7 @@ export function HabitatFilterFields({
 			<div className="grid gap-2">
 				<SegmentedFilter
 					label="Status"
-					onChange={(status: StatusFilter) => setFilters({ status })}
+					onChange={(status: HabitatStatusFilter) => setFilters({ status })}
 					options={STATUS_OPTIONS}
 					value={filters.status}
 				/>

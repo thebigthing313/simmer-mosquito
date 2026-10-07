@@ -919,6 +919,14 @@ is `ServiceRequestSummaryPanel` rather than an inline `ExplorerSummary`, because
 the two ternaries it needs took the route component over `fallow:health`'s
 cognitive complexity threshold.
 
+#### ServiceRequestsMapCanvas
+
+The Service Requests Map's `MapCanvas` moved out of the route in #1382 for the
+same threshold. Clustering on this map put the shared clustering setting in the
+legend, and fallow scores a component's hook count into its cognitive
+complexity, so the route's fourteenth hook took it to 16, one over. The canvas
+reads the setting itself now, beside the legend it decides.
+
 ### record
 
 #### record-badges

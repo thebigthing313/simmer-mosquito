@@ -1,4 +1,4 @@
-import { type MapLegendEntry, SAMPLE_STATUS_COLORS } from '../../map';
+import { clusterLegendEntries, type MapLegendEntry, SAMPLE_STATUS_COLORS } from '../../map';
 import type { SampleStatusValue } from '../samples-search';
 
 /** A sample's status, with the filter's "all" taken off. */
@@ -19,16 +19,23 @@ const STATUS_LABEL: Record<SampleStatus, string> = {
 	unidentifiable: 'Unidentifiable',
 };
 
-/**
- * The key, cut down to the colours the current filter can draw. The status
- * filter is single-select, so narrowing to one status leaves one colour.
- */
 /** What one sample reads as in the chips, the rail and the key. */
 export function sampleStatusLabel(status: SampleStatus): string {
 	return STATUS_LABEL[status];
 }
 
-export function sampleLegend(status: SampleStatusValue): readonly MapLegendEntry[] {
+/**
+ * The key, cut down to the colours the current filter can draw. The status
+ * filter is single-select, so narrowing to one status leaves one colour. The
+ * cluster circle follows when the map is clustering.
+ */
+export function sampleLegend(
+	status: SampleStatusValue,
+	clustered: boolean,
+): readonly MapLegendEntry[] {
 	const shown: readonly SampleStatus[] = status === 'all' ? SAMPLE_STATUS_ORDER : [status];
-	return shown.map((value) => ({ color: SAMPLE_STATUS_COLORS[value], label: STATUS_LABEL[value] }));
+	return [
+		...shown.map((value) => ({ color: SAMPLE_STATUS_COLORS[value], label: STATUS_LABEL[value] })),
+		...clusterLegendEntries('sample', clustered),
+	];
 }

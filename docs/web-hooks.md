@@ -678,6 +678,9 @@ must not reach a tileset that cannot take it (#1380). A switch is a new URL on
 the source already there, the same path a filter change takes, so the camera
 does not move and the selection highlight keeps its record.
 
+Since #1382 every row whose records are points says `clusters: true`, which is
+eleven of the twelve; Regions does not, because a Region is a boundary.
+
 A click on the selection overlay is answered here too, and it comes first,
 because the overlay is drawn over the cluster holding the record and a click
 there means the record. The overlay only ever draws the selected record, so the

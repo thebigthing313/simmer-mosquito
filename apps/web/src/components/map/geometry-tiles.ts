@@ -5,9 +5,13 @@
  * inspections, samples, chemical applications, source reduction, biocontrol and
  * outreach, over the same three geometry types: a polygon fill and outline, a
  * line, a point, a cluster circle and its count, and four highlight layers
- * scoped to the selected feature. Only the tileset name and the palette differ, and inspections and samples colour their points by a data ramp
- * instead of a flat domain colour. Only a tileset whose tiles are asked for
- * clusters ever draws one, so on the others the two cluster layers are empty.
+ * scoped to the selected feature. Only the tileset name and the palette differ,
+ * and inspections and samples colour their points by a data ramp instead of a
+ * flat domain colour. A cluster takes none of that: every tileset paints its
+ * clusters in the one {@link TILE_CLUSTER_COLOR}, because a cluster can hold
+ * records in several states or bands at once, and because the count drawn on
+ * it reads on the slate and not on most domain hues. The two cluster layers
+ * draw only when the tiles were asked for clusters and are empty otherwise.
  *
  * This existed as nine near-identical copies. That is how habitat selection
  * broke: `e0bcd8e` fixed the render-time selection filter across seven of them
@@ -63,7 +67,9 @@ export interface GeometryTilePalette {
 
 /**
  * What a cluster circle paints, and the only place a legend reads it from.
- * Every tileset draws its clusters in this one colour, whatever its own palette.
+ * Every tileset draws its clusters in this one colour, whatever its own palette:
+ * the off-white count holds 9.15:1 on it, where it holds 3.19:1 on the source
+ * reduction mark and 3.22:1 on the biocontrol one.
  */
 export const TILE_CLUSTER_COLOR = mapCluster.fill;
 
@@ -74,12 +80,13 @@ const lineOnly: ExpressionSpecification = ['==', ['geometry-type'], 'LineString'
  * on a record, so the presence of the key is the whole test.
  */
 const clusterOnly: ExpressionSpecification = ['has', 'cluster'];
+/**
+ * A record rather than a cluster. Exported for the Addresses stack, whose point
+ * layer would otherwise draw every cluster as an address.
+ */
+export const recordOnly: ExpressionSpecification = ['!', clusterOnly];
 /** A record's own point: a cluster is drawn as a point too, by its own layer. */
-const pointOnly: ExpressionSpecification = [
-	'all',
-	['==', ['geometry-type'], 'Point'],
-	['!', clusterOnly],
-];
+const pointOnly: ExpressionSpecification = ['all', ['==', ['geometry-type'], 'Point'], recordOnly];
 
 /**
  * Layers the user can click, in hit priority: a cluster, which zooms in, then
@@ -114,6 +121,49 @@ export function allLayerIds(sourceId: string): readonly string[] {
 		`${sourceId}-clusters`,
 		`${sourceId}-cluster-counts`,
 		...selectedLayerIds(sourceId),
+	];
+}
+
+/**
+ * The cluster circle and its count, drawn from the features a clustered tile
+ * marks `cluster: true`. Exported for the one tileset that builds its own stack,
+ * Addresses, so its clusters draw the way every other tileset's do.
+ */
+export function clusterTileLayers(
+	sourceId: string,
+): [CircleLayerSpecification, SymbolLayerSpecification] {
+	return [
+		{
+			id: `${sourceId}-clusters`,
+			type: 'circle',
+			source: sourceId,
+			'source-layer': sourceId,
+			filter: clusterOnly,
+			paint: {
+				'circle-color': TILE_CLUSTER_COLOR,
+				'circle-opacity': 0.9,
+				// Wider as the count grows, in steps so a circle does not resize
+				// between two counts nobody could tell apart.
+				'circle-radius': ['step', ['get', 'point_count'], 11, 10, 14, 50, 18, 200, 22],
+				'circle-stroke-color': mapCluster.stroke,
+				'circle-stroke-width': 1.5,
+			},
+		},
+		{
+			id: `${sourceId}-cluster-counts`,
+			type: 'symbol',
+			source: sourceId,
+			'source-layer': sourceId,
+			filter: clusterOnly,
+			layout: {
+				'text-field': ['to-string', ['get', 'point_count']],
+				'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+				'text-size': 12,
+				'text-allow-overlap': true,
+				'text-ignore-placement': true,
+			},
+			paint: { 'text-color': mapCluster.label },
+		},
 	];
 }
 
@@ -187,38 +237,7 @@ export function geometryTileLayers(
 				'circle-stroke-width': 1.2,
 			},
 		},
-		// --- clusters: only a tileset whose tiles are asked for them draws any ---
-		{
-			id: `${sourceId}-clusters`,
-			type: 'circle',
-			source: sourceId,
-			'source-layer': sourceId,
-			filter: clusterOnly,
-			paint: {
-				'circle-color': TILE_CLUSTER_COLOR,
-				'circle-opacity': 0.9,
-				// Wider as the count grows, in steps so a circle does not resize
-				// between two counts nobody could tell apart.
-				'circle-radius': ['step', ['get', 'point_count'], 11, 10, 14, 50, 18, 200, 22],
-				'circle-stroke-color': mapCluster.stroke,
-				'circle-stroke-width': 1.5,
-			},
-		},
-		{
-			id: `${sourceId}-cluster-counts`,
-			type: 'symbol',
-			source: sourceId,
-			'source-layer': sourceId,
-			filter: clusterOnly,
-			layout: {
-				'text-field': ['to-string', ['get', 'point_count']],
-				'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
-				'text-size': 12,
-				'text-allow-overlap': true,
-				'text-ignore-placement': true,
-			},
-			paint: { 'text-color': mapCluster.label },
-		},
+		...clusterTileLayers(sourceId),
 		// --- selection highlight: drawn on top, scoped to the selected feature ---
 		{
 			id: `${sourceId}-selected-fill`,

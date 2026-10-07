@@ -186,7 +186,12 @@ type BboxPageInput<TFilters> = PageInput<TFilters> & { readonly bounds: MapBound
 // filters crosses the boundary, and the pair is defined together so they can't drift.
 interface TileSetDefinition {
 	readonly parseFilters: (searchParams: URLSearchParams) => FilterResult<unknown>;
-	/** Whether the tile route takes `cluster=1` for this tileset. */
+	/**
+	 * Whether the tile route takes `cluster=1` for this tileset. Every tileset
+	 * whose records are points says so, and Regions, a boundary, does not. The
+	 * client's tile table says the same per row, and `pnpm check:tileset-keys`
+	 * holds the two sets to each other.
+	 */
 	readonly clusters?: true;
 	readonly getTile: (
 		db: TileDb,
@@ -790,6 +795,7 @@ function createTileSetRegistry(readers: MapReaders): ReadonlyMap<string, TileSet
 	const tileSets: Record<MapTilesetLayer, TileSetDefinition> = {
 		habitats: defineTileSet({
 			parseFilters: parseHabitatTileFilters,
+			clusters: true,
 			getTile: readers.getHabitatTile,
 			getExtent: readers.getHabitatExtent,
 		}),
@@ -800,36 +806,43 @@ function createTileSetRegistry(readers: MapReaders): ReadonlyMap<string, TileSet
 		}),
 		addresses: defineTileSet({
 			parseFilters: parseAddressTileFilters,
+			clusters: true,
 			getTile: readers.getAddressTile,
 			getExtent: readers.getAddressExtent,
 		}),
 		inspections: defineTileSet({
 			parseFilters: parseInspectionTileFilters,
+			clusters: true,
 			getTile: readers.getInspectionTile,
 			getExtent: readers.getInspectionExtent,
 		}),
 		samples: defineTileSet({
 			parseFilters: parseSampleTileFilters,
+			clusters: true,
 			getTile: readers.getSampleTile,
 			getExtent: readers.getSampleExtent,
 		}),
 		chemical: defineTileSet({
 			parseFilters: parseApplicationMapFilters,
+			clusters: true,
 			getTile: readers.getApplicationTile,
 			getExtent: readers.getApplicationExtent,
 		}),
 		'source-reduction': defineTileSet({
 			parseFilters: parseSourceReductionMapFilters,
+			clusters: true,
 			getTile: readers.getSourceReductionTile,
 			getExtent: readers.getSourceReductionExtent,
 		}),
 		biocontrol: defineTileSet({
 			parseFilters: parseBiocontrolMapFilters,
+			clusters: true,
 			getTile: readers.getBiocontrolTile,
 			getExtent: readers.getBiocontrolExtent,
 		}),
 		outreach: defineTileSet({
 			parseFilters: parseOutreachMapFilters,
+			clusters: true,
 			getTile: readers.getOutreachTile,
 			getExtent: readers.getOutreachExtent,
 		}),
@@ -841,11 +854,13 @@ function createTileSetRegistry(readers: MapReaders): ReadonlyMap<string, TileSet
 		}),
 		collections: defineTileSet({
 			parseFilters: parseCollectionMapFilters,
+			clusters: true,
 			getTile: readers.getCollectionTile,
 			getExtent: readers.getCollectionExtent,
 		}),
 		'service-requests': defineTileSet({
 			parseFilters: parseServiceRequestMapFilters,
+			clusters: true,
 			getTile: readers.getServiceRequestTile,
 			getExtent: readers.getServiceRequestExtent,
 		}),

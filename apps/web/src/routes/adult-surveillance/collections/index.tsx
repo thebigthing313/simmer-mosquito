@@ -40,6 +40,7 @@ import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { collectionLabel } from '../../../hooks/queries/trap-view';
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -154,7 +155,8 @@ function CollectionsExplorerRoute() {
 		...whenText('dateFrom', dateFrom),
 		...whenText('dateTo', dateTo),
 	};
-	const legend = collectionLegend(problemOnly);
+	const [clustered] = useMapClustering();
+	const legend = collectionLegend(problemOnly, clustered);
 	const layer: MapTileLayer = {
 		kind: 'collections',
 		serverUrl: getServerUrl(),

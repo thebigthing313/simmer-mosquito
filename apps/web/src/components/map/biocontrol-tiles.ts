@@ -8,6 +8,7 @@ import {
 import {
 	type RegionScopedTileFilters,
 	setRegionTileParam,
+	type TileDrawOptions,
 	tileExtentUrl,
 	tileTemplateUrl,
 } from './tile-urls';
@@ -45,8 +46,12 @@ export const BIOCONTROL_INTERACTIVE_LAYER_IDS = interactiveLayerIds(BIOCONTROL_S
 export const BIOCONTROL_LAYER_IDS = allLayerIds(BIOCONTROL_SOURCE_ID);
 
 /** Build the tile template URL with the active filters folded into the query. */
-export function buildBiocontrolTileUrl(serverUrl: string, filters?: BiocontrolTileFilters): string {
-	return tileTemplateUrl(serverUrl, BIOCONTROL_SOURCE_ID, biocontrolTileParams(filters));
+export function buildBiocontrolTileUrl(
+	serverUrl: string,
+	filters?: BiocontrolTileFilters,
+	options?: TileDrawOptions,
+): string {
+	return tileTemplateUrl(serverUrl, BIOCONTROL_SOURCE_ID, biocontrolTileParams(filters), options);
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */

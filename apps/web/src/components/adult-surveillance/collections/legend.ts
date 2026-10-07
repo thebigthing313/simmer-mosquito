@@ -1,4 +1,9 @@
-import { COLLECTION_STATUS_COLORS, type CollectionStatus, type MapLegendEntry } from '../../map';
+import {
+	COLLECTION_STATUS_COLORS,
+	type CollectionStatus,
+	clusterLegendEntries,
+	type MapLegendEntry,
+} from '../../map';
 /** The status the server resolves for a collection, by precedence. */
 export type CollectionStatusValue = CollectionStatus;
 
@@ -24,12 +29,19 @@ export function collectionStatusLabel(status: CollectionStatusValue): string {
 
 /**
  * The key, cut down to the colours the current filters can draw. Problems only
- * leaves one colour on the map.
+ * leaves one colour on the map. The cluster circle follows when the map is
+ * clustering.
  */
-export function collectionLegend(problemOnly: boolean): readonly MapLegendEntry[] {
+export function collectionLegend(
+	problemOnly: boolean,
+	clustered: boolean,
+): readonly MapLegendEntry[] {
 	const shown: readonly CollectionStatusValue[] = problemOnly ? ['problem'] : STATUS_ORDER;
-	return shown.map((value) => ({
-		color: COLLECTION_STATUS_COLORS[value],
-		label: STATUS_LABEL[value],
-	}));
+	return [
+		...shown.map((value) => ({
+			color: COLLECTION_STATUS_COLORS[value],
+			label: STATUS_LABEL[value],
+		})),
+		...clusterLegendEntries('collection', clustered),
+	];
 }

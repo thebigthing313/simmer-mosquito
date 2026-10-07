@@ -1194,6 +1194,35 @@ describe('registerMapTileRoutes: clustered tiles', () => {
 		]);
 	});
 
+	// Every tileset whose records are points clusters them. Regions is the one
+	// that does not, because a Region is a boundary.
+	it.each([
+		['habitats', 'getHabitatTile'],
+		['addresses', 'getAddressTile'],
+		['inspections', 'getInspectionTile'],
+		['samples', 'getSampleTile'],
+		['chemical', 'getApplicationTile'],
+		['source-reduction', 'getSourceReductionTile'],
+		['biocontrol', 'getBiocontrolTile'],
+		['outreach', 'getOutreachTile'],
+		['traps', 'getTrapTile'],
+		['collections', 'getCollectionTile'],
+		['service-requests', 'getServiceRequestTile'],
+	] as const)('hands the %s tile reader a request for clusters', async (tileset, reader) => {
+		const calls: Array<{ readonly cluster?: true }> = [];
+		const app = createApp({
+			[reader]: async (_db: unknown, input: { readonly cluster?: true }) => {
+				calls.push(input);
+				return new Uint8Array();
+			},
+		});
+
+		const response = await app.request(`/map/tiles/${tileset}/10/300/386.mvt?cluster=1`);
+
+		expect(response.status).toBe(200);
+		expect(calls.map((input) => input.cluster)).toEqual([true]);
+	});
+
 	it('reads the plain tile when no cluster is asked for', async () => {
 		const calls: unknown[] = [];
 		const app = createApp({

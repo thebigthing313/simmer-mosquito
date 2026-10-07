@@ -136,27 +136,53 @@ describe('clustered tile URLs', () => {
 		expect(queryOf(buildTrapExtentUrl(serverUrl, filters))).toBe('status=active&search=CDC');
 	});
 
-	it('clusters the Traps map when clustering is on, and no other tileset ever', () => {
-		const traps = { kind: 'traps', serverUrl } as const;
-		const habitats = { kind: 'habitats', serverUrl } as const;
+	// Every tileset whose records are points, which is all of them but Regions.
+	const pointTilesets = [
+		'habitats',
+		'addresses',
+		'inspections',
+		'samples',
+		'chemical',
+		'source-reduction',
+		'biocontrol',
+		'outreach',
+		'traps',
+		'collections',
+		'service-requests',
+	] as const;
 
-		expect(tileLayerTileUrl(traps, { cluster: true })).toBe(
-			'https://api.example.test/map/tiles/traps/{z}/{x}/{y}.mvt?cluster=1',
+	it.each(pointTilesets)('clusters the %s map when clustering is on', (kind) => {
+		const layer = { kind, serverUrl } as const;
+
+		expect(tileLayerTileUrl(layer, { cluster: true })).toBe(
+			`https://api.example.test/map/tiles/${kind}/{z}/{x}/{y}.mvt?cluster=1`,
 		);
-		expect(tileLayerTileUrl(traps, { cluster: false })).toBe(
-			'https://api.example.test/map/tiles/traps/{z}/{x}/{y}.mvt',
+		expect(tileLayerTileUrl(layer, { cluster: false })).toBe(
+			`https://api.example.test/map/tiles/${kind}/{z}/{x}/{y}.mvt`,
 		);
-		expect(tileLayerExtentUrl(traps)).toBe('https://api.example.test/map/tiles/traps/extent');
-		// Every other tileset answers 400 to the param, so it never carries it.
-		expect(tileLayerTileUrl(habitats, { cluster: true })).toBe(
-			'https://api.example.test/map/tiles/habitats/{z}/{x}/{y}.mvt',
+		expect(tileLayerExtentUrl(layer)).toBe(`https://api.example.test/map/tiles/${kind}/extent`);
+		expect(tileLayerClusters(layer)).toBe(true);
+	});
+
+	it('keeps the filters beside the cluster param', () => {
+		const layer = {
+			kind: 'inspections',
+			serverUrl,
+			filters: { dateFrom: '2026-05-01', dateTo: '2026-05-31' },
+		} as const;
+
+		expect(queryOf(tileLayerTileUrl(layer, { cluster: true }))).toBe(
+			'dateFrom=2026-05-01&dateTo=2026-05-31&cluster=1',
 		);
 	});
 
-	it('says which tilesets accept clustering', () => {
-		expect(tileLayerClusters({ kind: 'traps', serverUrl })).toBe(true);
-		expect(tileLayerClusters({ kind: 'habitats', serverUrl })).toBe(false);
-		expect(tileLayerClusters({ kind: 'regions', serverUrl })).toBe(false);
+	it('never clusters Regions, which answers 400 to the param', () => {
+		const regions = { kind: 'regions', serverUrl } as const;
+
+		expect(tileLayerTileUrl(regions, { cluster: true })).toBe(
+			'https://api.example.test/map/tiles/regions/{z}/{x}/{y}.mvt',
+		);
+		expect(tileLayerClusters(regions)).toBe(false);
 	});
 });
 

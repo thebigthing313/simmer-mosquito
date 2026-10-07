@@ -11,6 +11,7 @@ import {
 	setIdListTileParam,
 	setRegionTileParam,
 	setTextTileParam,
+	type TileDrawOptions,
 	tileExtentUrl,
 	tileTemplateUrl,
 } from './tile-urls';
@@ -76,8 +77,14 @@ const statusColor: ExpressionSpecification = [
 export function buildServiceRequestTileUrl(
 	serverUrl: string,
 	filters?: ServiceRequestTileFilters,
+	options?: TileDrawOptions,
 ): string {
-	return tileTemplateUrl(serverUrl, SERVICE_REQUEST_SOURCE_ID, serviceRequestTileParams(filters));
+	return tileTemplateUrl(
+		serverUrl,
+		SERVICE_REQUEST_SOURCE_ID,
+		serviceRequestTileParams(filters),
+		options,
+	);
 }
 
 /** Build the extent URL for the same filters: the whole filtered set, no viewport. */

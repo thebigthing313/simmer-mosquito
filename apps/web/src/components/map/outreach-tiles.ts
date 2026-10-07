@@ -8,6 +8,7 @@ import {
 import {
 	type RegionScopedTileFilters,
 	setRegionTileParam,
+	type TileDrawOptions,
 	tileExtentUrl,
 	tileTemplateUrl,
 } from './tile-urls';
@@ -42,8 +43,12 @@ export const OUTREACH_INTERACTIVE_LAYER_IDS = interactiveLayerIds(OUTREACH_SOURC
 export const OUTREACH_LAYER_IDS = allLayerIds(OUTREACH_SOURCE_ID);
 
 /** Build the tile template URL with the active filters folded into the query. */
-export function buildOutreachTileUrl(serverUrl: string, filters?: OutreachTileFilters): string {
-	return tileTemplateUrl(serverUrl, OUTREACH_SOURCE_ID, outreachTileParams(filters));
+export function buildOutreachTileUrl(
+	serverUrl: string,
+	filters?: OutreachTileFilters,
+	options?: TileDrawOptions,
+): string {
+	return tileTemplateUrl(serverUrl, OUTREACH_SOURCE_ID, outreachTileParams(filters), options);
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */

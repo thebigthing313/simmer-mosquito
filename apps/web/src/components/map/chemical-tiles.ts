@@ -8,6 +8,7 @@ import {
 import {
 	type RegionScopedTileFilters,
 	setRegionTileParam,
+	type TileDrawOptions,
 	tileExtentUrl,
 	tileTemplateUrl,
 } from './tile-urls';
@@ -44,8 +45,12 @@ export const CHEMICAL_INTERACTIVE_LAYER_IDS = interactiveLayerIds(CHEMICAL_SOURC
 export const CHEMICAL_LAYER_IDS = allLayerIds(CHEMICAL_SOURCE_ID);
 
 /** Build the tile template URL with the active filters folded into the query. */
-export function buildChemicalTileUrl(serverUrl: string, filters?: ChemicalTileFilters): string {
-	return tileTemplateUrl(serverUrl, CHEMICAL_SOURCE_ID, chemicalTileParams(filters));
+export function buildChemicalTileUrl(
+	serverUrl: string,
+	filters?: ChemicalTileFilters,
+	options?: TileDrawOptions,
+): string {
+	return tileTemplateUrl(serverUrl, CHEMICAL_SOURCE_ID, chemicalTileParams(filters), options);
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */

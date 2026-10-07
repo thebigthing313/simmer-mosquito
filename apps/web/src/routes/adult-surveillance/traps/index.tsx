@@ -5,7 +5,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { TrapMapCard } from '../../../components/adult-surveillance/trap-map-card';
-import type { StatusFilter } from '../../../components/adult-surveillance/traps/legend';
+import type { TrapStatusFilter } from '../../../components/adult-surveillance/traps/legend';
 import { trapLegend } from '../../../components/adult-surveillance/traps/legend';
 import { createLabel } from '../../../components/app-shell/navigation';
 import {
@@ -32,6 +32,7 @@ import { useCollectionMethodOptions } from '../../../hooks/explorer/use-collecti
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useDebouncedTextFilter } from '../../../hooks/use-debounced-text-filter';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
@@ -57,11 +58,11 @@ interface TrapRow {
 	readonly isActive: boolean;
 }
 
-const STATUS_VALUES: readonly StatusFilter[] = ['all', 'active', 'inactive'];
+const STATUS_VALUES: readonly TrapStatusFilter[] = ['all', 'active', 'inactive'];
 
 interface TrapFilters {
 	readonly search: string;
-	readonly status: StatusFilter;
+	readonly status: TrapStatusFilter;
 	readonly methods: ReadonlySet<string>;
 	readonly regions: ReadonlySet<string>;
 }
@@ -108,7 +109,7 @@ function TrapsExplorerRoute() {
 		setInput: setSearchInput,
 		clear: clearSearchInput,
 	} = useDebouncedTextFilter(query.search, commitSearch, 200);
-	const setStatus = (next: StatusFilter) => setFilters({ status: next });
+	const setStatus = (next: TrapStatusFilter) => setFilters({ status: next });
 	const setMethodIds = (next: ReadonlySet<string>) => setFilters({ methods: next });
 	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const [map, setMap] = useState<MapboxMap | null>(null);
@@ -126,7 +127,8 @@ function TrapsExplorerRoute() {
 		...whenAny('regionIds', regionIds),
 		...whenText('search', search),
 	};
-	const legend = trapLegend(status);
+	const [clustered] = useMapClustering();
+	const legend = trapLegend(status, clustered);
 	const layer: MapTileLayer = {
 		kind: 'traps',
 		serverUrl: getServerUrl(),
@@ -302,7 +304,7 @@ function TrapsExplorerRoute() {
 
 // --- filter controls --------------------------------------------------------
 
-const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: string }[] = [
+const STATUS_OPTIONS: readonly { readonly value: TrapStatusFilter; readonly label: string }[] = [
 	{ value: 'all', label: 'All' },
 	{ value: 'active', label: 'Active' },
 	{ value: 'inactive', label: 'Inactive' },

@@ -31,6 +31,7 @@ import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { useHabitatTypeOptions } from '../../../hooks/explorer/use-habitat-type-options';
 import { useHabitatFilterState } from '../../../hooks/larval-surveillance/use-habitat-filter-state';
+import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { habitatName, habitatTypeName } from '../../../lib/habitat-name';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -76,7 +77,8 @@ function HabitatsExplorerRoute() {
 	const { nameById: typeNameById } = useHabitatTypeOptions();
 
 	const filters = habitatTileFilters(query);
-	const legend = habitatLegend(query.status, query.access);
+	const [clustered] = useMapClustering();
+	const legend = habitatLegend(query.status, query.access, clustered);
 	// What a move to the Table takes with it: every filter, since the Table
 	// applies each one.
 	const carried = sharedHabitatSearch(Route.useSearch());

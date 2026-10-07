@@ -8,6 +8,7 @@ import {
 import {
 	type RegionScopedTileFilters,
 	setRegionTileParam,
+	type TileDrawOptions,
 	tileExtentUrl,
 	tileTemplateUrl,
 } from './tile-urls';
@@ -48,8 +49,14 @@ export const SOURCE_REDUCTION_LAYER_IDS = allLayerIds(SOURCE_REDUCTION_SOURCE_ID
 export function buildSourceReductionTileUrl(
 	serverUrl: string,
 	filters?: SourceReductionTileFilters,
+	options?: TileDrawOptions,
 ): string {
-	return tileTemplateUrl(serverUrl, SOURCE_REDUCTION_SOURCE_ID, sourceReductionTileParams(filters));
+	return tileTemplateUrl(
+		serverUrl,
+		SOURCE_REDUCTION_SOURCE_ID,
+		sourceReductionTileParams(filters),
+		options,
+	);
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */

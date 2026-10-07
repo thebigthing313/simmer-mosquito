@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { habitatLegend } from '../../../../../components/larval-surveillance/habitats/legend';
-import { HABITAT_STATUS_COLORS } from '../../../../../components/map';
+import { HABITAT_STATUS_COLORS, TILE_CLUSTER_COLOR } from '../../../../../components/map';
 
 const labels = (
 	status: 'all' | 'active' | 'inactive',
 	access: 'all' | 'accessible' | 'inaccessible',
-) => habitatLegend(status, access).map((entry) => entry.label);
+) => habitatLegend(status, access, true).map((entry) => entry.label);
 
 /**
  * The key names the colours the map can currently draw. The paint expression
@@ -14,31 +14,32 @@ const labels = (
  */
 describe('habitatLegend', () => {
 	it('names every colour when nothing is filtered out', () => {
-		expect(labels('all', 'all')).toEqual(['Active', 'Inactive', 'Inaccessible']);
+		expect(labels('all', 'all')).toEqual(['Active', 'Inactive', 'Inaccessible', 'Habitat Group']);
 	});
 
 	it('drops inactive when the Status filter excludes it', () => {
-		expect(labels('active', 'all')).toEqual(['Active', 'Inaccessible']);
+		expect(labels('active', 'all')).toEqual(['Active', 'Inaccessible', 'Habitat Group']);
 	});
 
 	it('drops active when the Status filter excludes it', () => {
-		expect(labels('inactive', 'all')).toEqual(['Inactive', 'Inaccessible']);
+		expect(labels('inactive', 'all')).toEqual(['Inactive', 'Inaccessible', 'Habitat Group']);
 	});
 
 	it('drops inaccessible when the Access filter excludes it', () => {
-		expect(labels('all', 'accessible')).toEqual(['Active', 'Inactive']);
+		expect(labels('all', 'accessible')).toEqual(['Active', 'Inactive', 'Habitat Group']);
 	});
 
 	it('names inaccessible alone when that is all the map can draw', () => {
-		expect(labels('all', 'inaccessible')).toEqual(['Inaccessible']);
-		expect(labels('active', 'inaccessible')).toEqual(['Inaccessible']);
+		expect(labels('all', 'inaccessible')).toEqual(['Inaccessible', 'Habitat Group']);
+		expect(labels('active', 'inaccessible')).toEqual(['Inaccessible', 'Habitat Group']);
 	});
 
 	it('takes its swatches from the colours the layer paints with', () => {
-		expect(habitatLegend('all', 'all').map((entry) => entry.color)).toEqual([
+		expect(habitatLegend('all', 'all', true).map((entry) => entry.color)).toEqual([
 			HABITAT_STATUS_COLORS.active,
 			HABITAT_STATUS_COLORS.inactive,
 			HABITAT_STATUS_COLORS.inaccessible,
+			TILE_CLUSTER_COLOR,
 		]);
 	});
 });
