@@ -136,24 +136,33 @@ function TrapsExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<TrapRow>({
-			path: PATH,
-			rowsKey: 'traps',
-			rowKey: 'trap',
-			recordType: 'trap',
-			params: {
-				collectionMethodId: filters.collectionMethodIds,
-				status:
-					filters.isActive === undefined ? undefined : filters.isActive ? 'active' : 'inactive',
-				search: filters.search,
-				regionId: filters.regionIds,
-			},
-			layer,
-			map,
-			selectedId,
-		});
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		page,
+		pageCount,
+		setPage,
+		selected,
+		empty,
+		layers,
+	} = useExplorerResource<TrapRow>({
+		path: PATH,
+		rowsKey: 'traps',
+		rowKey: 'trap',
+		recordType: 'trap',
+		params: {
+			collectionMethodId: filters.collectionMethodIds,
+			status: filters.isActive === undefined ? undefined : filters.isActive ? 'active' : 'inactive',
+			search: filters.search,
+			regionId: filters.regionIds,
+		},
+		layer,
+		map,
+		selectedId,
+	});
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 

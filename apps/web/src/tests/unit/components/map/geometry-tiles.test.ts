@@ -1,7 +1,7 @@
 import { mapLifecycle } from '@simmer-mosquito/design-tokens';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import { describe, expect, it } from 'vitest';
-import { clusterBounds } from '../../../../components/map/cluster-fit';
+import { clusterBounds, resolveTileClick } from '../../../../components/map/cluster-fit';
 import {
 	allLayerIds,
 	geometryTileLayers,
@@ -174,5 +174,32 @@ describe('clusterBounds', () => {
 		expect(clusterBounds(record.properties)).toBeNull();
 		expect(clusterBounds(undefined)).toBeNull();
 		expect(clusterBounds({ ...cluster.properties, cluster_north: undefined })).toBeNull();
+	});
+});
+
+describe('resolveTileClick', () => {
+	const overlay = 'traps-selection-point';
+
+	it('selects the selected record on a click on its overlay, over a cluster or not', () => {
+		expect(
+			resolveTileClick({ layer: { id: overlay }, properties: {} }, overlay, selectedId),
+		).toEqual({ kind: 'select', id: selectedId });
+	});
+
+	it('zooms to a cluster and selects a record by its id', () => {
+		expect(
+			resolveTileClick({ layer: { id: 'traps-clusters' }, ...cluster }, overlay, null),
+		).toEqual({
+			kind: 'cluster',
+			bounds: { west: -74.5, south: 40.3, east: -74.4, north: 40.4 },
+		});
+		expect(resolveTileClick({ id: 'a-trap', properties: {} }, overlay, selectedId)).toEqual({
+			kind: 'select',
+			id: 'a-trap',
+		});
+	});
+
+	it('clears the selection on a click on empty map', () => {
+		expect(resolveTileClick(undefined, overlay, selectedId)).toEqual({ kind: 'select', id: null });
 	});
 });

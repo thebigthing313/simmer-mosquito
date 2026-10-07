@@ -164,25 +164,35 @@ function CollectionsExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<CollectionRow>({
-			path: PATH,
-			rowsKey: 'collections',
-			rowKey: 'collection',
-			recordType: 'collection',
-			params: {
-				collectionMethodId: filters.collectionMethodIds,
-				problem: filters.problemOnly,
-				awaiting: filters.awaitingOnly,
-				regionId: filters.regionIds,
-				dateFrom: filters.dateFrom,
-				dateTo: filters.dateTo,
-			},
-			layer,
-			map,
-			selectedId,
-		});
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		page,
+		pageCount,
+		setPage,
+		selected,
+		empty,
+		layers,
+	} = useExplorerResource<CollectionRow>({
+		path: PATH,
+		rowsKey: 'collections',
+		rowKey: 'collection',
+		recordType: 'collection',
+		params: {
+			collectionMethodId: filters.collectionMethodIds,
+			problem: filters.problemOnly,
+			awaiting: filters.awaitingOnly,
+			regionId: filters.regionIds,
+			dateFrom: filters.dateFrom,
+			dateTo: filters.dateTo,
+		},
+		layer,
+		map,
+		selectedId,
+	});
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 

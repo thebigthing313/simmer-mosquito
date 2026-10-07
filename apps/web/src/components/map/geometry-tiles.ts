@@ -24,10 +24,12 @@
  */
 
 import { mapCluster, mapInteraction } from '@simmer-mosquito/design-tokens';
+import { MAP_CLUSTER_UNTIL_ZOOM } from '@simmer-mosquito/mapping';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
 	FillLayerSpecification,
+	LayerSpecification,
 	LineLayerSpecification,
 	SymbolLayerSpecification,
 } from 'mapbox-gl';
@@ -262,17 +264,74 @@ export function geometryTileLayers(
 			paint: { 'line-color': mapInteraction.selected, 'line-width': 5 },
 		},
 		{
-			id: `${sourceId}-selected-point`,
+			id: selectedPointLayerId(sourceId),
 			type: 'circle',
 			source: sourceId,
 			'source-layer': sourceId,
 			filter: selectedPoint,
-			paint: {
-				'circle-color': mapInteraction.selected,
-				'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 6, 16, 10],
-				'circle-stroke-color': mapInteraction.pointStroke,
-				'circle-stroke-width': 2.5,
-			},
+			paint: selectedPointPaint,
 		},
 	];
+}
+
+/** What a selected point paints, on the tile and on the selection overlay alike. */
+const selectedPointPaint: NonNullable<CircleLayerSpecification['paint']> = {
+	'circle-color': mapInteraction.selected,
+	'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 6, 16, 10],
+	'circle-stroke-color': mapInteraction.pointStroke,
+	'circle-stroke-width': 2.5,
+};
+
+function selectedPointLayerId(sourceId: string): string {
+	return `${sourceId}-selected-point`;
+}
+
+// --- the selection overlay ---------------------------------------------------
+//
+// Below the cut-off zoom a clustered tile can carry the selected record only as
+// part of a cluster's count, so the selected-point layer above has no feature to
+// match. The overlay is the record's own point, drawn from the row the explorer
+// already holds, in a GeoJSON source of its own above the tile stack. The two
+// split the zoom range at `MAP_CLUSTER_UNTIL_ZOOM`, so one selected point is
+// drawn at every zoom and never two.
+
+/** The GeoJSON source the selection overlay for a tileset draws from. */
+export function selectionOverlaySourceId(sourceId: string): string {
+	return `${sourceId}-selection`;
+}
+
+/** The overlay's one layer, which a click on it selects the record from. */
+export function selectionOverlayLayerId(sourceId: string): string {
+	return `${sourceId}-selection-point`;
+}
+
+/**
+ * The overlay's circle: the tile's selected point, drawn only below the zoom
+ * the tiles stop clustering at.
+ */
+export function selectionOverlayLayer(sourceId: string): CircleLayerSpecification {
+	return {
+		id: selectionOverlayLayerId(sourceId),
+		type: 'circle',
+		source: selectionOverlaySourceId(sourceId),
+		maxzoom: MAP_CLUSTER_UNTIL_ZOOM,
+		paint: selectedPointPaint,
+	};
+}
+
+/**
+ * The tile layers with the selected point handed to the overlay below the
+ * cut-off, for a tileset whose overlay is drawing. The tile's own highlight
+ * keeps the zooms from the cut-off up, where every record is drawn as itself.
+ */
+export function withSelectedPointFromCutOff(
+	sourceId: string,
+	layers: readonly LayerSpecification[],
+): LayerSpecification[] {
+	const id = selectedPointLayerId(sourceId);
+	return layers.map((layer) =>
+		layer.id === id && layer.type === 'circle'
+			? { ...layer, minzoom: MAP_CLUSTER_UNTIL_ZOOM }
+			: layer,
+	);
 }

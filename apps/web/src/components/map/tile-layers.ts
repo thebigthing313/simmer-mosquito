@@ -15,6 +15,7 @@
  * every tile and draws an empty map with nothing on screen to say why.
  */
 
+import { type GeoJsonPoint, isGeoJsonGeometryOfTypes } from '@simmer-mosquito/mapping';
 import type { LayerSpecification } from 'mapbox-gl';
 import {
 	ADDRESS_INTERACTIVE_LAYER_IDS,
@@ -52,6 +53,7 @@ import {
 	type CollectionTileFilters,
 	collectionTileLayers,
 } from './collection-tiles';
+import { withSelectedPointFromCutOff } from './geometry-tiles';
 import {
 	buildHabitatExtentUrl,
 	buildHabitatTileUrl,
@@ -136,6 +138,21 @@ interface TileLayerBase<TFilters> {
 	readonly selectedId?: string | null;
 	/** Fired with a record id on feature click, or null when clicking empty map. */
 	readonly onSelectFeature?: (id: string | null) => void;
+	/**
+	 * The selected record as the page already holds it, for the selection
+	 * overlay a clustered tileset draws. See {@link tileLayerSelectionOverlay}.
+	 */
+	readonly selectedRecord?: SelectedTileRecord | null;
+}
+
+/**
+ * What the selection overlay reads off the selected record: which record it is
+ * and its stored geometry. Every `/map/*` display row carries both, `geojson`
+ * under that name, so an explorer passes its selected row as it is.
+ */
+interface SelectedTileRecord {
+	readonly id: string;
+	readonly geojson?: unknown;
 }
 
 /** What one tileset supplies so {@link useTileLayer} can draw it. */
@@ -333,14 +350,64 @@ export function tileLayerBinding(layer: MapTileLayer): TileLayerBinding<MapTileL
  * the fields they depend on is what lets Regions, whose base layers are filtered
  * by the ticked set, share one re-scope effect with the eleven whose are not.
  */
-export function tileLayerFilterKey(layer: MapTileLayer): string {
-	const specs = tileLayerBinding(layer).buildLayers(layer);
-	return JSON.stringify(specs.map((spec) => spec.filter ?? null));
+export function tileLayerFilterKey(layer: MapTileLayer, draw: TileDrawOptions): string {
+	return JSON.stringify(
+		tileLayerSpecs(layer, draw).map((spec) => [spec.filter ?? null, spec.minzoom ?? null]),
+	);
 }
 
 /** Whether the server lets this layer's tileset cluster. */
 export function tileLayerClusters(layer: MapTileLayer): boolean {
 	return tileLayerBinding(layer).clusters === true;
+}
+
+/**
+ * Whether this layer's tiles are drawn clustered: the tileset clusters and the
+ * map's clustering setting is on. It is the same test {@link tileLayerTileUrl}
+ * puts `cluster=1` on the URL by, so the overlay follows the tiles requested.
+ */
+function tileLayerDrawsClusters(layer: MapTileLayer, draw: TileDrawOptions): boolean {
+	return draw.cluster === true && tileLayerClusters(layer);
+}
+
+/**
+ * The point the selection overlay draws, or null when it draws nothing.
+ *
+ * Only a clustered tile folds a record into a cluster, and only a `Point`: the
+ * tile query passes every other shape, a `MultiPoint` included, through as
+ * itself. So the overlay draws when the tiles cluster, a record is selected, the
+ * page holds that record's row, and its geometry is a single point. Anything
+ * short of that leaves the tile's own highlight to draw the selection as it
+ * always has. The geometry comes back as the row's own object, so the overlay's
+ * source data stays the same reference from one render to the next.
+ */
+export function tileLayerSelectionOverlay(
+	layer: MapTileLayer,
+	draw: TileDrawOptions,
+): GeoJsonPoint | null {
+	const record = layer.selectedRecord ?? null;
+	if (record === null || record.id !== layer.selectedId) {
+		return null;
+	}
+	if (!isGeoJsonGeometryOfTypes(record.geojson, ['Point'])) {
+		return null;
+	}
+	return tileLayerDrawsClusters(layer, draw) ? record.geojson : null;
+}
+
+/**
+ * The GL layers this tileset draws right now.
+ *
+ * The binding's layers, with the tile's selected point limited to the zooms from
+ * the cut-off up while the selection overlay is drawing the zooms below it, so
+ * the record is never drawn selected twice over.
+ */
+export function tileLayerSpecs(layer: MapTileLayer, draw: TileDrawOptions): LayerSpecification[] {
+	const binding = tileLayerBinding(layer);
+	const specs = binding.buildLayers(layer);
+	return tileLayerSelectionOverlay(layer, draw) === null
+		? specs
+		: withSelectedPointFromCutOff(binding.sourceId, specs);
 }
 
 /**

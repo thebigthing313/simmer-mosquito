@@ -71,8 +71,7 @@ function SamplesExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, selected, empty, summary } =
+	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
 		useExplorerResource<SampleListRow>({
 			path: PATH,
 			rowsKey: 'samples',

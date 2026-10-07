@@ -108,18 +108,28 @@ function AddressesExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<AddressListing>({
-			path: PATH,
-			rowsKey: 'addresses',
-			rowKey: 'address',
-			recordType: RECORD_TYPE,
-			params: { search: filters.search, regionId: filters.regionIds },
-			layer,
-			map,
-			selectedId,
-		});
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		page,
+		pageCount,
+		setPage,
+		selected,
+		empty,
+		layers,
+	} = useExplorerResource<AddressListing>({
+		path: PATH,
+		rowsKey: 'addresses',
+		rowKey: 'address',
+		recordType: RECORD_TYPE,
+		params: { search: filters.search, regionId: filters.regionIds },
+		layer,
+		map,
+		selectedId,
+	});
 
 	const clearAll = () => {
 		setFilters({ search: '', regions: new Set() });

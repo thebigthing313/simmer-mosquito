@@ -90,7 +90,6 @@ function HabitatsExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const layers: readonly MapTileLayer[] = [layer];
 	const {
 		rows,
 		total,
@@ -100,6 +99,7 @@ function HabitatsExplorerRoute() {
 		selected: selectedHabitat,
 		empty,
 		summary,
+		layers,
 	} = useExplorerResource<HabitatListRow>({
 		path: PATH,
 		rowsKey: 'habitats',

@@ -134,24 +134,34 @@ function OutreachExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<OutreachRow>({
-			path: PATH,
-			rowsKey: 'outreachActions',
-			rowKey: 'outreachAction',
-			recordType: 'outreachAction',
-			params: {
-				outreachMethodId: filters.outreachMethodIds,
-				technician: filters.technicianProfileIds,
-				regionId: filters.regionIds,
-				dateFrom: filters.dateFrom,
-				dateTo: filters.dateTo,
-			},
-			layer,
-			map,
-			selectedId,
-		});
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		page,
+		pageCount,
+		setPage,
+		selected,
+		empty,
+		layers,
+	} = useExplorerResource<OutreachRow>({
+		path: PATH,
+		rowsKey: 'outreachActions',
+		rowKey: 'outreachAction',
+		recordType: 'outreachAction',
+		params: {
+			outreachMethodId: filters.outreachMethodIds,
+			technician: filters.technicianProfileIds,
+			regionId: filters.regionIds,
+			dateFrom: filters.dateFrom,
+			dateTo: filters.dateTo,
+		},
+		layer,
+		map,
+		selectedId,
+	});
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 
