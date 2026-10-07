@@ -1,47 +1,17 @@
 import { toDbEntityType } from '@simmer-mosquito/domain';
-import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Command,
-	CommandEmpty,
-	CommandGroup,
-	CommandInput,
-	CommandItem,
-	CommandList,
-} from '@simmer-mosquito/ui-web/components/ui/command';
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/popover';
-import {
-	CheckIcon,
-	ChevronDownIcon,
-	iconRegistry,
-	TagIcon,
-	XIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useState } from 'react';
+import { type ComponentProps, type ReactNode, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
-import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
-	ActiveFilterBar,
 	ExplorerMapPage,
 	ExplorerRow,
-	FilterChip,
-	FilterGrid,
-	MultiSelectFilter,
 	SegmentedFilter,
-	toggle,
 	whenAny,
 	whenText,
 } from '../../../components/explorer';
-import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
 	MAP_CREATE_TARGETS,
 	MapCanvas,
@@ -59,6 +29,11 @@ import {
 import { ServiceRequestMapCard } from '../../../components/public-engagement/service-request-map-card';
 import type { StatusFilter } from '../../../components/public-engagement/service-requests/legend';
 import { serviceRequestLegend } from '../../../components/public-engagement/service-requests/legend';
+import {
+	type ServiceRequestFilterChipProps,
+	ServiceRequestFilterFields,
+} from '../../../components/public-engagement/service-requests/service-request-filters';
+import { ServiceRequestSummaryPanel } from '../../../components/public-engagement/service-requests/service-request-summary-panel';
 import { ServiceRequestSurfaceSwitch } from '../../../components/public-engagement/service-requests/service-request-surface-switch';
 import {
 	type ServiceRequestFilters,
@@ -68,7 +43,6 @@ import {
 	serviceRequestRailOrderCodecs,
 	sharedServiceRequestSearch,
 } from '../../../components/public-engagement/service-requests/service-requests-search';
-import { TagBadge } from '../../../components/tag-badge';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
@@ -106,11 +80,6 @@ interface RequestListing {
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const RECORD_TYPE: RecordType = 'serviceRequest';
 const PATH = '/map/service-requests';
-const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: string }[] = [
-	{ value: 'all', label: 'All' },
-	{ value: 'open', label: 'Open' },
-	{ value: 'closed', label: 'Closed' },
-];
 const ORDER_OPTIONS: readonly {
 	readonly value: ServiceRequestRailOrder;
 	readonly label: string;
@@ -133,6 +102,7 @@ function ServiceRequestsExplorerRoute() {
 	// The catalog drives both the filter options and the per-card chip labels.
 	const { byId: tagById } = useTagOptions();
 	const availableTags = [...tagById.values()];
+	const tagNameById = new Map(availableTags.map((tag) => [tag.id, tag.name]));
 
 	// The filter state lives in the URL, so a shared link and Back out of a
 	// request both land on the list the operator had narrowed to. An address with
@@ -194,34 +164,24 @@ function ServiceRequestsExplorerRoute() {
 		selectedId,
 		onSelectFeature: setSelectedId,
 	};
-	const {
-		rows,
-		total,
-		isLoading,
-		isError,
-		retry,
-		page,
-		pageCount,
-		setPage,
-		selected,
-		empty,
-		layers,
-	} = useExplorerResource<RequestListing>({
-		path: PATH,
-		rowsKey: 'serviceRequests',
-		rowKey: 'serviceRequest',
-		recordType: RECORD_TYPE,
-		params: requestPageParams(filters, railOrder.order),
-		layer,
-		map,
-		selectedId,
-		// A pick moves the map to the record and leaves the list as it was, so
-		// the reader working down the queue does not lose their place.
-		holdRailOnSelect: true,
-	});
+	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
+		useExplorerResource<RequestListing>({
+			path: PATH,
+			rowsKey: 'serviceRequests',
+			rowKey: 'serviceRequest',
+			recordType: RECORD_TYPE,
+			params: requestPageParams(filters, railOrder.order),
+			layer,
+			map,
+			selectedId,
+			// A pick moves the map to the record and leaves the list as it was, so
+			// the reader working down the queue does not lose their place.
+			holdRailOnSelect: true,
+			summarize: true,
+		});
 
 	// Resolve the related on-demand rows for the page alone, a subset of at most
-	// fifty ids that loads reliably, instead of one join over the whole request set.
+	// a hundred ids that loads reliably, instead of one join over the whole request set.
 	const parties = useRequestParties(rows);
 	const tagsByRequestId = useEntityTags(
 		toDbEntityType('serviceRequest'),
@@ -229,36 +189,28 @@ function ServiceRequestsExplorerRoute() {
 	);
 	const detailsLoading = !parties.isReady || !tagsByRequestId.isReady;
 
+	// What the filter card's chips read and write, which the summary draws too.
+	const chips: ServiceRequestFilterChipProps = {
+		activeFilterCount,
+		availableTags,
+		onClearAll: clearAll,
+		regions,
+		search,
+		selectedRegionIds,
+		selectedTagIds,
+		setSearch,
+		setSelectedRegionIds,
+		setSelectedTagIds,
+		setStatus,
+		status,
+	};
+
 	return (
 		<ExplorerMapPage
 			actions={<ServiceRequestSurfaceSwitch compact current="map" search={carried} />}
 			activeFilterCount={activeFilterCount}
 			filters={
-				<RequestFilters
-					activeFilterCount={activeFilterCount}
-					availableTags={availableTags}
-					dateRange={dateRange}
-					onClearAll={clearAll}
-					onClearSearch={clearSearch}
-					regions={regions}
-					search={search}
-					selectedRegionIds={selectedRegionIds}
-					selectedTagIds={selectedTagIds}
-					setSearch={setSearch}
-					setSelectedRegionIds={setSelectedRegionIds}
-					setSelectedTagIds={setSelectedTagIds}
-					setStatus={setStatus}
-					status={status}
-				/>
-			}
-			footer={
-				<ExplorerPagination
-					noun={recordNoun(RECORD_TYPE)}
-					onPageChange={setPage}
-					page={page}
-					pageCount={pageCount}
-					total={total}
-				/>
+				<ServiceRequestFilterFields {...chips} dateRange={dateRange} onClearSearch={clearSearch} />
 			}
 			heading={{
 				title: recordNoun('serviceRequest').titleMany,
@@ -312,6 +264,15 @@ function ServiceRequestsExplorerRoute() {
 				onRetry: retry,
 				empty,
 				skeletonClassName: 'h-16',
+				// Over 100 in view the rows would not fit on one page, so the panel
+				// says what is in view instead (#1371).
+				summary: summarySlot({
+					chips,
+					filters: query,
+					setFilters,
+					state: summary,
+					tagNameById,
+				}),
 				renderRow: (request) => (
 					<RequestRowItem
 						address={parties.addressById.get(request.addressId) ?? null}
@@ -376,265 +337,19 @@ function requestPageParams(
 	return { ...requestQueryParams(filters), oldest: order === 'oldest' ? true : undefined };
 }
 
+/**
+ * What the rail draws in place of its rows: the summary over 100 in view, and
+ * nothing at 100 or fewer, so the rows draw (#1371).
+ */
+function summarySlot(
+	props: ComponentProps<typeof ServiceRequestSummaryPanel>,
+): ReactNode | undefined {
+	return props.state.isShown ? <ServiceRequestSummaryPanel {...props} /> : undefined;
+}
+
 /** Where the selected request sits on the page, or `-1` when it is not on it. */
 function rowIndexOf(rows: readonly RequestListing[], selectedId: string | null): number {
 	return selectedId === null ? -1 : rows.findIndex((request) => request.id === selectedId);
-}
-
-/** The filter card's contents: the five controls and the chips that undo them. */
-function RequestFilters({
-	activeFilterCount,
-	availableTags,
-	dateRange,
-	onClearAll,
-	onClearSearch,
-	regions,
-	search,
-	selectedRegionIds,
-	selectedTagIds,
-	setSearch,
-	setSelectedRegionIds,
-	setSelectedTagIds,
-	setStatus,
-	status,
-}: {
-	readonly activeFilterCount: number;
-	readonly availableTags: readonly Tag[];
-	readonly dateRange: ReturnType<typeof useDateRangeFilters>;
-	readonly onClearAll: () => void;
-	readonly onClearSearch: () => void;
-	readonly regions: ReturnType<typeof useRegionOptions>;
-	readonly search: string;
-	readonly selectedRegionIds: ReadonlySet<string>;
-	readonly selectedTagIds: ReadonlySet<string>;
-	readonly setSearch: (next: string) => void;
-	readonly setSelectedRegionIds: (next: ReadonlySet<string>) => void;
-	readonly setSelectedTagIds: (next: ReadonlySet<string>) => void;
-	readonly setStatus: (next: StatusFilter) => void;
-	readonly status: StatusFilter;
-}) {
-	const hasTagFilter = availableTags.length > 0 || selectedTagIds.size > 0;
-	return (
-		<>
-			<SearchInput
-				label="Search service requests"
-				onChange={(event) => setSearch(event.target.value)}
-				onClear={onClearSearch}
-				placeholder="Search requests…"
-				value={search}
-			/>
-
-			<SegmentedFilter
-				label="Status"
-				onChange={setStatus}
-				options={STATUS_OPTIONS}
-				value={status}
-			/>
-
-			<DateRangeFilter {...dateRange} />
-
-			<FilterGrid>
-				{hasTagFilter ? (
-					<TagFilter
-						onChange={setSelectedTagIds}
-						options={availableTags}
-						selected={selectedTagIds}
-					/>
-				) : null}
-				<MultiSelectFilter
-					empty="No regions"
-					label="Region"
-					onChange={setSelectedRegionIds}
-					options={regions.options}
-					selected={selectedRegionIds}
-				/>
-			</FilterGrid>
-
-			<RequestFilterChips
-				activeFilterCount={activeFilterCount}
-				availableTags={availableTags}
-				onClearAll={onClearAll}
-				regions={regions}
-				search={search}
-				selectedRegionIds={selectedRegionIds}
-				selectedTagIds={selectedTagIds}
-				setSearch={setSearch}
-				setSelectedRegionIds={setSelectedRegionIds}
-				setSelectedTagIds={setSelectedTagIds}
-				setStatus={setStatus}
-				status={status}
-			/>
-		</>
-	);
-}
-
-/** What is currently narrowing the list, each chip removing its own filter. */
-function RequestFilterChips({
-	activeFilterCount,
-	availableTags,
-	onClearAll,
-	regions,
-	search,
-	selectedRegionIds,
-	selectedTagIds,
-	setSearch,
-	setSelectedRegionIds,
-	setSelectedTagIds,
-	setStatus,
-	status,
-}: {
-	readonly activeFilterCount: number;
-	readonly availableTags: readonly Tag[];
-	readonly onClearAll: () => void;
-	readonly regions: ReturnType<typeof useRegionOptions>;
-	readonly search: string;
-	readonly selectedRegionIds: ReadonlySet<string>;
-	readonly selectedTagIds: ReadonlySet<string>;
-	readonly setSearch: (next: string) => void;
-	readonly setSelectedRegionIds: (next: ReadonlySet<string>) => void;
-	readonly setSelectedTagIds: (next: ReadonlySet<string>) => void;
-	readonly setStatus: (next: StatusFilter) => void;
-	readonly status: StatusFilter;
-}) {
-	if (activeFilterCount === 0) {
-		return null;
-	}
-	return (
-		<ActiveFilterBar onClearAll={onClearAll}>
-			<StatusChip onReset={() => setStatus('all')} status={status} />
-			<SearchChip onClear={() => setSearch('')} search={search} />
-			{availableTags
-				.filter((tag) => selectedTagIds.has(tag.id))
-				.map((tag) => (
-					<RemovableTagChip
-						key={tag.id}
-						onRemove={() => setSelectedTagIds(toggle(selectedTagIds, tag.id))}
-						tag={tag}
-					/>
-				))}
-			{[...selectedRegionIds].map((id) => (
-				<FilterChip
-					key={`region-${id}`}
-					label={regions.nameById.get(id) ?? 'Unknown region'}
-					onRemove={() => setSelectedRegionIds(toggle(selectedRegionIds, id))}
-				/>
-			))}
-		</ActiveFilterBar>
-	);
-}
-
-/** All is the default, so only Open or Closed is worth a chip. */
-function StatusChip({
-	onReset,
-	status,
-}: {
-	readonly onReset: () => void;
-	readonly status: StatusFilter;
-}) {
-	if (status === 'all') {
-		return null;
-	}
-	return (
-		<FilterChip label={`Status: ${status === 'open' ? 'Open' : 'Closed'}`} onRemove={onReset} />
-	);
-}
-
-function SearchChip({
-	onClear,
-	search,
-}: {
-	readonly onClear: () => void;
-	readonly search: string;
-}) {
-	if (search.trim().length === 0) {
-		return null;
-	}
-	return <FilterChip label={`Search: ${search}`} onRemove={onClear} />;
-}
-
-function TagFilter({
-	options,
-	selected,
-	onChange,
-}: {
-	readonly options: readonly Tag[];
-	readonly selected: ReadonlySet<string>;
-	readonly onChange: (next: ReadonlySet<string>) => void;
-}) {
-	const [open, setOpen] = useState(false);
-	const count = selected.size;
-
-	return (
-		<Popover onOpenChange={setOpen} open={open}>
-			<PopoverTrigger asChild>
-				<Button
-					aria-label="Filter by tag"
-					className="h-8 justify-between font-normal"
-					size="sm"
-					variant="outline"
-				>
-					<TagIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-					<span className="truncate">Tags</span>
-					<span className="flex items-center gap-1">
-						{count > 0 ? (
-							<Badge className="px-1.5" variant="secondary">
-								{count}
-							</Badge>
-						) : null}
-						<ChevronDownIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-					</span>
-				</Button>
-			</PopoverTrigger>
-			<PopoverContent align="start" className="w-64 p-0">
-				<Command>
-					<CommandInput placeholder="Search tags…" />
-					<CommandList>
-						<CommandEmpty>No tags found.</CommandEmpty>
-						<CommandGroup>
-							{options.map((tag) => {
-								const isSelected = selected.has(tag.id);
-								return (
-									<CommandItem
-										key={tag.id}
-										onSelect={() => onChange(toggle(selected, tag.id))}
-										value={`${tag.name} ${tag.id}`}
-									>
-										<span
-											className={cn(
-												'flex size-4 items-center justify-center rounded-sm border',
-												isSelected
-													? 'border-primary bg-primary text-primary-foreground'
-													: 'border-input',
-											)}
-										>
-											{isSelected ? <CheckIcon aria-hidden="true" className="size-3" /> : null}
-										</span>
-										<TagBadge tag={tag} />
-									</CommandItem>
-								);
-							})}
-						</CommandGroup>
-					</CommandList>
-				</Command>
-			</PopoverContent>
-		</Popover>
-	);
-}
-
-function RemovableTagChip({ tag, onRemove }: { readonly tag: Tag; readonly onRemove: () => void }) {
-	return (
-		<span className="inline-flex items-center gap-1">
-			<TagBadge tag={tag} />
-			<button
-				aria-label={`Remove ${tag.name} filter`}
-				className="relative rounded-full p-0.5 text-muted-foreground opacity-70 after:absolute after:-inset-1.5 transition-opacity hover:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-				onClick={onRemove}
-				type="button"
-			>
-				<XIcon aria-hidden="true" className="size-3" />
-			</button>
-		</span>
-	);
 }
 
 function RequestRowItem({

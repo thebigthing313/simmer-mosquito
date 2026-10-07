@@ -40,3 +40,25 @@ export function tagMembershipClauses(input: {
 		)`,
 	];
 }
+
+/**
+ * The ids of the Tags a record carries, as an array, for a summary that counts
+ * a record once under each of its Tags.
+ *
+ * Reads the rows {@link tagMembershipClauses} matches, so a Tag's count is the
+ * number of records its filter keeps. `tag_items_tag_entity_unique` holds one
+ * live row per Tag and record, so no Tag is listed twice.
+ */
+export function tagIdsSql(input: {
+	/** The record's id column, e.g. ``sql`sr.id` ``. */
+	readonly id: RawBuilder<unknown>;
+	readonly entityType: string;
+}): RawBuilder<readonly string[]> {
+	return sql<readonly string[]>`array(
+		select ti.tag_id
+		from tag_items ti
+		where ti.entity_type = ${sql.lit(input.entityType)}
+			and ti.entity_id = ${input.id}
+			and ti.deleted_at is null
+	)`;
+}

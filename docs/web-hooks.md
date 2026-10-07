@@ -278,6 +278,11 @@ chips read. A surface that adds a figure up, the larvae identified on Samples
 (#1370), answers it under `figures` beside the groups, and the hook passes it
 on as it came. A surface that declares none answers no `figures` key, which
 is why the field is optional rather than an empty object on every surface.
+A figure can also be the largest value over the box rather than the sum,
+which is how Service Requests answer the days the oldest open request has
+waited (#1371). With no open request in view that figure is left out of
+`figures`, so a surface reads an absent key as "nothing to say" and never as
+zero.
 
 #### useMapBoundsParam
 

@@ -890,6 +890,35 @@ because the page's own failed sentence told the reader to try again shortly
 with nothing to try. The rows are the rail's virtualised list now that a family
 tab owns the column's height.
 
+#### serviceRequestSummaryGroupings
+
+The Service Requests summary, built the way `sampleSummaryGroupings` builds
+the Samples one (#1371). Open draws before Closed whichever holds more, and a
+click replaces the status there, since the filter holds one. A Tag is an
+`each` grouping, so a request carrying two Tags counts under both and the Tags
+can add up to more than the total. The server reads the same `tag_items` rows
+the Tag filter matches, so a Tag's count is the page its button narrows to.
+
+Intake type has no filter behind it, so it draws as text. It is a grouping on
+the server rather than four summed figures, because a figure per intake type
+would write the type's values out a second time beside `COLUMN_VOCABULARIES`,
+and a grouping counts whatever values the column holds.
+
+The days the oldest open request has waited is a `max` figure. The server
+counts each open request's age from its request date to the Organization's
+today, the way the age slot on a row does, and answers the largest. A sum or a
+zero would both be wrong when no open request is in view, so the figure is
+left out then, and the Waiting section with it. The rail's Oldest order does
+not reach the summary: the summary request carries `oldest` because it sends
+the page's params, and the reader leaves it unread.
+
+The filter card and its chips moved out of the route into
+`service-request-filters.tsx`, so the summary can draw the chips above its
+groupings the way `SampleFilterChips` is drawn on Samples. The summary itself
+is `ServiceRequestSummaryPanel` rather than an inline `ExplorerSummary`, because
+the two ternaries it needs took the route component over `fallow:health`'s
+cognitive complexity threshold.
+
 ### record
 
 #### record-badges
