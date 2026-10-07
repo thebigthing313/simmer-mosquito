@@ -135,6 +135,7 @@ const defaultMapReaders = {
 	getServiceRequestTile: MAP_SURFACES['service-requests'].getTile,
 	getServiceRequestExtent: MAP_SURFACES['service-requests'].getExtent,
 	listServiceRequestDisplayRows: MAP_SURFACES['service-requests'].listByBounds,
+	summarizeServiceRequests: MAP_SURFACES['service-requests'].summarizeByBounds,
 	getServiceRequestDisplayRow: MAP_SURFACES['service-requests'].getById,
 
 	// Regions are drawn from their surface and read as rows through their own
@@ -447,6 +448,14 @@ export function registerMapTileRoutes(
 		parseQuery: (searchParams, organizationId, timeZone) =>
 			parseBboxPageQuery(searchParams, organizationId, timeZone, parseServiceRequestMapFilters),
 		list: readers.listServiceRequestDisplayRows,
+	});
+
+	// What the Service Requests rail draws in place of the page over 100 in view
+	// (#1371). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/service-requests/summary',
+		parseFilters: parseServiceRequestMapFilters,
+		summarize: readers.summarizeServiceRequests,
 	});
 
 	registerByIdRoute(app, options, {

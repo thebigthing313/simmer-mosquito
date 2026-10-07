@@ -1014,6 +1014,76 @@ describe('registerMapTileRoutes — sample summary', () => {
 	});
 });
 
+// The Service Requests rail's summary over 100 in view (#1371). The rail sends
+// the page's params, its order among them, so the summary admits `oldest` and
+// the reader leaves it unread.
+describe('registerMapTileRoutes — service request summary', () => {
+	const tagId = '3f9a7c21-5b8e-4d60-a1f4-7e2c9b0d6a35';
+
+	it('passes the box and every service request filter to the summary, and answers its figures', async () => {
+		const summarizeServiceRequests = vi.fn(async () => ({
+			total: 412,
+			groups: {
+				status: [{ value: 'open', count: 412 }],
+				tagId: [{ value: tagId, count: 412 }],
+				intakeType: [{ value: 'phone', count: 412 }],
+			},
+			figures: { oldestOpenDays: 41 },
+		}));
+		const getServiceRequestDisplayRow = vi.fn();
+		const app = createApp({ summarizeServiceRequests, getServiceRequestDisplayRow });
+
+		const response = await app.request(
+			`/map/service-requests/summary?bbox=-91,35,-90,36&status=open&search=garage&tagId=${tagId}&regionId=${regionId}&dateFrom=2026-01-01&dateTo=2026-09-30&oldest=true`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toMatchObject({ figures: { oldestOpenDays: 41 } });
+		expect(summarizeServiceRequests).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				isOpen: true,
+				search: 'garage',
+				tagIds: [tagId],
+				regionIds: [regionId],
+				dateFrom: '2026-01-01',
+				dateTo: '2026-09-30',
+				oldestFirst: true,
+			},
+		});
+		expect(getServiceRequestDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', '?status=open'],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a status that is not open or closed', '?bbox=-91,35,-90,36&status=maybe'],
+		['a param no service request filter admits', '?bbox=-91,35,-90,36&isWet=true'],
+	])('refuses %s before reading the service request summary', async (_case, query) => {
+		const summarizeServiceRequests = vi.fn();
+		const getServiceRequestDisplayRow = vi.fn();
+		const app = createApp({ summarizeServiceRequests, getServiceRequestDisplayRow });
+
+		const response = await app.request(`/map/service-requests/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeServiceRequests).not.toHaveBeenCalled();
+		expect(getServiceRequestDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no service request summary for a request with no session', async () => {
+		const summarizeServiceRequests = vi.fn();
+		const app = createApp({ authenticated: false, summarizeServiceRequests });
+
+		const response = await app.request('/map/service-requests/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeServiceRequests).not.toHaveBeenCalled();
+	});
+});
+
 // The four routes whose readers were called directly rather than injected, so
 // none of them could be driven without a database until the readers became one
 // object. Three answer geometry the Electric shape does not carry (ADR 0009).
