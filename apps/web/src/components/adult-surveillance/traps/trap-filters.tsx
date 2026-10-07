@@ -18,12 +18,11 @@ import {
 	SegmentedFilter,
 	toggle,
 } from '../../explorer';
-import { TRAP_STATUS_LABELS, type TrapStatusFilter } from './legend';
+import { TRAP_STATUS_LABELS, TRAP_STATUS_VALUES, type TrapStatusFilter } from './legend';
 import { TRAP_FILTER_DEFAULTS } from './traps-search';
 
-const STATUS_OPTIONS: readonly { readonly value: TrapStatusFilter; readonly label: string }[] = (
-	['all', 'active', 'inactive'] as const
-).map((value) => ({ value, label: TRAP_STATUS_LABELS[value] }));
+const STATUS_OPTIONS: readonly { readonly value: TrapStatusFilter; readonly label: string }[] =
+	TRAP_STATUS_VALUES.map((value) => ({ value, label: TRAP_STATUS_LABELS[value] }));
 
 export function TrapFilterFields({
 	binding,

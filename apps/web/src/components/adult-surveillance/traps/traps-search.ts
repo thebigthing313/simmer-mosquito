@@ -2,13 +2,11 @@ import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resour
 import { choiceParam, type FilterCodecs, idSetParam, textParam } from '../../../lib/search-filters';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
 import type { TrapTileFilters } from '../../map';
-import type { TrapStatusFilter } from './legend';
+import { TRAP_STATUS_VALUES, type TrapStatusFilter } from './legend';
 
 // The traps URL filter contract, outside the route modules so the Map and the
 // Table read the same params. Every codec drops what it cannot read, so a
 // malformed URL degrades to the defaults.
-
-const STATUS_VALUES: readonly TrapStatusFilter[] = ['all', 'active', 'inactive'];
 
 /** The filter state, keyed by the param each field appears under. */
 export interface TrapFilters {
@@ -27,7 +25,7 @@ export const TRAP_FILTER_DEFAULTS: TrapFilters = {
 
 export const trapFilterCodecs: FilterCodecs<TrapFilters> = {
 	search: textParam,
-	status: choiceParam(STATUS_VALUES, TRAP_FILTER_DEFAULTS.status),
+	status: choiceParam(TRAP_STATUS_VALUES, TRAP_FILTER_DEFAULTS.status),
 	methods: idSetParam,
 	regions: idSetParam,
 };

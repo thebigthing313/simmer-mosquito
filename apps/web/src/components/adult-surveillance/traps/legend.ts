@@ -2,6 +2,9 @@ import { clusterLegendEntries, type MapLegendEntry, TRAP_STATUS_COLORS } from '.
 /** What the Status filter can be set to. Mirrors the segmented control's options. */
 export type TrapStatusFilter = 'all' | 'active' | 'inactive';
 
+/** Every status the filter can hold, in the order the Status control lists them. */
+export const TRAP_STATUS_VALUES: readonly TrapStatusFilter[] = ['all', 'active', 'inactive'];
+
 /**
  * Each status as the Status control, its chip, the map key and the summary
  * name it, so the four cannot spell one differently.

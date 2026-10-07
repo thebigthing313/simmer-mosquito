@@ -58,9 +58,10 @@ interface TrapTableRow {
 }
 
 /**
- * Every Trap as a table, in code order, narrowed by the same filters as the
- * Traps Map. It sends the Map's own `/map/traps` request under a box around
- * the whole world, so the two surfaces list one set.
+ * Every Trap as a table, by code or by name where there is none, narrowed by
+ * the same filters as the Traps Map. It sends the Map's own `/map/traps`
+ * request under a box around the whole world, so the two surfaces list one
+ * set.
  */
 function TrapsTableRoute() {
 	const binding = useTrapFilterState();
@@ -83,7 +84,7 @@ function TrapsTableRoute() {
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
 				actions={<TrapSurfaceSwitch current="table" search={carried} />}
-				description="Every trap on record, by code."
+				description="Traps by code, or by name where a trap has none."
 				icon={TrapIcon}
 				title={recordNoun('trap').titleMany}
 			/>
