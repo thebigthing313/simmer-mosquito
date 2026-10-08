@@ -159,9 +159,9 @@ deprecated.
 
 `awaitConfirmation` skips the wait on a collection with no subscribers, because a
 paused stream never carries the txid and the wait would end only in a timeout on
-a write that committed. It waits `TXID_CONFIRMATION_TIMEOUT_MS`, five seconds,
-which was the adapter's default until 0.5 raised it to fifteen. A timeout
-rejects the transaction even though the command committed.
+a write that committed. It passes no timeout, so each wait runs under the
+adapter's default, which is fifteen seconds on `electric-db-collection` 0.5. A
+timeout rejects the transaction even though the command committed.
 
 The product policy is that users should not see Electric catch-up lag as a save
 failure, so the awaited server command response is the user-facing persistence

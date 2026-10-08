@@ -1,19 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import {
-	awaitConfirmation,
-	TXID_CONFIRMATION_TIMEOUT_MS,
-} from '../../../../collections/functions/await-confirmation.js';
+import { awaitConfirmation } from '../../../../collections/functions/await-confirmation.js';
 
-/** A collection whose waits are recorded, as `[txid, timeout]` pairs. */
+/** A collection whose waits are recorded, each as the arguments it was called with. */
 function watched(subscriberCount = 1, outcome: Promise<unknown> = Promise.resolve(true)) {
-	const waits: [number, number | undefined][] = [];
+	const waits: unknown[][] = [];
 	return {
 		waits,
 		collection: {
 			subscriberCount,
 			utils: {
-				awaitTxId: (txId: number, timeout?: number) => {
-					waits.push([txId, timeout]);
+				awaitTxId: (...args: unknown[]) => {
+					waits.push(args);
 					return outcome;
 				},
 			},
@@ -22,19 +19,14 @@ function watched(subscriberCount = 1, outcome: Promise<unknown> = Promise.resolv
 }
 
 describe('awaitConfirmation', () => {
-	it('waits for every txid, each under the pinned timeout', async () => {
+	it("waits for every txid under the adapter's own timeout", async () => {
+		// No second argument: a timeout passed here would pin the wait against
+		// whatever default `electric-db-collection` ships.
 		const { waits, collection } = watched();
 
 		await awaitConfirmation(collection, [11, 12]);
 
-		expect(waits).toEqual([
-			[11, TXID_CONFIRMATION_TIMEOUT_MS],
-			[12, TXID_CONFIRMATION_TIMEOUT_MS],
-		]);
-	});
-
-	it('pins the five seconds the adapter waited before 0.5', () => {
-		expect(TXID_CONFIRMATION_TIMEOUT_MS).toBe(5000);
+		expect(waits).toEqual([[11], [12]]);
 	});
 
 	it('does not wait on a collection nothing is watching', async () => {
