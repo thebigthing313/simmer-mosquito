@@ -65,6 +65,8 @@ const ORGANIZATION = {
 	mailing_locality: null,
 	mailing_region: null,
 	mailing_postal_code: null,
+	map_center_lat: null,
+	map_center_lng: null,
 	mailing_country: null,
 } as unknown as Organization;
 

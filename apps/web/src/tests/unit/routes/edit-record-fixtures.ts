@@ -57,6 +57,8 @@ export const ORGANIZATION = row('organizations', {
 	mailing_locality: null,
 	mailing_region: null,
 	mailing_postal_code: null,
+	map_center_lat: null,
+	map_center_lng: null,
 });
 
 export const TECHNICIAN_ID = 'b0000000-0000-4000-8000-000000000001';

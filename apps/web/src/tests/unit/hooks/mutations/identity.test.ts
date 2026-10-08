@@ -80,6 +80,8 @@ const ORGANIZATION_ROW = {
 	mailing_locality: 'Half Moon Bay',
 	mailing_region: 'CA',
 	mailing_postal_code: '94019',
+	map_center_lat: null,
+	map_center_lng: null,
 	created_at: new Date('2026-01-01T00:00:00.000Z'),
 	updated_at: new Date(STAMP),
 	updated_by_profile_id: null,
@@ -322,6 +324,96 @@ describe('an organization details write', () => {
 		expect(lastIntents()).toEqual(['identity.updateOrganizationDetails']);
 		expect(lastChanges().name).toBe('Coastal Vector Control');
 		expect(lastRequest().url).toBe(settingsUrl('timezone'));
+	});
+});
+
+/**
+ * The geocoder answering one way and every other route accepting, with each
+ * geocoder query recorded. `answer` is the body, or a status for a refusal.
+ */
+const geocoded: string[] = [];
+
+function stubGeocoder(answer: { readonly results: readonly unknown[] } | number): void {
+	vi.stubGlobal('fetch', (url: string | URL) => {
+		const target = new URL(String(url));
+		if (target.pathname !== '/geocoder/search') {
+			return Promise.resolve(new Response(JSON.stringify({ txid: 4242 }), { status: 200 }));
+		}
+		geocoded.push(target.searchParams.get('q') ?? '');
+		return Promise.resolve(
+			typeof answer === 'number'
+				? new Response(JSON.stringify({ error: 'geocoder_not_configured' }), { status: answer })
+				: new Response(JSON.stringify(answer), { status: 200 }),
+		);
+	});
+}
+
+describe('the map centre an address save carries', () => {
+	beforeEach(() => {
+		geocoded.length = 0;
+	});
+
+	it("geocodes a moved address and sends the top result's coordinates in the same write", async () => {
+		stubGeocoder({
+			results: [
+				{ formatted_address: '1 Main St', location: { lat: 40.4862, lng: -74.4518 } },
+				{ formatted_address: '1 Main Ave', location: { lat: 41, lng: -75 } },
+			],
+		});
+		const { result } = renderHook(() => useOrganizationSettingsMutations());
+
+		await result.current.saveOrganizationDetails(
+			organizationFields({
+				mailingAddressLine1: '1 Main St',
+				mailingLocality: 'New Brunswick',
+				mailingRegion: 'NJ',
+				mailingPostalCode: '08901',
+			}),
+		);
+
+		expect(geocoded).toEqual(['1 Main St, New Brunswick, NJ 08901']);
+		expect(dispatches()).toHaveLength(1);
+		expect(lastChanges()).toMatchObject({
+			mailing_address_line_1: '1 Main St',
+			map_center_lat: 40.4862,
+			map_center_lng: -74.4518,
+		});
+	});
+
+	it('saves the address and leaves the centre alone when no geocoder is configured', async () => {
+		stubGeocoder(503);
+		const { result } = renderHook(() => useOrganizationSettingsMutations());
+
+		await result.current.saveOrganizationDetails(
+			organizationFields({ mailingPostalCode: '94018' }),
+		);
+
+		expect(geocoded).toHaveLength(1);
+		expect(lastChanges().mailing_postal_code).toBe('94018');
+		expect(lastChanges()).not.toHaveProperty('map_center_lat');
+		expect(lastChanges()).not.toHaveProperty('map_center_lng');
+	});
+
+	it('saves the address and leaves the centre alone when the geocoder finds nothing', async () => {
+		stubGeocoder({ results: [] });
+		const { result } = renderHook(() => useOrganizationSettingsMutations());
+
+		await result.current.saveOrganizationDetails(
+			organizationFields({ mailingLocality: 'El Granada' }),
+		);
+
+		expect(lastChanges().mailing_locality).toBe('El Granada');
+		expect(lastChanges()).not.toHaveProperty('map_center_lat');
+	});
+
+	it('does not geocode a save that left the address where it was', async () => {
+		stubGeocoder({ results: [{ location: { lat: 40, lng: -74 } }] });
+		const { result } = renderHook(() => useOrganizationSettingsMutations());
+
+		await result.current.saveOrganizationDetails(organizationFields({ phoneNumber: '555-0199' }));
+
+		expect(geocoded).toHaveLength(0);
+		expect(lastChanges()).not.toHaveProperty('map_center_lat');
 	});
 });
 

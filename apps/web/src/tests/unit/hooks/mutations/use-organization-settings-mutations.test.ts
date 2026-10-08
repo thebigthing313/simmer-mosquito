@@ -18,6 +18,8 @@
 import type { Organization } from '@simmer-mosquito/sync';
 import { describe, expect, it } from 'vitest';
 import {
+	mapCenterQuery,
+	type OrganizationDetailsColumns,
 	type OrganizationDetailsFields,
 	organizationDetailsPlan,
 } from '../../../../hooks/mutations/use-organization-settings-mutations';
@@ -38,6 +40,8 @@ const STORED: Organization = {
 	mailing_locality: 'Half Moon Bay',
 	mailing_region: 'CA',
 	mailing_postal_code: '94019',
+	map_center_lat: null,
+	map_center_lng: null,
 	created_at: new Date('2026-01-01T00:00:00.000Z'),
 	updated_at: new Date('2026-08-18T00:00:00.000Z'),
 	updated_by_profile_id: null,
@@ -112,5 +116,51 @@ describe('organizationDetailsPlan', () => {
 		const plan = organizationDetailsPlan(fields(), { ...STORED, mailing_country: null }, TIMEZONE);
 
 		expect(plan.details?.mailingCountry).toBe('US');
+	});
+});
+
+describe('mapCenterQuery', () => {
+	function columns(
+		overrides: Partial<OrganizationDetailsColumns> = {},
+	): OrganizationDetailsColumns {
+		const plan = organizationDetailsPlan(fields({ name: 'Renamed' }), STORED, TIMEZONE);
+		return { ...(plan.details as OrganizationDetailsColumns), ...overrides };
+	}
+
+	it('asks nothing when the address did not move', () => {
+		expect(mapCenterQuery(columns(), STORED)).toBeNull();
+	});
+
+	it('asks for the street, the town, and the state with its postal code', () => {
+		expect(
+			mapCenterQuery(
+				columns({ mailingAddressLine2: 'Suite 4', mailingPostalCode: '94018' }),
+				STORED,
+			),
+		).toBe('100 Marsh Road, Half Moon Bay, CA 94018');
+	});
+
+	it('asks with whatever lines are left when some are empty', () => {
+		expect(
+			mapCenterQuery(
+				columns({ mailingAddressLine1: null, mailingLocality: null, mailingRegion: null }),
+				STORED,
+			),
+		).toBe('94019');
+	});
+
+	it('asks nothing when every line was cleared', () => {
+		expect(
+			mapCenterQuery(
+				columns({
+					mailingAddressLine1: null,
+					mailingAddressLine2: null,
+					mailingLocality: null,
+					mailingRegion: null,
+					mailingPostalCode: null,
+				}),
+				STORED,
+			),
+		).toBeNull();
 	});
 });

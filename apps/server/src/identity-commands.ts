@@ -126,14 +126,14 @@ async function updateOrganizationDetails(
  *
  * One list, read in both directions: `table-commands/organizations.ts` walks it
  * to turn a request body into command input, and `detailColumns` below walks it
- * to turn the command back into a `set`. Two lists would be the same nine facts
+ * to turn the command back into a `set`. Two lists would be the same eleven facts
  * written twice, inverted, and a mailing column added to one of them silently
  * stops arriving through the other.
  *
- * A table rather than nine conditional spreads, because the command's `changes`
+ * A table rather than eleven conditional spreads, because the command's `changes`
  * carries a field only when the client sent it: a field's absence and a field
  * set to `null` are different writes, and `in` is what tells them apart. Written
- * out nine times, that distinction is nine chances to write `??` instead.
+ * out eleven times, that distinction is eleven chances to write `??` instead.
  */
 export const ORGANIZATION_DETAIL_COLUMNS: readonly (readonly [
 	column: ColumnOf<'organizations'>,
@@ -148,6 +148,8 @@ export const ORGANIZATION_DETAIL_COLUMNS: readonly (readonly [
 	['mailing_locality', 'mailingLocality'],
 	['mailing_region', 'mailingRegion'],
 	['mailing_postal_code', 'mailingPostalCode'],
+	['map_center_lat', 'mapCenterLat'],
+	['map_center_lng', 'mapCenterLng'],
 ];
 
 function detailColumns(changes: OrganizationDetailChanges): Record<string, unknown> {
