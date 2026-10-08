@@ -1,6 +1,5 @@
 import type { InsertMutationFnParams } from '@tanstack/db';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TXID_CONFIRMATION_TIMEOUT_MS } from '../../../../collections/functions/await-confirmation.js';
 import { createMutationHandlers } from '../../../../collections/functions/mutation-handlers.js';
 import { setSessionFetcher } from '../../../../collections/functions/session-fetch.js';
 import { globalTransport } from './global-transport.js';
@@ -24,14 +23,14 @@ function stubApi(txid: number): void {
  * rows belong to, and one pending insert on it.
  */
 function insertOn(subscriberCount: number) {
-	const waits: [number, number | undefined][] = [];
+	const waits: unknown[][] = [];
 	const collection = {
 		id: 'habitats',
 		config: { onInsert: () => {}, onUpdate: () => {}, onDelete: () => {} },
 		subscriberCount,
 		utils: {
-			awaitTxId: (txId: number, timeout?: number) => {
-				waits.push([txId, timeout]);
+			awaitTxId: (...args: unknown[]) => {
+				waits.push(args);
 				return Promise.resolve(true);
 			},
 		},
@@ -70,7 +69,7 @@ describe('createMutationHandlers', () => {
 
 		await createMutationHandlers<Row>({ serverUrl: SERVER }).onInsert(params);
 
-		expect(waits).toEqual([[4242, TXID_CONFIRMATION_TIMEOUT_MS]]);
+		expect(waits).toEqual([[4242]]);
 	});
 
 	it('returns nothing for the adapter to read, since it waited itself', async () => {

@@ -76,7 +76,7 @@ export interface TransactionWrite extends WriteTarget {
 		/** Zero means nothing is watching this collection — see the module comment. */
 		readonly subscriberCount: number;
 		readonly utils: {
-			readonly awaitTxId: (txId: number, timeout?: number) => Promise<unknown>;
+			readonly awaitTxId: (txId: number) => Promise<unknown>;
 		};
 	};
 }

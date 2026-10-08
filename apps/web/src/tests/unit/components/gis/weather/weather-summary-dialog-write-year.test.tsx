@@ -6,8 +6,8 @@
  * `weather_summaries` is on-demand and the card that mounts this dialog
  * live-queries one year at a time. A save into a year that query does not cover
  * waits out a txid that never arrives on the subset; `settleWrite` swallows the
- * five-second timeout, so it reads as a save that took five seconds and then
- * showed nothing. The card moves its tab to the written year, and it can only do
+ * adapter's timeout, so it reads as a save that hung until the wait gave up and
+ * then showed nothing. The card moves its tab to the written year, and it can only do
  * that if it hears about the year before the write goes out.
  *
  * The order is the whole point, so the create here never resolves. If the call
