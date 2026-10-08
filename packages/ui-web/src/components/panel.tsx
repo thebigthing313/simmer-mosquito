@@ -52,7 +52,12 @@ export function Panel({
 }) {
 	return (
 		<Card className={cn('overflow-hidden', className)} variant="panel">
-			<div className="flex items-center justify-between gap-3 border-border/60 border-b px-4 py-3">
+			{/*
+			 * `flex-wrap` puts `actions` on a second line when the title and the
+			 * actions do not fit side by side, rather than truncating the title to
+			 * make room for controls (#1411). A row that fits stays on one line.
+			 */}
+			<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-border/60 border-b px-4 py-3">
 				<div className="flex min-w-0 items-center gap-2">
 					<span className="text-muted-foreground">{icon}</span>
 					{/*

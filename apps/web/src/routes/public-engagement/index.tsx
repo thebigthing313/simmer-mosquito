@@ -72,7 +72,7 @@ function PublicEngagementOverviewRoute() {
 	// keep their two-column grid; the frame is what widened.
 	return (
 		<OutletSimpleLayout measure="record">
-			<div className="grid gap-6">
+			<div className="@container grid gap-6">
 				<PageHeader icon={PublicIcon} title="Public Engagement" />
 
 				{/*
@@ -80,7 +80,7 @@ function PublicEngagementOverviewRoute() {
 				 * stretching to match the taller one — an outreach card padded out to
 				 * six request rows reads as though its list were cut off.
 				 */}
-				<div className="grid items-start gap-5 xl:grid-cols-2">
+				<div className="grid items-start gap-5 @5xl:grid-cols-2">
 					<OpenServiceRequestsPanel requests={requests} />
 					<RecentOutreachPanel since={since} />
 				</div>

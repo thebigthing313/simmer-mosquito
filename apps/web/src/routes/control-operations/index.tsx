@@ -68,23 +68,28 @@ function ControlOperationsOverviewRoute() {
 	// overview arrives at the width it stood in for (#1043, #1049). The panels
 	// keep their twelve-column grid; the frame is what widened.
 	return (
-		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
+		<div
+			className={cn(
+				pageContainer({ gap: 'overview', measure: 'record', padding: 'page' }),
+				'@container',
+			)}
+		>
 			<PageHeader
 				description={`Last ${CONTROL_ACTIVITY_WINDOW_DAYS} days`}
 				icon={ControlIcon}
 				title="Control Operations"
 			/>
 
-			<div className="grid gap-5 xl:grid-cols-12">
-				<div className="grid content-start gap-5 xl:col-span-7">
+			<div className="grid gap-5 @5xl:grid-cols-12">
+				<div className="grid content-start gap-5 @5xl:col-span-7">
 					<DailyControlActionsPanel today={today} />
 					<InsecticideUsagePanel today={today} unitDefaults={unitDefaults} />
 				</div>
-				<div className="grid content-start gap-5 xl:col-span-5">
+				<div className="grid content-start gap-5 @5xl:col-span-5">
 					<RecentSourceReductionsPanel since={since} />
 					<RecentBiocontrolPanel since={since} />
 				</div>
-				<div className="xl:col-span-12">
+				<div className="@5xl:col-span-12">
 					<CatalogPanel />
 				</div>
 			</div>
@@ -524,7 +529,7 @@ function CatalogPanel() {
 
 	return (
 		<Panel icon={<ControlIcon className="size-4" />} title="Catalogs">
-			<ul className="grid gap-1 p-2 sm:grid-cols-2 xl:grid-cols-5">
+			<ul className="grid gap-1 p-2 @xl:grid-cols-2 @3xl:grid-cols-3 @7xl:grid-cols-5">
 				<CatalogTile
 					activeCount={counts.applicationMethods}
 					icon={<ApplicationIcon aria-hidden="true" className="size-4" />}

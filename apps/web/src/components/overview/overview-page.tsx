@@ -101,7 +101,12 @@ export function OverviewPage({ grain }: { readonly grain: OverviewGrain }) {
 	const state = tableState(read);
 
 	return (
-		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
+		<div
+			className={cn(
+				pageContainer({ gap: 'overview', measure: 'record', padding: 'page' }),
+				'@container',
+			)}
+		>
 			<PageHeader
 				actions={
 					<OverviewPicker
@@ -155,7 +160,7 @@ function earliestPeriod(grain: OverviewGrain, earliest: string | null): string |
 	return earliest === null ? null : currentOverviewPeriod(grain, earliest);
 }
 
-const TREND_GRID = 'grid gap-4 md:grid-cols-2 xl:grid-cols-3';
+const TREND_GRID = 'grid gap-4 @2xl:grid-cols-2 @6xl:grid-cols-3';
 
 /** How many years Annual's series needs before its trend section is drawn. */
 const TREND_MINIMUM_YEARS = 3;

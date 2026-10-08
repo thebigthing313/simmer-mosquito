@@ -119,7 +119,7 @@ export function ActivityStrip({
 					<RowSkeleton count={1} />
 				</div>
 			) : (
-				<div className="grid grid-cols-2 divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 sm:grid-cols-4 xl:grid-cols-8">
+				<div className="grid grid-cols-2 divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 @3xl:grid-cols-4 @6xl:grid-cols-8">
 					{ACTIVITY_TYPE_KEYS.map((key) => (
 						<ActivityCell
 							cell={activity.types[key]}

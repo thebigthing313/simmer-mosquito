@@ -11,6 +11,7 @@
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useDashboard } from '../../hooks/dashboard/use-dashboard';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../lib/local-date';
@@ -26,10 +27,15 @@ export function DashboardPage() {
 	const server = useDashboard();
 
 	return (
-		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
+		<div
+			className={cn(
+				pageContainer({ gap: 'overview', measure: 'record', padding: 'page' }),
+				'@container',
+			)}
+		>
 			<PageHeader icon={HomeIcon} title="Dashboard" />
 			<ActivityStrip timeZone={timeZone} today={today} />
-			<div className="grid gap-5 xl:grid-cols-2">
+			<div className="grid gap-5 @5xl:grid-cols-2">
 				<SurveillanceBacklog server={server} timeZone={timeZone} today={today} />
 				<OperationsBacklog server={server} timeZone={timeZone} today={today} />
 			</div>
