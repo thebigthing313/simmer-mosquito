@@ -253,12 +253,18 @@ function QueueLine({ row, today }: { readonly row: QueueRowModel; readonly today
 	const aside = row.split ?? row.note;
 	return (
 		<li className={cn('flex items-center gap-3 px-4 py-2', empty && 'text-muted-foreground')}>
-			<Link {...row.link} className="min-w-0 flex-1 truncate text-sm hover:underline">
-				{row.label}
-			</Link>
-			{aside === undefined ? null : (
-				<span className="shrink-0 text-muted-foreground text-xs tabular-nums">{aside}</span>
-			)}
+			{/*
+			 * The name and the aside wrap as a pair, so a narrow row puts the aside
+			 * under the name instead of truncating the name to make room (#1411).
+			 */}
+			<div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+				<Link {...row.link} className="min-w-0 grow truncate text-sm hover:underline">
+					{row.label}
+				</Link>
+				{aside === undefined ? null : (
+					<span className="shrink-0 text-muted-foreground text-xs tabular-nums">{aside}</span>
+				)}
+			</div>
 			<span className="w-20 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
 				{empty || row.oldest === null ? '' : ageLabel(ageInDays(row.oldest, today))}
 			</span>

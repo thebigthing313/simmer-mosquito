@@ -62,21 +62,26 @@ function AdultSurveillanceOverviewRoute() {
 	// overview arrives at the width it stood in for (#1043, #1049). The panels
 	// keep their twelve-column grid; the frame is what widened.
 	return (
-		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
+		<div
+			className={cn(
+				pageContainer({ gap: 'overview', measure: 'record', padding: 'page' }),
+				'@container',
+			)}
+		>
 			<PageHeader icon={AdultIcon} title="Adult Surveillance" />
 
-			<div className="grid gap-5 xl:grid-cols-12">
-				<div className="xl:col-span-7">
+			<div className="grid gap-5 @5xl:grid-cols-12">
+				<div className="@5xl:col-span-7">
 					<RecentCollectionsPanel since={since} />
 				</div>
-				<div className="grid content-start gap-5 xl:col-span-5">
+				<div className="grid content-start gap-5 @5xl:col-span-5">
 					<AdultSpeciesComposition today={today} />
 					<AwaitingIdentificationPanel since={since} />
 				</div>
-				<div className="xl:col-span-12">
+				<div className="@5xl:col-span-12">
 					<OverThresholdPanel since={since} />
 				</div>
-				<div className="xl:col-span-12">
+				<div className="@5xl:col-span-12">
 					<AttentionPanel since={since} />
 				</div>
 			</div>
