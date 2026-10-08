@@ -152,6 +152,29 @@ describe('every collection, built', () => {
 		}
 	});
 
+	it('indexes the columns a join or an include loads it by', () => {
+		// Without the index a lazily loaded join falls back to scanning whatever
+		// the collection already holds and logs `Join requires an index` (#1412).
+		const expected: Readonly<Record<string, string>> = {
+			samples: 'inspection_id',
+			sample_species: 'sample_id',
+			collection_species: 'collection_id',
+			route_items: 'route_id',
+			memberships: 'profile_id',
+		};
+		const missing = Object.entries(expected).filter(([table, column]) => {
+			const module = modules.find((candidate) => candidate.table === table);
+			const indexes = module === undefined ? [] : [...module.own().indexes.values()];
+			return !indexes.some(
+				(index) =>
+					(index as { expression?: { path?: readonly string[] } }).expression?.path?.join('.') ===
+					column,
+			);
+		});
+
+		expect(missing).toEqual([]);
+	});
+
 	it('answers with the same collection every time', () => {
 		// A live query dedupes by collection identity, and two collections over one
 		// table would each open their own shape and disagree about what is in it.
