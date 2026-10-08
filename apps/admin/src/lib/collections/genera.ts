@@ -20,17 +20,16 @@ import { syncClientOptions } from './client-options';
  * `apps/web` is refused at. Nothing here decides that — the server does; declaring
  * it only stops the console offering a write API it could not use.
  *
- * The type is written out here rather than inferred because a `Collection<…>`
- * instantiated inside `packages/sync` arrives as `any`, with no error to say so.
- * Naming it on this side instantiates it where it resolves. If it is ever
- * removed, the check is that `collection.id` (a `string`) is refused where a
- * `number` is wanted.
+ * The type is narrowed here rather than inferred because the factory's
+ * collection carries its schema's insert input, where a column with a default is
+ * optional and typed `unknown`, and the console reads and writes whole rows. The
+ * same is done for `species` and `units`.
  */
-export const genera: Collection<Genus, string | number> = createGeneraCollection({
+export const genera = createGeneraCollection({
 	...syncClientOptions,
 	syncMode: 'eager',
 	mutations: true,
-});
+}) as Collection<Genus, string | number>;
 
 /**
  * The join index.

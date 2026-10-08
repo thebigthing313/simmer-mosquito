@@ -17,10 +17,10 @@ import { syncClientOptions } from './client-options';
  * change that wrote this file — until then units were the one global catalog with
  * no domain command at all, and the console wrote them through `/admin/units`.
  */
-export const units: Collection<Unit, string | number> = createUnitsCollection({
+export const units = createUnitsCollection({
 	...syncClientOptions,
 	syncMode: 'eager',
 	mutations: true,
-});
+}) as Collection<Unit, string | number>;
 
 units.createIndex((row) => row.id, { indexType: BasicIndex });

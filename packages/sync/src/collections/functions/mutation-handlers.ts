@@ -47,10 +47,12 @@ export interface MutationHandlerConfig {
 /**
  * Whether to hold the optimistic rows until Electric streams the write back.
  *
- * Returning `{ txid }` makes the adapter wait for that transaction on the shape
- * stream, which is what stops an edited row flickering back to its old value
- * before the synced one arrives. Returning nothing completes the mutation as soon
- * as the server answers.
+ * Awaiting `awaitTxId` holds the mutation open until that transaction arrives on
+ * the shape stream, which is what stops an edited row flickering back to its old
+ * value before the synced one arrives: the collection drops a transaction's
+ * optimistic state the moment its handler settles. Not waiting completes the
+ * mutation as soon as the server answers. The wait is in the handler rather than
+ * a returned `{ txid }`, which `electric-db-collection` 0.5 deprecated.
  *
  * The choice is not a property of the table — it is whether anything is watching
  * at the moment of the write. A collection with no subscribers has a paused
@@ -68,10 +70,14 @@ function confirmationFor(
 	// Structural rather than `Collection<TRow>`: the only thing this needs is the
 	// count, and asking for the full type drags the collection's generics through a
 	// return position where they defeat the schema overload's inference.
-	collection: { readonly subscriberCount: number },
-	txid: number[],
-): { txid: number[] } | undefined {
-	return collection.subscriberCount > 0 ? { txid } : undefined;
+	// `utils` is the library's untyped record here, because the handlers are built
+	// before the Electric options that give it `awaitTxId`.
+	collection: { readonly subscriberCount: number; readonly utils: Record<string, unknown> },
+	txid: readonly number[],
+): Promise<unknown> | undefined {
+	if (collection.subscriberCount === 0) return undefined;
+	const wait = collection.utils.awaitTxId as (txId: number) => Promise<unknown>;
+	return Promise.all(txid.map((id) => wait(id)));
 }
 
 function send(request: CommandRequest): Promise<number> {
@@ -100,16 +106,19 @@ async function sendAll<TRow extends object>(
 
 export function createMutationHandlers<TRow extends object>(config: MutationHandlerConfig) {
 	return {
-		onInsert: async ({ transaction, collection }: InsertMutationFnParams<TRow>) =>
-			confirmationFor(collection, await sendAll(transaction.mutations, config.serverUrl)),
+		onInsert: async ({ transaction, collection }: InsertMutationFnParams<TRow>) => {
+			await confirmationFor(collection, await sendAll(transaction.mutations, config.serverUrl));
+		},
 
 		onUpdate: async ({ transaction, collection }: UpdateMutationFnParams<TRow>) => {
 			const txid = await sendAll(transaction.mutations, config.serverUrl);
-			// A batch of pure no-ops sends nothing, and so has nothing to wait for.
-			return txid.length === 0 ? undefined : confirmationFor(collection, txid);
+			// A batch of pure no-ops sends nothing, and so has nothing to wait for:
+			// `Promise.all` over no txids resolves at once.
+			await confirmationFor(collection, txid);
 		},
 
-		onDelete: async ({ transaction, collection }: DeleteMutationFnParams<TRow>) =>
-			confirmationFor(collection, await sendAll(transaction.mutations, config.serverUrl)),
+		onDelete: async ({ transaction, collection }: DeleteMutationFnParams<TRow>) => {
+			await confirmationFor(collection, await sendAll(transaction.mutations, config.serverUrl));
+		},
 	};
 }

@@ -9,7 +9,16 @@
 		// source to walk what the `./contract` entry imports. Nothing under `src`
 		// outside `src/tests` may name a Node builtin: this package runs in a
 		// browser and in React Native, and `lib` above says so.
-		"types": ["node"]
+		"types": ["node"],
+		// An app that references this project resolves this package's imports in
+		// CJS mode, though the package is `"type": "module"` and resolves ESM when
+		// checked alone. Since `@tanstack/db` 0.12.1 ships CJS declarations of its
+		// own, that put two copies of its classes in one program, and a collection
+		// built here no longer assigned to one the app names. Before, the CJS
+		// declarations did not resolve and every factory's type arrived as `any`.
+		// `import` is listed first in every export map that matters here, so this
+		// condition puts the app's lookup on the ESM declarations.
+		"customConditions": ["import"]
 	},
 	"include": ["src/**/*.ts"],
 	// `drift.test.ts` reads the Kysely table types to check the generated schemas

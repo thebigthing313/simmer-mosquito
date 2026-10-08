@@ -15,11 +15,11 @@ import { syncClientOptions } from './client-options';
  *
  * `mutations: true` posts to `/commands/species`.
  */
-export const species: Collection<Species, string | number> = createSpeciesCollection({
+export const species = createSpeciesCollection({
 	...syncClientOptions,
 	syncMode: 'eager',
 	mutations: true,
-});
+}) as Collection<Species, string | number>;
 
 species.createIndex((row) => row.id, { indexType: BasicIndex });
 
