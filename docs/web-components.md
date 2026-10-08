@@ -1150,6 +1150,28 @@ column given `max-w-[22rem] truncate` ran 87 to 91 characters to a line. The
 measure goes on a block inside the cell, clamped to two lines, with the whole
 text in the tooltip and on the detail page.
 
+#### RecordTableEmpty
+
+The eleven record tables each declared a `NoRows` in the route module with the
+same four branches and a hand-spelled plural in both titles (#1405). The titles
+now read `titleMany` from the register, and the one part of the unfiltered
+title a surface decides is `scope`: `active`, `yet`, `lastDays` or `thisYear`.
+A union and not a free-text title, because a title prop is where a surface
+would spell the plural again, which `check:record-nouns` reads as a finding.
+Every title the eleven tables rendered before reads the same through the
+register. The two descriptions stay props, since each is a sentence about that
+surface's list rather than a name for its records. It draws nothing on a
+failed read because `RecordTableUnavailable` already sits above it, and a
+second failure message under the first said the same thing twice.
+
+#### RecordTableUnavailable
+
+Drawn above the table rather than in place of it, so a retry that fails while
+a page of rows is showing keeps those rows on screen under the strip. The
+sentence is the register's `many` with its first letter raised, which gives
+`Chemical applications could not be loaded.` where the tables had spelled each
+plural by hand.
+
 ### registrations
 
 #### RegistrationFields
