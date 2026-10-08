@@ -1,7 +1,7 @@
 /**
  * A trend panel's zoom: the button that sits in the panel header and the
  * overlay it opens, which fills the viewport with the panel's title, the same
- * `OverviewChart` at `height="fill"`, and on Monthly the two-year legend.
+ * `OverviewChart` at `height="fill"`, and the legend on Monthly and Annual.
  * Takes the panel's title and the chart's own props. A bar click inside the
  * overlay closes it and hands the period to `onOpenPeriod`, so it opens the
  * same destination the panel's chart does. `docs/web-components.md` has the
@@ -60,7 +60,7 @@ export function OverviewChartZoom({
 			<DialogContent aria-describedby={undefined} className={FILL_VIEWPORT}>
 				<DialogHeader className="flex-row flex-wrap items-center justify-between gap-x-4 gap-y-1 pr-8">
 					<DialogTitle>{title}</DialogTitle>
-					{grain === 'month' ? <OverviewLegend year={overviewPeriodYear(period)} /> : null}
+					<OverviewLegend grain={grain} year={overviewPeriodYear(period)} />
 				</DialogHeader>
 				<div className="min-h-0 flex-1">
 					<OverviewChart

@@ -39,7 +39,7 @@ function renderZoom(grain: 'day' | 'month' | 'year' = 'month') {
 			grain={grain}
 			onOpenPeriod={onOpenPeriod}
 			period="2026-09"
-			series={{ kind: 'count', points: [] }}
+			series={{ kind: 'count', points: [], average: [] }}
 			title="Inspections"
 		/>,
 	);
@@ -77,7 +77,7 @@ describe('OverviewChartZoom', () => {
 			within(within(dialog).getByRole('list'))
 				.getAllByRole('listitem')
 				.map((item) => item.textContent),
-		).toEqual(['2026', '2025']);
+		).toEqual(['2026', '2025', '2021–2025 average']);
 	});
 
 	it('draws no legend in the overlay on Today', () => {

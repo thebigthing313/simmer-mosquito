@@ -110,9 +110,13 @@ describe('the Annual page', () => {
 		expect(table().getByRole('row', { name: /^Inspections/ }).textContent).toBe(
 			'Inspections24,11037,31431,200',
 		);
-		// No coarser grain, so no upward line and no legend.
+		// No coarser grain, so no upward line; the legend names the dashed average alone.
 		expect(screen.queryByRole('link', { name: '2026' })).toBeNull();
-		expect(screen.queryByRole('list')).toBeNull();
+		expect(
+			within(screen.getByRole('list'))
+				.getAllByRole('listitem')
+				.map((item) => item.textContent),
+		).toEqual(['2021–2025 average']);
 		expect(screen.getByRole('heading', { name: 'By year' })).toBeTruthy();
 	});
 

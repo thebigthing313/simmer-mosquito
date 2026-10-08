@@ -91,6 +91,13 @@ export interface OverviewTypeRow {
 	/** Qualifying years behind the average; 0 draws the absence glyph, and 0 on `day`, which has no average. */
 	readonly averageYears: number;
 	readonly series: readonly OverviewSeriesPoint[];
+	/**
+	 * The average the trend chart draws beside `series`, over the average
+	 * column's years and qualifying rule but over whole periods: twelve values
+	 * on `month`, January to December, and one on `year`; empty on `day`. Null
+	 * when no year qualifies.
+	 */
+	readonly seriesAverage: readonly (number | null)[];
 }
 
 export interface OverviewRatioRow {
@@ -100,6 +107,13 @@ export interface OverviewRatioRow {
 	readonly denominators: readonly number[];
 	readonly averageYears: number;
 	readonly series: readonly OverviewRatioPoint[];
+	/** `OverviewTypeRow.seriesAverage`'s periods, as pooled sums over the qualifying years. */
+	readonly seriesAverage: readonly OverviewRatioSum[];
+}
+
+export interface OverviewRatioSum {
+	readonly numerator: number;
+	readonly denominator: number;
 }
 
 export interface OverviewResponse {

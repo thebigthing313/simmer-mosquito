@@ -7,6 +7,7 @@
 
 import {
 	addDays,
+	OVERVIEW_AVERAGE_YEARS,
 	OVERVIEW_PERIOD_LENGTH,
 	OVERVIEW_PERIOD_PARAM,
 	type OverviewColumn,
@@ -286,10 +287,19 @@ export function formatCell(value: number): string {
 }
 
 /**
+ * `2021–2025 average`: what the trend charts call the average they draw
+ * beside the picked period's year, the five years before it.
+ */
+export function averageLabel(year: number): string {
+	return `${year - OVERVIEW_AVERAGE_YEARS}–${year - 1} average`;
+}
+
+/**
  * One group of Monthly's grouped bar: a calendar month with the picked
- * month's year in the period role and the year before in the comparison
- * role. A month the year has not reached is `undefined`, which is no bar; a
- * ratio over a zero denominator is `null`, which is no bar either.
+ * month's year in the period role, the year before in the comparison role
+ * and the five-year average in the average role. A month the year has not
+ * reached is `undefined`, which is no bar; a ratio over a zero denominator,
+ * or an average no year qualifies for, is `null`, which is no bar either.
  */
 export interface MonthGroup {
 	/** `Jan` to `Dec`. */
@@ -299,15 +309,18 @@ export interface MonthGroup {
 	readonly comparisonMonth: string | undefined;
 	readonly period: number | null | undefined;
 	readonly comparison: number | null | undefined;
+	readonly average: number | null | undefined;
 }
 
 /**
  * The response's flat 24-point month series split by the year in each
  * point's `period` into twelve groups, the picked month's year beside the
- * year before. Points outside those two years are ignored.
+ * year before, with the month's average from `averages`, January first.
+ * Points outside those two years are ignored.
  */
 export function monthGroups(
 	points: readonly { readonly period: string; readonly value: number | null }[],
+	averages: readonly (number | null)[],
 	year: number,
 ): readonly MonthGroup[] {
 	const byMonth = new Map(points.map((point) => [point.period, point.value]));
@@ -321,6 +334,7 @@ export function monthGroups(
 			comparisonMonth: byMonth.has(comparisonMonth) ? comparisonMonth : undefined,
 			period: byMonth.get(periodMonth),
 			comparison: byMonth.get(comparisonMonth),
+			average: averages[index],
 		};
 	});
 }

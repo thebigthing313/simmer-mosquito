@@ -259,7 +259,9 @@ Measured against the card surface (`#f9fdfb`), `green[600]` and `green[300]`
 separate at a CVD Delta E of 22.3 and a normal-vision 22.8, and `green[300]`
 sits at 2.05:1, under the skill's 3:1 relief rule; the table above the charts
 is the relief, and this paragraph is the validator run the skill asks to be
-committed with the pair.
+committed with the pair. A third role, `--chart-average: var(--simmer-blue)`,
+joined later for the five-year average on Monthly and Annual; Today has no
+average, because a day has no year-back columns.
 
 The tooltip passes a `formatter`, because `ChartTooltipContent`'s default calls
 `toLocaleString()` unpinned; the tick formatter pins `en-US` too.

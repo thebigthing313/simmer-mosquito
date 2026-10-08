@@ -112,7 +112,7 @@ describe('the Monthly page', () => {
 		);
 	});
 
-	it('heads the trend with both years and draws the legend once', async () => {
+	it('heads the trend with both years and draws the legend once, average included', async () => {
 		renderMonthly();
 
 		await waitFor(() => screen.getByRole('table'));
@@ -123,7 +123,7 @@ describe('the Monthly page', () => {
 			within(legend)
 				.getAllByRole('listitem')
 				.map((item) => item.textContent),
-		).toEqual(['2026', '2025']);
+		).toEqual(['2026', '2025', '2021–2025 average']);
 		// The upward line names the month in full beside the select that does.
 		expect(screen.getAllByText('September 2026')).toHaveLength(2);
 	});

@@ -20,6 +20,7 @@ import {
 	type OverviewRatio,
 	type OverviewRatioPoint,
 	type OverviewRatioRow,
+	type OverviewRatioSum,
 	type OverviewRecordType,
 	type OverviewResponse,
 	type OverviewSeriesPoint,
@@ -72,16 +73,17 @@ export function aggregateOverview(input: AggregateOverviewInput): OverviewRespon
 	const { grain, period, today } = input;
 	const partial = isPartialOverviewPeriod(grain, period, today);
 	const plans = columnPlans(grain, period, today, partial);
+	const averagePlans = seriesAveragePlans(grain, period);
 	const earliest = leastOf(OVERVIEW_RECORD_TYPES.map((type) => input.earliest[type]));
 	const seriesPeriods = seriesPeriodsFor(grain, period, today, earliest);
 
 	const types = OVERVIEW_RECORD_TYPES.map(
 		(type): OverviewTypeRow =>
-			typeRow(type, input.rows[type], input.earliest[type], plans, seriesPeriods),
+			typeRow(type, input.rows[type], input.earliest[type], plans, averagePlans, seriesPeriods),
 	);
 	const ratios = OVERVIEW_RATIOS.map(
 		(ratio): OverviewRatioRow =>
-			ratioRow(ratio, input.rows[OVERVIEW_RATIO_TYPES[ratio]], plans, seriesPeriods),
+			ratioRow(ratio, input.rows[OVERVIEW_RATIO_TYPES[ratio]], plans, averagePlans, seriesPeriods),
 	);
 
 	return {
@@ -115,10 +117,7 @@ function columnPlans(
 	partial: boolean,
 ): readonly ColumnPlan[] {
 	const year = overviewPeriodYear(period);
-	const priorYears = Array.from(
-		{ length: OVERVIEW_AVERAGE_YEARS },
-		(_, index) => year - OVERVIEW_AVERAGE_YEARS + index,
-	);
+	const priorYears = averagedYears(year);
 
 	switch (grain) {
 		case 'day':
@@ -148,6 +147,42 @@ function columnPlans(
 				{ key: 'average', years: priorYears.map((y) => ({ year: y, window: yearWindow(y, cut) })) },
 			];
 		}
+	}
+}
+
+/** The five years before `year`, oldest first: the years every average is taken over. */
+function averagedYears(year: number): readonly number[] {
+	return Array.from(
+		{ length: OVERVIEW_AVERAGE_YEARS },
+		(_, index) => year - OVERVIEW_AVERAGE_YEARS + index,
+	);
+}
+
+/**
+ * The windows the chart's average is taken over: on `month` one plan per
+ * calendar month, on `year` one plan, and on `day` none. Every window is a
+ * whole period, never cut, because the bars it is read beside are whole.
+ */
+function seriesAveragePlans(
+	grain: OverviewGrain,
+	period: string,
+): readonly Extract<ColumnPlan, { key: 'average' }>[] {
+	const priorYears = averagedYears(overviewPeriodYear(period));
+	switch (grain) {
+		case 'day':
+			return [];
+		case 'month':
+			return Array.from({ length: 12 }, (_, index) => ({
+				key: 'average',
+				years: priorYears.map((y) => ({ year: y, window: monthWindow(y, index + 1, null) })),
+			}));
+		case 'year':
+			return [
+				{
+					key: 'average',
+					years: priorYears.map((y) => ({ year: y, window: yearWindow(y, null) })),
+				},
+			];
 	}
 }
 
@@ -238,6 +273,7 @@ function typeRow(
 	rows: readonly OverviewDailyRow[],
 	earliest: string | null,
 	plans: readonly ColumnPlan[],
+	averagePlans: readonly Extract<ColumnPlan, { key: 'average' }>[],
 	seriesPeriods: readonly string[],
 ): OverviewTypeRow {
 	let averageYears = 0;
@@ -252,13 +288,18 @@ function typeRow(
 	const series = seriesPeriods.map(
 		(period): OverviewSeriesPoint => ({ period, value: sumOver(rows, periodWindow(period)).count }),
 	);
-	return { type, recordedEver: earliest !== null, values, averageYears, series };
+	const seriesAverage = averagePlans.map((plan): number | null => {
+		const average = averageOf(rows, plan);
+		return average.years === 0 ? null : average.sum.count / average.years;
+	});
+	return { type, recordedEver: earliest !== null, values, averageYears, series, seriesAverage };
 }
 
 function ratioRow(
 	ratio: OverviewRatio,
 	rows: readonly OverviewDailyRow[],
 	plans: readonly ColumnPlan[],
+	averagePlans: readonly Extract<ColumnPlan, { key: 'average' }>[],
 	seriesPeriods: readonly string[],
 ): OverviewRatioRow {
 	let averageYears = 0;
@@ -280,6 +321,10 @@ function ratioRow(
 		denominators: sums.map((sum) => sum.denominator),
 		averageYears,
 		series,
+		seriesAverage: averagePlans.map((plan): OverviewRatioSum => {
+			const { sum } = averageOf(rows, plan);
+			return { numerator: sum.numerator, denominator: sum.denominator };
+		}),
 	};
 }
 
