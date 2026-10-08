@@ -188,8 +188,11 @@ function resolve<TRow extends SyncedRow>(
  * object, which is the one this module keeps, so without the rebuild every join
  * into the table goes unindexed for the rest of the session and logs `Join
  * requires an index` on a column the declaration indexes (#1412). Every
- * collection carries the `id` index, so an empty index map is a cleanup and
- * nothing else.
+ * collection carries the `id` index, so an empty index map means a cleanup.
+ *
+ * `createIndex` on a cleaned-up collection restarts its sync, so the rebuild
+ * starts the collection whether or not anything subscribes after it. The only
+ * caller is a resolve, which a read or a write is about to follow.
  */
 function createIndexes<TRow extends SyncedRow>(
 	collection: CollectionOf<TRow>,

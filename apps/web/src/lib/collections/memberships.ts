@@ -31,7 +31,7 @@ export const memberships = declareCollection<Membership>({
 	create: createMembershipsCollection,
 
 	/*
-	 * The key the People section joins this table by: `usePersonGroup` left-joins
+	 * The key the People section joins this table by. `usePersonGroup` left-joins
 	 * each Profile to its Membership on `profile_id`.
 	 */
 	index: (collection) => {
