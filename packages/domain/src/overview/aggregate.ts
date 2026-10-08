@@ -69,6 +69,9 @@ type ColumnPlan =
 			readonly years: readonly { readonly year: number; readonly window: Window }[];
 	  };
 
+/** The average column's plan, and each of the chart average's. */
+type AveragePlan = Extract<ColumnPlan, { key: 'average' }>;
+
 export function aggregateOverview(input: AggregateOverviewInput): OverviewResponse {
 	const { grain, period, today } = input;
 	const partial = isPartialOverviewPeriod(grain, period, today);
@@ -163,10 +166,7 @@ function averagedYears(year: number): readonly number[] {
  * calendar month, on `year` one plan, and on `day` none. Every window is a
  * whole period, never cut, because the bars it is read beside are whole.
  */
-function seriesAveragePlans(
-	grain: OverviewGrain,
-	period: string,
-): readonly Extract<ColumnPlan, { key: 'average' }>[] {
+function seriesAveragePlans(grain: OverviewGrain, period: string): readonly AveragePlan[] {
 	const priorYears = averagedYears(overviewPeriodYear(period));
 	switch (grain) {
 		case 'day':
@@ -249,7 +249,7 @@ function qualifies(rows: readonly OverviewDailyRow[], year: number): boolean {
 /** The pooled sum over the qualifying years of the average column, and how many qualified. */
 function averageOf(
 	rows: readonly OverviewDailyRow[],
-	plan: Extract<ColumnPlan, { key: 'average' }>,
+	plan: AveragePlan,
 ): { readonly sum: Sum; readonly years: number } {
 	let years = 0;
 	let sum = NOTHING;
@@ -273,7 +273,7 @@ function typeRow(
 	rows: readonly OverviewDailyRow[],
 	earliest: string | null,
 	plans: readonly ColumnPlan[],
-	averagePlans: readonly Extract<ColumnPlan, { key: 'average' }>[],
+	averagePlans: readonly AveragePlan[],
 	seriesPeriods: readonly string[],
 ): OverviewTypeRow {
 	let averageYears = 0;
@@ -299,7 +299,7 @@ function ratioRow(
 	ratio: OverviewRatio,
 	rows: readonly OverviewDailyRow[],
 	plans: readonly ColumnPlan[],
-	averagePlans: readonly Extract<ColumnPlan, { key: 'average' }>[],
+	averagePlans: readonly AveragePlan[],
 	seriesPeriods: readonly string[],
 ): OverviewRatioRow {
 	let averageYears = 0;

@@ -949,7 +949,8 @@ The family's one legend, at the right of the trend heading rather than inside
 each panel, because twelve panels would say it twelve times. Monthly's is
 three swatches, the two years and the average; Annual's is the average's
 dashed line alone, since the axis names each bar's year; Today has no average
-and carries none. The comparison
+and carries none. The average's entry is left out when no chart it speaks for
+draws one, so Annual then carries no legend at all. The comparison
 role is `--chart-comparison`, `green[300]`: `green[200]` and `green[100]` were
 offered and are too faint, and `--muted-foreground` sits 10.6 from brand green
 under full-colour vision, under the `dataviz` skill's hard floor, so it is not

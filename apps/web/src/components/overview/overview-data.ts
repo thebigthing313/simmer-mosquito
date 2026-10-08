@@ -14,6 +14,7 @@ import {
 	type OverviewGrain,
 	type OverviewRatio,
 	type OverviewRatioPoint,
+	type OverviewRatioSum,
 	type OverviewRecordType,
 	type OverviewResponse,
 	type OverviewSeriesPoint,
@@ -270,6 +271,22 @@ export function drawsTrend(
 /** A share or a rate, or null over a zero denominator, which draws the absence glyph. */
 export function ratioValue(numerator: number, denominator: number): number | null {
 	return denominator === 0 ? null : numerator / denominator;
+}
+
+/**
+ * A chart's five-year average beside each series period, a ratio's off its
+ * pooled sums, null where no year qualifies. The chart draws it and the
+ * legend reads it to know whether to name the average.
+ */
+export function averageValues(
+	series:
+		| { readonly kind: 'count'; readonly average: readonly (number | null)[] }
+		| { readonly kind: 'ratio'; readonly average: readonly OverviewRatioSum[] },
+): readonly (number | null)[] {
+	if (series.kind === 'count') {
+		return series.average;
+	}
+	return series.average.map((sum) => ratioValue(sum.numerator, sum.denominator));
 }
 
 /** `34%` for a share and `12.4` for a rate. */

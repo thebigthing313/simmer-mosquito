@@ -36,6 +36,7 @@ import { todayInTimeZone } from '../../lib/local-date';
 import { OverviewChart, type OverviewChartSeries } from './overview-chart';
 import { OverviewChartZoom } from './overview-chart-zoom';
 import {
+	averageValues,
 	drawsTrend,
 	OVERVIEW_LABELS,
 	OVERVIEW_RATIO_LABELS,
@@ -209,7 +210,13 @@ function TrendSection({
 		<section className={cn('grid gap-3', dimmed && 'opacity-60 transition-opacity')}>
 			<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
 				<h2 className="m-0 font-semibold text-foreground text-sm">{trendHeading(grain, period)}</h2>
-				<OverviewLegend grain={grain} year={overviewPeriodYear(period)} />
+				<OverviewLegend
+					average={charts.some((chart) =>
+						averageValues(chart.series).some((value) => value !== null),
+					)}
+					grain={grain}
+					year={overviewPeriodYear(period)}
+				/>
 			</div>
 			<div className={TREND_GRID}>
 				{charts.map((chart) => (

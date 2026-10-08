@@ -94,7 +94,7 @@ above the table's average cell, which is cut. The value axis extends to hold
 it when it sits above every bar, and no year qualifying draws no line. The
 legend at the right of the trend heading names it, `2021–2025 average`, beside
 a dashed swatch; the bars need no legend entry, because the axis names each
-year.
+year. When no chart draws a line, there is no legend.
 
 A ratio chart plots the ratio per year; a year whose denominator is zero has
 no bar, and the average line sits at the pooled numerator over the pooled

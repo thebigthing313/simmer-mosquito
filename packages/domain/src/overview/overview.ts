@@ -76,10 +76,13 @@ export interface OverviewSeriesPoint {
 	readonly value: number;
 }
 
-export interface OverviewRatioPoint {
-	readonly period: string;
+export interface OverviewRatioSum {
 	readonly numerator: number;
 	readonly denominator: number;
+}
+
+export interface OverviewRatioPoint extends OverviewRatioSum {
+	readonly period: string;
 }
 
 export interface OverviewTypeRow {
@@ -109,11 +112,6 @@ export interface OverviewRatioRow {
 	readonly series: readonly OverviewRatioPoint[];
 	/** `OverviewTypeRow.seriesAverage`'s periods, as pooled sums over the qualifying years. */
 	readonly seriesAverage: readonly OverviewRatioSum[];
-}
-
-export interface OverviewRatioSum {
-	readonly numerator: number;
-	readonly denominator: number;
 }
 
 export interface OverviewResponse {

@@ -45,6 +45,7 @@ import { formatCount } from '../../lib/format-count';
 import { formatMonthDay } from '../../lib/local-date';
 import {
 	averageLabel,
+	averageValues,
 	formatRatio,
 	MONTH_LABELS,
 	type MonthGroup,
@@ -143,14 +144,6 @@ function plotPoints(series: OverviewChartSeries): readonly PlotPoint[] {
 		period: point.period,
 		value: ratioValue(point.numerator, point.denominator),
 	}));
-}
-
-/** The average beside each series period, a ratio's off its pooled sums. */
-function averageValues(series: OverviewChartSeries): readonly (number | null)[] {
-	if (series.kind === 'count') {
-		return series.average;
-	}
-	return series.average.map((sum) => ratioValue(sum.numerator, sum.denominator));
 }
 
 function formatRatioTick(ratio: OverviewRatio): (value: number) => string {
@@ -348,7 +341,7 @@ function MonthsBars({
 						width={Y_AXIS_WIDTH}
 					/>
 					<ChartTooltip
-						content={<ChartTooltipContent formatter={tooltipSeries(format, year)} />}
+						content={<ChartTooltipContent formatter={tooltipSeries(format, monthsConfig(year))} />}
 						cursor={{ fill: 'var(--muted)', fillOpacity: 0.6 }}
 					/>
 					<Bar
@@ -489,21 +482,16 @@ function YearsBars({
 
 /**
  * A tooltip row for one of Monthly's three series: the value first, then the
- * series' year or the averaged years, so the hovered month reads all three
+ * series' label off the chart's config, so the hovered month reads all three
  * at a glance.
  */
-function tooltipSeries(format: (value: number) => string, year: number) {
-	const names: Readonly<Record<string, string>> = {
-		period: `${year}`,
-		comparison: `${year - 1}`,
-		average: averageLabel(year),
-	};
+function tooltipSeries(format: (value: number) => string, config: ChartConfig) {
 	return (value: unknown, name: unknown) => (
 		<span className="flex w-full items-center justify-between gap-3">
 			<span className="font-medium text-foreground tabular-nums">
 				{typeof value === 'number' ? format(value) : String(value)}
 			</span>
-			<span className="text-muted-foreground">{names[String(name)] ?? String(name)}</span>
+			<span className="text-muted-foreground">{config[String(name)]?.label ?? String(name)}</span>
 		</span>
 	);
 }

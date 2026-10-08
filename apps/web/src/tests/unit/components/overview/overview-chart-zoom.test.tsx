@@ -32,14 +32,17 @@ afterEach(() => {
 	cleanup();
 });
 
-function renderZoom(grain: 'day' | 'month' | 'year' = 'month') {
+function renderZoom(
+	grain: 'day' | 'month' | 'year' = 'month',
+	average: readonly (number | null)[] = Array.from({ length: 12 }, () => 4),
+) {
 	const onOpenPeriod = vi.fn();
 	render(
 		<OverviewChartZoom
 			grain={grain}
 			onOpenPeriod={onOpenPeriod}
 			period="2026-09"
-			series={{ kind: 'count', points: [], average: [] }}
+			series={{ kind: 'count', points: [], average }}
 			title="Inspections"
 		/>,
 	);
@@ -78,6 +81,25 @@ describe('OverviewChartZoom', () => {
 				.getAllByRole('listitem')
 				.map((item) => item.textContent),
 		).toEqual(['2026', '2025', '2021–2025 average']);
+	});
+
+	it('leaves the average out of the legend when the chart draws none', () => {
+		renderZoom(
+			'month',
+			Array.from({ length: 12 }, () => null),
+		);
+
+		expect(
+			within(within(openZoom()).getByRole('list'))
+				.getAllByRole('listitem')
+				.map((item) => item.textContent),
+		).toEqual(['2026', '2025']);
+	});
+
+	it('draws no legend in the overlay on Annual when no year qualifies for the average', () => {
+		renderZoom('year', [null]);
+
+		expect(within(openZoom()).queryByRole('list')).toBeNull();
 	});
 
 	it('draws no legend in the overlay on Today', () => {
