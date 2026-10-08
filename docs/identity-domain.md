@@ -134,12 +134,12 @@ The map centre rides on the same command. `map_center_lat` and
 `map_center_lng` are where a map with no rows of its own opens, and the client
 fills them by geocoding the mailing address when a save moves it, sending the
 top result in the same write. Each sits inside -90..90 or -180..180, and the
-builder refuses anything else by field name. The row holds both or neither,
-which a CHECK enforces. A body may still carry one number alone, because the
+builder refuses anything else by field name. The row holds both or neither:
+the writer refuses a body that would leave half, and a CHECK holds it again. A body may still carry one number alone, because the
 client sends only the columns that changed and a new geocode can land on the
-stored latitude; clearing is the one thing sent as a pair, both `null`. A geocoder that is not configured or
-finds nothing costs the centre and nothing else, so the address saves and the
-stored centre stays. They are not `lat` and `lng` on purpose: the client strips
+stored latitude; clearing is the one thing sent as a pair, both `null`. A
+geocoder that is not configured or finds nothing costs the centre and nothing
+else, so the address saves and the stored centre stays. They are not `lat` and `lng` on purpose: the client strips
 those two names from every command body, because a trigger owns them on the
 geometry tables (#1413).
 

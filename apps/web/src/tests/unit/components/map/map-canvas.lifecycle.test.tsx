@@ -377,14 +377,6 @@ describe('RouteMap lifecycle (issue #132)', () => {
 });
 
 /*
- * Draw order used to be the order the eleven tile-layer props were declared in
- * `MapCanvas`, which no caller could see or change. It is now the order of the
- * `layers` list, and the mechanism is that each entry mounts a child: Mapbox
- * appends layers in add order, and React runs a child's effects before its
- * parent's. Both halves are load-bearing and neither is written down in the
- * types, so they are asserted here.
- */
-/*
  * Where a map with nothing to fit opens (#1413). The Organization's map centre
  * is read off its synced row, so the case seeds the row and reads the camera
  * the map was created with.
@@ -421,6 +413,14 @@ describe('MapCanvas opening camera (issue #1413)', () => {
 	});
 });
 
+/*
+ * Draw order used to be the order the eleven tile-layer props were declared in
+ * `MapCanvas`, which no caller could see or change. It is now the order of the
+ * `layers` list, and the mechanism is that each entry mounts a child: Mapbox
+ * appends layers in add order, and React runs a child's effects before its
+ * parent's. Both halves are load-bearing and neither is written down in the
+ * types, so they are asserted here.
+ */
 describe('MapCanvas layer order (issue #431)', () => {
 	async function draw(layers: Parameters<typeof MapCanvas>[0]['layers']) {
 		mount(

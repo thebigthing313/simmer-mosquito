@@ -107,10 +107,21 @@ describeDbIntegration('organization map centre', () => {
 		});
 	});
 
-	it('refuses half a centre on a row with none at the column', async () => {
+	it('refuses half a centre on a row with none, before the column would', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId: org } = await createActingOrganization(db);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 
+			const response = await commandApp(db, org, actor).request(
+				`/commands/organizations/${org}`,
+				command('PATCH', ['identity.updateOrganizationDetails'], { map_center_lat: 40 }),
+			);
+
+			expect(response.status).toBe(400);
+			await expect(readCentre(db, org)).resolves.toMatchObject({
+				map_center_lat: null,
+				map_center_lng: null,
+			});
+			// The column refuses it too, for a writer that skips the check.
 			await expect(
 				sql`update organizations set map_center_lat = 40 where id = ${org}`.execute(db),
 			).rejects.toThrow(/organizations_map_center_pair/);

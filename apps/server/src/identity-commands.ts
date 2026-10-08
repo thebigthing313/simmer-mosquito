@@ -86,7 +86,7 @@ async function updateOrganizationDetails(
 ): Promise<OrganizationRow | null> {
 	const current = await trx
 		.selectFrom('organizations')
-		.select(['id', 'updated_at'])
+		.select(['id', 'updated_at', 'map_center_lat', 'map_center_lng'])
 		.where('id', '=', payload.organizationId)
 		.where('deleted_at', 'is', null)
 		.executeTakeFirst();
@@ -105,6 +105,8 @@ async function updateOrganizationDetails(
 		});
 	}
 
+	assertWholeMapCenter(payload.changes, current);
+
 	const row = await trx
 		.updateTable('organizations')
 		.set({
@@ -118,6 +120,28 @@ async function updateOrganizationDetails(
 		.executeTakeFirst();
 
 	return row ?? null;
+}
+
+/**
+ * The map centre the write leaves on the row is both halves or neither.
+ *
+ * The builder lets one number arrive alone, because the client sends only the
+ * columns that changed. That is only sound on a row that already has the other
+ * half, which is stored state, so it is checked here. Left to the table's CHECK
+ * it would be an unhandled `23514` and a 500.
+ */
+function assertWholeMapCenter(
+	changes: OrganizationDetailChanges,
+	current: { readonly map_center_lat: number | null; readonly map_center_lng: number | null },
+): void {
+	const lat = 'mapCenterLat' in changes ? changes.mapCenterLat : current.map_center_lat;
+	const lng = 'mapCenterLng' in changes ? changes.mapCenterLng : current.map_center_lng;
+	if ((lat === null) !== (lng === null)) {
+		throw new CommandError(400, {
+			error: 'invalid_command',
+			reason: 'mapCenterLat and mapCenterLng must both be set, or both be null.',
+		});
+	}
 }
 
 /**

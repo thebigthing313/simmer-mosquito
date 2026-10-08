@@ -201,7 +201,7 @@ async function mapCenterChanges(
 	if (query === null) {
 		return {};
 	}
-	const [top] = await searchGeocoder(query, 'US').catch(() => []);
+	const [top] = await searchGeocoder(query, details.mailingCountry).catch(() => []);
 	const point = top === undefined ? null : pointFromGeocoderResult(top);
 	return point === null
 		? {}
@@ -284,10 +284,9 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 						operation: 'update',
 						intent: 'identity.updateOrganizationDetails',
 						key: organizationId,
-						// All nine, and the library sends only the ones that differ.
-						// `organizationDetailsPlan` decided whether to write at all; the diff
-						// decides what the body says. The centre is there only when the
-						// geocoder answered, so a miss leaves the stored one alone.
+						// All nine, plus the centre when the geocoder answered, and the library
+						// sends only the ones that differ. `organizationDetailsPlan` decided
+						// whether to write at all; the diff decides what the body says.
 						changes: {
 							name: details.name,
 							main_contact_email: details.mainContactEmail,

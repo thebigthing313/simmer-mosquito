@@ -246,7 +246,7 @@ export function updateOrganizationDetailsCommand(
  * number may arrive alone. The client sends the columns that changed, so a new
  * geocode that lands on the stored latitude sends only the longitude, and the
  * row already has the other half. A lone number on a row with no centre is
- * refused by the table's CHECK instead.
+ * stored state, so the server's writer refuses it.
  */
 function mapCenterChanges(
 	input: OrganizationDetailChanges,
