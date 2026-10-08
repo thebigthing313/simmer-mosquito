@@ -19,6 +19,7 @@ import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import type { ReactNode } from 'react';
 import { addDaysToDateString } from '../lib/local-date';
 
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
@@ -70,6 +71,7 @@ export function SpeciesCompositionPanel({
 	onWindowChange,
 	windows,
 	emptySubject,
+	filters,
 }: {
 	readonly totals: readonly SpeciesTotal[];
 	readonly grandTotal: number;
@@ -80,27 +82,32 @@ export function SpeciesCompositionPanel({
 	readonly windows: readonly SpeciesWindow[];
 	/** What the domain counts, for the empty line: larvae, or specimens. */
 	readonly emptySubject: string;
+	/** Controls a caller narrows its read with, drawn ahead of the window toggle. */
+	readonly filters?: ReactNode;
 }) {
 	const { top, otherTotal, otherCount, maxBar } = speciesPreview(totals);
 
 	return (
 		<Panel
 			actions={
-				<ToggleGroup
-					aria-label="Species window"
-					className="h-8"
-					onValueChange={(next) => next && onWindowChange(next as SpeciesWindow)}
-					size="sm"
-					type="single"
-					value={window}
-					variant="outline"
-				>
-					{windows.map((offered) => (
-						<ToggleGroupItem className="h-8 px-2.5 text-xs" key={offered} value={offered}>
-							{offered}
-						</ToggleGroupItem>
-					))}
-				</ToggleGroup>
+				<div className="flex items-center gap-3">
+					{filters}
+					<ToggleGroup
+						aria-label="Species window"
+						className="h-8"
+						onValueChange={(next) => next && onWindowChange(next as SpeciesWindow)}
+						size="sm"
+						type="single"
+						value={window}
+						variant="outline"
+					>
+						{windows.map((offered) => (
+							<ToggleGroupItem className="h-8 px-2.5 text-xs" key={offered} value={offered}>
+								{offered}
+							</ToggleGroupItem>
+						))}
+					</ToggleGroup>
+				</div>
 			}
 			icon={<SpeciesIcon className="size-4" />}
 			title="Species Composition"

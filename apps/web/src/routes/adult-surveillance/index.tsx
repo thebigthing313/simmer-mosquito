@@ -6,10 +6,12 @@ import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
+import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
+import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import {
 	CollectionFlagBadges,
 	collectionEffectiveDate,
@@ -220,13 +222,24 @@ function DayGroupBlock({ group }: { readonly group: DayGroup }) {
 
 function AdultSpeciesComposition({ today }: { readonly today: string }) {
 	const [window, setWindow] = useState<SpeciesWindow>('7d');
+	const [includeMales, setIncludeMales] = useState(false);
 	const { totals, grandTotal, isReady, isError } = useAdultSpeciesComposition(
 		speciesWindowSince(today, window),
+		includeMales,
 	);
+	const malesId = useId();
 
 	return (
 		<SpeciesCompositionPanel
 			emptySubject="specimens"
+			filters={
+				<div className="flex items-center gap-2">
+					<Label className="text-muted-foreground text-xs" htmlFor={malesId}>
+						Males
+					</Label>
+					<Switch checked={includeMales} id={malesId} onCheckedChange={setIncludeMales} />
+				</div>
+			}
 			grandTotal={grandTotal}
 			isError={isError}
 			isReady={isReady}
