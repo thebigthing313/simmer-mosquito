@@ -40,7 +40,7 @@ export const serviceRequestFilterCodecs: FilterCodecs<ServiceRequestFilters> = {
 	to: dateParam,
 };
 
-/** The order the Map's rail pages in. */
+/** The order the Map's rail and the Table page in. */
 export type ServiceRequestRailOrder = 'newest' | 'oldest';
 
 export interface ServiceRequestRailSearch {
@@ -48,13 +48,22 @@ export interface ServiceRequestRailSearch {
 }
 
 /**
- * The rail's order, apart from the filters because it narrows nothing: it does
- * not count as a filter, a reset leaves it alone, and it does not travel to the
- * Table, which has its own sort. Newest first stays out of the URL.
+ * The order the Map's rail and the Table page in, apart from the filters because
+ * it narrows nothing: it does not count as a filter, a reset leaves it alone, and
+ * it does not travel between the two surfaces. Newest first stays out of the URL.
  */
 export const serviceRequestRailOrderCodecs: FilterCodecs<ServiceRequestRailSearch> = {
 	order: choiceParam(['newest', 'oldest'], 'newest'),
 };
+
+/** The order control's two choices, drawn by the Map's rail and the Table alike. */
+export const SERVICE_REQUEST_ORDER_OPTIONS: readonly {
+	readonly value: ServiceRequestRailOrder;
+	readonly label: string;
+}[] = [
+	{ value: 'newest', label: 'Newest' },
+	{ value: 'oldest', label: 'Oldest' },
+];
 
 /**
  * What an address with no filter params means: every status, from the first of
@@ -74,9 +83,9 @@ export function serviceRequestFilterDefaults(today: string): ServiceRequestFilte
 /**
  * The params a move between the Map and the Table carries: status and the date
  * window, which both surfaces read. Search, Tags and Regions stay behind,
- * because the Table cannot apply them and a param it carried without applying
- * would leave rows on screen that the filter says are gone.
- * `ServiceRequestTableFilters` says why.
+ * because the Table has no control for them: one it carried would either sit
+ * unapplied, leaving rows on screen the filter says are gone, or narrow the rows
+ * with nothing on screen to show it or clear it.
  */
 const SHARED_KEYS = ['status', 'from', 'to'] as const;
 

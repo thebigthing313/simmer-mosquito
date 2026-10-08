@@ -94,20 +94,6 @@ export interface InspectionCard extends LarvalActivityRow {
 }
 
 /**
- * One Habitat Inspection as a row of the inspections table.
- *
- * The activity row plus the two things the table shows and the day panels do
- * not: the dip count, which is the effort the density band is a rate over, and
- * the linked Address, which names an Ad Hoc Inspection made at a place the
- * address book already holds.
- */
-export interface InspectionTableRow extends LarvalActivityRow {
-	readonly dipCount: number | null;
-	/** Joined, not looked up. `address-view.ts` says why it is nested here. */
-	readonly address: LinkedAddress;
-}
-
-/**
  * What names an inspection: the Habitat, then the Address, then the centroid.
  *
  * An inspection has no name of its own, so it is identified by where it was

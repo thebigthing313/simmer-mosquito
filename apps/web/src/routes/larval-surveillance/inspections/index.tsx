@@ -1,4 +1,3 @@
-import type { LarvalDensity } from '@simmer-mosquito/domain';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -15,9 +14,6 @@ import {
 	SegmentedFilter,
 	ToggleFilter,
 	toggle,
-	whenAny,
-	whenOn,
-	whenText,
 } from '../../../components/explorer';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { densityLabel, hasAnyLifeStage } from '../../../components/larval-display';
@@ -28,6 +24,12 @@ import {
 	type InspectionFilterState,
 	WETNESS_OPTIONS,
 } from '../../../components/larval-surveillance/inspection-filters';
+import {
+	INSPECTIONS_PATH,
+	type InspectionListing,
+	inspectionQueryParams,
+	inspectionTileFilters,
+} from '../../../components/larval-surveillance/inspection-listing';
 import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
 import { InspectionSurfaceSwitch } from '../../../components/larval-surveillance/inspection-surface-switch';
 import { inspectionSummaryGroupings } from '../../../components/larval-surveillance/inspections/inspection-summary';
@@ -40,7 +42,6 @@ import {
 import {
 	INSPECTION_DENSITY_COLORS,
 	INSPECTION_DRY_COLOR,
-	type InspectionTileFilters,
 	MAP_CREATE_TARGETS,
 	MapCanvas,
 	type MapLegendEntry,
@@ -68,38 +69,6 @@ export const Route = createFileRoute('/larval-surveillance/inspections/')({
 	validateSearch: searchValidator(inspectionFilterCodecs),
 });
 
-/**
- * One inspection as returned by `/map/inspections` — the owned-geometry projection
- * plus the record fields and the joined habitat / address / inspector labels the
- * list and detail card need to identify a row (an inspection has no name of its own).
- */
-interface InspectionRow {
-	readonly id: string;
-	readonly lat: number | null;
-	readonly lng: number | null;
-	readonly geomType: string | null;
-	readonly habitatId: string | null;
-	readonly habitatName: string | null;
-	readonly habitatTypeId: string | null;
-	readonly addressId: string | null;
-	readonly addressDisplayName: string | null;
-	readonly inspectedByProfileId: string | null;
-	readonly inspectedByName: string | null;
-	readonly inspectionDate: string;
-	readonly isWet: boolean;
-	readonly dipCount: number | null;
-	readonly density: LarvalDensity | null;
-	readonly larvaeCount: number | null;
-	readonly hasEggs: boolean;
-	readonly hasFirstInstar: boolean;
-	readonly hasSecondInstar: boolean;
-	readonly hasThirdInstar: boolean;
-	readonly hasFourthInstar: boolean;
-	readonly hasPupae: boolean;
-}
-
-const PATH = '/map/inspections';
-
 /** The placeholder's height, matched to the two-line row it stands in for. */
 const INSPECTION_SKELETON_CLASS = 'h-[64px]';
 
@@ -112,34 +81,6 @@ function inspectionsHeading(total: number, isLoading: boolean) {
 		isLoading,
 		create: { to: '/larval-surveillance/inspections/create', label: createLabel('inspection') },
 	} as const;
-}
-
-/** What the reader has narrowed by, as the tile layer wants it. */
-function inspectionTileFilters(set: InspectionFilterState): InspectionTileFilters {
-	return {
-		...(set.wetness === 'all' ? {} : { isWet: set.wetness === 'wet' }),
-		...whenAny('densities', set.densities),
-		...whenOn('positiveOnly', set.positiveOnly),
-		...whenAny('habitatTypeIds', set.typeIds),
-		...whenAny('inspectedByProfileIds', set.inspectorIds),
-		...whenAny('regionIds', set.regionIds),
-		...whenText('dateFrom', set.dateFrom),
-		...whenText('dateTo', set.dateTo),
-	};
-}
-
-/** The same filters as the list endpoint's query string. */
-function inspectionQueryParams(filters: InspectionTileFilters) {
-	return {
-		isWet: filters.isWet,
-		density: filters.densities,
-		positive: filters.positiveOnly,
-		habitatTypeId: filters.habitatTypeIds,
-		inspectedBy: filters.inspectedByProfileIds,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	};
 }
 
 function InspectionsExplorerRoute() {
@@ -173,8 +114,8 @@ function InspectionsExplorerRoute() {
 		onSelectFeature: setSelectedId,
 	};
 	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
-		useExplorerResource<InspectionRow>({
-			path: PATH,
+		useExplorerResource<InspectionListing>({
+			path: INSPECTIONS_PATH,
 			rowsKey: 'inspections',
 			rowKey: 'inspection',
 			recordType: 'inspection',
@@ -295,7 +236,7 @@ function InspectionMap({
 	readonly onSelect: (id: string | null) => void;
 	readonly onMapReady: (map: MapboxMap) => void;
 	readonly panel: ReturnType<typeof useExplorerPanel>;
-	readonly selected: InspectionRow | null;
+	readonly selected: InspectionListing | null;
 }) {
 	return (
 		<>
@@ -443,7 +384,7 @@ function InspectionListItem({
 	selectedId,
 	onSelect,
 }: {
-	readonly inspection: InspectionRow;
+	readonly inspection: InspectionListing;
 	readonly typeNameById: ReadonlyMap<string, string>;
 	readonly selectedId: string | null;
 	readonly onSelect: (id: string) => void;
@@ -496,7 +437,7 @@ function InspectionListItem({
 }
 
 /** The heat colour this inspection draws in, so the row matches the map. */
-function inspectionSwatch(inspection: InspectionRow): {
+function inspectionSwatch(inspection: InspectionListing): {
 	readonly color: string;
 	readonly label: string;
 } {
@@ -514,7 +455,7 @@ function inspectionSwatch(inspection: InspectionRow): {
 // --- helpers ----------------------------------------------------------------
 
 function resolveTypeName(
-	inspection: InspectionRow,
+	inspection: InspectionListing,
 	typeNameById: ReadonlyMap<string, string>,
 ): string {
 	if (inspection.habitatTypeId === null) {

@@ -5,18 +5,8 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ComponentProps, type ReactNode, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
-import {
-	ExplorerMapPage,
-	ExplorerRow,
-	SegmentedFilter,
-	whenAny,
-	whenText,
-} from '../../../components/explorer';
-import {
-	type MapTileLayer,
-	SERVICE_REQUEST_STATUS_COLORS,
-	type ServiceRequestTileFilters,
-} from '../../../components/map';
+import { ExplorerMapPage, ExplorerRow, SegmentedFilter } from '../../../components/explorer';
+import { type MapTileLayer, SERVICE_REQUEST_STATUS_COLORS } from '../../../components/map';
 import {
 	contactDisplayName,
 	formatAddressLine,
@@ -30,11 +20,17 @@ import {
 	type ServiceRequestFilterChipProps,
 	ServiceRequestFilterFields,
 } from '../../../components/public-engagement/service-requests/service-request-filters';
+import {
+	SERVICE_REQUESTS_PATH,
+	type ServiceRequestListing,
+	serviceRequestPageParams,
+	serviceRequestTileFilters,
+} from '../../../components/public-engagement/service-requests/service-request-listing';
 import { ServiceRequestSummaryPanel } from '../../../components/public-engagement/service-requests/service-request-summary-panel';
 import { ServiceRequestSurfaceSwitch } from '../../../components/public-engagement/service-requests/service-request-surface-switch';
 import { ServiceRequestsMapCanvas } from '../../../components/public-engagement/service-requests/service-requests-map-canvas';
 import {
-	type ServiceRequestFilters,
+	SERVICE_REQUEST_ORDER_OPTIONS,
 	type ServiceRequestRailOrder,
 	type ServiceRequestRailSearch,
 	serviceRequestFilterCodecs,
@@ -57,34 +53,8 @@ import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
 
-/**
- * A service request as `/map/service-requests` lists it: what the row shows,
- * where on the map it sits, and the two ids the rail resolves for the page it
- * draws. `closedAt` arrives as the JSON string the server wrote, and only its
- * presence is read.
- */
-interface RequestListing {
-	readonly id: string;
-	readonly lat: number;
-	readonly lng: number;
-	readonly displayName: number | null;
-	readonly requestDate: string;
-	readonly details: string;
-	readonly contactId: string;
-	readonly addressId: string;
-	readonly closedAt: string | null;
-}
-
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const RECORD_TYPE: RecordType = 'serviceRequest';
-const PATH = '/map/service-requests';
-const ORDER_OPTIONS: readonly {
-	readonly value: ServiceRequestRailOrder;
-	readonly label: string;
-}[] = [
-	{ value: 'newest', label: 'Newest' },
-	{ value: 'oldest', label: 'Oldest' },
-];
 const ORDER_DEFAULTS: ServiceRequestRailSearch = { order: 'newest' };
 const EMPTY_TAGS: readonly Tag[] = [];
 
@@ -153,7 +123,7 @@ function ServiceRequestsExplorerRoute() {
 	// the map and the rail stay in lockstep. The rail used to filter and page the
 	// whole Organization's requests out of the sync collection and draw them as a
 	// GeoJSON overlay, 1,180 rows in the prod clone over three years (#963).
-	const filters = requestTileFilters(query);
+	const filters = serviceRequestTileFilters(query);
 	const layer: MapTileLayer = {
 		kind: 'service-requests',
 		serverUrl: getServerUrl(),
@@ -162,12 +132,12 @@ function ServiceRequestsExplorerRoute() {
 		onSelectFeature: setSelectedId,
 	};
 	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
-		useExplorerResource<RequestListing>({
-			path: PATH,
+		useExplorerResource<ServiceRequestListing>({
+			path: SERVICE_REQUESTS_PATH,
 			rowsKey: 'serviceRequests',
 			rowKey: 'serviceRequest',
 			recordType: RECORD_TYPE,
-			params: requestPageParams(filters, railOrder.order),
+			params: serviceRequestPageParams(filters, railOrder.order),
 			layer,
 			map,
 			selectedId,
@@ -244,7 +214,7 @@ function ServiceRequestsExplorerRoute() {
 				<SegmentedFilter
 					label="Order"
 					onChange={(order: ServiceRequestRailOrder) => setRailOrder({ order })}
-					options={ORDER_OPTIONS}
+					options={SERVICE_REQUEST_ORDER_OPTIONS}
 					value={railOrder.order}
 				/>
 			}
@@ -283,52 +253,6 @@ function ServiceRequestsExplorerRoute() {
 }
 
 /**
- * The filter shape the tiles and the page both read, off the URL's filter set.
- * `all` is no status filter at all rather than a third value, and an empty
- * search, tag set or region set drops out so the query names only what narrows.
- */
-function requestTileFilters(query: ServiceRequestFilters): ServiceRequestTileFilters {
-	return {
-		...(query.status === 'all' ? {} : { isOpen: query.status === 'open' }),
-		...whenText('search', query.search.trim()),
-		...whenAny('tagIds', query.tags),
-		...whenAny('regionIds', query.regions),
-		...whenText('dateFrom', query.from),
-		...whenText('dateTo', query.to),
-	};
-}
-
-/** The same filters as the query params `/map/service-requests` takes. */
-function requestQueryParams(filters: ServiceRequestTileFilters): {
-	readonly status: 'open' | 'closed' | undefined;
-	readonly search: string | undefined;
-	readonly tagId: readonly string[] | undefined;
-	readonly regionId: readonly string[] | undefined;
-	readonly dateFrom: string | undefined;
-	readonly dateTo: string | undefined;
-} {
-	return {
-		status: filters.isOpen === undefined ? undefined : filters.isOpen ? 'open' : 'closed',
-		search: filters.search,
-		tagId: filters.tagIds,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	};
-}
-
-/**
- * The page request's params: the filters, plus the rail's order, which only
- * the page reads. Newest first is the reader's default and goes unsent.
- */
-function requestPageParams(
-	filters: ServiceRequestTileFilters,
-	order: ServiceRequestRailOrder,
-): Readonly<Record<string, string | boolean | readonly string[] | undefined>> {
-	return { ...requestQueryParams(filters), oldest: order === 'oldest' ? true : undefined };
-}
-
-/**
  * What the rail draws in place of its rows: the summary over 100 in view, and
  * nothing at 100 or fewer, so the rows draw (#1371).
  */
@@ -339,7 +263,7 @@ function summarySlot(
 }
 
 /** Where the selected request sits on the page, or `-1` when it is not on it. */
-function rowIndexOf(rows: readonly RequestListing[], selectedId: string | null): number {
+function rowIndexOf(rows: readonly ServiceRequestListing[], selectedId: string | null): number {
 	return selectedId === null ? -1 : rows.findIndex((request) => request.id === selectedId);
 }
 
@@ -353,7 +277,7 @@ function RequestRowItem({
 	onFocus,
 	today,
 }: {
-	readonly request: RequestListing;
+	readonly request: ServiceRequestListing;
 	readonly tags: readonly Tag[];
 	readonly contact: ContactSummary | null;
 	readonly address: Address | null;
@@ -430,7 +354,7 @@ function addressLabel(address: Address | null): string | null {
 }
 
 /** The colour this request draws in, so the row matches the map. */
-function requestSwatch(request: RequestListing): {
+function requestSwatch(request: ServiceRequestListing): {
 	readonly color: string;
 	readonly label: string;
 } {
