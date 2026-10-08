@@ -1,17 +1,6 @@
-import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
-import { ListEmpty, ListLoading, PageHeader } from '@simmer-mosquito/ui-web/components/page';
-import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from '@simmer-mosquito/ui-web/components/ui/table';
-import { ChevronRightIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { createFileRoute } from '@tanstack/react-router';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -21,24 +10,18 @@ import {
 	outreachTileFilters,
 	sharedOutreachSearch,
 } from '../../../components/public-engagement/outreach/outreach-actions-search';
+import { OutreachActionsTable } from '../../../components/public-engagement/outreach/outreach-actions-table';
 import { OutreachFilterFields } from '../../../components/public-engagement/outreach/outreach-filters';
-import {
-	type OutreachListRow,
-	outreachMethodName,
-	outreachTechnicianName,
-} from '../../../components/public-engagement/outreach/outreach-row-parts';
+import type { OutreachListRow } from '../../../components/public-engagement/outreach/outreach-row-parts';
 import { OutreachSurfaceSwitch } from '../../../components/public-engagement/outreach/outreach-surface-switch';
-import { formatReach } from '../../../components/public-engagement/public-engagement-display';
-import { LinkedTableRow } from '../../../components/record/linked-table-row';
-import { useOutreachMethodOptions } from '../../../hooks/explorer/use-outreach-method-options';
+import { RecordTableEmpty } from '../../../components/record/record-table-empty';
+import { RecordTableUnavailable } from '../../../components/record/record-table-unavailable';
 import {
 	mapQueryParams,
 	usePagedMapResource,
 	WHOLE_WORLD_BBOX,
 } from '../../../hooks/explorer/use-paged-map-resource';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useOutreachFilterState } from '../../../hooks/public-engagement/use-outreach-filter-state';
-import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
@@ -83,13 +66,18 @@ function OutreachActionsTableRoute() {
 			<div className="grid gap-4 rounded-md border border-border/50 bg-muted/20 p-4">
 				<OutreachFilterFields binding={binding} wide />
 			</div>
-			{isError ? <OutreachActionsUnavailable onRetry={retry} /> : null}
+			{isError ? <RecordTableUnavailable onRetry={retry} recordType="outreachAction" /> : null}
 			{rows.length === 0 ? (
-				<NoRows
+				<RecordTableEmpty
+					emptyDescription={`Outreach actions made in the last ${OUTREACH_WINDOW_DAYS} days show here.`}
+					filteredDescription="No outreach action matches what is set above."
+					icon={OutreachIcon}
 					isError={isError}
 					isFiltered={activeCount > 0}
 					isLoading={isLoading}
 					onClearFilters={reset}
+					recordType="outreachAction"
+					scope={{ kind: 'lastDays', days: OUTREACH_WINDOW_DAYS }}
 				/>
 			) : (
 				<div className="grid gap-3">
@@ -104,130 +92,5 @@ function OutreachActionsTableRoute() {
 				</div>
 			)}
 		</OutletSimpleLayout>
-	);
-}
-
-/**
- * Waiting, failed, filtered to nothing, or genuinely empty. A failure has its
- * own strip above, so here it draws nothing rather than a second one.
- */
-function NoRows({
-	isError,
-	isFiltered,
-	isLoading,
-	onClearFilters,
-}: {
-	readonly isError: boolean;
-	readonly isFiltered: boolean;
-	readonly isLoading: boolean;
-	readonly onClearFilters: () => void;
-}) {
-	if (isError) {
-		return null;
-	}
-	if (isLoading) {
-		return <ListLoading rows={8} />;
-	}
-	if (isFiltered) {
-		return (
-			<ListEmpty
-				action={
-					<Button onClick={onClearFilters} type="button" variant="outline">
-						Clear Filters
-					</Button>
-				}
-				description="No outreach action matches what is set above."
-				icon={OutreachIcon}
-				title="No Outreach Actions Match"
-			/>
-		);
-	}
-	return (
-		<ListEmpty
-			description={`Outreach actions made in the last ${OUTREACH_WINDOW_DAYS} days show here.`}
-			icon={OutreachIcon}
-			title={`No Outreach Actions in the Last ${OUTREACH_WINDOW_DAYS} Days`}
-		/>
-	);
-}
-
-function OutreachActionsTable({ rows }: { readonly rows: readonly OutreachListRow[] }) {
-	const { nameById: methodNameById } = useOutreachMethodOptions();
-	const { nameById: personNameById } = usePersonnelOptions();
-	return (
-		<div className="rounded-md border border-border/50">
-			<Table>
-				<TableHeader>
-					<TableRow className="bg-muted/40 hover:bg-muted/40">
-						<TableHead>Method</TableHead>
-						<TableHead>Date</TableHead>
-						<TableHead className="text-right">Reach</TableHead>
-						<TableHead>Technician</TableHead>
-						<TableHead className="w-[56px] text-right">
-							<span className="sr-only">Actions</span>
-						</TableHead>
-					</TableRow>
-				</TableHeader>
-				<TableBody>
-					{rows.map((row) => (
-						<OutreachTableRow
-							key={row.id}
-							methodName={outreachMethodName(row, methodNameById)}
-							row={row}
-							technicianName={outreachTechnicianName(row, personNameById)}
-						/>
-					))}
-				</TableBody>
-			</Table>
-		</div>
-	);
-}
-
-function OutreachTableRow({
-	row,
-	methodName,
-	technicianName,
-}: {
-	readonly row: OutreachListRow;
-	readonly methodName: string;
-	readonly technicianName: string | null;
-}) {
-	return (
-		<LinkedTableRow
-			action={
-				<Button aria-label={`View ${methodName}`} asChild size="icon-sm" variant="ghost">
-					<Link
-						params={{ id: row.id }}
-						state={{ breadcrumbVia: '/public-engagement/outreach/table' }}
-						to="/public-engagement/outreach/$id"
-					>
-						<ChevronRightIcon aria-hidden="true" />
-					</Link>
-				</Button>
-			}
-		>
-			<TableCell className="max-w-[20rem] truncate font-medium" title={methodName}>
-				{methodName}
-			</TableCell>
-			<TableCell className="tabular-nums">{formatListDate(row.outreachDate)}</TableCell>
-			<TableCell className="text-right tabular-nums">{formatReach(row.reach)}</TableCell>
-			<TableCell className="text-muted-foreground">
-				{technicianName === null ? <AbsentValue /> : technicianName}
-			</TableCell>
-		</LinkedTableRow>
-	);
-}
-
-/** The read failed. Says so whether or not there are rows behind it. */
-function OutreachActionsUnavailable({ onRetry }: { readonly onRetry: () => void }) {
-	return (
-		<Alert variant="destructive">
-			<AlertDescription className="flex flex-wrap items-center justify-between gap-2">
-				Outreach actions could not be loaded.
-				<Button onClick={onRetry} size="sm" type="button" variant="outline">
-					Try Again
-				</Button>
-			</AlertDescription>
-		</Alert>
 	);
 }

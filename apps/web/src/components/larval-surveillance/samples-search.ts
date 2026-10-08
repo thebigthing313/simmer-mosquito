@@ -50,7 +50,7 @@ export const sampleFilterCodecs: FilterCodecs<SampleFilters> = {
 };
 
 /** How many days the window opens on, ending on the Organization's today. */
-const DEFAULT_WINDOW_DAYS = 30;
+export const SAMPLE_WINDOW_DAYS = 30;
 
 /**
  * What an address with no filter params means: every status over the last
@@ -58,7 +58,7 @@ const DEFAULT_WINDOW_DAYS = 30;
  */
 export function sampleFilterDefaults(today: string): SampleFilters {
 	return {
-		from: addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
+		from: addDaysToDateString(today, -(SAMPLE_WINDOW_DAYS - 1)),
 		to: today,
 		status: 'all',
 		species: new Set(),
