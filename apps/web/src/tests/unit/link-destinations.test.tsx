@@ -394,8 +394,8 @@ describe('the Inspections Map/Table switch', () => {
 
 /**
  * The Service Requests Map/Table switch. It carries status and the date window
- * and nothing else: the Table cannot apply the Map's search, Tags or Regions,
- * and carrying one would leave rows on the Table that the filter says are gone.
+ * and nothing else: the Table has no control for the Map's search, Tags or
+ * Regions, so `sharedServiceRequestSearch` leaves them behind.
  */
 describe('the Service Requests Map/Table switch', () => {
 	const CARRIED = 'status=open&from=2026-08-01&to=2026-08-31';

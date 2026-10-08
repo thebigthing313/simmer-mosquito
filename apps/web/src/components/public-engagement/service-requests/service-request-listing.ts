@@ -6,8 +6,9 @@
  * the filter params and the order param are written once here.
  */
 
+import { whenAny, whenText } from '../../explorer';
 import type { ServiceRequestTileFilters } from '../../map';
-import type { ServiceRequestRailOrder } from './service-requests-search';
+import type { ServiceRequestFilters, ServiceRequestRailOrder } from './service-requests-search';
 
 /**
  * What a row shows, where on the map it sits, and the ids a surface resolves
@@ -30,8 +31,26 @@ export interface ServiceRequestListing {
 
 export const SERVICE_REQUESTS_PATH = '/map/service-requests';
 
+/**
+ * What the reader has narrowed by, as the tile layer wants it. The Table has no
+ * search, Tags or Regions control, so it passes only the three it has.
+ */
+export function serviceRequestTileFilters(
+	query: Pick<ServiceRequestFilters, 'status' | 'from' | 'to'> &
+		Partial<Pick<ServiceRequestFilters, 'search' | 'tags' | 'regions'>>,
+): ServiceRequestTileFilters {
+	return {
+		...(query.status === 'all' ? {} : { isOpen: query.status === 'open' }),
+		...whenText('search', query.search?.trim() ?? ''),
+		...whenAny('tagIds', query.tags ?? new Set<string>()),
+		...whenAny('regionIds', query.regions ?? new Set<string>()),
+		...whenText('dateFrom', query.from),
+		...whenText('dateTo', query.to),
+	};
+}
+
 /** The same filters as the query params `/map/service-requests` takes. */
-function requestQueryParams(filters: ServiceRequestTileFilters): {
+function serviceRequestQueryParams(filters: ServiceRequestTileFilters): {
 	readonly status: 'open' | 'closed' | undefined;
 	readonly search: string | undefined;
 	readonly tagId: readonly string[] | undefined;
@@ -53,9 +72,9 @@ function requestQueryParams(filters: ServiceRequestTileFilters): {
  * The page request's params: the filters, plus the order, which only the page
  * reads. Newest first is the default and goes unsent.
  */
-export function requestPageParams(
+export function serviceRequestPageParams(
 	filters: ServiceRequestTileFilters,
 	order: ServiceRequestRailOrder,
 ): Readonly<Record<string, string | boolean | readonly string[] | undefined>> {
-	return { ...requestQueryParams(filters), oldest: order === 'oldest' ? true : undefined };
+	return { ...serviceRequestQueryParams(filters), oldest: order === 'oldest' ? true : undefined };
 }

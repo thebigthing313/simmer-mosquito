@@ -336,8 +336,8 @@ holds one page of 100. Each table has one fixed order, the endpoint's, and no
 column sorts. Service Requests is the one table with a control over it,
 newest or oldest first, under the `order` param the Map's rail already sent.
 
-The Inspections and Service Requests tables were the exception until this
-change. Each ran a TanStack DB live query over an on-demand collection,
+The Inspections and Service Requests tables were the last two to move, in
+#1403. Each ran a TanStack DB live query over an on-demand collection,
 sortable by column, and widened its `limit` under a Load more button. Three
 things went wrong with that, and paging on the server takes all three away.
 The Inspections table opens on every inspection, and the first window joined
@@ -543,7 +543,8 @@ is the surfaces rather than an oversight: a season of inspections is a solid
 block of dots over the same streets, while the table shows 100 rows a page
 whatever the reach. `regions` stays in the table's filter set uncounted so a link that
 came from the map keeps its region selection through a trip to the table and
-back. The sidebar cannot carry `search`, so the map/table pair carries its own
+back. The endpoint takes `regionId` and the table sends none, because it has no
+control that shows or clears a region. The sidebar cannot carry `search`, so the map/table pair carries its own
 control, and both paths are literals because `tsc` checks a `to` and `search`
 pair only where the path is one. The switch carries the shared filter keys, and
 it takes the validated search so a filter at its default stays off the address

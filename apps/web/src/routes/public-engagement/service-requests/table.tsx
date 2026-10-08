@@ -27,12 +27,14 @@ import {
 import { RequestStatusBadge } from '../../../components/public-engagement/public-engagement-ui';
 import type { ServiceRequestStatusFilter } from '../../../components/public-engagement/service-requests/legend';
 import {
-	requestPageParams,
 	SERVICE_REQUESTS_PATH,
 	type ServiceRequestListing,
+	serviceRequestPageParams,
+	serviceRequestTileFilters,
 } from '../../../components/public-engagement/service-requests/service-request-listing';
 import { ServiceRequestSurfaceSwitch } from '../../../components/public-engagement/service-requests/service-request-surface-switch';
 import {
+	SERVICE_REQUEST_ORDER_OPTIONS,
 	type ServiceRequestFilters,
 	type ServiceRequestRailOrder,
 	type ServiceRequestRailSearch,
@@ -89,14 +91,6 @@ const STATUS_OPTIONS: readonly {
 	{ value: 'closed', label: 'Closed' },
 ];
 
-const ORDER_OPTIONS: readonly {
-	readonly value: ServiceRequestRailOrder;
-	readonly label: string;
-}[] = [
-	{ value: 'newest', label: 'Newest' },
-	{ value: 'oldest', label: 'Oldest' },
-];
-
 /**
  * Every service request as a table, a hundred to a page. It opens on the same
  * window the Map does, every request received this year, open or closed, and
@@ -131,14 +125,7 @@ function ServiceRequestsTableRoute() {
 
 	const params = mapQueryParams({
 		bbox: WHOLE_WORLD_BBOX,
-		...requestPageParams(
-			{
-				...(query.status === 'all' ? {} : { isOpen: query.status === 'open' }),
-				...(query.from === '' ? {} : { dateFrom: query.from }),
-				...(query.to === '' ? {} : { dateTo: query.to }),
-			},
-			order.order,
-		),
+		...serviceRequestPageParams(serviceRequestTileFilters(query), order.order),
 	});
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
 		usePagedMapResource<ServiceRequestListing>({
@@ -241,7 +228,7 @@ function RequestsFilterBar({
 					<SegmentedFilter
 						label="Order"
 						onChange={onOrderChange}
-						options={ORDER_OPTIONS}
+						options={SERVICE_REQUEST_ORDER_OPTIONS}
 						value={order}
 					/>
 				</div>

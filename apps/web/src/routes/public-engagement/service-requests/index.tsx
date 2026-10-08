@@ -5,18 +5,8 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ComponentProps, type ReactNode, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
-import {
-	ExplorerMapPage,
-	ExplorerRow,
-	SegmentedFilter,
-	whenAny,
-	whenText,
-} from '../../../components/explorer';
-import {
-	type MapTileLayer,
-	SERVICE_REQUEST_STATUS_COLORS,
-	type ServiceRequestTileFilters,
-} from '../../../components/map';
+import { ExplorerMapPage, ExplorerRow, SegmentedFilter } from '../../../components/explorer';
+import { type MapTileLayer, SERVICE_REQUEST_STATUS_COLORS } from '../../../components/map';
 import {
 	contactDisplayName,
 	formatAddressLine,
@@ -31,15 +21,16 @@ import {
 	ServiceRequestFilterFields,
 } from '../../../components/public-engagement/service-requests/service-request-filters';
 import {
-	requestPageParams,
 	SERVICE_REQUESTS_PATH,
 	type ServiceRequestListing,
+	serviceRequestPageParams,
+	serviceRequestTileFilters,
 } from '../../../components/public-engagement/service-requests/service-request-listing';
 import { ServiceRequestSummaryPanel } from '../../../components/public-engagement/service-requests/service-request-summary-panel';
 import { ServiceRequestSurfaceSwitch } from '../../../components/public-engagement/service-requests/service-request-surface-switch';
 import { ServiceRequestsMapCanvas } from '../../../components/public-engagement/service-requests/service-requests-map-canvas';
 import {
-	type ServiceRequestFilters,
+	SERVICE_REQUEST_ORDER_OPTIONS,
 	type ServiceRequestRailOrder,
 	type ServiceRequestRailSearch,
 	serviceRequestFilterCodecs,
@@ -64,13 +55,6 @@ import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filter
 
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const RECORD_TYPE: RecordType = 'serviceRequest';
-const ORDER_OPTIONS: readonly {
-	readonly value: ServiceRequestRailOrder;
-	readonly label: string;
-}[] = [
-	{ value: 'newest', label: 'Newest' },
-	{ value: 'oldest', label: 'Oldest' },
-];
 const ORDER_DEFAULTS: ServiceRequestRailSearch = { order: 'newest' };
 const EMPTY_TAGS: readonly Tag[] = [];
 
@@ -139,7 +123,7 @@ function ServiceRequestsExplorerRoute() {
 	// the map and the rail stay in lockstep. The rail used to filter and page the
 	// whole Organization's requests out of the sync collection and draw them as a
 	// GeoJSON overlay, 1,180 rows in the prod clone over three years (#963).
-	const filters = requestTileFilters(query);
+	const filters = serviceRequestTileFilters(query);
 	const layer: MapTileLayer = {
 		kind: 'service-requests',
 		serverUrl: getServerUrl(),
@@ -153,7 +137,7 @@ function ServiceRequestsExplorerRoute() {
 			rowsKey: 'serviceRequests',
 			rowKey: 'serviceRequest',
 			recordType: RECORD_TYPE,
-			params: requestPageParams(filters, railOrder.order),
+			params: serviceRequestPageParams(filters, railOrder.order),
 			layer,
 			map,
 			selectedId,
@@ -230,7 +214,7 @@ function ServiceRequestsExplorerRoute() {
 				<SegmentedFilter
 					label="Order"
 					onChange={(order: ServiceRequestRailOrder) => setRailOrder({ order })}
-					options={ORDER_OPTIONS}
+					options={SERVICE_REQUEST_ORDER_OPTIONS}
 					value={railOrder.order}
 				/>
 			}
@@ -266,22 +250,6 @@ function ServiceRequestsExplorerRoute() {
 			}}
 		/>
 	);
-}
-
-/**
- * The filter shape the tiles and the page both read, off the URL's filter set.
- * `all` is no status filter at all rather than a third value, and an empty
- * search, tag set or region set drops out so the query names only what narrows.
- */
-function requestTileFilters(query: ServiceRequestFilters): ServiceRequestTileFilters {
-	return {
-		...(query.status === 'all' ? {} : { isOpen: query.status === 'open' }),
-		...whenText('search', query.search.trim()),
-		...whenAny('tagIds', query.tags),
-		...whenAny('regionIds', query.regions),
-		...whenText('dateFrom', query.from),
-		...whenText('dateTo', query.to),
-	};
 }
 
 /**
