@@ -243,8 +243,9 @@ function ImportRegionsRoute() {
 				// confirmation timeout is not a failure — the server POST already
 				// committed the write by the time the library waits for sync — so it
 				// degrades to "pending" (awaiting sync) rather than "failed".
-				const settled: Promise<'confirmed' | 'pending' | { readonly error: string }> =
-					transaction.isPersisted.promise.then(
+				const settled: Promise<'confirmed' | 'pending' | { readonly error: string }> = transaction
+					.when('settled')
+					.then(
 						() => 'confirmed' as const,
 						(error) =>
 							isTxIdConfirmationTimeout(error)

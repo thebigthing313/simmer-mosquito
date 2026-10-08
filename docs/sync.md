@@ -165,9 +165,11 @@ rejects the transaction even though the command committed.
 
 The product policy is that users should not see Electric catch-up lag as a save
 failure, so the awaited server command response is the user-facing persistence
-boundary. `settleWrite` awaits a transaction and treats
+boundary. `settleWrite` awaits a transaction's `when('settled')` and treats
 `TimeoutWaitingForTxIdError` as success, and the membership writes catch it the
-same way. A wait does not promise the txid arrives: a live stream whose loaded
+same way. `when('settled')` replaced `isPersisted.promise`, which `@tanstack/db`
+0.12 deprecates and the 1.0 RC removes, and nothing in the workspace reads the
+alias (#1407). A wait does not promise the txid arrives: a live stream whose loaded
 subset excludes the new row will not carry it, which is the case the timeout is
 for.
 

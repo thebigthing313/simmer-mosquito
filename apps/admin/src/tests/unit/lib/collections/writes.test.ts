@@ -70,7 +70,7 @@ vi.mock('../../../../lib/collections/units', () => ({ units: stubCollection() })
  * The real `createCollectionMutator`, because `mutate.ts` binds it and this suite
  * is what runs the writes through it. Only `settleWrite` is replaced: a stubbed
  * collection returns a plain promise rather than a transaction, and settling one
- * would wait on an `isPersisted` nothing here has.
+ * would wait on a `when('settled')` nothing here has.
  */
 vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
@@ -236,7 +236,7 @@ describe('a command outside the vocabulary does not compile', () => {
 	// The recording stub above returns a bare promise, and what is being checked
 	// here is the intent rather than the row, so this one answers the shape
 	// `mutateCollection` asks for and does nothing else.
-	const transaction: MutationTransaction = { isPersisted: { promise: Promise.resolve() } };
+	const transaction: MutationTransaction = { when: () => Promise.resolve() };
 	const collection: MutableCollection<Record<string, unknown>> = {
 		insert: () => transaction,
 		update: () => transaction,
