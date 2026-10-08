@@ -36,6 +36,7 @@ import { todayInTimeZone } from '../../lib/local-date';
 import { OverviewChart, type OverviewChartSeries } from './overview-chart';
 import { OverviewChartZoom } from './overview-chart-zoom';
 import {
+	averageValues,
 	drawsTrend,
 	OVERVIEW_LABELS,
 	OVERVIEW_RATIO_LABELS,
@@ -190,21 +191,32 @@ function TrendSection({
 			.map((row) => ({
 				key: row.type,
 				title: OVERVIEW_LABELS[row.type],
-				series: { kind: 'count', points: row.series } as const,
+				series: { kind: 'count', points: row.series, average: row.seriesAverage } as const,
 			})),
 		...response.ratios
 			.filter((ratio) => drawsTrend(grain, ratio.series))
 			.map((ratio) => ({
 				key: ratio.ratio,
 				title: OVERVIEW_RATIO_LABELS[ratio.ratio],
-				series: { kind: 'ratio', ratio: ratio.ratio, points: ratio.series } as const,
+				series: {
+					kind: 'ratio',
+					ratio: ratio.ratio,
+					points: ratio.series,
+					average: ratio.seriesAverage,
+				} as const,
 			})),
 	];
 	return (
 		<section className={cn('grid gap-3', dimmed && 'opacity-60 transition-opacity')}>
 			<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
 				<h2 className="m-0 font-semibold text-foreground text-sm">{trendHeading(grain, period)}</h2>
-				{grain === 'month' ? <OverviewLegend year={overviewPeriodYear(period)} /> : null}
+				<OverviewLegend
+					average={charts.some((chart) =>
+						averageValues(chart.series).some((value) => value !== null),
+					)}
+					grain={grain}
+					year={overviewPeriodYear(period)}
+				/>
 			</div>
 			<div className={TREND_GRID}>
 				{charts.map((chart) => (

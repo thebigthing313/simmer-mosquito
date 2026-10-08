@@ -871,22 +871,29 @@ primitives. Today's form is one bar per day, weekends included, packed with no
 gap: 365 slots at a 600px plot width leave no room for the mark spec's 2px gap,
 and the area it replaced drew a line across quiet days. Today also leaves out a
 measure whose series totals zero, through `drawsTrend`.
-Monthly's is a grouped bar, twelve groups of two, the response's flat 24-point
-series split by the year in each point's `period`; a month the year has not
+Monthly's is a grouped bar, twelve groups of three, the response's flat 24-point
+series split by the year in each point's `period` with the row's
+`seriesAverage` as the third bar; a month the year has not
 reached is no bar, and every bar in the period series wears the role at full
 strength, the alternative of the picked bar at full strength and the rest a
 step down not being taken. The period bar draws left of the comparison bar,
-the order the legend reads in. A bar click reads the group back by the index
-Recharts hands the handler, since the rectangle it hands is not the row.
+the order the legend reads in, and the average bar draws last and takes no
+click, since no single month is behind it. A bar click reads the group back by
+the index Recharts hands the handler, since the rectangle it hands is not the
+row.
 Annual's is one bar per year over at most ten years, the current year a
 partial year drawn whole beside full years, which the reference line and the
 table's caption are what say; the series never carries the cut, because
 cutting every earlier period would turn Annual into a year-to-date chart.
+Its five-year average is a dashed horizontal `ReferenceLine` rather than a
+second bar series, because one value per chart is a level to read the bars
+against; `ifOverflow="extendDomain"` keeps it on the plot when it sits above
+every bar, where Recharts would otherwise drop it.
 Under three years the trend section is not drawn and the table stands alone,
 since a one-bar or two-bar chart is on the `dataviz` skill's anti-pattern
 list. The
 marks read `var(--color-period)` through the chart's own `ChartConfig`, so
-the two roles in `styles.css` are the only colours and `check:map-palette`
+the three roles in `styles.css` are the only colours and `check:map-palette`
 has no literal to refuse. The tooltip passes a `formatter`, because
 `ChartTooltipContent`'s default calls `toLocaleString()` unpinned. A ratio
 point over a zero denominator is `null` with `connectNulls` off, so a day
@@ -918,8 +925,9 @@ then hands the period to the page's own `onOpenPeriod`, so the overlay and the
 panel open one destination. The open state is the component's and never the
 URL's, because a shared link should land on the page rather than on one chart
 of it. The axis is the panel's: Today keeps one tick per month in the overlay,
-drawn at `text-sm` rather than `text-xs`. Monthly's overlay carries its own
-`OverviewLegend`, because the one on the trend heading is behind the backdrop.
+drawn at `text-sm` rather than `text-xs`. The overlay on Monthly and Annual
+carries its own `OverviewLegend`, because the one on the trend heading is
+behind the backdrop.
 
 #### OverviewTable
 
@@ -937,9 +945,12 @@ inspection was negative.
 
 #### OverviewLegend
 
-The family's one legend, a two-swatch row at the right of Monthly's trend
-heading rather than inside each panel, because twelve panels would say it
-twelve times. Today and Annual plot one series and carry none. The comparison
+The family's one legend, at the right of the trend heading rather than inside
+each panel, because twelve panels would say it twelve times. Monthly's is
+three swatches, the two years and the average; Annual's is the average's
+dashed line alone, since the axis names each bar's year; Today has no average
+and carries none. The average's entry is left out when no chart it speaks for
+draws one, so Annual then carries no legend at all. The comparison
 role is `--chart-comparison`, `green[300]`: `green[200]` and `green[100]` were
 offered and are too faint, and `--muted-foreground` sits 10.6 from brand green
 under full-colour vision, under the `dataviz` skill's hard floor, so it is not

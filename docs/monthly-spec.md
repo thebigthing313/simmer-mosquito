@@ -66,13 +66,20 @@ the `from` and `to` behind them come off the response's `columns`.
 
 A **grouped bar** in the emphasis form: the picked month's year as one series
 in the period role, the year before as a second series in the comparison
-role, twelve groups of two, 24 bars. The series is the response's 24-point
-array split by the year in each point's `period`, and a month the year has not
-reached is not a bar, so the current year's group runs through the current
-month. Marks follow the `dataviz` mark spec: `maxBarSize` 24, a 4px radius on
-the data end and a square baseline, `barGap` 2, no stroke. One y axis at clean
+role, and the five-year average as a third in the average role, twelve groups
+of three, 36 bars. The two years are the response's 24-point array split by
+the year in each point's `period`, and a month the year has not reached is not
+a bar, so the current year's group runs through the current month. The
+average is the row's `seriesAverage`, twelve values from January: each month's
+mean over the five years before the picked month's year, under the average
+column's qualifying rule, but over whole months, because the bars beside it
+are whole. A month no year qualifies for has no average bar, and an average
+bar opens nothing, since no single month is behind it.
+
+Marks follow the `dataviz` mark spec: `maxBarSize` 24, a 4px radius on the
+data end and a square baseline, `barGap` 2, no stroke. One y axis at clean
 ticks, a `CartesianGrid` horizontal only, a three-letter month per x tick. The
-tooltip reads both series at the hovered month, value first, through the
+tooltip reads all three series at the hovered month, value first, through the
 pinned `formatter`. The picked month is marked with a dashed `ReferenceLine`
 in the foreground colour at its group; every bar in the period series wears
 the period role at full strength, and the alternative, the picked bar at full
@@ -86,8 +93,17 @@ stylesheet has, `--muted-foreground`, sits 10.6 from brand green under
 full-colour vision, under the skill's hard floor, so it is not the comparison
 colour.
 
-A ratio chart plots the ratio per month for both years; a month whose
-denominator is zero has no bar.
+The average role is `--chart-average`, `var(--simmer-blue)`. It is a
+different kind of value from the two years, so it takes a hue of its own
+rather than a third green step. Measured against the card (`#f9fdfb`), it
+sits at 7.69:1, over the 3:1 relief rule, and separates from `green[600]` at a
+CVD Delta E of 22.6 and a normal-vision 25.3, and from `green[300]` at 37.4
+and 38.5, so the worst pair in the palette stays the two greens at 22.3. The
+legend leaves its swatch out when no chart on the page draws an average.
+
+A ratio chart plots the ratio per month for both years, and the average as the
+pooled numerator over the pooled denominator; a month whose denominator is
+zero has no bar.
 
 A bar opens its own month at this grain: a July 2025 bar opens
 `/monthly?month=2025-07`, through `periodDestination` and `navigate` the way

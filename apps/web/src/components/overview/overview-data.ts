@@ -7,12 +7,14 @@
 
 import {
 	addDays,
+	OVERVIEW_AVERAGE_YEARS,
 	OVERVIEW_PERIOD_LENGTH,
 	OVERVIEW_PERIOD_PARAM,
 	type OverviewColumn,
 	type OverviewGrain,
 	type OverviewRatio,
 	type OverviewRatioPoint,
+	type OverviewRatioSum,
 	type OverviewRecordType,
 	type OverviewResponse,
 	type OverviewSeriesPoint,
@@ -271,6 +273,22 @@ export function ratioValue(numerator: number, denominator: number): number | nul
 	return denominator === 0 ? null : numerator / denominator;
 }
 
+/**
+ * A chart's five-year average beside each series period, a ratio's off its
+ * pooled sums, null where no year qualifies. The chart draws it and the
+ * legend reads it to know whether to name the average.
+ */
+export function averageValues(
+	series:
+		| { readonly kind: 'count'; readonly average: readonly (number | null)[] }
+		| { readonly kind: 'ratio'; readonly average: readonly OverviewRatioSum[] },
+): readonly (number | null)[] {
+	if (series.kind === 'count') {
+		return series.average;
+	}
+	return series.average.map((sum) => ratioValue(sum.numerator, sum.denominator));
+}
+
 /** `34%` for a share and `12.4` for a rate. */
 export function formatRatio(ratio: OverviewRatio, value: number): string {
 	return ratio === 'positiveInspections' ? `${Math.round(value * 100)}%` : formatCount(value, 1);
@@ -286,10 +304,19 @@ export function formatCell(value: number): string {
 }
 
 /**
+ * `2021–2025 average`: what the trend charts call the average they draw
+ * beside the picked period's year, the five years before it.
+ */
+export function averageLabel(year: number): string {
+	return `${year - OVERVIEW_AVERAGE_YEARS}–${year - 1} average`;
+}
+
+/**
  * One group of Monthly's grouped bar: a calendar month with the picked
- * month's year in the period role and the year before in the comparison
- * role. A month the year has not reached is `undefined`, which is no bar; a
- * ratio over a zero denominator is `null`, which is no bar either.
+ * month's year in the period role, the year before in the comparison role
+ * and the five-year average in the average role. A month the year has not
+ * reached is `undefined`, which is no bar; a ratio over a zero denominator,
+ * or an average no year qualifies for, is `null`, which is no bar either.
  */
 export interface MonthGroup {
 	/** `Jan` to `Dec`. */
@@ -299,15 +326,18 @@ export interface MonthGroup {
 	readonly comparisonMonth: string | undefined;
 	readonly period: number | null | undefined;
 	readonly comparison: number | null | undefined;
+	readonly average: number | null | undefined;
 }
 
 /**
  * The response's flat 24-point month series split by the year in each
  * point's `period` into twelve groups, the picked month's year beside the
- * year before. Points outside those two years are ignored.
+ * year before, with the month's average from `averages`, January first.
+ * Points outside those two years are ignored.
  */
 export function monthGroups(
 	points: readonly { readonly period: string; readonly value: number | null }[],
+	averages: readonly (number | null)[],
 	year: number,
 ): readonly MonthGroup[] {
 	const byMonth = new Map(points.map((point) => [point.period, point.value]));
@@ -321,6 +351,7 @@ export function monthGroups(
 			comparisonMonth: byMonth.has(comparisonMonth) ? comparisonMonth : undefined,
 			period: byMonth.get(periodMonth),
 			comparison: byMonth.get(comparisonMonth),
+			average: averages[index],
 		};
 	});
 }
