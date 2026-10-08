@@ -7,6 +7,7 @@
  */
 
 import { createMembershipsCollection, type Membership } from '@simmer-mosquito/sync';
+import { BasicIndex } from '@tanstack/db';
 import { declareCollection } from './registry';
 
 /**
@@ -28,4 +29,12 @@ export const memberships = declareCollection<Membership>({
 	syncMode: 'eager',
 	mutations: true,
 	create: createMembershipsCollection,
+
+	/*
+	 * The key the People section joins this table by. `usePersonGroup` left-joins
+	 * each Profile to its Membership on `profile_id`.
+	 */
+	index: (collection) => {
+		collection.createIndex((row) => row.profile_id, { indexType: BasicIndex });
+	},
 });

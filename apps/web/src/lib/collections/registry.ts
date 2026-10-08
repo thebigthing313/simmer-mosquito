@@ -166,12 +166,38 @@ function resolve<TRow extends SyncedRow>(
 		);
 	}
 
-	const existing = built.get(declaration.table);
-	if (existing !== undefined) return existing as CollectionOf<TRow>;
+	const existing = built.get(declaration.table) as CollectionOf<TRow> | undefined;
+	if (existing !== undefined) {
+		if (existing.indexes.size === 0) createIndexes(existing, declaration);
+		return existing;
+	}
 
 	const collection = source.build(declaration);
-	collection.createIndex((row) => row.id, { indexType: BasicIndex });
-	declaration.index?.(collection);
+	createIndexes(collection, declaration);
 	built.set(declaration.table, collection);
 	return collection;
+}
+
+/**
+ * The `id` index and whatever the declaration adds.
+ *
+ * Run on the first build, and again whenever the collection answers with no
+ * index at all. TanStack DB garbage-collects a collection nothing has subscribed
+ * to for its `gcTime`, five minutes by default, and that cleanup clears every
+ * index along with the rows. The next subscriber restarts sync on the same
+ * object, which is the one this module keeps, so without the rebuild every join
+ * into the table goes unindexed for the rest of the session and logs `Join
+ * requires an index` on a column the declaration indexes (#1412). Every
+ * collection carries the `id` index, so an empty index map means a cleanup.
+ *
+ * `createIndex` on a cleaned-up collection restarts its sync, so the rebuild
+ * starts the collection whether or not anything subscribes after it. The only
+ * caller is a resolve, which a read or a write is about to follow.
+ */
+function createIndexes<TRow extends SyncedRow>(
+	collection: CollectionOf<TRow>,
+	declaration: CollectionDeclaration<TRow>,
+): void {
+	collection.createIndex((row) => row.id, { indexType: BasicIndex });
+	declaration.index?.(collection);
 }
