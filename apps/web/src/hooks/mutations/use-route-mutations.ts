@@ -20,7 +20,7 @@
  *
  * **An empty `apply` would send nothing at all.** TanStack DB completes a
  * transaction with no mutations without ever calling its `mutationFn`: no
- * request, no error, `isPersisted` resolved. A move that wrote no rows would
+ * request, no error, `when('settled')` resolved. A move that wrote no rows would
  * therefore look like a success and change nothing, which is why a move rewrites
  * the row it moved even when the order it resolves to is the order the list is
  * already in.

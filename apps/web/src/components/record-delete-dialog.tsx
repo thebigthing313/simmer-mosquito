@@ -1,4 +1,3 @@
-import { settleWrite } from '@simmer-mosquito/sync';
 import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import {
 	AlertDialog,
@@ -26,6 +25,7 @@ import {
 } from '../hooks/use-delete-impact';
 import { type RecordType, recordNoun } from '../lib/record-nouns';
 import { errorMessageForSave } from '../lib/save-error';
+import { type DeletionResult, settleDeletion } from '../lib/settle-deletion';
 import type { MinimumRole } from '../lib/write-access';
 import { readBlockers } from '../sync/command-error';
 
@@ -103,9 +103,7 @@ export interface RecordDeleteTarget {
 	 * `webCollections.x.delete(id)` returns the raw transaction, and this settles
 	 * it. Both are awaited the same way, see {@link settleDeletion}.
 	 */
-	readonly onDelete: (
-		acknowledgements: Acknowledgements,
-	) => Promise<unknown> | { readonly isPersisted: { readonly promise: Promise<unknown> } };
+	readonly onDelete: (acknowledgements: Acknowledgements) => DeletionResult;
 	/**
 	 * Runs the delete so a refusal a confirmation can answer becomes a question.
 	 *
@@ -143,19 +141,6 @@ export type RecordDeleteDestination =
 	| { readonly returnTo?: never; readonly onDeleted: () => void };
 
 export type RecordDeleteProps = RecordDeleteTarget & RecordDeleteDestination;
-
-/**
- * Await a deletion, whichever half of the migration it came from.
- *
- * A transaction is recognised by the one thing it has that a promise does not.
- * Once every caller deletes through `hooks/mutations` this collapses back to
- * awaiting the promise.
- */
-function settleDeletion(
-	result: Promise<unknown> | { readonly isPersisted: { readonly promise: Promise<unknown> } },
-): Promise<unknown> {
-	return 'isPersisted' in result ? settleWrite(result) : result;
-}
 
 /**
  * The last screen before a record is removed, and the whole of what the reader

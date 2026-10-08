@@ -34,7 +34,7 @@ import {
 } from '../../explorer-route-harness';
 
 const harness = vi.hoisted(() => ({
-	/** What each write's `isPersisted.promise` does, set per case. */
+	/** What each write's `when('settled')` does, set per case. */
 	persisted: (): Promise<void> => new Promise<void>(() => {}),
 	sent: [] as URL[],
 }));
@@ -88,7 +88,7 @@ vi.mock('../../../../../components/gis/regions/import-parse', async (importOrigi
 vi.mock('../../../../../hooks/mutations/use-region-mutations', () => ({
 	useRegionMutations: () => ({
 		canWrite: true,
-		create: () => ({ isPersisted: { promise: harness.persisted() } }),
+		create: () => ({ when: () => harness.persisted() }),
 	}),
 }));
 
@@ -160,5 +160,14 @@ describe('the region import page', () => {
 		});
 		expect(document.body.textContent).toContain('should appear on the regions list shortly.');
 		expect(document.body.textContent).not.toContain('()');
+	});
+
+	it('reports each region whose write failed', async () => {
+		harness.persisted = () => Promise.reject(new Error('Region name is already taken'));
+		await startImport();
+
+		expect(await screen.findByText('2 of 2 regions failed to import')).toBeTruthy();
+		expect(document.body.textContent).toContain('Elm St: Region name is already taken');
+		expect(document.body.textContent).toContain('Oak Ave: Region name is already taken');
 	});
 });
