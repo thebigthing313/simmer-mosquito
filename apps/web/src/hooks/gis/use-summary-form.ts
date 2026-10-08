@@ -71,7 +71,7 @@ export function useSummaryForm(input: {
 		const fields: WeatherSummaryFields = { startDate, endDate, ...parsed };
 		// Before the write, not after. The card lists one year at a time, and a
 		// write into a year its live query does not cover waits out a txid that
-		// never arrives on that subset: `settleWrite` swallows the five-second
+		// never arrives on that subset: `settleWrite` swallows the adapter's
 		// timeout, so the dialog closes late over a row the user cannot see.
 		onWriteYear(summaryYear(endDate));
 		try {

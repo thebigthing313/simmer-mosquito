@@ -1,5 +1,6 @@
 ---
 '@simmer-mosquito/web': patch
+'@simmer-mosquito/admin': patch
 ---
 
-Changed: When sync is slow, a save now waits up to 15 seconds for the saved record to come back before the form moves on, up from 5. The save itself is unchanged: it is kept either way.
+Changed: When a saved record is slow to show up, the form now waits up to 15 seconds for it before moving on, up from 5. The save is kept either way.

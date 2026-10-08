@@ -20,8 +20,8 @@ function watched(subscriberCount = 1, outcome: Promise<unknown> = Promise.resolv
 
 describe('awaitConfirmation', () => {
 	it("waits for every txid under the adapter's own timeout", async () => {
-		// No second argument: a timeout passed here would pin the wait against
-		// whatever default `electric-db-collection` ships.
+		// No second argument: a timeout passed here would override the adapter's
+		// default, and the wait should follow it.
 		const { waits, collection } = watched();
 
 		await awaitConfirmation(collection, [11, 12]);
