@@ -8,7 +8,6 @@
 import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
-import type { InspectionTableFilters } from '../../hooks/queries/use-inspection-table';
 import { dateRangeLabel } from '../../lib/local-date';
 import type { FilterCounting } from '../../lib/search-filters';
 import { ActiveFilterBar, FilterChip, type FilterOption, toggle } from '../explorer';
@@ -86,22 +85,6 @@ export interface InspectionFilterBinding {
 	readonly state: InspectionFilterState;
 	/** Today in the Organization's zone, which bounds the date pickers. */
 	readonly today: string;
-}
-
-/**
- * The filter set as the table's read wants it: one field per column. Region is
- * dropped; {@link InspectionTableFilters} says why.
- */
-export function inspectionTableFilters(state: InspectionFilterState): InspectionTableFilters {
-	return {
-		dateFrom: state.dateFrom,
-		dateTo: state.dateTo,
-		isWet: state.wetness === 'all' ? null : state.wetness === 'wet',
-		densities: state.densities,
-		larvaeFound: state.positiveOnly,
-		habitatTypeIds: state.typeIds,
-		inspectedByProfileIds: state.inspectorIds,
-	};
 }
 
 /**

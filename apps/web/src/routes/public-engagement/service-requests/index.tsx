@@ -30,6 +30,11 @@ import {
 	type ServiceRequestFilterChipProps,
 	ServiceRequestFilterFields,
 } from '../../../components/public-engagement/service-requests/service-request-filters';
+import {
+	requestPageParams,
+	SERVICE_REQUESTS_PATH,
+	type ServiceRequestListing,
+} from '../../../components/public-engagement/service-requests/service-request-listing';
 import { ServiceRequestSummaryPanel } from '../../../components/public-engagement/service-requests/service-request-summary-panel';
 import { ServiceRequestSurfaceSwitch } from '../../../components/public-engagement/service-requests/service-request-surface-switch';
 import { ServiceRequestsMapCanvas } from '../../../components/public-engagement/service-requests/service-requests-map-canvas';
@@ -57,27 +62,8 @@ import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
 
-/**
- * A service request as `/map/service-requests` lists it: what the row shows,
- * where on the map it sits, and the two ids the rail resolves for the page it
- * draws. `closedAt` arrives as the JSON string the server wrote, and only its
- * presence is read.
- */
-interface RequestListing {
-	readonly id: string;
-	readonly lat: number;
-	readonly lng: number;
-	readonly displayName: number | null;
-	readonly requestDate: string;
-	readonly details: string;
-	readonly contactId: string;
-	readonly addressId: string;
-	readonly closedAt: string | null;
-}
-
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const RECORD_TYPE: RecordType = 'serviceRequest';
-const PATH = '/map/service-requests';
 const ORDER_OPTIONS: readonly {
 	readonly value: ServiceRequestRailOrder;
 	readonly label: string;
@@ -162,8 +148,8 @@ function ServiceRequestsExplorerRoute() {
 		onSelectFeature: setSelectedId,
 	};
 	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
-		useExplorerResource<RequestListing>({
-			path: PATH,
+		useExplorerResource<ServiceRequestListing>({
+			path: SERVICE_REQUESTS_PATH,
 			rowsKey: 'serviceRequests',
 			rowKey: 'serviceRequest',
 			recordType: RECORD_TYPE,
@@ -298,36 +284,6 @@ function requestTileFilters(query: ServiceRequestFilters): ServiceRequestTileFil
 	};
 }
 
-/** The same filters as the query params `/map/service-requests` takes. */
-function requestQueryParams(filters: ServiceRequestTileFilters): {
-	readonly status: 'open' | 'closed' | undefined;
-	readonly search: string | undefined;
-	readonly tagId: readonly string[] | undefined;
-	readonly regionId: readonly string[] | undefined;
-	readonly dateFrom: string | undefined;
-	readonly dateTo: string | undefined;
-} {
-	return {
-		status: filters.isOpen === undefined ? undefined : filters.isOpen ? 'open' : 'closed',
-		search: filters.search,
-		tagId: filters.tagIds,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	};
-}
-
-/**
- * The page request's params: the filters, plus the rail's order, which only
- * the page reads. Newest first is the reader's default and goes unsent.
- */
-function requestPageParams(
-	filters: ServiceRequestTileFilters,
-	order: ServiceRequestRailOrder,
-): Readonly<Record<string, string | boolean | readonly string[] | undefined>> {
-	return { ...requestQueryParams(filters), oldest: order === 'oldest' ? true : undefined };
-}
-
 /**
  * What the rail draws in place of its rows: the summary over 100 in view, and
  * nothing at 100 or fewer, so the rows draw (#1371).
@@ -339,7 +295,7 @@ function summarySlot(
 }
 
 /** Where the selected request sits on the page, or `-1` when it is not on it. */
-function rowIndexOf(rows: readonly RequestListing[], selectedId: string | null): number {
+function rowIndexOf(rows: readonly ServiceRequestListing[], selectedId: string | null): number {
 	return selectedId === null ? -1 : rows.findIndex((request) => request.id === selectedId);
 }
 
@@ -353,7 +309,7 @@ function RequestRowItem({
 	onFocus,
 	today,
 }: {
-	readonly request: RequestListing;
+	readonly request: ServiceRequestListing;
 	readonly tags: readonly Tag[];
 	readonly contact: ContactSummary | null;
 	readonly address: Address | null;
@@ -430,7 +386,7 @@ function addressLabel(address: Address | null): string | null {
 }
 
 /** The colour this request draws in, so the row matches the map. */
-function requestSwatch(request: RequestListing): {
+function requestSwatch(request: ServiceRequestListing): {
 	readonly color: string;
 	readonly label: string;
 } {

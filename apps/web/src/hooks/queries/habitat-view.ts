@@ -56,7 +56,7 @@
  * `isUndefined` and not `isNull`, because the engine's `isNull` is a strict
  * `=== null` and an unmatched join is `undefined`. The guard is in the `select`
  * and never in a `where`, since a predicate on a joined column takes the limit
- * pushdown off an on-demand primary table, and `use-inspection-table.ts` pages.
+ * pushdown off an on-demand primary table.
  */
 
 import { caseWhen, coalesce, concat, type IR, isUndefined } from '@tanstack/react-db';

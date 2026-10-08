@@ -12,16 +12,10 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { ChevronRightIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { DateRangeFilter } from '../../../components/date-range-filter';
-import {
-	LoadMore,
-	MultiSelectFilter,
-	SegmentedFilter,
-	SortableHead,
-	ToggleFilter,
-} from '../../../components/explorer';
+import { MultiSelectFilter, SegmentedFilter, ToggleFilter } from '../../../components/explorer';
+import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { DensityBadge, LifeStageStrip, WetnessBadge } from '../../../components/larval-display';
 import {
 	DensityFilter,
@@ -29,9 +23,14 @@ import {
 	type InspectionCatalogs,
 	type InspectionFilterBinding,
 	InspectionFilterChips,
-	inspectionTableFilters,
 	WETNESS_OPTIONS,
 } from '../../../components/larval-surveillance/inspection-filters';
+import {
+	INSPECTIONS_PATH,
+	type InspectionListing,
+	inspectionQueryParams,
+	inspectionTileFilters,
+} from '../../../components/larval-surveillance/inspection-listing';
 import { InspectionSurfaceSwitch } from '../../../components/larval-surveillance/inspection-surface-switch';
 import {
 	inspectionFilterCodecs,
@@ -39,144 +38,72 @@ import {
 } from '../../../components/larval-surveillance/inspections-search';
 import { LinkedTableRow } from '../../../components/record/linked-table-row';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
-import { useHeldRows } from '../../../hooks/explorer/use-held-rows';
+import {
+	mapQueryParams,
+	usePagedMapResource,
+	WHOLE_WORLD_BBOX,
+} from '../../../hooks/explorer/use-paged-map-resource';
 import { useInspectionCatalogs } from '../../../hooks/larval-surveillance/use-inspection-catalogs';
 import { useInspectionFilterState } from '../../../hooks/larval-surveillance/use-inspection-filter-state';
-import {
-	type InspectionTableRow,
-	inspectionHabitatLabel,
-	inspectionTypeLabel,
-} from '../../../hooks/queries/larval-activity-view';
-import {
-	DEFAULT_INSPECTION_SORT,
-	INSPECTION_SORT_KEYS,
-	type InspectionSort,
-	type InspectionSortKey,
-	inspectionWindowKey,
-	useInspectionTable,
-} from '../../../hooks/queries/use-inspection-table';
-import { useSearchFilters } from '../../../hooks/use-search-filters';
+import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
-import { choiceParam, type FilterCodecs, searchValidator } from '../../../lib/search-filters';
-import { nextSort, SORT_DIRECTIONS, type SortDirection } from '../../../lib/table-sort';
+import { searchValidator } from '../../../lib/search-filters';
 
 /**
- * The sort lives in the URL, so a sorted table is a link somebody can send.
- *
- * The codecs leave the opening sort out of the address bar and drop anything
- * they do not recognise, which is what keeps a hand-edited URL from reaching the
- * read with no sort at all. `limit` with no `orderBy` throws where it renders.
- */
-interface TableSearch {
-	readonly sort: InspectionSortKey;
-	readonly direction: SortDirection;
-}
-
-const SORT_DEFAULTS: TableSearch = {
-	sort: DEFAULT_INSPECTION_SORT.key,
-	direction: DEFAULT_INSPECTION_SORT.direction,
-};
-
-const SORT_CODECS: FilterCodecs<TableSearch> = {
-	sort: choiceParam(INSPECTION_SORT_KEYS, SORT_DEFAULTS.sort),
-	direction: choiceParam(SORT_DIRECTIONS, SORT_DEFAULTS.direction),
-};
-
-/**
- * The sort's two params and the explorer's eight, validated as one set.
+ * The explorer's filter set, validated through the explorer's codecs.
  *
  * `searchValidator` keeps what its codecs name and drops the rest, so the
  * filters have to be here or a link from the map would arrive with them stripped
  * before the page read them. `regions` is among them and no control here writes
- * it: the table has no region predicate, and carrying the param is what lets a
- * reader go Map to Table and back without losing their region selection.
+ * it: carrying the param is what lets a reader go Map to Table and back without
+ * losing their region selection.
  */
-const SEARCH_CODECS = { ...inspectionFilterCodecs, ...SORT_CODECS };
-
 export const Route = createFileRoute('/larval-surveillance/inspections/table')({
 	component: InspectionsTableRoute,
-	validateSearch: searchValidator(SEARCH_CODECS),
+	validateSearch: searchValidator(inspectionFilterCodecs),
 });
 
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 
-/** How many rows the page opens on, and how many each Load more adds. */
-const WINDOW_STEP = 50;
-
 /**
- * Every inspection as a table, newest first until the reader says otherwise.
+ * Every inspection as a table, newest first, a hundred to a page.
  *
  * The map explorer beside this answers "where was work done"; this answers
  * "what has been recorded", which is a question about a run of rows rather than
  * about a place, so it spends no room on a map.
  *
- * ## Why there is no page count
- *
- * `inspections` is on-demand. A total would mean loading the whole set into the
- * browser to count it, which is the one thing the mode exists to avoid, so the
- * reader extends the window instead of stepping through numbered pages. The
- * order is Postgres's: the read sends `order_by` and `limit` with the shape
- * request, and Load more asks for a wider window rather than sorting a bigger
- * pile locally.
- *
- * A header sorts the whole set for the same reason, not the rows already down.
- * Four of the nine columns carry the control. `INSPECTION_SORT_KEYS` says which
- * four and why Habitat, Habitat type, Inspector and Density are not among them;
- * Life stages is six boolean columns drawn as one strip, so there is no column
- * under it to sort by at all.
+ * The rows are a page of `/map/inspections`, the endpoint the Map's rail reads,
+ * over the whole world rather than a viewport. Postgres filters, orders and
+ * counts, and the order is fixed: newest inspection date first, the newest
+ * entry first within a date. `docs/web-components.md` says why there are no
+ * column sorts and no Load more.
  *
  * ## The filters are the map explorer's
  *
  * The bar above the rows reads and writes the params the explorer reads and
  * writes, through the same codecs, so a link built on one surface opens the same
- * set on the other. Six of the explorer's seven filters are here; Region is not,
- * and `InspectionTableFilters` in the read hook says why.
+ * set on the other. Six of the explorer's seven filters are here. Region is
+ * carried and not applied, because no control here shows or clears it.
  */
 function InspectionsTableRoute() {
-	const { filters: sortSearch, setFilters: setSort } = useSearchFilters(SORT_DEFAULTS, SORT_CODECS);
-	const sort: InspectionSort = { key: sortSearch.sort, direction: sortSearch.direction };
-
-	// The filter set is the explorer's, read through the explorer's codecs, so
-	// the two surfaces answer the same address. Both hooks patch the same search
-	// params and neither touches the other's keys. `all-time` is where the two
-	// part: this page says it holds every inspection, so an address with no dates
-	// on it opens on every inspection.
+	// `all-time` is where the two surfaces part: this page says it holds every
+	// inspection, so an address with no dates on it opens on every inspection.
 	const binding = useInspectionFilterState(INSPECTION_TABLE_COUNTING, 'all-time');
 	const catalogs = useInspectionCatalogs();
-	const filters = inspectionTableFilters(binding.state);
-
-	// A window belongs to the query that loaded it. A new sort reorders the whole
-	// set and a new filter changes which rows are in it, so either one starts at
-	// the first page rather than at row fifty of something else. The window is
-	// stored against that query's key and read back through `limit`, so the reset
-	// follows from the URL rather than from a click handler: a pasted link and
-	// Back out of a record get it too. `limit` reads `WINDOW_STEP` on the render
-	// that discards the window, so the read is never asked for a stale one.
-	const windowKey = inspectionWindowKey(sort, filters);
-	const [loaded, setLoaded] = useState({ limit: WINDOW_STEP, key: windowKey });
-	const isLoadedWindow = loaded.key === windowKey;
-	if (!isLoadedWindow) {
-		setLoaded({ limit: WINDOW_STEP, key: windowKey });
-	}
-	const limit = isLoadedWindow ? loaded.limit : WINDOW_STEP;
-
-	// The switch to the map carries the filter contract and leaves the sort
-	// behind: the map has no sort, and its validator would drop the two params on
-	// arrival, which is a link that looks stateful and is not.
 	const carried = sharedInspectionSearch(Route.useSearch());
 
-	const { rows, isReady, isError } = useInspectionTable(sort, limit, filters);
-	const shown = useHeldRows(rows, isReady, windowKey);
-
-	const sortBy = (key: InspectionSortKey) => {
-		const next = nextSort(sort, key);
-		setSort({ direction: next.direction, sort: next.key });
-	};
-
-	const loadMore = () => {
-		setLoaded((current) => ({ ...current, limit: current.limit + WINDOW_STEP }));
-	};
+	const params = mapQueryParams({
+		bbox: WHOLE_WORLD_BBOX,
+		...inspectionQueryParams(inspectionTileFilters({ ...binding.state, regionIds: new Set() })),
+	});
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
+		usePagedMapResource<InspectionListing>({
+			path: INSPECTIONS_PATH,
+			rowsKey: 'inspections',
+			recordType: 'inspection',
+			params,
+		});
 
 	// `record` is the measure the route-loading skeleton reserves, so the table
 	// arrives at the width it stood in for (#1043, #1047).
@@ -188,35 +115,33 @@ function InspectionsTableRoute() {
 				title={recordNoun('inspection').titleMany}
 			/>
 			<InspectionsFilterBar binding={binding} catalogs={catalogs} />
-			{shown.length === 0 ? (
+			{isError ? <InspectionsUnavailable onRetry={retry} /> : null}
+			{rows.length === 0 ? (
 				<NoRows
 					isError={isError}
 					isFiltered={binding.activeCount > 0}
-					isReady={isReady}
+					isLoading={isLoading}
 					onClearFilters={binding.reset}
 				/>
 			) : (
-				<LoadedRows
-					isError={isError}
-					isReady={isReady}
-					limit={limit}
-					onLoadMore={loadMore}
-					onSort={sortBy}
-					rows={shown}
-					sort={sort}
-				/>
+				<div className="grid gap-3">
+					<InspectionsTable rows={rows} typeNameById={catalogs.typeNameById} />
+					<ExplorerPagination
+						noun={recordNoun('inspection')}
+						onPageChange={setPage}
+						page={page}
+						pageCount={pageCount}
+						total={total}
+					/>
+				</div>
 			)}
 		</OutletSimpleLayout>
 	);
 }
 
 /**
- * The filters, above the rows they narrow.
- *
- * Six controls, each one a column of `inspections`, which is what lets Postgres
- * answer a narrowed table rather than the browser hide rows out of a window it
- * was already sent. `InspectionTableFilters` in the read hook carries the rest
- * of that, including why Region is not here.
+ * The filters, above the rows they narrow. Each one is a param the list endpoint
+ * takes, so Postgres answers the narrowed set and its count.
  *
  * The bar renders whether or not any rows came back, because a filter that
  * matched nothing is exactly when the reader needs the control that loosens it.
@@ -287,25 +212,26 @@ function InspectionsFilterBar({
 }
 
 /**
- * Waiting, failed, filtered to nothing, or genuinely empty. Nothing on screen
- * tells them apart, and the last two ask for different things: one wants a
- * looser filter, the other wants a first inspection.
+ * Waiting, failed, filtered to nothing, or genuinely empty. A failure has its
+ * own strip above, so here it draws nothing rather than a second one. The last
+ * two ask for different things: one wants a looser filter, the other wants a
+ * first inspection.
  */
 function NoRows({
 	isError,
 	isFiltered,
-	isReady,
+	isLoading,
 	onClearFilters,
 }: {
 	readonly isError: boolean;
 	readonly isFiltered: boolean;
-	readonly isReady: boolean;
+	readonly isLoading: boolean;
 	readonly onClearFilters: () => void;
 }) {
 	if (isError) {
-		return <InspectionsUnavailable />;
+		return null;
 	}
-	if (!isReady) {
+	if (isLoading) {
 		return <ListLoading rows={8} />;
 	}
 	if (isFiltered) {
@@ -331,77 +257,27 @@ function NoRows({
 	);
 }
 
-/**
- * The table, and the control that widens the window under it.
- *
- * A full window is the only sign there is more, since nothing here counts the
- * whole set. So the control shows while the rows fill the window, and goes when
- * a wider one comes back short.
- *
- * A failed read is a strip above rows that are still real rather than a state
- * that replaces them. It also has to end the waiting: a query that errored never
- * reports ready, so reading "not ready" as "still loading" leaves Load more
- * disabled under a spinner that turns forever with nothing saying why.
- */
-function LoadedRows({
-	isError,
-	isReady,
-	limit,
-	onLoadMore,
-	onSort,
-	rows,
-	sort,
-}: {
-	readonly isError: boolean;
-	readonly isReady: boolean;
-	readonly limit: number;
-	readonly onLoadMore: () => void;
-	readonly onSort: (key: InspectionSortKey) => void;
-	readonly rows: readonly InspectionTableRow[];
-	readonly sort: InspectionSort;
-}) {
-	const isLoadingMore = !(isReady || isError);
-	const hasMore = isLoadingMore || rows.length >= limit;
-	return (
-		<div className="grid gap-3">
-			{isError ? <InspectionsUnavailable /> : null}
-			<InspectionsTable onSort={onSort} rows={rows} sort={sort} />
-			{hasMore ? <LoadMore isLoading={isLoadingMore} onLoadMore={onLoadMore} /> : null}
-		</div>
-	);
-}
-
 function InspectionsTable({
-	onSort,
 	rows,
-	sort,
+	typeNameById,
 }: {
-	readonly onSort: (key: InspectionSortKey) => void;
-	readonly rows: readonly InspectionTableRow[];
-	readonly sort: InspectionSort;
+	readonly rows: readonly InspectionListing[];
+	readonly typeNameById: ReadonlyMap<string, string>;
 }) {
 	return (
 		<div className="rounded-md border border-border/50">
 			<Table>
 				<TableHeader>
 					<TableRow className="bg-muted/40 hover:bg-muted/40">
-						<SortableHead onSort={onSort} sort={sort} sortKey="date">
-							Date
-						</SortableHead>
+						<TableHead>Date</TableHead>
 						<TableHead>Habitat</TableHead>
 						<TableHead>Habitat Type</TableHead>
 						<TableHead>Inspector</TableHead>
-						<SortableHead onSort={onSort} sort={sort} sortKey="water">
-							Water
-						</SortableHead>
+						<TableHead>Water</TableHead>
 						<TableHead>Density</TableHead>
-						<SortableHead align="right" onSort={onSort} sort={sort} sortKey="dips">
-							Dips
-						</SortableHead>
+						<TableHead className="text-right">Dips</TableHead>
 						<TableHead>Life Stages</TableHead>
-						<SortableHead align="right" onSort={onSort} sort={sort} sortKey="larvae">
-							Larvae
-						</SortableHead>
+						<TableHead className="text-right">Larvae</TableHead>
 						<TableHead className="w-[56px] text-right">
 							<span className="sr-only">Actions</span>
 						</TableHead>
@@ -409,7 +285,7 @@ function InspectionsTable({
 				</TableHeader>
 				<TableBody>
 					{rows.map((row) => (
-						<InspectionRow key={row.id} row={row} />
+						<InspectionRow key={row.id} row={row} typeNameById={typeNameById} />
 					))}
 				</TableBody>
 			</Table>
@@ -417,9 +293,32 @@ function InspectionsTable({
 	);
 }
 
-function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
+/**
+ * The Habitat's type, or what to say instead. A type id the catalog has not
+ * loaded is worth saying rather than showing nothing; no type at all is absent.
+ */
+function typeLabel(
+	row: InspectionListing,
+	typeNameById: ReadonlyMap<string, string>,
+): string | null {
+	if (row.habitatTypeId === null) {
+		return null;
+	}
+	return typeNameById.get(row.habitatTypeId) ?? 'Unknown type';
+}
+
+function InspectionRow({
+	row,
+	typeNameById,
+}: {
+	readonly row: InspectionListing;
+	readonly typeNameById: ReadonlyMap<string, string>;
+}) {
 	const when = formatListDate(row.inspectionDate);
-	const label = inspectionHabitatLabel(row, row.address);
+	const label = habitatLabel(row, {
+		addressName: row.addressDisplayName,
+		fallback: 'One-off inspection',
+	});
 	return (
 		<LinkedTableRow
 			action={
@@ -444,7 +343,7 @@ function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 				{label}
 			</TableCell>
 			<TableCell className="text-muted-foreground">
-				{inspectionTypeLabel(row) ?? <AbsentValue />}
+				{typeLabel(row, typeNameById) ?? <AbsentValue />}
 			</TableCell>
 			<TableCell className="text-muted-foreground">
 				{row.inspectedByName ?? <AbsentValue />}
@@ -467,11 +366,14 @@ function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 }
 
 /** The read failed. Says so whether or not there are rows behind it. */
-function InspectionsUnavailable() {
+function InspectionsUnavailable({ onRetry }: { readonly onRetry: () => void }) {
 	return (
 		<Alert variant="destructive">
-			<AlertDescription>
-				Inspections could not be loaded. Reload the page to try again.
+			<AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+				Inspections could not be loaded.
+				<Button onClick={onRetry} size="sm" type="button" variant="outline">
+					Try Again
+				</Button>
 			</AlertDescription>
 		</Alert>
 	);

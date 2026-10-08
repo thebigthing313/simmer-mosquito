@@ -327,6 +327,33 @@ a third results shape. The caller still hands over its rows, because the page
 request that counted them is the one that fetched them, and swapping the
 summary out for the rows on a zoom is then one prop going undefined.
 
+#### The record tables
+
+Every `/table` route pages through the `/map/*` list endpoint its map surface
+reads, over `WHOLE_WORLD_BBOX`, with `usePagedMapResource` and
+`ExplorerPagination`: Postgres filters, orders and counts, and the browser
+holds one page of 100. Each table has one fixed order, the endpoint's, and no
+column sorts. Service Requests is the one table with a control over it,
+newest or oldest first, under the `order` param the Map's rail already sent.
+
+The Inspections and Service Requests tables were the exception until this
+change. Each ran a TanStack DB live query over an on-demand collection,
+sortable by column, and widened its `limit` under a Load more button. Three
+things went wrong with that, and paging on the server takes all three away.
+The Inspections table opens on every inspection, and the first window joined
+four tables in the browser, so it could hang on load. A total would have meant
+loading the whole set to count it, so neither table could say how many rows
+matched. And each sortable column needed an index on the collection built with
+the query's compare options, or the window loaded every row; from
+`@tanstack/db` 0.11.0 such an index read `desc` returns the wrong rows for a
+number, so sorting Inspections by most dips first dropped the top rows.
+
+The sorts that went were by dips, larvae and wetness on Inspections and by
+number and age on Service Requests. None answers a question the filters do not
+answer better: the density and larvae-found filters narrow to the visits that
+matter, and a request's age is its date. A column sort comes back only with an
+endpoint that orders by it.
+
 ### forms
 
 #### CustomFieldsSection
@@ -513,15 +540,14 @@ know which. The server refuses an intent whatever either side says.
 
 The map opens on the last 30 days and the table on every inspection, and that
 is the surfaces rather than an oversight: a season of inspections is a solid
-block of dots over the same streets, while the table shows 50 rows whatever
-the reach. `regions` stays in the table's filter set uncounted so a link that
+block of dots over the same streets, while the table shows 100 rows a page
+whatever the reach. `regions` stays in the table's filter set uncounted so a link that
 came from the map keeps its region selection through a trip to the table and
 back. The sidebar cannot carry `search`, so the map/table pair carries its own
 control, and both paths are literals because `tsc` checks a `to` and `search`
-pair only where the path is one. The switch carries the shared filter keys and
-drops the table's sort, and it takes the validated search so a filter at its
-default stays off the address bar and each surface keeps its own opening
-window.
+pair only where the path is one. The switch carries the shared filter keys, and
+it takes the validated search so a filter at its default stays off the address
+bar and each surface keeps its own opening window.
 
 #### inspectionSummaryGroupings
 

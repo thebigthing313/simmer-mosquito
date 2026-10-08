@@ -40,7 +40,7 @@ export const serviceRequestFilterCodecs: FilterCodecs<ServiceRequestFilters> = {
 	to: dateParam,
 };
 
-/** The order the Map's rail pages in. */
+/** The order the Map's rail and the Table page in. */
 export type ServiceRequestRailOrder = 'newest' | 'oldest';
 
 export interface ServiceRequestRailSearch {
@@ -48,9 +48,9 @@ export interface ServiceRequestRailSearch {
 }
 
 /**
- * The rail's order, apart from the filters because it narrows nothing: it does
- * not count as a filter, a reset leaves it alone, and it does not travel to the
- * Table, which has its own sort. Newest first stays out of the URL.
+ * The order the Map's rail and the Table page in, apart from the filters because
+ * it narrows nothing: it does not count as a filter, a reset leaves it alone, and
+ * it does not travel between the two surfaces. Newest first stays out of the URL.
  */
 export const serviceRequestRailOrderCodecs: FilterCodecs<ServiceRequestRailSearch> = {
 	order: choiceParam(['newest', 'oldest'], 'newest'),

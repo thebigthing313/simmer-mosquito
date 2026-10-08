@@ -12,16 +12,10 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { ChevronRightIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { DateRangeFilter } from '../../../components/date-range-filter';
-import {
-	ActiveFilterBar,
-	FilterChip,
-	LoadMore,
-	SegmentedFilter,
-	SortableHead,
-} from '../../../components/explorer';
+import { ActiveFilterBar, FilterChip, SegmentedFilter } from '../../../components/explorer';
+import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
 	contactDisplayName,
 	formatRequestAge,
@@ -32,59 +26,43 @@ import {
 } from '../../../components/public-engagement/public-engagement-display';
 import { RequestStatusBadge } from '../../../components/public-engagement/public-engagement-ui';
 import type { ServiceRequestStatusFilter } from '../../../components/public-engagement/service-requests/legend';
+import {
+	requestPageParams,
+	SERVICE_REQUESTS_PATH,
+	type ServiceRequestListing,
+} from '../../../components/public-engagement/service-requests/service-request-listing';
 import { ServiceRequestSurfaceSwitch } from '../../../components/public-engagement/service-requests/service-request-surface-switch';
 import {
 	type ServiceRequestFilters,
+	type ServiceRequestRailOrder,
+	type ServiceRequestRailSearch,
 	serviceRequestFilterCodecs,
+	serviceRequestRailOrderCodecs,
 	sharedServiceRequestSearch,
 } from '../../../components/public-engagement/service-requests/service-requests-search';
 import { ClampedTextCell, LinkedTableRow } from '../../../components/record/linked-table-row';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
-import { useHeldRows } from '../../../hooks/explorer/use-held-rows';
-import { useServiceRequestFilterDefaults } from '../../../hooks/public-engagement/use-service-request-filter-defaults';
-import { resolveLinkedAddress } from '../../../hooks/queries/address-view';
-import { resolveLinkedContact } from '../../../hooks/queries/contact-view';
 import {
-	DEFAULT_SERVICE_REQUEST_SORT,
-	SERVICE_REQUEST_SORT_KEYS,
-	type ServiceRequestSort,
-	type ServiceRequestSortKey,
-	type ServiceRequestTableFilters,
-	type ServiceRequestTableRow,
-	serviceRequestWindowKey,
-	useServiceRequestTable,
-} from '../../../hooks/queries/use-service-request-table';
+	mapQueryParams,
+	usePagedMapResource,
+	WHOLE_WORLD_BBOX,
+} from '../../../hooks/explorer/use-paged-map-resource';
+import { useServiceRequestFilterDefaults } from '../../../hooks/public-engagement/use-service-request-filter-defaults';
+import type { Address } from '../../../hooks/queries/address-view';
+import type { ContactSummary } from '../../../hooks/queries/contact-view';
+import { useProfileNames } from '../../../hooks/queries/use-profile-names';
+import { useRequestParties } from '../../../hooks/queries/use-request-parties';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { addressCardLabel } from '../../../lib/address-format';
 import { dateRangeLabel } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import {
-	choiceParam,
 	DATE_RANGE_COUNTING,
 	type FilterCodecs,
 	searchValidator,
 } from '../../../lib/search-filters';
-import { nextSort, SORT_DIRECTIONS, type SortDirection } from '../../../lib/table-sort';
 
-/**
- * The sort lives in the URL, so a sorted table is a link somebody can send.
- * The codecs leave the opening sort out of the address bar and drop anything
- * they do not recognise.
- */
-interface TableSearch {
-	readonly sort: ServiceRequestSortKey;
-	readonly direction: SortDirection;
-}
-
-const SORT_DEFAULTS: TableSearch = {
-	sort: DEFAULT_SERVICE_REQUEST_SORT.key,
-	direction: DEFAULT_SERVICE_REQUEST_SORT.direction,
-};
-
-const SORT_CODECS: FilterCodecs<TableSearch> = {
-	sort: choiceParam(SERVICE_REQUEST_SORT_KEYS, SORT_DEFAULTS.sort),
-	direction: choiceParam(SORT_DIRECTIONS, SORT_DEFAULTS.direction),
-};
+const ORDER_DEFAULTS: ServiceRequestRailSearch = { order: 'newest' };
 
 /** The three filters the Table shares with the Map, read through the Map's codecs. */
 type TableFilters = Pick<ServiceRequestFilters, 'status' | 'from' | 'to'>;
@@ -97,7 +75,7 @@ const FILTER_CODECS: FilterCodecs<TableFilters> = {
 
 export const Route = createFileRoute('/public-engagement/service-requests/table')({
 	component: ServiceRequestsTableRoute,
-	validateSearch: searchValidator({ ...FILTER_CODECS, ...SORT_CODECS }),
+	validateSearch: searchValidator({ ...FILTER_CODECS, ...serviceRequestRailOrderCodecs }),
 });
 
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
@@ -111,23 +89,26 @@ const STATUS_OPTIONS: readonly {
 	{ value: 'closed', label: 'Closed' },
 ];
 
-/** How many rows the page opens on, and how many each Load more adds. */
-const WINDOW_STEP = 50;
+const ORDER_OPTIONS: readonly {
+	readonly value: ServiceRequestRailOrder;
+	readonly label: string;
+}[] = [
+	{ value: 'newest', label: 'Newest' },
+	{ value: 'oldest', label: 'Oldest' },
+];
 
 /**
- * Every service request as a table, newest first until the reader says
- * otherwise. It opens on the same window the Map does, every request received
- * this year, open or closed.
+ * Every service request as a table, a hundred to a page. It opens on the same
+ * window the Map does, every request received this year, open or closed, and
+ * newest first.
  *
- * `service_requests` is on-demand, so there is no page count: a total would load
- * the whole set into the browser to count it. The reader extends the window
- * instead, and Postgres does the ordering. The Inspections Table is the pattern
- * this follows, and its route carries the rest of the reasoning.
+ * The rows are a page of `/map/service-requests`, the endpoint the Map's rail
+ * reads, over the whole world rather than a viewport. Postgres filters, orders
+ * and counts. The order is the rail's too: newest or oldest request date first,
+ * under the same `order` param, which stays on the surface that set it.
+ * `docs/web-components.md` says why there are no column sorts and no Load more.
  */
 function ServiceRequestsTableRoute() {
-	const { filters: sortSearch, setFilters: setSort } = useSearchFilters(SORT_DEFAULTS, SORT_CODECS);
-	const sort: ServiceRequestSort = { key: sortSearch.sort, direction: sortSearch.direction };
-
 	const { defaults: mapDefaults, today } = useServiceRequestFilterDefaults();
 	const defaults: TableFilters = {
 		status: mapDefaults.status,
@@ -140,37 +121,37 @@ function ServiceRequestsTableRoute() {
 		reset,
 		activeCount,
 	} = useSearchFilters(defaults, FILTER_CODECS, DATE_RANGE_COUNTING);
-	const filters: ServiceRequestTableFilters = {
-		isOpen: query.status === 'all' ? null : query.status === 'open',
-		dateFrom: query.from,
-		dateTo: query.to,
-	};
+	const { filters: order, setFilters: setOrder } = useSearchFilters(
+		ORDER_DEFAULTS,
+		serviceRequestRailOrderCodecs,
+	);
 
-	// A window belongs to the query that loaded it, so a new sort or a new filter
-	// starts again at the first step. `InspectionsTableRoute` says why the reset
-	// follows from the URL rather than from a click handler.
-	const windowKey = serviceRequestWindowKey(sort, filters);
-	const [loaded, setLoaded] = useState({ limit: WINDOW_STEP, key: windowKey });
-	const isLoadedWindow = loaded.key === windowKey;
-	if (!isLoadedWindow) {
-		setLoaded({ limit: WINDOW_STEP, key: windowKey });
-	}
-	const limit = isLoadedWindow ? loaded.limit : WINDOW_STEP;
-
-	// The switch to the Map carries the shared filters and leaves the sort behind.
+	// The switch to the Map carries the shared filters and leaves the order behind.
 	const carried = sharedServiceRequestSearch(Route.useSearch());
 
-	const { rows, isReady, isError } = useServiceRequestTable(sort, limit, filters);
-	const shown = useHeldRows(rows, isReady, windowKey);
+	const params = mapQueryParams({
+		bbox: WHOLE_WORLD_BBOX,
+		...requestPageParams(
+			{
+				...(query.status === 'all' ? {} : { isOpen: query.status === 'open' }),
+				...(query.from === '' ? {} : { dateFrom: query.from }),
+				...(query.to === '' ? {} : { dateTo: query.to }),
+			},
+			order.order,
+		),
+	});
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
+		usePagedMapResource<ServiceRequestListing>({
+			path: SERVICE_REQUESTS_PATH,
+			rowsKey: 'serviceRequests',
+			recordType: 'serviceRequest',
+			params,
+		});
 
-	const sortBy = (key: ServiceRequestSortKey) => {
-		const next = nextSort(sort, key);
-		setSort({ direction: next.direction, sort: next.key });
-	};
-
-	const loadMore = () => {
-		setLoaded((current) => ({ ...current, limit: current.limit + WINDOW_STEP }));
-	};
+	// The contact and the address resolve for the page alone, at most a hundred
+	// ids, the way the Map's rail resolves them.
+	const parties = useRequestParties(rows);
+	const profileNames = useProfileNames();
 
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
@@ -184,42 +165,54 @@ function ServiceRequestsTableRoute() {
 				defaults={defaults}
 				filters={query}
 				onClearAll={reset}
+				onOrderChange={(next) => setOrder({ order: next })}
+				order={order.order}
 				setFilters={setFilters}
 				today={today}
 			/>
-			{shown.length === 0 ? (
+			{isError ? <RequestsUnavailable onRetry={retry} /> : null}
+			{rows.length === 0 ? (
 				<NoRows
 					isError={isError}
 					isFiltered={activeCount > 0}
-					isReady={isReady}
+					isLoading={isLoading}
 					onClearFilters={reset}
 				/>
 			) : (
-				<LoadedRows
-					isError={isError}
-					isReady={isReady}
-					limit={limit}
-					onLoadMore={loadMore}
-					onSort={sortBy}
-					rows={shown}
-					sort={sort}
-					today={today}
-				/>
+				<div className="grid gap-3">
+					<RequestsTable
+						addressById={parties.addressById}
+						contactById={parties.contactById}
+						profileNames={profileNames}
+						rows={rows}
+						today={today}
+					/>
+					<ExplorerPagination
+						noun={recordNoun('serviceRequest')}
+						onPageChange={setPage}
+						page={page}
+						pageCount={pageCount}
+						total={total}
+					/>
+				</div>
 			)}
 		</OutletSimpleLayout>
 	);
 }
 
 /**
- * Status and the date window, above the rows they narrow. It renders whether or
- * not any rows came back, because a filter that matched nothing is when the
- * reader needs the control that loosens it.
+ * Status, the date window and the order, above the rows they narrow. It renders
+ * whether or not any rows came back, because a filter that matched nothing is
+ * when the reader needs the control that loosens it. The order narrows nothing,
+ * so it is no chip and a reset leaves it alone.
  */
 function RequestsFilterBar({
 	activeCount,
 	defaults,
 	filters,
 	onClearAll,
+	onOrderChange,
+	order,
 	setFilters,
 	today,
 }: {
@@ -227,6 +220,8 @@ function RequestsFilterBar({
 	readonly defaults: TableFilters;
 	readonly filters: TableFilters;
 	readonly onClearAll: () => void;
+	readonly onOrderChange: (order: ServiceRequestRailOrder) => void;
+	readonly order: ServiceRequestRailOrder;
 	readonly setFilters: (patch: Partial<TableFilters>) => void;
 	readonly today: string;
 }) {
@@ -236,12 +231,20 @@ function RequestsFilterBar({
 		<div className="grid gap-4 rounded-md border border-border/50 bg-muted/20 p-4">
 			<div className="grid gap-4 lg:grid-cols-2">
 				<DateRangeFilter {...dateRange} />
-				<SegmentedFilter
-					label="Status"
-					onChange={(status: ServiceRequestStatusFilter) => setFilters({ status })}
-					options={STATUS_OPTIONS}
-					value={filters.status}
-				/>
+				<div className="grid content-start gap-3">
+					<SegmentedFilter
+						label="Status"
+						onChange={(status: ServiceRequestStatusFilter) => setFilters({ status })}
+						options={STATUS_OPTIONS}
+						value={filters.status}
+					/>
+					<SegmentedFilter
+						label="Order"
+						onChange={onOrderChange}
+						options={ORDER_OPTIONS}
+						value={order}
+					/>
+				</div>
 			</div>
 			{activeCount === 0 ? null : (
 				<ActiveFilterBar onClearAll={onClearAll}>
@@ -264,24 +267,26 @@ function RequestsFilterBar({
 }
 
 /**
- * Waiting, failed, filtered to nothing, or genuinely empty. The last two ask
- * for different things: one wants a looser filter, the other a first request.
+ * Waiting, failed, filtered to nothing, or genuinely empty. A failure has its
+ * own strip above, so here it draws nothing rather than a second one. The last
+ * two ask for different things: one wants a looser filter, the other a first
+ * request.
  */
 function NoRows({
 	isError,
 	isFiltered,
-	isReady,
+	isLoading,
 	onClearFilters,
 }: {
 	readonly isError: boolean;
 	readonly isFiltered: boolean;
-	readonly isReady: boolean;
+	readonly isLoading: boolean;
 	readonly onClearFilters: () => void;
 }) {
 	if (isError) {
-		return <RequestsUnavailable />;
+		return null;
 	}
-	if (!isReady) {
+	if (isLoading) {
 		return <ListLoading rows={8} />;
 	}
 	if (isFiltered) {
@@ -307,50 +312,17 @@ function NoRows({
 	);
 }
 
-/**
- * The table, and the control that widens the window under it. A full window is
- * the only sign there is more, and a failed read is a strip above rows that are
- * still real. `LoadedRows` on the Inspections Table carries both reasons.
- */
-function LoadedRows({
-	isError,
-	isReady,
-	limit,
-	onLoadMore,
-	onSort,
-	rows,
-	sort,
-	today,
-}: {
-	readonly isError: boolean;
-	readonly isReady: boolean;
-	readonly limit: number;
-	readonly onLoadMore: () => void;
-	readonly onSort: (key: ServiceRequestSortKey) => void;
-	readonly rows: readonly ServiceRequestTableRow[];
-	readonly sort: ServiceRequestSort;
-	readonly today: string;
-}) {
-	const isLoadingMore = !(isReady || isError);
-	const hasMore = isLoadingMore || rows.length >= limit;
-	return (
-		<div className="grid gap-3">
-			{isError ? <RequestsUnavailable /> : null}
-			<RequestsTable onSort={onSort} rows={rows} sort={sort} today={today} />
-			{hasMore ? <LoadMore isLoading={isLoadingMore} onLoadMore={onLoadMore} /> : null}
-		</div>
-	);
-}
-
 function RequestsTable({
-	onSort,
+	addressById,
+	contactById,
+	profileNames,
 	rows,
-	sort,
 	today,
 }: {
-	readonly onSort: (key: ServiceRequestSortKey) => void;
-	readonly rows: readonly ServiceRequestTableRow[];
-	readonly sort: ServiceRequestSort;
+	readonly addressById: ReadonlyMap<string, Address>;
+	readonly contactById: ReadonlyMap<string, ContactSummary>;
+	readonly profileNames: ReadonlyMap<string, string>;
+	readonly rows: readonly ServiceRequestListing[];
 	readonly today: string;
 }) {
 	return (
@@ -358,15 +330,9 @@ function RequestsTable({
 			<Table>
 				<TableHeader>
 					<TableRow className="bg-muted/40 hover:bg-muted/40">
-						<SortableHead onSort={onSort} sort={sort} sortKey="number">
-							Number
-						</SortableHead>
-						<SortableHead onSort={onSort} sort={sort} sortKey="date">
-							Received
-						</SortableHead>
-						<SortableHead onSort={onSort} sort={sort} sortKey="age">
-							Age
-						</SortableHead>
+						<TableHead>Number</TableHead>
+						<TableHead>Received</TableHead>
+						<TableHead>Age</TableHead>
 						<TableHead>Status</TableHead>
 						<TableHead>Contact</TableHead>
 						<TableHead>Address</TableHead>
@@ -380,7 +346,18 @@ function RequestsTable({
 				</TableHeader>
 				<TableBody>
 					{rows.map((row) => (
-						<RequestRow key={row.id} row={row} today={today} />
+						<RequestRow
+							address={addressById.get(row.addressId)}
+							contact={contactById.get(row.contactId)}
+							key={row.id}
+							receivedByName={
+								row.receivedByProfileId === null
+									? null
+									: (profileNames.get(row.receivedByProfileId) ?? null)
+							}
+							row={row}
+							today={today}
+						/>
 					))}
 				</TableBody>
 			</Table>
@@ -389,15 +366,20 @@ function RequestsTable({
 }
 
 function RequestRow({
+	address,
+	contact,
+	receivedByName,
 	row,
 	today,
 }: {
-	readonly row: ServiceRequestTableRow;
+	readonly address: Address | undefined;
+	readonly contact: ContactSummary | undefined;
+	readonly receivedByName: string | null;
+	readonly row: ServiceRequestListing;
 	readonly today: string;
 }) {
 	const title = serviceRequestTitle(row);
-	const contact = resolveLinkedContact(row.contact);
-	const address = addressCardLabel(resolveLinkedAddress(row.address));
+	const addressLabel = addressCardLabel(address);
 	const details = row.details.trim();
 	return (
 		<LinkedTableRow
@@ -427,25 +409,26 @@ function RequestRow({
 			</TableCell>
 			<TableCell
 				className="max-w-[18rem] truncate text-muted-foreground"
-				title={address ?? undefined}
+				title={addressLabel ?? undefined}
 			>
-				{address ?? <AbsentValue />}
+				{addressLabel ?? <AbsentValue />}
 			</TableCell>
 			<TableCell className="text-muted-foreground">{intakeTypeLabel(row.intakeType)}</TableCell>
-			<TableCell className="text-muted-foreground">
-				{row.receivedByName ?? <AbsentValue />}
-			</TableCell>
+			<TableCell className="text-muted-foreground">{receivedByName ?? <AbsentValue />}</TableCell>
 			<ClampedTextCell empty={<AbsentValue />} text={details} />
 		</LinkedTableRow>
 	);
 }
 
 /** The read failed. Says so whether or not there are rows behind it. */
-function RequestsUnavailable() {
+function RequestsUnavailable({ onRetry }: { readonly onRetry: () => void }) {
 	return (
 		<Alert variant="destructive">
-			<AlertDescription>
-				Service requests could not be loaded. Reload the page to try again.
+			<AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+				Service requests could not be loaded.
+				<Button onClick={onRetry} size="sm" type="button" variant="outline">
+					Try Again
+				</Button>
 			</AlertDescription>
 		</Alert>
 	);
