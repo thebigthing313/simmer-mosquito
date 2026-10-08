@@ -35,7 +35,7 @@ import {
 
 const harness = vi.hoisted(() => ({
 	/** What each write's `when('settled')` does, set per case. */
-	persisted: (): Promise<void> => new Promise<void>(() => {}),
+	settled: (): Promise<void> => new Promise<void>(() => {}),
 	sent: [] as URL[],
 }));
 
@@ -88,7 +88,7 @@ vi.mock('../../../../../components/gis/regions/import-parse', async (importOrigi
 vi.mock('../../../../../hooks/mutations/use-region-mutations', () => ({
 	useRegionMutations: () => ({
 		canWrite: true,
-		create: () => ({ when: () => harness.persisted() }),
+		create: () => ({ when: () => harness.settled() }),
 	}),
 }));
 
@@ -118,7 +118,7 @@ beforeAll(async () => {
 beforeEach(() => {
 	installMemoryCollections();
 	seedRows(organizations, [{ id: ORG, name: 'Test Mosquito Control', settings: {} }]);
-	harness.persisted = () => new Promise<void>(() => {});
+	harness.settled = () => new Promise<void>(() => {});
 	harness.sent.length = 0;
 });
 
@@ -148,7 +148,7 @@ describe('the region import page', () => {
 	});
 
 	it('says the regions were saved when their sync is not confirmed', async () => {
-		harness.persisted = () => {
+		harness.settled = () => {
 			const timeout = new Error('timed out waiting for the txid');
 			timeout.name = 'TimeoutWaitingForTxIdError';
 			return Promise.reject(timeout);
@@ -163,7 +163,7 @@ describe('the region import page', () => {
 	});
 
 	it('reports each region whose write failed', async () => {
-		harness.persisted = () => Promise.reject(new Error('Region name is already taken'));
+		harness.settled = () => Promise.reject(new Error('Region name is already taken'));
 		await startImport();
 
 		expect(await screen.findByText('2 of 2 regions failed to import')).toBeTruthy();

@@ -12,8 +12,7 @@
  * The optimistic-transaction shape returned by collection insert/update/delete.
  *
  * `when('settled')` resolves once the write is confirmed and rejects with the
- * write's error when it fails. It replaced `isPersisted.promise`, which
- * `@tanstack/db` 0.12 deprecates and the 1.0 RC removes.
+ * write's error when it fails.
  */
 export interface PersistableTransaction {
 	when(state: 'settled'): Promise<unknown>;

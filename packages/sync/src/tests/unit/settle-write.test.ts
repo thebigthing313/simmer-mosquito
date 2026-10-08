@@ -33,7 +33,7 @@ describe('settleWrite', () => {
 		await expect(settleWrite(settlingWith(Promise.reject(txIdTimeout())))).resolves.toBeUndefined();
 	});
 
-	it('rejects with the write’s own error on any other failure', async () => {
+	it("rejects with the write's own error on any other failure", async () => {
 		const refusal = new Error('Command refused');
 
 		await expect(settleWrite(settlingWith(Promise.reject(refusal)))).rejects.toBe(refusal);

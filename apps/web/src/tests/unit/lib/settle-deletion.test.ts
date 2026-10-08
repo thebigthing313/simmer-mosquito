@@ -30,7 +30,7 @@ describe('settleDeletion', () => {
 		expect(asked).toEqual(['settled']);
 	});
 
-	it('rejects with the transaction’s error when the delete failed', async () => {
+	it("rejects with the transaction's error when the delete failed", async () => {
 		const refusal = new Error('Delete refused');
 
 		await expect(settleDeletion({ when: () => Promise.reject(refusal) })).rejects.toBe(refusal);

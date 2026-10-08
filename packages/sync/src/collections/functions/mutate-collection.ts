@@ -51,6 +51,8 @@
  * removes the guess.
  */
 
+import type { PersistableTransaction } from '../../settle-write.js';
+
 /**
  * The subset of a collection this needs.
  *
@@ -75,9 +77,7 @@ export interface MutationConfig {
 }
 
 /** What a caller awaits to know the server accepted the write. */
-export interface MutationTransaction {
-	when(state: 'settled'): Promise<unknown>;
-}
+export type MutationTransaction = PersistableTransaction;
 
 /**
  * The command a write means, or the commands it means.
