@@ -17,7 +17,8 @@ import { LinkedTableRow } from '../record/linked-table-row';
 import type { InspectionListing } from './inspection-listing';
 
 /**
- * A page of Inspections as a table, one row per inspection, each opening its detail page. Takes the rows the route read and the habitat type names to label them with.
+ * A page of Inspections as a table, one row per inspection, each opening its detail page. Takes the
+ * rows the route read and the habitat type names to label them with.
  */
 export function InspectionsTable({
 	rows,

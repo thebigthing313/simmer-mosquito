@@ -8,6 +8,7 @@ import type { SampleListRow } from '../../../components/larval-surveillance/samp
 import { SampleSurfaceSwitch } from '../../../components/larval-surveillance/samples/sample-surface-switch';
 import { SamplesTable } from '../../../components/larval-surveillance/samples/samples-table';
 import {
+	SAMPLE_WINDOW_DAYS,
 	sampleFilterCodecs,
 	sampleListParams,
 	sampleTileFilters,
@@ -80,7 +81,7 @@ function SamplesTableRoute() {
 			{isError ? <RecordTableUnavailable onRetry={retry} recordType="sample" /> : null}
 			{rows.length === 0 ? (
 				<RecordTableEmpty
-					emptyDescription="Samples taken in the last 30 days show here."
+					emptyDescription={`Samples taken in the last ${SAMPLE_WINDOW_DAYS} days show here.`}
 					filteredDescription="No sample matches what is set above."
 					icon={SampleIcon}
 					isError={isError}
@@ -88,7 +89,7 @@ function SamplesTableRoute() {
 					isLoading={isLoading}
 					onClearFilters={reset}
 					recordType="sample"
-					scope={{ kind: 'lastDays', days: 30 }}
+					scope={{ kind: 'lastDays', days: SAMPLE_WINDOW_DAYS }}
 				/>
 			) : (
 				<div className="grid gap-3">

@@ -26,7 +26,9 @@ import { RequestStatusBadge } from '../public-engagement-ui';
 import type { ServiceRequestListing } from './service-request-listing';
 
 /**
- * A page of Service Requests as a table, one row per request, each opening its detail page. Takes the rows the route read, the contacts, addresses and profile names resolved for them, and today's date for the age column.
+ * A page of Service Requests as a table, one row per request, each opening its detail page. Takes
+ * the rows the route read, the contacts, addresses and profile names resolved for them, and today's
+ * date for the age column.
  */
 export function ServiceRequestsTable({
 	addressById,

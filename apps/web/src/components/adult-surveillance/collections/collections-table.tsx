@@ -25,7 +25,8 @@ import {
 } from './collection-row-parts';
 
 /**
- * A page of Collections as a table, one row per collection, each opening its detail page. Takes the rows the route read.
+ * A page of Collections as a table, one row per collection, each opening its detail page. Takes the
+ * rows the route read.
  */
 export function CollectionsTable({ rows }: { readonly rows: readonly CollectionListRow[] }) {
 	const { nameById: methodNameById } = useCollectionMethodOptions();

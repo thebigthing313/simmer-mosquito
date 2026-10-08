@@ -25,7 +25,8 @@ import {
 } from './biocontrol-row-parts';
 
 /**
- * A page of Biocontrol Actions as a table, one row per action, each opening its detail page. Takes the rows the route read.
+ * A page of Biocontrol Actions as a table, one row per action, each opening its detail page. Takes
+ * the rows the route read.
  */
 export function BiocontrolActionsTable({ rows }: { readonly rows: readonly BiocontrolListRow[] }) {
 	const { nameById: methodNameById } = useBiocontrolMethodOptions();

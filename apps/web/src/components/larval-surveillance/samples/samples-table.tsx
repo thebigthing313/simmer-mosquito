@@ -25,7 +25,8 @@ import {
 const RESULT_CHIP_LIMIT = 3;
 
 /**
- * A page of Samples as a table, one row per sample with its species results, each opening its detail page. Takes the rows the route read.
+ * A page of Samples as a table, one row per sample with its species results, each opening its
+ * detail page. Takes the rows the route read.
  */
 export function SamplesTable({ rows }: { readonly rows: readonly SampleListRow[] }) {
 	const { nameById } = useSpeciesOptions();

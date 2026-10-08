@@ -35,7 +35,8 @@ export interface HabitatTableRow {
 }
 
 /**
- * A page of Habitats as a table, one row per habitat with its Tags, each opening its detail page. Takes the rows the route read.
+ * A page of Habitats as a table, one row per habitat with its Tags, each opening its detail page.
+ * Takes the rows the route read.
  */
 export function HabitatsTable({ rows }: { readonly rows: readonly HabitatTableRow[] }) {
 	const { nameById: typeNameById } = useHabitatTypeOptions();

@@ -27,7 +27,8 @@ export interface TrapTableRow {
 }
 
 /**
- * A page of Traps as a table, one row per trap, each opening its detail page. Takes the rows the route read.
+ * A page of Traps as a table, one row per trap, each opening its detail page. Takes the rows the
+ * route read.
  */
 export function TrapsTable({ rows }: { readonly rows: readonly TrapTableRow[] }) {
 	const { nameById: methodNameById } = useCollectionMethodOptions();

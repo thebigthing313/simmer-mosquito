@@ -25,7 +25,8 @@ import {
 } from './source-reduction-row-parts';
 
 /**
- * A page of Source Reductions as a table, one row per source reduction, each opening its detail page. Takes the rows the route read.
+ * A page of Source Reductions as a table, one row per source reduction, each opening its detail
+ * page. Takes the rows the route read.
  */
 export function SourceReductionsTable({
 	rows,

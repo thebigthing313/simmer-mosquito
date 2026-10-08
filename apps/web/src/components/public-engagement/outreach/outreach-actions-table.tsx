@@ -22,7 +22,8 @@ import {
 } from './outreach-row-parts';
 
 /**
- * A page of Outreach Actions as a table, one row per action, each opening its detail page. Takes the rows the route read.
+ * A page of Outreach Actions as a table, one row per action, each opening its detail page. Takes
+ * the rows the route read.
  */
 export function OutreachActionsTable({ rows }: { readonly rows: readonly OutreachListRow[] }) {
 	const { nameById: methodNameById } = useOutreachMethodOptions();

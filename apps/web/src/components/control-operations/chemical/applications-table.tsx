@@ -23,7 +23,8 @@ import {
 } from './application-row-parts';
 
 /**
- * A page of Chemical Applications as a table, one row per application, each opening its detail page. Takes the rows the route read.
+ * A page of Chemical Applications as a table, one row per application, each opening its detail
+ * page. Takes the rows the route read.
  */
 export function ApplicationsTable({ rows }: { readonly rows: readonly ApplicationListRow[] }) {
 	const { nameById: insecticideNameById } = useInsecticideOptions();

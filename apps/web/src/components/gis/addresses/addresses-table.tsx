@@ -14,7 +14,8 @@ import { LinkedTableRow } from '../../record/linked-table-row';
 import { type AddressListing, addressName, streetLine } from './address-row-parts';
 
 /**
- * A page of the Address Book as a table, one row per address, each opening its detail page. Takes the rows the route read.
+ * A page of the Address Book as a table, one row per address, each opening its detail page. Takes
+ * the rows the route read.
  */
 export function AddressesTable({ rows }: { readonly rows: readonly AddressListing[] }) {
 	return (
