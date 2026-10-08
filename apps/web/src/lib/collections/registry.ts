@@ -29,7 +29,7 @@
  */
 
 import type { CollectionSyncMode, SyncCollectionClientOptions } from '@simmer-mosquito/sync';
-import { BasicIndex, type Collection } from '@tanstack/db';
+import { BasicIndex, type Collection, type UtilsRecord } from '@tanstack/db';
 
 /**
  * Every synced table has a `uuid` primary key named `id`, so every row this
@@ -48,6 +48,27 @@ export interface SyncedRow {
  */
 export type CollectionOf<TRow extends SyncedRow> = Collection<TRow, string | number>;
 
+// biome-ignore lint/suspicious/noExplicitAny: the schema and its insert input are the factory's own, and a source narrows past them.
+type UncheckedFactoryArgument = any;
+
+/**
+ * What a generated factory returns for `TRow`, before it is held as a
+ * {@link CollectionOf}.
+ *
+ * The factory's collection carries its schema's insert input, where a column
+ * with a default is optional and typed `unknown`. Since `@tanstack/db` 0.10
+ * typed `update`'s key, TypeScript compares `update`'s drafts, which are that
+ * input, so the factory's type no longer assigns to a collection whose input is
+ * the row. The sources narrow it once, where they build it.
+ */
+export type FactoryCollectionOf<TRow extends SyncedRow> = Collection<
+	TRow,
+	string | number,
+	UtilsRecord,
+	UncheckedFactoryArgument,
+	UncheckedFactoryArgument
+>;
+
 /** What a table module says about its collection without building one. */
 export interface CollectionDeclaration<TRow extends SyncedRow> {
 	/** The Postgres table. Names the collection and derives both its routes. */
@@ -63,7 +84,7 @@ export interface CollectionDeclaration<TRow extends SyncedRow> {
 	 * assemble and no way to reach for a server URL of its own. The sweep that
 	 * read all fifty modules as text looking for one that had is gone with it.
 	 */
-	readonly create: (options: SyncCollectionClientOptions) => CollectionOf<TRow>;
+	readonly create: (options: SyncCollectionClientOptions) => FactoryCollectionOf<TRow>;
 	/**
 	 * Indexes beyond the primary key, for the columns a picker filters on.
 	 *
@@ -126,9 +147,8 @@ export function installCollections(next: CollectionSource): void {
 /**
  * Declare a table's collection. Building it is the installed source's job.
  *
- * Pass the row type explicitly. A `Collection<…>` instantiated inside
- * `packages/sync` arrives as `any` with no error to say so, so inference from
- * `create` would leave every column on every read hook untyped.
+ * Pass the row type explicitly. Inferred from `create`, it would carry the
+ * schema's insert input into every read hook; see {@link FactoryCollectionOf}.
  */
 export function declareCollection<TRow extends SyncedRow>(
 	declaration: CollectionDeclaration<TRow>,

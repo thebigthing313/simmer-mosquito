@@ -38,7 +38,13 @@
  * the command endpoints exist, and then the ordinary one is.
  */
 
-import { CommandError, refusalSentence, sessionFetch, settleWrite } from '@simmer-mosquito/sync';
+import {
+	awaitConfirmation,
+	CommandError,
+	refusalSentence,
+	sessionFetch,
+	settleWrite,
+} from '@simmer-mosquito/sync';
 import { createTransaction } from '@tanstack/db';
 
 /** What a refused body may carry. Every field optional: the shape is the route's to choose. */
@@ -78,18 +84,12 @@ export function restRefusalFor(
  * `utils` is left as the library spells it. Its declared type is an index
  * signature rather than a named set of members, so a stricter shape here is not
  * assignable *from* a real collection even though the member exists on one and
- * the direct call compiles. Reading it back out below is where the shape is
- * asserted, once, rather than at every call site.
+ * the direct call compiles. `awaitConfirmation` in `packages/sync` reads it back
+ * out, once, for every write path.
  */
 interface WritableTarget {
 	readonly subscriberCount: number;
 	readonly utils: Record<string, unknown>;
-}
-
-/** The Electric adapter's txid wait, off a collection whose `utils` is untyped. */
-function awaitTxIdOn(collection: WritableTarget, txid: number): Promise<unknown> {
-	const wait = collection.utils.awaitTxId as ((txId: number) => Promise<unknown>) | undefined;
-	return wait === undefined ? Promise.resolve() : wait(txid);
 }
 
 export interface RestWriteInput {
@@ -145,11 +145,7 @@ export async function writeThroughRest(input: RestWriteInput): Promise<RestRefus
 			const parsed = await sendRestWrite(input, refusalFor);
 			committed.value = parsed;
 
-			// Nothing is watching means the stream is paused and no live query can
-			// snapshot it, so the wait does not resolve late — it never resolves.
-			if (input.collection.subscriberCount > 0) {
-				await awaitTxIdOn(input.collection, parsed.txid as number);
-			}
+			await awaitConfirmation(input.collection, [parsed.txid as number]);
 		},
 	});
 

@@ -26,6 +26,7 @@ import type {
 	InsertMutationFnParams,
 	UpdateMutationFnParams,
 } from '@tanstack/db';
+import { awaitConfirmation } from './await-confirmation.js';
 import { type CommandRequest, commandRequestFor, type PendingWrite } from './command-request.js';
 import { writeCommand } from './write-command.js';
 
@@ -44,35 +45,18 @@ export interface MutationHandlerConfig {
 	readonly serverUrl: string;
 }
 
-/**
- * Whether to hold the optimistic rows until Electric streams the write back.
+/*
+ * Each handler holds the mutation open until Electric streams the write back,
+ * through `awaitConfirmation`. The collection drops a transaction's optimistic
+ * state the moment its handler settles, so not waiting would show the old row
+ * until the synced one arrived. The wait is in the handler rather than a
+ * returned `{ txid }`, which `electric-db-collection` 0.5 deprecated. Whether
+ * to wait is whether anything is watching, and `awaitConfirmation` says why.
  *
- * Returning `{ txid }` makes the adapter wait for that transaction on the shape
- * stream, which is what stops an edited row flickering back to its old value
- * before the synced one arrives. Returning nothing completes the mutation as soon
- * as the server answers.
- *
- * The choice is not a property of the table — it is whether anything is watching
- * at the moment of the write. A collection with no subscribers has a paused
- * stream and no live query to request a subset snapshot, so neither source
- * `awaitTxId` reads from will ever update: the wait is not slow, it is permanent,
- * and it ends in a timeout on a write that committed. Subscriber count measures
- * exactly that condition, including the case where some *other* mounted component
- * is what keeps the stream warm.
- *
- * It does not promise the txid will arrive — a live stream whose loaded subset
- * excludes the new row still will not carry it — so a caller should continue to
- * treat a confirmation timeout as lag rather than failure.
+ * It does not promise the txid will arrive: a live stream whose loaded subset
+ * excludes the new row still will not carry it. So a caller treats a
+ * confirmation timeout as lag rather than failure, which `settleWrite` does.
  */
-function confirmationFor(
-	// Structural rather than `Collection<TRow>`: the only thing this needs is the
-	// count, and asking for the full type drags the collection's generics through a
-	// return position where they defeat the schema overload's inference.
-	collection: { readonly subscriberCount: number },
-	txid: number[],
-): { txid: number[] } | undefined {
-	return collection.subscriberCount > 0 ? { txid } : undefined;
-}
 
 function send(request: CommandRequest): Promise<number> {
 	return writeCommand(request.url, request.method, request.body, fallbackMessage);
@@ -100,16 +84,19 @@ async function sendAll<TRow extends object>(
 
 export function createMutationHandlers<TRow extends object>(config: MutationHandlerConfig) {
 	return {
-		onInsert: async ({ transaction, collection }: InsertMutationFnParams<TRow>) =>
-			confirmationFor(collection, await sendAll(transaction.mutations, config.serverUrl)),
+		onInsert: async ({ transaction, collection }: InsertMutationFnParams<TRow>) => {
+			await awaitConfirmation(collection, await sendAll(transaction.mutations, config.serverUrl));
+		},
 
 		onUpdate: async ({ transaction, collection }: UpdateMutationFnParams<TRow>) => {
 			const txid = await sendAll(transaction.mutations, config.serverUrl);
-			// A batch of pure no-ops sends nothing, and so has nothing to wait for.
-			return txid.length === 0 ? undefined : confirmationFor(collection, txid);
+			// A batch of pure no-ops sends nothing, and so has nothing to wait for:
+			// a wait over no txids resolves at once.
+			await awaitConfirmation(collection, txid);
 		},
 
-		onDelete: async ({ transaction, collection }: DeleteMutationFnParams<TRow>) =>
-			confirmationFor(collection, await sendAll(transaction.mutations, config.serverUrl)),
+		onDelete: async ({ transaction, collection }: DeleteMutationFnParams<TRow>) => {
+			await awaitConfirmation(collection, await sendAll(transaction.mutations, config.serverUrl));
+		},
 	};
 }

@@ -147,53 +147,29 @@ mutation handler completes. The handler must always await the authoritative
 server command response so real validation, authorization, network, and database
 write failures reject the transaction.
 
-Returning `{ txid }` from an Electric-backed mutation handler adds a second
-confirmation step: TanStack waits for that transaction ID to appear in the
-collection's Electric shape stream before resolving `tx.isPersisted.promise`.
-That is a read-your-write-through-sync guarantee, not merely a write-success
-guarantee. The Electric collection adapter defaults this wait to 5 seconds, and
-a timeout rejects the transaction even when the command already committed.
+After the server answers, every write path waits for the command's transaction
+ID to appear on the collection's Electric shape stream, through
+`awaitConfirmation` in `packages/sync`: the three collection handlers, a
+multi-row command transaction, and the two REST writes in `apps/web`. Since
+`@tanstack/db` 0.12.0 the collection drops a transaction's optimistic state the
+moment its mutation function settles, so a write that did not wait would show the
+previous synced row until the new one arrived. The handlers await the wait
+themselves rather than returning `{ txid }`, which `electric-db-collection` 0.5
+deprecated.
 
-The default product policy is that users should not see Electric catch-up lag as
-a save failure. Treat the awaited server command response as the user-facing
-persistence boundary. If a handler wants to observe Electric catch-up, await the
-transaction ID manually with `collection.utils.awaitTxId(...)`, catch timeout
-errors, and report them as console warnings or internal telemetry rather than
-Sonner toasts:
+`awaitConfirmation` skips the wait on a collection with no subscribers, because a
+paused stream never carries the txid and the wait would end only in a timeout on
+a write that committed. It waits `TXID_CONFIRMATION_TIMEOUT_MS`, five seconds,
+which was the adapter's default until 0.5 raised it to fifteen. A timeout
+rejects the transaction even though the command committed.
 
-```ts
-onInsert: async ({ transaction, collection }) => {
-	const txids = await Promise.all(
-		transaction.mutations.map(async (mutation) => {
-			const result = await writeThing(toPayload(mutation.modified));
-			return result.txid;
-		}),
-	);
-
-	void Promise.all(
-		txids.map((txid) =>
-			collection.utils.awaitTxId(txid, 5000).catch((error) => {
-				if (error?.name === 'TimeoutWaitingForTxIdError') {
-					console.warn('[sync] Timed out waiting for Electric txid catch-up', {
-						collection: collection.id,
-						txid,
-					});
-					return;
-				}
-
-				console.warn('[sync] Electric txid catch-up failed', error);
-			}),
-		),
-	);
-};
-```
-
-Do not return `{ txid }` for on-demand, filtered, subset-limited, or route-owned
-shapes unless the UI explicitly needs `tx.isPersisted.promise` to mean "the
-synced read model has caught up." In most collection handlers, returning
-`undefined` after the server command succeeds is cleaner: it lets TanStack drop
-pending optimistic state after the committed write while Electric refreshes or
-canonicalizes the row later.
+The product policy is that users should not see Electric catch-up lag as a save
+failure, so the awaited server command response is the user-facing persistence
+boundary. `settleWrite` awaits a transaction and treats
+`TimeoutWaitingForTxIdError` as success, and the membership writes catch it the
+same way. A wait does not promise the txid arrives: a live stream whose loaded
+subset excludes the new row will not carry it, which is the case the timeout is
+for.
 
 A table with no write surface is read-only by having no commands mapped to it,
 not by a separate class of collection. `apps/server/src/table-commands` is

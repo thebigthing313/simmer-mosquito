@@ -8,6 +8,7 @@
 import { createSpeciesCollection, type Species } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
 import { syncClientOptions } from './client-options';
+import { rowCollection } from './row-collection';
 
 /**
  * `eager`: every species, listed in full on the page that owns them and counted
@@ -15,11 +16,13 @@ import { syncClientOptions } from './client-options';
  *
  * `mutations: true` posts to `/commands/species`.
  */
-export const species: Collection<Species, string | number> = createSpeciesCollection({
-	...syncClientOptions,
-	syncMode: 'eager',
-	mutations: true,
-});
+export const species: Collection<Species, string | number> = rowCollection<Species>(
+	createSpeciesCollection({
+		...syncClientOptions,
+		syncMode: 'eager',
+		mutations: true,
+	}),
+);
 
 species.createIndex((row) => row.id, { indexType: BasicIndex });
 

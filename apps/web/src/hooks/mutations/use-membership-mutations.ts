@@ -30,6 +30,8 @@
 import type { IdentityCommandType, SimmerRole } from '@simmer-mosquito/domain';
 import type { Membership } from '@simmer-mosquito/sync';
 import {
+	awaitConfirmation,
+	type ConfirmableCollection,
 	commandPathFor,
 	isTxIdConfirmationTimeout,
 	settleWrite,
@@ -178,31 +180,16 @@ async function postMembershipCommand(
 }
 
 /**
- * The Electric adapter's txid wait, off a collection whose `utils` is untyped.
+ * Wait for the write on one collection, and read a timeout as lag.
  *
- * `utils` is declared as an index signature rather than a named set of members,
- * so a stricter shape here would not be assignable *from* a real collection even
- * though the member exists on one. Reading it back out is where the shape is
- * asserted, once.
+ * The server committed before this wait started, so a timeout is sync lag
+ * rather than failure, the same judgement `settleWrite` makes for the
+ * collection path. Every other rejection is real.
  */
-async function awaitTxIdOn(
-	collection: { readonly subscriberCount: number; readonly utils: Record<string, unknown> },
-	txid: number,
-): Promise<void> {
-	if (collection.subscriberCount === 0) {
-		return;
-	}
-	const wait = collection.utils.awaitTxId as ((txId: number) => Promise<unknown>) | undefined;
-	if (wait === undefined) {
-		return;
-	}
-
+async function awaitTxIdOn(collection: ConfirmableCollection, txid: number): Promise<void> {
 	try {
-		await wait(txid);
+		await awaitConfirmation(collection, [txid]);
 	} catch (error) {
-		// The server committed before this wait started, so a timeout is sync lag
-		// rather than failure — the same judgement `settleWrite` makes for the
-		// collection path. Every other rejection is real.
 		if (!isTxIdConfirmationTimeout(error)) {
 			throw error;
 		}

@@ -11,6 +11,7 @@
 import { createGeneraCollection, type Genus } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
 import { syncClientOptions } from './client-options';
+import { rowCollection } from './row-collection';
 
 /**
  * `eager`: the whole global taxonomy, which is a few dozen rows and is listed in
@@ -20,17 +21,16 @@ import { syncClientOptions } from './client-options';
  * `apps/web` is refused at. Nothing here decides that — the server does; declaring
  * it only stops the console offering a write API it could not use.
  *
- * The type is written out here rather than inferred because a `Collection<…>`
- * instantiated inside `packages/sync` arrives as `any`, with no error to say so.
- * Naming it on this side instantiates it where it resolves. If it is ever
- * removed, the check is that `collection.id` (a `string`) is refused where a
- * `number` is wanted.
+ * `rowCollection` holds it as a collection of `Genus`, and says why the factory's
+ * own type does not assign. `species` and `units` do the same.
  */
-export const genera: Collection<Genus, string | number> = createGeneraCollection({
-	...syncClientOptions,
-	syncMode: 'eager',
-	mutations: true,
-});
+export const genera: Collection<Genus, string | number> = rowCollection<Genus>(
+	createGeneraCollection({
+		...syncClientOptions,
+		syncMode: 'eager',
+		mutations: true,
+	}),
+);
 
 /**
  * The join index.
