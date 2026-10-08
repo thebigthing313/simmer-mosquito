@@ -13,13 +13,54 @@ export type MapCamera = {
 	readonly pitch?: number;
 };
 
-/** Continental-US framing until an organization's own extent is known. */
+/** Continental-US framing, for an Organization that has no map centre stored. */
 export const DEFAULT_MAP_CAMERA: MapCamera = {
 	center: [-95.7, 37.1],
 	zoom: 3.4,
 	bearing: 0,
 	pitch: 0,
 };
+
+/**
+ * The zoom a map opens at over the Organization's map centre: about a county
+ * across, which is the ground a district covers. The centre is a geocoded
+ * mailing address rather than an extent, so the zoom is a guess at the area
+ * around it and not a fit.
+ */
+export const ORGANIZATION_MAP_ZOOM = 10;
+
+/** The Organization's stored map centre, as `organizations` carries it. */
+export interface OrganizationMapCenter {
+	readonly lat: number;
+	readonly lng: number;
+}
+
+/**
+ * Where a map opens before anything has been fitted.
+ *
+ * Three answers in order. A camera the surface chose, or one an explorer
+ * remembered, wins. Otherwise the Organization's map centre at
+ * {@link ORGANIZATION_MAP_ZOOM}, and otherwise the continental US. A surface
+ * with rows of its own still fits to them once the map loads, so this decides
+ * where an empty surface stays (#1413).
+ */
+export function openingMapCamera(
+	surfaceCamera: MapCamera | undefined,
+	organizationCenter: OrganizationMapCenter | null,
+): MapCamera {
+	if (surfaceCamera !== undefined) {
+		return surfaceCamera;
+	}
+	if (organizationCenter !== null) {
+		return {
+			center: [organizationCenter.lng, organizationCenter.lat],
+			zoom: ORGANIZATION_MAP_ZOOM,
+			bearing: 0,
+			pitch: 0,
+		};
+	}
+	return DEFAULT_MAP_CAMERA;
+}
 
 /**
  * How far in any SIMMER map will go.

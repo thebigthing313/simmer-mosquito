@@ -3,7 +3,7 @@ import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // biome-ignore lint/suspicious/noExplicitAny: react act environment flag
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -28,6 +28,8 @@ class FakeStyle {
 }
 
 class FakeMap {
+	/** What the map was created with, for the opening camera. */
+	options: { readonly center?: unknown; readonly zoom?: unknown } = {};
 	style: FakeStyle | undefined = new FakeStyle();
 	_canvas: { style: { cursor: string } } | undefined = { style: { cursor: '' } };
 	readonly handlers = new Map<string, Set<(event: unknown) => void>>();
@@ -120,8 +122,9 @@ class FakeMap {
 const fakeRuntime = {
 	accessToken: '',
 	Map: class {
-		constructor() {
+		constructor(options: FakeMap['options']) {
 			const instance = new FakeMap();
+			instance.options = options;
 			created.push(instance);
 			// biome-ignore lint/correctness/noConstructorReturn: stand-in factory
 			return instance as unknown as never;
@@ -152,6 +155,13 @@ vi.stubEnv('VITE_MAPBOX_ACCESS_TOKEN', 'pk.test');
 const { RouteMap } = await import('../../../../components/route-planning/route-map');
 const { MapCanvas } = await import('../../../../components/map/map-canvas');
 const { mapClustering } = await import('../../../../lib/map-clustering');
+const { installMemoryCollections, seedRows } = await import(
+	'../../lib/collections/memory-collections'
+);
+const { organizations } = await import('../../../../lib/collections/organizations');
+const { DEFAULT_MAP_CAMERA, ORGANIZATION_MAP_ZOOM } = await import(
+	'../../../../components/map/map-styles'
+);
 
 const roots: Array<{ container: HTMLElement; unmount: () => void }> = [];
 
@@ -213,6 +223,12 @@ function latest(): FakeMap {
 	}
 	return instance;
 }
+
+// Every map reads the Organization's map centre, so every case needs a source
+// to read it from. An empty one is an Organization with no row yet.
+beforeEach(() => {
+	installMemoryCollections();
+});
 
 afterEach(() => {
 	for (const handle of roots.splice(0)) {
@@ -357,6 +373,43 @@ describe('RouteMap lifecycle (issue #132)', () => {
 		});
 
 		expect(latest().removed).toBe(false);
+	});
+});
+
+/*
+ * Where a map with nothing to fit opens (#1413). The Organization's map centre
+ * is read off its synced row, so the case seeds the row and reads the camera
+ * the map was created with.
+ */
+describe('MapCanvas opening camera (issue #1413)', () => {
+	async function open() {
+		mount(
+			<MapCanvas controls={{ search: false, basemap: false, geolocate: false, zoom: false }} />,
+		);
+		await loadRuntime();
+		return latest().options;
+	}
+
+	it("opens on the Organization's map centre at the regional zoom", async () => {
+		seedRows(organizations, [
+			{ id: 'org-1', name: 'Coastal MAD', map_center_lat: 40.4316, map_center_lng: -74.4331 },
+		]);
+
+		await expect(open()).resolves.toMatchObject({
+			center: [-74.4331, 40.4316],
+			zoom: ORGANIZATION_MAP_ZOOM,
+		});
+	});
+
+	it('opens on the continental US for an Organization with no centre stored', async () => {
+		seedRows(organizations, [
+			{ id: 'org-1', name: 'Coastal MAD', map_center_lat: null, map_center_lng: null },
+		]);
+
+		await expect(open()).resolves.toMatchObject({
+			center: DEFAULT_MAP_CAMERA.center,
+			zoom: DEFAULT_MAP_CAMERA.zoom,
+		});
 	});
 });
 

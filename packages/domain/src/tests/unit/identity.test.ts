@@ -88,6 +88,56 @@ describe('updateOrganizationDetailsCommand', () => {
 		).toBeNull();
 	});
 
+	it('carries a map centre as the two numbers it arrived as', () => {
+		const command = updateOrganizationDetailsCommand({
+			...organization,
+			mapCenterLat: 40.4316,
+			mapCenterLng: -74.4331,
+		});
+
+		expect(command.payload.changes).toEqual({ mapCenterLat: 40.4316, mapCenterLng: -74.4331 });
+	});
+
+	it('clears a map centre sent as two nulls', () => {
+		const command = updateOrganizationDetailsCommand({
+			...organization,
+			mapCenterLat: null,
+			mapCenterLng: null,
+		});
+
+		expect(command.payload.changes).toEqual({ mapCenterLat: null, mapCenterLng: null });
+	});
+
+	it.each([
+		['a latitude above 90', { mapCenterLat: 90.5, mapCenterLng: 0 }],
+		['a latitude below -90', { mapCenterLat: -91, mapCenterLng: 0 }],
+		['a longitude above 180', { mapCenterLat: 0, mapCenterLng: 180.1 }],
+		['a longitude below -180', { mapCenterLat: 0, mapCenterLng: -200 }],
+		['a latitude that is not a number', { mapCenterLat: Number.NaN, mapCenterLng: 0 }],
+		['a longitude cleared under a latitude', { mapCenterLat: 40, mapCenterLng: null }],
+		['a latitude cleared alone', { mapCenterLat: null }],
+	])('refuses %s', (_label, centre) => {
+		expect(() => updateOrganizationDetailsCommand({ ...organization, ...centre })).toThrow(
+			DomainValidationError,
+		);
+	});
+
+	it('carries one half alone, because the client sends only the half that moved', () => {
+		const command = updateOrganizationDetailsCommand({ ...organization, mapCenterLng: -74.5 });
+
+		expect(command.payload.changes).toEqual({ mapCenterLng: -74.5 });
+	});
+
+	it('accepts the ends of both ranges', () => {
+		const command = updateOrganizationDetailsCommand({
+			...organization,
+			mapCenterLat: -90,
+			mapCenterLng: 180,
+		});
+
+		expect(command.payload.changes).toEqual({ mapCenterLat: -90, mapCenterLng: 180 });
+	});
+
 	it('refuses an expectedUpdatedAt that is not a timestamp', () => {
 		expect(() =>
 			updateOrganizationDetailsCommand({

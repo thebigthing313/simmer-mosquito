@@ -31,6 +31,13 @@ export interface OrganizationDetailChanges {
 	readonly mailingLocality?: string | null;
 	readonly mailingRegion?: string | null;
 	readonly mailingPostalCode?: string | null;
+	/**
+	 * Where a map with no rows of its own opens, as the client geocoded it from
+	 * the mailing address. Either may arrive alone as a number; clearing sends
+	 * both as `null`.
+	 */
+	readonly mapCenterLat?: number | null;
+	readonly mapCenterLng?: number | null;
 }
 
 export interface UpdateOrganizationDetailsCommandInput
@@ -150,7 +157,17 @@ type NullableDetailKey = keyof typeof NULLABLE_DETAIL_LIMITS;
 
 const NULLABLE_DETAIL_KEYS = Object.keys(NULLABLE_DETAIL_LIMITS) as readonly NullableDetailKey[];
 
-const DETAIL_KEYS: readonly (keyof OrganizationDetailChanges)[] = ['name', ...NULLABLE_DETAIL_KEYS];
+/** The map centre's two halves and the range each must sit inside. */
+const MAP_CENTER_RANGES = [
+	{ key: 'mapCenterLat', limit: 90, message: 'mapCenterLat must be between -90 and 90.' },
+	{ key: 'mapCenterLng', limit: 180, message: 'mapCenterLng must be between -180 and 180.' },
+] as const;
+
+const DETAIL_KEYS: readonly (keyof OrganizationDetailChanges)[] = [
+	'name',
+	...NULLABLE_DETAIL_KEYS,
+	...MAP_CENTER_RANGES.map(({ key }) => key),
+];
 
 /**
  * The two details that are codes rather than free text.
@@ -187,7 +204,7 @@ export function updateOrganizationDetailsCommand(
 		issues.push({ path: 'changes', message: 'At least one organization detail must change.' });
 	}
 
-	const changes: Record<string, string | null> = {};
+	const changes: Record<string, string | number | null> = {};
 	if (input.name !== undefined) {
 		changes.name = normalizeRequiredText(input.name, 'name', issues, 200);
 	}
@@ -210,6 +227,7 @@ export function updateOrganizationDetailsCommand(
 		}
 		changes[key] = code;
 	}
+	Object.assign(changes, mapCenterChanges(input, issues));
 
 	const expectedUpdatedAt = normalizeExpectedUpdatedAt(input.expectedUpdatedAt, issues);
 	throwIfIssues('Update organization details command is invalid.', issues);
@@ -218,6 +236,46 @@ export function updateOrganizationDetailsCommand(
 		type: 'identity.updateOrganizationDetails',
 		payload: { ...organizationPayload(input), changes, expectedUpdatedAt },
 	};
+}
+
+/**
+ * The map centre's halves that arrived, each checked against its range.
+ *
+ * Clearing is the one thing done as a pair: a `null` must come with a `null`,
+ * because half a centre on a row that had one is a centre nobody chose. A
+ * number may arrive alone. The client sends the columns that changed, so a new
+ * geocode that lands on the stored latitude sends only the longitude, and the
+ * row already has the other half. A lone number on a row with no centre is
+ * stored state, so the server's writer refuses it.
+ */
+function mapCenterChanges(
+	input: OrganizationDetailChanges,
+	issues: ReturnType<typeof createIssues>,
+): Partial<Record<'mapCenterLat' | 'mapCenterLng', number | null>> {
+	if ((input.mapCenterLat === null) !== (input.mapCenterLng === null)) {
+		issues.push({
+			path: 'mapCenterLat',
+			message: 'mapCenterLat and mapCenterLng are cleared together, both null.',
+		});
+		return {};
+	}
+	const changes: Partial<Record<'mapCenterLat' | 'mapCenterLng', number | null>> = {};
+	for (const { key, limit, message } of MAP_CENTER_RANGES) {
+		const value = input[key];
+		if (value === undefined) {
+			continue;
+		}
+		if (!isCoordinate(value, limit)) {
+			issues.push({ path: key, message });
+		}
+		changes[key] = value;
+	}
+	return changes;
+}
+
+/** `null`, or a finite number no further from zero than `limit`. */
+function isCoordinate(value: number | null, limit: number): boolean {
+	return value === null || (Number.isFinite(value) && Math.abs(value) <= limit);
 }
 
 function normalizeExpectedUpdatedAt(

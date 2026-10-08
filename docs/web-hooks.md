@@ -623,6 +623,12 @@ the authenticated MVT tiles itself and defaults a cross-origin request to
 `same-origin`, so without `credentials: 'include'` every tile 401s;
 `pnpm check:session-credentials` reads that marker.
 
+With no camera from the caller the map opens through `openingMapCamera` in
+`components/map/map-styles.ts`: the Organization's map centre at
+`ORGANIZATION_MAP_ZOOM`, else `DEFAULT_MAP_CAMERA` (#1413). A surface with
+rows still fits to them once the map loads, so the order only decides where an
+empty surface stays.
+
 #### useNearbyLayer
 
 It renders a role-discriminated feature set the generic overlay cannot
@@ -2001,6 +2007,20 @@ streamed) and move together on an add or a delete. The cost is the two
 while the tab is open. `CommentCount` in `components/comment-count.tsx` is the
 label that reads it, and `LabelCount` beside it is the number every tab and
 the thread's heading draw, nothing at zero (#1265).
+
+#### useOrganizationMapCenter
+
+The Organization's map centre, which `useMapboxMap` opens on when the surface
+names no camera of its own (#1413). It is `useLiveQuery` and not the suspense
+variant every other organization read uses, because every map surface reads it
+and a map is not worth holding behind a fallback for where it opens. In the app
+the row is eager and the shell waits for it, so nothing is lost; in a suite with
+no organization row the answer is `null` and the map opens on the continental
+US, which is what kept the map suites from each needing a seeded row.
+
+The centre is read once, when the map is created, the way the camera is. A
+centre that arrives later does not move a map already open, because by then the
+surface has either fitted its rows or the person has started panning.
 
 ## apps/admin
 

@@ -5,16 +5,17 @@ import { getServerUrl } from '../../auth';
 import {
 	type BasemapId,
 	basemapStyle,
-	DEFAULT_MAP_CAMERA,
 	getMapboxToken,
 	MAX_MAP_ZOOM,
 	type MapCamera,
+	openingMapCamera,
 } from '../../components/map/map-styles';
 import { loadMapboxGl } from '../../components/map/mapbox-gl-loader';
 import {
 	createTileSessionRecovery,
 	refetchServerTileSources,
 } from '../../components/map/tile-session-recovery';
+import { useOrganizationMapCenter } from '../queries/use-organization-map-center';
 
 // Our authenticated MVT tiles are served by the SIMMER control plane, which is a
 // different origin from the web app in every environment where they don't share a
@@ -35,7 +36,11 @@ export interface UseMapboxMapOptions {
 	readonly container: HTMLDivElement | null;
 	/** Active basemap. Changing it restyles the live map without recreating it. */
 	readonly basemapId: BasemapId;
-	/** Initial camera; only read when the map is first created. */
+	/**
+	 * Initial camera; only read when the map is first created. Without one the
+	 * map opens on the Organization's map centre, or the continental US when it
+	 * has none.
+	 */
 	readonly camera?: MapCamera;
 	/** Whether to mount the compact attribution control. Defaults to true. */
 	readonly attribution?: boolean;
@@ -89,9 +94,12 @@ export function useMapboxMap({
 	const token = getMapboxToken().trim();
 	const hasToken = token.length > 0;
 
+	const organizationCenter = useOrganizationMapCenter();
+
 	// Initial camera / basemap are read from refs so the create effect only
 	// re-runs when the container or token changes — never on a basemap toggle.
 	const cameraRef = useRef(camera);
+	const organizationCenterRef = useRef(organizationCenter);
 	const basemapRef = useRef(basemapId);
 	const attributionRef = useRef(attribution);
 	// The writes are an effect rather than render-phase assignments, which is what
@@ -101,6 +109,7 @@ export function useMapboxMap({
 	// commit.
 	useEffect(() => {
 		cameraRef.current = camera;
+		organizationCenterRef.current = organizationCenter;
 		basemapRef.current = basemapId;
 		attributionRef.current = attribution;
 	});
@@ -124,7 +133,7 @@ export function useMapboxMap({
 				return;
 			}
 
-			const initialCamera = cameraRef.current ?? DEFAULT_MAP_CAMERA;
+			const initialCamera = openingMapCamera(cameraRef.current, organizationCenterRef.current);
 			mapboxgl.accessToken = token;
 			const instance = new mapboxgl.Map({
 				container,
