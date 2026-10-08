@@ -10,14 +10,18 @@
 		// outside `src/tests` may name a Node builtin: this package runs in a
 		// browser and in React Native, and `lib` above says so.
 		"types": ["node"],
-		// An app that references this project resolves this package's imports in
-		// CJS mode, though the package is `"type": "module"` and resolves ESM when
+		// An app that references this project resolves this package's files with
+		// this file's options: `tsc --traceResolution` in `apps/admin` prints "Using
+		// compiler options of project reference redirect" against this tsconfig. It
+		// also resolves them in CJS mode, with conditions `require`, `types` and
+		// `node`, though the package is `"type": "module"` and resolves ESM when
 		// checked alone. Since `@tanstack/db` 0.12.1 ships CJS declarations of its
 		// own, that put two copies of its classes in one program, and a collection
 		// built here no longer assigned to one the app names. Before, the CJS
 		// declarations did not resolve and every factory's type arrived as `any`.
-		// `import` is listed first in every export map that matters here, so this
-		// condition puts the app's lookup on the ESM declarations.
+		// `import` is listed first in `@tanstack/db`'s export map, so this condition
+		// puts the lookup on the ESM declarations. Without it the apps fail `tsc`
+		// with `BaseIndex` "is not a class derived from" errors, not silently.
 		"customConditions": ["import"]
 	},
 	"include": ["src/**/*.ts"],

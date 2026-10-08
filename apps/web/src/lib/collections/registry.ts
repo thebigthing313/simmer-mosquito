@@ -48,8 +48,8 @@ export interface SyncedRow {
  */
 export type CollectionOf<TRow extends SyncedRow> = Collection<TRow, string | number>;
 
-// biome-ignore lint/suspicious/noExplicitAny: the schema and its input are the factory's own, and a source narrows past them.
-type FactoryOwned = any;
+// biome-ignore lint/suspicious/noExplicitAny: the schema and its insert input are the factory's own, and a source narrows past them.
+type UncheckedFactoryArgument = any;
 
 /**
  * What a generated factory returns for `TRow`, before it is held as a
@@ -65,8 +65,8 @@ export type FactoryCollectionOf<TRow extends SyncedRow> = Collection<
 	TRow,
 	string | number,
 	UtilsRecord,
-	FactoryOwned,
-	FactoryOwned
+	UncheckedFactoryArgument,
+	UncheckedFactoryArgument
 >;
 
 /** What a table module says about its collection without building one. */

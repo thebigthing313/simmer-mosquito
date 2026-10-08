@@ -34,12 +34,11 @@
  *    `mutations: false` throws on a direct write and silently accepts the same
  *    write inside a transaction. This is the one path where that guard has to be
  *    run by hand.
- * 2. **Waiting for the write to stream back.** The Electric adapter only reads a
- *    `txid` off a *collection handler's* return value, and a transaction never
- *    calls those handlers. Nothing waits unless this waits, and when the
- *    transaction completes the optimistic rows are dropped in favour of synced
- *    ones that may not have arrived — which is the flicker the whole exercise is
- *    meant to avoid.
+ * 2. **Waiting for the write to stream back.** The collection handlers wait
+ *    through `awaitConfirmation`, and a transaction never calls those handlers.
+ *    Nothing waits unless this waits, and when the transaction completes the
+ *    optimistic rows are dropped in favour of synced ones that may not have
+ *    arrived, which is the flicker the whole exercise is meant to avoid.
  * 3. **Not waiting when nothing is listening.** A collection with no subscribers
  *    has a paused stream and no live query to snapshot, so its wait does not
  *    resolve late — it never resolves, and ends in a timeout on a write that
@@ -49,6 +48,7 @@
  */
 
 import { createTransaction } from '@tanstack/db';
+import { awaitConfirmation } from './await-confirmation.js';
 import { type CommandBody, refuseIfReadOnly, type WriteTarget } from './command-request.js';
 import type { MutationTransaction } from './mutate-collection.js';
 import { commandPathFor } from './routes.js';
@@ -76,7 +76,7 @@ export interface TransactionWrite extends WriteTarget {
 		/** Zero means nothing is watching this collection — see the module comment. */
 		readonly subscriberCount: number;
 		readonly utils: {
-			readonly awaitTxId: (txId: number) => Promise<unknown>;
+			readonly awaitTxId: (txId: number, timeout?: number) => Promise<unknown>;
 		};
 	};
 }
@@ -182,9 +182,7 @@ export async function sendCommandTransaction(input: {
 	// transaction — awaited on every collection that has someone watching.
 	// Concurrently, because they are separate streams.
 	await Promise.all(
-		collectionsOf(input.mutations)
-			.filter((collection) => collection.subscriberCount > 0)
-			.map((collection) => collection.utils.awaitTxId(txid)),
+		collectionsOf(input.mutations).map((collection) => awaitConfirmation(collection, [txid])),
 	);
 }
 
