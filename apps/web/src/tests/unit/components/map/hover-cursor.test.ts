@@ -79,4 +79,36 @@ describe('registerHoverLayers', () => {
 		expect(queryRenderedFeatures).not.toHaveBeenCalled();
 		expect(canvas.style.cursor).toBe('crosshair');
 	});
+
+	// A restyle drops every probed layer, so no later hit-test would clear it.
+	it('clears its own pointer when no registered layer is on the map', () => {
+		const { map, canvas, move } = fakeMap([]);
+		canvas.style.cursor = 'pointer';
+		registerHoverLayers(map, () => []);
+
+		move();
+
+		expect(canvas.style.cursor).toBe('');
+	});
+
+	it('clears its own pointer when the last layer is released', () => {
+		const { map, canvas, move } = fakeMap(['stops']);
+		const release = registerHoverLayers(map, () => ['stops']);
+		move();
+		expect(canvas.style.cursor).toBe('pointer');
+
+		release();
+
+		expect(canvas.style.cursor).toBe('');
+	});
+
+	it('leaves a crosshair alone when the last layer is released', () => {
+		const { map, canvas } = fakeMap([]);
+		const release = registerHoverLayers(map, () => ['stops']);
+		canvas.style.cursor = 'crosshair';
+
+		release();
+
+		expect(canvas.style.cursor).toBe('crosshair');
+	});
 });

@@ -37,6 +37,8 @@ import {
 	createSurfaceNames,
 	preloadRouteComponent,
 	renderExplorer,
+	SUMMARY_CASE_TIMEOUT,
+	SUMMARY_WAIT,
 	stubPanelLayout,
 } from '../../explorer-route-harness';
 
@@ -308,33 +310,43 @@ describe('the service requests explorer paging the viewport', () => {
 	// Over 100 in view the rail draws the summary in place of the rows (#1371),
 	// asked for under the page's own box and filters. What a click writes is
 	// `service-request-summary.test.tsx`'s.
-	it('draws the summary instead of the rows over 100 in view, with no pager', async () => {
-		harness.search = { ...ALL_TIME, status: 'closed' };
-		harness.requests = [INSIDE_OPEN, INSIDE_CLOSED, OUTSIDE];
-		harness.total = 150;
-		harness.summary = {
-			total: 150,
-			groups: {
-				status: [{ value: 'closed', count: 150 }],
-				tagId: [],
-				intakeType: [{ value: 'phone', count: 150 }],
-			},
-			figures: {},
-		};
-		harness.extent = { west: 0, south: -1, east: 1, north: 0 };
-		renderServiceRequests();
+	// The summary waits on three requests in turn, so this case outlasts the
+	// 5000ms default; `SUMMARY_WAIT` in the harness says why.
+	it(
+		'draws the summary instead of the rows over 100 in view, with no pager',
+		async () => {
+			harness.search = { ...ALL_TIME, status: 'closed' };
+			harness.requests = [INSIDE_OPEN, INSIDE_CLOSED, OUTSIDE];
+			harness.total = 150;
+			harness.summary = {
+				total: 150,
+				groups: {
+					status: [{ value: 'closed', count: 150 }],
+					tagId: [],
+					intakeType: [{ value: 'phone', count: 150 }],
+				},
+				figures: {},
+			};
+			harness.extent = { west: 0, south: -1, east: 1, north: 0 };
+			renderServiceRequests();
 
-		// The status the URL holds is drawn as the selected group.
-		const closed = await screen.findByRole('button', { name: 'Closed, 150 service requests' });
-		expect(closed.getAttribute('aria-pressed')).toBe('true');
-		expect(screen.queryByText('#13')).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
-		const summaryRequest = harness.sent.find(
-			(url) => url.pathname === '/map/service-requests/summary',
-		);
-		expect(summaryRequest?.searchParams.get('bbox')).toBe('0,-0.8,1,0');
-		expect(summaryRequest?.searchParams.get('status')).toBe('closed');
-	});
+			// The status the URL holds is drawn as the selected group.
+			const closed = await screen.findByRole(
+				'button',
+				{ name: 'Closed, 150 service requests' },
+				SUMMARY_WAIT,
+			);
+			expect(closed.getAttribute('aria-pressed')).toBe('true');
+			expect(screen.queryByText('#13')).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
+			const summaryRequest = harness.sent.find(
+				(url) => url.pathname === '/map/service-requests/summary',
+			);
+			expect(summaryRequest?.searchParams.get('bbox')).toBe('0,-0.8,1,0');
+			expect(summaryRequest?.searchParams.get('status')).toBe('closed');
+		},
+		SUMMARY_CASE_TIMEOUT,
+	);
 });
 
 describe('the service requests explorer with nothing on the page', () => {

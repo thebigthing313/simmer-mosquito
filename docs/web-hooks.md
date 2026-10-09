@@ -230,6 +230,13 @@ A flag on the event rather than a pause on the listener, because a pan the
 reader makes during or after the flight is a real change of viewport and must
 still re-page.
 
+This is the only flight an explorer selection makes, and a map card moves no
+camera. The Address card used to fly as well, once its geometry request
+answered, so one pick in the Address Book moved the map twice: on a cold pick
+the hook's flight was cut short and restarted, and on a cached one the card's
+was replaced in the same commit (#1423). A card that has better coordinates
+than the row is a reason to fix the row.
+
 #### useExplorerResource
 
 Nine explorer routes each ran the same four hooks in the same order and spent
@@ -589,13 +596,24 @@ side, a map that was destroyed while this subtree was hidden, handed straight
 back to the setup that follows.
 
 What stays with the caller is everything that makes a layer worth having, its
-specs, its colour expressions, its feature model, and any effect that
-re-scopes a layer without re-adding it, like a selection filter. The two
+specs, its colour expressions and its feature model. The two
 editing sessions, `useMapDraw` and `useMapMeasure`, keep their own state on
 top of this. Their live cursor never enters `data`, because it moves every
 frame and would cost a render per frame, so they repaint it imperatively and
 pass that same repaint as `onEnsure`, which is what puts a half-drawn shape
 back after a restyle.
+
+A selection filter is the hook's, through `selection`: the layer that draws
+it, a string key, and the function from that key to the filter. It used to be
+three effects in `useNearbyLayer`, `useActivityLayer` and `useGeoJsonLayer`,
+each re-filtering when the selection changed, and two of them built the
+selection layer from a spec holding the empty sentinel. A basemap switch is a
+`setStyle` on the same map, so `isLoaded` stays true, `style.load` re-added the
+layer with that spec, and no effect ran again: the ring was gone until the
+selection next changed (#1426). The hook now applies the filter after every
+add and re-add as well as on every change of key. The key is a string so a
+caller rebuilding an array of ids every render does not re-filter on every
+render.
 
 `removeAddedLayers` is module level rather than inline in the cleanup,
 because that loop sits inside a try block and the React Compiler cannot lower
@@ -637,8 +655,12 @@ call; the source lifecycle underneath it is `useGeoJsonSource`'s.
 
 #### useRouteLayer
 
-Selection and cursor emphasis go through feature-state so the list and the
-map stay in sync without rebuilding the source. The stop feature is
+Selection and hover emphasis go through feature-state so the list and the
+map stay in sync without rebuilding the source. The pointer cursor is
+`registerHoverLayers`', probing the same layers the click hit-tests, and the
+hook keeps its own `mousemove` only to report the hovered stop; a handler
+that wrote the cursor too would wipe another layer's pointer in the same
+event once a route map draws a second layer (#1426). The stop feature is
 framework-free geometry so the hook stays decoupled from the route domain
 rows that produce it.
 
@@ -932,6 +954,40 @@ and are few, so the whole list is read once and matched in memory; a
 non-suspense query keeps the popover from suspending the page around it.
 
 ### pickers
+
+#### useSearchPicker
+
+What a closed search-and-pick field says is decided here, for the trap and route
+pickers today and for the other five once they move onto it (#1434). Each picker
+used to hold its own `open`, `search` and picked label, and
+seeded the label once at mount, so it went stale two ways. A list that arrived
+after mount never filled the field, which is the collection forms on a cold
+load, where the eager `traps` set has not synced when the form first renders.
+And a `value` moved from outside kept showing the record picked before it: the
+route editor's add-stop trap picker is rendered with `value={null}` and went on
+showing the trap just added, with no clear button beside it.
+
+So the label is derived on every render and never stored. `null` is `''`, the id
+last passed to `pick` shows the label it was picked with, and anything else shows
+`resolvedLabel`. The pick is held as an id and label pair, so a picked label can
+never be shown against another id. When `value` becomes `null` or an id the
+picker did not pick, the search text is dropped as well, which is a state
+adjustment during render against the previous `value` rather than an effect, so
+reopening does not start from the old record's name.
+
+A pick the caller does not bind is dropped the same way. The route editor's
+add-stop field calls `onSelect` and leaves `value` at `null`, so the pick and its
+text go, and reopening lists every trap again instead of searching for the one
+just added, which the editor no longer offers. That rule is read off the render
+after the pick, so a caller binding the pick has to set `value` in the same event
+as `pick`. Every caller does, through component state or a form field; one that
+set it later, after a request, would lose the picked label and show
+`resolvedLabel` instead.
+
+`resolvedLabel` is a string rather than a resolver callback because the
+resolutions differ in kind: a lookup over a list already in memory,
+`useSelectedRowLabel`'s row read, `useHabitatNames`. The caller runs whichever it
+needs and this hook reads no collection.
 
 #### useSelectedRowLabel
 

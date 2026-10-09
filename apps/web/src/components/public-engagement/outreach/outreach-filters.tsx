@@ -13,6 +13,7 @@ import type { OutreachFilterBinding } from '../../../hooks/public-engagement/use
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
+	DateRangeChip,
 	FilterChip,
 	FilterFieldsLayout,
 	FilterGrid,
@@ -81,9 +82,10 @@ export function OutreachFilterChips({ binding }: { readonly binding: OutreachFil
 	const { nameById: methodNameById } = useOutreachMethodOptions();
 	const { nameById: personNameById } = usePersonnelOptions();
 	const { nameById: regionNameById } = useRegionOptions();
-	const { filters, setFilters, reset } = binding;
+	const { filters, setFilters, reset, defaults } = binding;
 	return (
 		<ActiveFilterBar onClearAll={reset}>
+			<DateRangeChip defaults={defaults} range={filters} setRange={setFilters} />
 			{[...filters.methods].map((id) => (
 				<FilterChip
 					key={id}

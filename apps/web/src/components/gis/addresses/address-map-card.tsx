@@ -1,8 +1,6 @@
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { LocateFixedIcon, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useEffect } from 'react';
 import { useAddressGeometry } from '../../../hooks/gis/use-address-geometry';
 import { useAddress } from '../../../hooks/queries/use-address';
 import { useRecordTags } from '../../../hooks/queries/use-record-tags';
@@ -15,15 +13,14 @@ import { TagBadge } from '../../tag-badge';
 /**
  * The map focus card for an address. Reads the address through
  * {@link useAddress}, its tags alongside it, and its point geometry over HTTP.
+ * It moves no camera: the explorer flies to the selection (#1423).
  */
 export function AddressMapCard({
 	id,
-	map,
 	inset,
 	onClose,
 }: {
 	readonly id: string;
-	readonly map: MapboxMap | null;
 	/** What is floating over the map, so the card centres clear of it. */
 	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
@@ -35,13 +32,6 @@ export function AddressMapCard({
 	const lng = geometryQuery.data?.lng ?? null;
 
 	const tags = useRecordTags(id);
-
-	useEffect(() => {
-		if (map === null || lat === null || lng === null) {
-			return;
-		}
-		map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 14), duration: 600 });
-	}, [map, lat, lng]);
 
 	if (address === undefined) {
 		return (

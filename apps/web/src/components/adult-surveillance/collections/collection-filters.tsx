@@ -13,6 +13,7 @@ import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
+	DateRangeChip,
 	FilterChip,
 	FilterFieldsLayout,
 	FilterGrid,
@@ -83,9 +84,10 @@ export function CollectionFilterFields({
 export function CollectionFilterChips({ binding }: { readonly binding: CollectionFilterBinding }) {
 	const { nameById: methodNameById } = useCollectionMethodOptions();
 	const { nameById: regionNameById } = useRegionOptions();
-	const { filters, setFilters, reset } = binding;
+	const { filters, setFilters, reset, defaults } = binding;
 	return (
 		<ActiveFilterBar onClearAll={reset}>
+			<DateRangeChip defaults={defaults} range={filters} setRange={setFilters} />
 			{[...filters.methods].map((id) => (
 				<FilterChip
 					key={id}

@@ -22,6 +22,8 @@ import { installMemoryCollections, seedRows } from '../../../lib/collections/mem
 import {
 	preloadRouteComponent,
 	renderExplorer,
+	SUMMARY_CASE_TIMEOUT,
+	SUMMARY_WAIT,
 	stubPanelLayout,
 } from '../../explorer-route-harness';
 
@@ -108,52 +110,60 @@ const BIOCONTROL_ACTION = {
 };
 
 describe('the biocontrol actions explorer with biocontrol actions in view', () => {
-	it('draws the summary instead of the rows over 100 in view, with no pager', async () => {
-		harness.search = {
-			from: '2026-09-01',
-			to: '2026-09-28',
-			methods: ['method-1'],
-			habitat: true,
-		};
-		harness.page = { biocontrolActions: [BIOCONTROL_ACTION], total: 240 };
-		harness.summary = {
-			total: 240,
-			groups: {
-				biocontrolMethodId: [{ value: 'method-1', count: 240 }],
-				technicianProfileId: [{ value: null, count: 240 }],
-				habitat: [{ value: true, count: 240 }],
-			},
-			breakdowns: {
-				amountReleased: [{ by: { unitId: 'unit-1' }, count: 240, sum: 480 }],
-			},
-		};
-		renderExplorer(BiocontrolExplorer);
+	// The summary waits on three requests in turn, so this case outlasts the
+	// 5000ms default; `SUMMARY_WAIT` in the harness says why.
+	it(
+		'draws the summary instead of the rows over 100 in view, with no pager',
+		async () => {
+			harness.search = {
+				from: '2026-09-01',
+				to: '2026-09-28',
+				methods: ['method-1'],
+				habitat: true,
+			};
+			harness.page = { biocontrolActions: [BIOCONTROL_ACTION], total: 240 };
+			harness.summary = {
+				total: 240,
+				groups: {
+					biocontrolMethodId: [{ value: 'method-1', count: 240 }],
+					technicianProfileId: [{ value: null, count: 240 }],
+					habitat: [{ value: true, count: 240 }],
+				},
+				breakdowns: {
+					amountReleased: [{ by: { unitId: 'unit-1' }, count: 240, sum: 480 }],
+				},
+			};
+			renderExplorer(BiocontrolExplorer);
 
-		// The method the address bar holds is drawn as the selected group.
-		const method = await screen.findByRole('button', {
-			name: 'Unknown method, 240 biocontrol actions',
-		});
-		expect(method.getAttribute('aria-pressed')).toBe('true');
-		expect(
-			screen
-				.getByRole('button', { name: 'Linked to a Habitat, 240 biocontrol actions' })
-				.getAttribute('aria-pressed'),
-		).toBe('true');
-		expect(screen.getByRole('region', { name: 'Amount Released' }).textContent).toBe(
-			'Amount ReleasedUnknown unit480',
-		);
-		expect(screen.queryByRole('link', { name: 'Unknown method' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
+			// The method the address bar holds is drawn as the selected group.
+			const method = await screen.findByRole(
+				'button',
+				{ name: 'Unknown method, 240 biocontrol actions' },
+				SUMMARY_WAIT,
+			);
+			expect(method.getAttribute('aria-pressed')).toBe('true');
+			expect(
+				screen
+					.getByRole('button', { name: 'Linked to a Habitat, 240 biocontrol actions' })
+					.getAttribute('aria-pressed'),
+			).toBe('true');
+			expect(screen.getByRole('region', { name: 'Amount Released' }).textContent).toBe(
+				'Amount ReleasedUnknown unit480',
+			);
+			expect(screen.queryByRole('link', { name: 'Unknown method' })).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
 
-		const summaryRequest = harness.sent.find((url) => url.pathname === '/map/biocontrol/summary');
-		expect(Object.fromEntries(summaryRequest?.searchParams ?? [])).toEqual({
-			bbox: '0,-0.8,1,0',
-			biocontrolMethodId: 'method-1',
-			habitatLinked: 'true',
-			dateFrom: '2026-09-01',
-			dateTo: '2026-09-28',
-		});
-	});
+			const summaryRequest = harness.sent.find((url) => url.pathname === '/map/biocontrol/summary');
+			expect(Object.fromEntries(summaryRequest?.searchParams ?? [])).toEqual({
+				bbox: '0,-0.8,1,0',
+				biocontrolMethodId: 'method-1',
+				habitatLinked: 'true',
+				dateFrom: '2026-09-01',
+				dateTo: '2026-09-28',
+			});
+		},
+		SUMMARY_CASE_TIMEOUT,
+	);
 
 	it('draws the rows at 100 or fewer, with no pager and no summary request', async () => {
 		harness.page = { biocontrolActions: [BIOCONTROL_ACTION], total: 1 };
