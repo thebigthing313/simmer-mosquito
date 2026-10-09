@@ -14,8 +14,15 @@
 import { calendarDateParts } from '../../lib/local-date';
 import { unreadable } from '../../lib/unreadable-input';
 
+/**
+ * Where a worklist can be in its life, in the order a filter lists them. The
+ * status filter decodes a link against this list, so a member it does not
+ * name is dropped rather than filtering the list to nothing.
+ */
+export const ASSIGNMENT_STATUSES = ['notStarted', 'inProgress', 'completed', 'cancelled'] as const;
+
 /** Where a worklist is in its life. Derived from timestamps — there is no column. */
-export type AssignmentStatus = 'notStarted' | 'inProgress' | 'completed' | 'cancelled';
+export type AssignmentStatus = (typeof ASSIGNMENT_STATUSES)[number];
 
 export const ASSIGNMENT_STATUS_LABELS: Readonly<Record<AssignmentStatus, string>> = {
 	notStarted: 'Not started',
