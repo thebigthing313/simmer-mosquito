@@ -42,6 +42,7 @@ import {
 	type ImportRefusalCounts,
 	importRowSummary,
 } from '../../../components/map/import-notes';
+import { framingPadding } from '../../../components/map/map-inset';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
@@ -618,7 +619,7 @@ function fitMapToItems(map: MapboxMap, items: readonly ImportItem[]): void {
 			[west, south],
 			[east, north],
 		],
-		{ padding: 56, maxZoom: 15, duration: 500 },
+		{ ...framingPadding(map, 56), maxZoom: 15, duration: 500 },
 	);
 }
 

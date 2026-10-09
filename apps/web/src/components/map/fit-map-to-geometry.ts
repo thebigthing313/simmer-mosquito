@@ -1,5 +1,6 @@
 import { boundsFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { Map as MapboxMap } from 'mapbox-gl';
+import { framingPadding } from './map-inset';
 
 /**
  * Ease the map to frame `geometry`.
@@ -19,7 +20,7 @@ export function fitMapToGeometry(map: MapboxMap, geometry: GeoJsonGeometry): voi
 				[bounds.west, bounds.south],
 				[bounds.east, bounds.north],
 			],
-			{ padding: 80, maxZoom: 17, duration: 600 },
+			{ ...framingPadding(map, 80), maxZoom: 17, duration: 600 },
 		);
 		return;
 	}

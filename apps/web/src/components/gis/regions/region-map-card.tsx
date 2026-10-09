@@ -8,7 +8,7 @@ import { useRegion } from '../../../hooks/queries/use-region';
 import { useRegionGeometry } from '../../../hooks/use-region-geometry';
 import { recordNoun } from '../../../lib/record-nouns';
 import { MapCard, MapCardEyebrow, MapCardText } from '../../map/map-card';
-import type { MapInset } from '../../map/map-inset';
+import { framingPadding, type MapInset } from '../../map/map-inset';
 import { TagBadge } from '../../tag-badge';
 
 /**
@@ -48,7 +48,7 @@ export function RegionMapCard({
 				[bounds.west, bounds.south],
 				[bounds.east, bounds.north],
 			],
-			{ padding: 64, maxZoom: 15, duration: 600 },
+			{ ...framingPadding(map, 64), maxZoom: 15, duration: 600 },
 		);
 	}, [map, geojson]);
 

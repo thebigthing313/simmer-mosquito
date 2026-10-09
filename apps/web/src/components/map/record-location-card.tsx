@@ -33,6 +33,7 @@ import { LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useRef } from 'react';
 import { MapCanvas } from './map-canvas';
+import { framingPadding } from './map-inset';
 import type { MapCamera } from './map-styles';
 
 /**
@@ -310,7 +311,7 @@ function fitToBounds(map: MapboxMap, bounds: BoundingBox | null, animate = false
 				[bounds.west, bounds.south],
 				[bounds.east, bounds.north],
 			],
-			{ padding: 48, maxZoom: 17, duration },
+			{ ...framingPadding(map, 48), maxZoom: 17, duration },
 		);
 		return;
 	}

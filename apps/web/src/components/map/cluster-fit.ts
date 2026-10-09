@@ -1,5 +1,6 @@
 import { MAP_CLUSTER_UNTIL_ZOOM } from '@simmer-mosquito/mapping';
 import type { Map as MapboxMap } from 'mapbox-gl';
+import { framingPadding } from './map-inset';
 
 /** The box a cluster's points cover, in WGS84. */
 export interface ClusterBounds {
@@ -54,7 +55,7 @@ export function fitMapToCluster(map: MapboxMap, bounds: ClusterBounds): void {
 			[bounds.west, bounds.south],
 			[bounds.east, bounds.north],
 		],
-		{ padding: 48, maxZoom: MAP_CLUSTER_UNTIL_ZOOM },
+		{ ...framingPadding(map, 48), maxZoom: MAP_CLUSTER_UNTIL_ZOOM },
 	);
 }
 
