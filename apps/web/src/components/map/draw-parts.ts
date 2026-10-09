@@ -5,9 +5,9 @@
  * Nothing here touches Mapbox or React. Every function takes geometry and a mode
  * and answers with geometry or a refusal code, so a question about coordinates
  * is asked by calling one rather than by simulating clicks against a fake map
- * (#630). `use-map-draw.ts` is the gesture machine over the top: it reads pointer
- * events, tracks the mode, paints the sources and layers, and calls in here for
- * every answer about shape.
+ * (#630). `draw-machine.ts` is the state machine over the top, and it calls in
+ * here for every answer about shape; `use-map-draw.ts` is the adapter that reads
+ * pointer events, runs the machine, and paints the sources and layers.
  *
  * It sits beside its caller rather than in `packages/mapping`, where the planar
  * path family went in #640. That package is dependency-free and deliberately
@@ -260,15 +260,12 @@ export type DrawSketch = {
 	readonly positions: readonly PlanarPosition[];
 };
 
-export type Mode =
-	| { readonly kind: 'idle' }
-	| DrawMode
-	| EditMode
-	| {
-			readonly kind: 'point';
-			readonly resolve: (point: DrawGeometry & { readonly type: 'Point' }) => void;
-			readonly reject: (error: Error) => void;
-	  };
+/**
+ * Where the control is. `point` is a pending point request, held as plain data:
+ * the promise the request returned is the adapter's, and a transition says what
+ * happens to it through an effect rather than by calling it.
+ */
+export type Mode = { readonly kind: 'idle' } | DrawMode | EditMode | { readonly kind: 'point' };
 
 /** A vertex the pointer has hold of, drawn where the cursor is until it lands. */
 export interface DrawDrag {
@@ -994,10 +991,4 @@ export function isRubberBanding(mode: Mode): boolean {
 		return mode.sketch !== null;
 	}
 	return mode.kind === 'draw' && mode.type !== 'Point';
-}
-
-export function rejectPending(mode: Mode): void {
-	if (mode.kind === 'point') {
-		mode.reject(new Error('A new map request replaced this one.'));
-	}
 }

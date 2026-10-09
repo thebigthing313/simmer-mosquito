@@ -1,21 +1,28 @@
 import type { OwnedGeometryKind } from '@simmer-mosquito/domain';
-import type { PlanarPosition } from '@simmer-mosquito/mapping';
 import type { GeoJSONSource, Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { buildFeatures } from '../../components/map/draw-features';
 import { drawLayers, SOURCE_ID } from '../../components/map/draw-layers';
 import {
-	type DrawDrag,
+	type DrawContext,
+	type DrawEffect,
+	type DrawEvent,
+	type DrawPoint,
+	type DrawPointRejection,
+	type DrawState,
+	IDLE_DRAW_STATE,
+	next,
+} from '../../components/map/draw-machine';
+import {
+	continuedPartOf,
 	type DrawGeometry,
 	draftProgress,
-	type Mode,
+	editDraftOf,
+	holeDraftOf,
 } from '../../components/map/draw-parts';
-import { useDrawDrafts } from './use-draw-drafts';
+import { fitMapToGeometry } from '../../components/map/fit-map-to-geometry';
 import { useDrawEditEvents } from './use-draw-edit-events';
 import { useDrawMapEvents } from './use-draw-map-events';
-import { useDrawPartActions } from './use-draw-part-actions';
-import { useDrawSession } from './use-draw-session';
-import { useDrawVertexActions } from './use-draw-vertex-actions';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
@@ -38,9 +45,17 @@ export {
 
 import type { MapDrawController } from '../../components/map/draw-controller';
 
+/** What a pending point request is rejected with, by the machine's reason. */
+const POINT_REJECTIONS: Record<DrawPointRejection, string> = {
+	superseded: 'A new map request replaced this one.',
+	cancelled: 'Point selection cancelled.',
+};
+
 /**
  * Binds a draft-geometry source and layers to a live map and runs the draw
- * state machine over map clicks.
+ * machine in `components/map/draw-machine` over map input and the controller's
+ * actions. This is the machine's adapter: it holds the state, dispatches the
+ * events, and runs the effects each transition names.
  *
  * Renders the committed `value` part by part, and a live preview of the placed
  * vertices with a rubber-band segment to the cursor while drawing. Point
@@ -69,88 +84,105 @@ export function useMapDraw({
 	 */
 	readonly geometryKind?: OwnedGeometryKind;
 }): MapDrawController {
-	const [mode, setMode] = useState<Mode>({ kind: 'idle' });
-	const [vertices, setVertices] = useState<readonly PlanarPosition[]>([]);
+	// What a render reads. The cursor and the drag are left out: both move every
+	// frame and ride `repaint` instead, so a mousemove repaints the rubber band
+	// without re-rendering anything.
+	const [view, setView] =
+		useState<Pick<DrawState, 'mode' | 'vertices' | 'highlighted'>>(IDLE_DRAW_STATE);
+	const { mode, vertices, highlighted } = view;
 
-	// Frequently-changing render inputs live in refs so the rubber band can be
-	// repainted on mousemove without a React re-render per frame.
-	const cursorRef = useRef<PlanarPosition | null>(null);
-	const modeRef = useRef(mode);
-	const verticesRef = useRef(vertices);
-	const valueRef = useRef(value);
+	// The whole state, written by `dispatch` the moment an event lands, because a
+	// handler can fire several events in one tick and each has to see the last.
+	// Render never reads it: it reads `view`, which `dispatch` keeps in step.
+	const stateRef = useRef<DrawState>(IDLE_DRAW_STATE);
+	const contextRef = useRef<DrawContext>({ value, geometryKind });
 	const onChangeRef = useRef(onChange);
+	// The pending point request's callbacks. The machine holds only that a point
+	// is pending, and says through an effect what happens to it.
+	const pendingRef = useRef<{
+		readonly resolve: (point: DrawPoint) => void;
+		readonly reject: (error: Error) => void;
+	} | null>(null);
 
 	// The writes are an effect rather than render-phase assignments, which is what
-	// the React Compiler permits. Every read below happens after a commit, from an
-	// effect or from a Mapbox pointer event, so the value each one sees is
-	// unchanged. The effect is declared above its readers, so the write lands first
-	// inside one commit.
+	// the React Compiler permits. Every reader is an event handler or an effect, so
+	// the value each one sees is unchanged.
 	useEffect(() => {
-		modeRef.current = mode;
-		verticesRef.current = vertices;
-		valueRef.current = value;
+		contextRef.current = { value, geometryKind };
 		onChangeRef.current = onChange;
 	});
-
-	// The vertex the pointer has hold of rides a ref rather than state, the way
-	// the rubber band does: a drag repaints every frame and lands as one change.
-	const dragRef = useRef<DrawDrag | null>(null);
-
-	const {
-		applyParts,
-		continuePart,
-		editPart,
-		highlightedPart,
-		highlightedRef,
-		highlightPart,
-		removeHole,
-		removePart,
-		startHole,
-		startPart,
-		zoomToPart,
-	} = useDrawPartActions({
-		map,
-		geometryKind,
-		cursorRef,
-		dragRef,
-		modeRef,
-		valueRef,
-		onChangeRef,
-		setMode,
-		setVertices,
-	});
-
-	const { holeDraft, continuedPart, editedPart } = useDrawDrafts(mode, value, vertices);
 
 	const repaint = () => {
 		if (!isMapLive(map)) {
 			return;
 		}
+		const state = stateRef.current;
 		const source = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
 		source?.setData(
 			buildFeatures({
-				committed: valueRef.current,
-				mode: modeRef.current,
-				vertices: verticesRef.current,
-				cursor: cursorRef.current,
-				drag: dragRef.current,
-				highlighted: highlightedRef.current,
+				committed: contextRef.current.value,
+				mode: state.mode,
+				vertices: state.vertices,
+				cursor: state.cursor,
+				drag: state.drag,
+				highlighted: state.highlighted,
 			}),
 		);
 	};
 	// `repaint` reads only refs and the map, so it is never what an effect reacts
 	// to, and naming it in a dependency array would say otherwise. The effect below
 	// reaches it through an effect event; the ordinary function stays for
-	// `onEnsure` and the two inner hooks, which are call sites outside an effect.
+	// `onEnsure` and `dispatch`, which are call sites outside an effect.
 	const repaintNow = useEffectEvent(() => {
 		repaint();
 	});
 
+	const settle = (effect: DrawEffect) => {
+		switch (effect.kind) {
+			case 'emit':
+				onChangeRef.current(effect.geometry);
+				return;
+			case 'resolvePoint':
+				pendingRef.current?.resolve(effect.point);
+				pendingRef.current = null;
+				return;
+			case 'rejectPoint':
+				pendingRef.current?.reject(new Error(POINT_REJECTIONS[effect.reason]));
+				pendingRef.current = null;
+				return;
+			case 'frame':
+				if (isMapLive(map)) {
+					fitMapToGeometry(map, effect.part);
+				}
+				return;
+		}
+	};
+
+	// The one place the draw state is written. A change to what a render reads
+	// re-renders; a change to the cursor or the drag alone repaints and nothing
+	// else, which is what keeps the rubber band at frame rate.
+	const dispatch = (event: DrawEvent): DrawState => {
+		const previous = stateRef.current;
+		const { state, effects } = next(previous, event, contextRef.current);
+		stateRef.current = state;
+		if (
+			state.mode !== previous.mode ||
+			state.vertices !== previous.vertices ||
+			state.highlighted !== previous.highlighted
+		) {
+			setView({ mode: state.mode, vertices: state.vertices, highlighted: state.highlighted });
+		} else if (state.cursor !== previous.cursor || state.drag !== previous.drag) {
+			repaint();
+		}
+		for (const effect of effects) {
+			settle(effect);
+		}
+		return state;
+	};
+
 	// What the draft source holds after a real state change: a new committed value,
-	// another vertex, a mode switch. The cursor and the drag are not here at all.
-	// Both move every frame and ride `repaint` instead, so a mousemove repaints the
-	// rubber band without re-rendering anything, and reading them here was a
-	// render-phase ref read of what the map is currently showing, which is
+	// another vertex, a mode switch. The cursor and the drag are layered back on by
+	// `repaint` in the effect below, because what the map is showing this frame is
 	// commit-time information rather than render-time.
 	const features = buildFeatures({
 		committed: value,
@@ -158,7 +190,7 @@ export function useMapDraw({
 		vertices,
 		cursor: null,
 		drag: null,
-		highlighted: highlightedPart,
+		highlighted,
 	});
 
 	// The source lifecycle — add, re-add on restyle, setData for updates, guarded
@@ -183,91 +215,86 @@ export function useMapDraw({
 		repaintNow();
 	}, [features]);
 
-	const finishRef = useRef<() => void>(() => {});
+	useDrawMapEvents({ map, isLoaded, mode, dispatch });
+	useDrawEditEvents({ map, isLoaded, isEditing: mode.kind === 'edit', dispatch });
 
-	useDrawMapEvents({
-		map,
-		isLoaded,
-		mode,
-		modeRef,
-		cursorRef,
-		dragRef,
-		repaint,
-		applyParts,
-		finishRef,
-		setMode,
-		setVertices,
-	});
-
-	const {
-		selectVertex,
-		moveVertex,
-		insertVertex,
-		deleteVertex,
-		startReshape,
-		startSplit,
-		sketchVertex,
-	} = useDrawVertexActions(setMode);
-
-	const { start, cancel, commit, undo, finish, requestPoint } = useDrawSession({
-		map,
-		applyParts,
-		highlightPart,
-		cursorRef,
-		dragRef,
-		modeRef,
-		valueRef,
-		verticesRef,
-		onChangeRef,
-		finishRef,
-		setMode,
-		setVertices,
-	});
-
-	useDrawEditEvents({
-		map,
-		isLoaded,
-		isEditing: mode.kind === 'edit',
-		modeRef,
-		cursorRef,
-		dragRef,
-		repaint,
-		moveVertex,
-		insertVertex,
-		deleteVertex,
-		selectVertex,
-		sketchVertex,
-	});
-
-	const progress = draftProgress(mode, value, vertices);
+	const requestPoint = (_prompt?: string) =>
+		new Promise<DrawPoint>((resolve, reject) => {
+			if (!isMapLive(map)) {
+				reject(new Error('The map is not ready yet.'));
+				return;
+			}
+			// Dispatched before the new callbacks are held, so a request already
+			// pending is the one the superseded rejection reaches.
+			dispatch({ type: 'requestPoint' });
+			pendingRef.current = { resolve, reject };
+		});
 
 	return {
 		isDrawing: mode.kind === 'draw' || mode.kind === 'edit',
 		isAddingPart: mode.kind === 'draw' && mode.target.kind === 'part',
 		isRequestingPoint: mode.kind === 'point',
-		...progress,
-		start,
-		startPart,
-		startHole,
-		continuePart,
-		continuedPart,
-		editPart,
-		editedPart,
-		moveVertex,
-		insertVertex,
-		deleteVertex,
-		selectVertex,
-		startReshape,
-		startSplit,
-		removePart,
-		removeHole,
-		holeDraft,
-		highlightPart,
-		zoomToPart,
-		finish,
-		cancel,
-		undo,
-		commit,
+		...draftProgress(mode, value, vertices),
+		start: (drawType) => {
+			dispatch({ type: 'start', drawType });
+		},
+		startPart: () => {
+			dispatch({ type: 'startPart' });
+		},
+		startHole: (partIndex) => {
+			dispatch({ type: 'startHole', partIndex });
+		},
+		continuePart: (partIndex) => {
+			dispatch({ type: 'continuePart', partIndex });
+		},
+		continuedPart: continuedPartOf(mode, value, vertices),
+		editPart: (partIndex) => {
+			dispatch({ type: 'editPart', partIndex });
+		},
+		editedPart: editDraftOf(mode, value),
+		moveVertex: (vertex, position) => {
+			dispatch({ type: 'moveVertex', vertex, position });
+		},
+		insertVertex: (edge, position) => {
+			dispatch({ type: 'insertVertex', edge, position });
+		},
+		deleteVertex: (vertex) => {
+			dispatch({ type: 'deleteVertex', vertex });
+		},
+		selectVertex: (vertex) => {
+			dispatch({ type: 'selectVertex', vertex });
+		},
+		startReshape: () => {
+			dispatch({ type: 'startReshape' });
+		},
+		startSplit: () => {
+			dispatch({ type: 'startSplit' });
+		},
+		removePart: (partIndex) => {
+			dispatch({ type: 'removePart', partIndex });
+		},
+		removeHole: (partIndex, holeIndex) => {
+			dispatch({ type: 'removeHole', partIndex, holeIndex });
+		},
+		holeDraft: holeDraftOf(mode, value, vertices),
+		highlightPart: (partIndex) => {
+			dispatch({ type: 'highlightPart', partIndex });
+		},
+		zoomToPart: (partIndex) => {
+			dispatch({ type: 'zoomToPart', partIndex });
+		},
+		finish: () => {
+			dispatch({ type: 'finish' });
+		},
+		cancel: () => {
+			dispatch({ type: 'cancel' });
+		},
+		undo: () => {
+			dispatch({ type: 'undo' });
+		},
+		commit: (geometry) => {
+			dispatch({ type: 'commit', geometry });
+		},
 		requestPoint,
 	};
 }
