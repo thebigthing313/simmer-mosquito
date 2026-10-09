@@ -1,3 +1,4 @@
+import { isPositiveInspection } from '@simmer-mosquito/domain';
 import type { Inspection } from '@simmer-mosquito/sync';
 import {
 	Card,
@@ -22,19 +23,13 @@ import { recordNoun } from '../../../lib/record-nouns';
 
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 
-// Minimal projection: just the fields that decide dry / wet-negative / wet-positive.
+// Minimal projection: the fields a Positive Inspection is decided on.
 interface InspectionStatsRow {
 	readonly id: string;
 	readonly isWet: boolean;
 	/** Taken from the row schema rather than a hand-written union. */
 	readonly density: Inspection['density'];
 	readonly larvaeCount: number | null;
-	readonly hasEggs: boolean;
-	readonly hasFirstInstar: boolean;
-	readonly hasSecondInstar: boolean;
-	readonly hasThirdInstar: boolean;
-	readonly hasFourthInstar: boolean;
-	readonly hasPupae: boolean;
 }
 
 type SegmentKey = 'dry' | 'wetNegative' | 'wetPositive';
@@ -45,26 +40,6 @@ interface Segment {
 	readonly color: string;
 	readonly count: number;
 	readonly percent: number;
-}
-
-// Dry = not holding water. Wet inspections split on breeding evidence: any
-// recorded life stage, a positive larvae count, or a non-"none" density means
-// immatures were present.
-function isBreeding(row: InspectionStatsRow): boolean {
-	if (
-		row.hasEggs ||
-		row.hasFirstInstar ||
-		row.hasSecondInstar ||
-		row.hasThirdInstar ||
-		row.hasFourthInstar ||
-		row.hasPupae
-	) {
-		return true;
-	}
-	if (row.larvaeCount !== null && row.larvaeCount > 0) {
-		return true;
-	}
-	return row.density !== null && row.density !== 'none';
 }
 
 const chartConfig = {
@@ -82,9 +57,11 @@ function computeSegments(rows: readonly InspectionStatsRow[]): {
 	let wetNegative = 0;
 	let wetPositive = 0;
 	for (const row of rows) {
+		// Dry = not holding water. Wet inspections split on the Positive
+		// Inspection rule, which reads abundance and not life stages.
 		if (!row.isWet) {
 			dry += 1;
-		} else if (isBreeding(row)) {
+		} else if (isPositiveInspection(row)) {
 			wetPositive += 1;
 		} else {
 			wetNegative += 1;
@@ -133,12 +110,6 @@ export function HabitatInspectionStats({ habitatId }: { readonly habitatId: stri
 					isWet: inspection.is_wet,
 					density: inspection.density,
 					larvaeCount: inspection.larvae_count,
-					hasEggs: inspection.has_eggs,
-					hasFirstInstar: inspection.has_first_instar,
-					hasSecondInstar: inspection.has_second_instar,
-					hasThirdInstar: inspection.has_third_instar,
-					hasFourthInstar: inspection.has_fourth_instar,
-					hasPupae: inspection.has_pupae,
 				})),
 	});
 
