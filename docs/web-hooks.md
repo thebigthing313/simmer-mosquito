@@ -1009,9 +1009,10 @@ non-suspense query keeps the popover from suspending the page around it.
 
 What a closed search-and-pick field says is decided here, for all seven pickers
 that draw `PickerFrame`: trap, route, habitat, contact, address, the
-assignment's service request and the mission's request stop (#1434). Each picker
-used to hold its own `open`, `search` and picked label, and
-seeded the label once at mount, so it went stale two ways. A list that arrived
+assignment's service request and the mission's request stop (#1434). The
+inspection form's habitat field joined in #1468 by drawing the habitat picker
+rather than a picker of its own. Each picker used to hold its own `open`,
+`search` and picked label, and seeded the label once at mount, so it went stale two ways. A list that arrived
 after mount never filled the field, which is the collection forms on a cold
 load, where the eager `traps` set has not synced when the form first renders.
 And a `value` moved from outside kept showing the record picked before it: the
