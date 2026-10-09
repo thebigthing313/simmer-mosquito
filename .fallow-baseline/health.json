@@ -470,16 +470,10 @@
     "apps/web/src/routes/operations/assignments/index.tsx": {
       "complexity_moderate": {
         "count": 1
-      },
-      "crap_moderate": {
-        "count": 1
       }
     },
     "apps/web/src/routes/operations/missions/index.tsx": {
-      "complexity_high": {
-        "count": 1
-      },
-      "crap_high": {
+      "complexity_moderate": {
         "count": 1
       }
     },

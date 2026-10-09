@@ -1056,6 +1056,12 @@ runs once the validator has passed. A control the app draws inside a
 `form.AppField` passes the field's errors, the way the kit's `field.*`
 components read them for themselves.
 
+Every caller fills its open, search, selected-label, anchor and handler props
+from `useSearchPicker`, and none holds that state itself. Seven pickers used to
+answer "what does the closed field say" seven ways, and the answers went stale
+when the list arrived late or `value` moved from outside (#1434). The rule is
+under that hook in `docs/web-hooks.md`.
+
 ### public-engagement
 
 #### contact-fields

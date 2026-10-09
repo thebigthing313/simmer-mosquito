@@ -16,6 +16,7 @@ import {
 	MultiSelectFilter,
 	SegmentedFilter,
 	ToggleFilter,
+	without,
 } from '../../../components/explorer';
 import { MapCanvas } from '../../../components/map';
 import { RequestStatusBadge } from '../../../components/request-status-badge';
@@ -343,13 +344,6 @@ function RequestControlChips({
 			) : null}
 		</ActiveFilterBar>
 	);
-}
-
-/** The same set without one id. */
-function without(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
-	const next = new Set(set);
-	next.delete(id);
-	return next;
 }
 
 /**
