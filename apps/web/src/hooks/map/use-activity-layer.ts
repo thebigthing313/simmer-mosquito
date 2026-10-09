@@ -4,10 +4,8 @@ import type {
 	ExpressionSpecification,
 	Map as MapboxMap,
 } from 'mapbox-gl';
-import { useEffect } from 'react';
 import type { MapSourceGeoJson } from '../../components/map/geojson-adapter';
 import { useGeoJsonSource } from './use-geojson-source';
-import { isMapLive } from './use-mapbox-map';
 
 const SOURCE_ID = 'profile-activity';
 const POINTS_LAYER_ID = `${SOURCE_ID}-points`;
@@ -104,33 +102,21 @@ export function useActivityLayer(
 	isLoaded: boolean,
 	config?: ActivityLayerConfig,
 ): void {
-	const data = config?.data ?? null;
-	const enabled = data !== null;
-	const selectedKey = config?.selectedKey ?? null;
-
 	useGeoJsonSource({
 		map,
 		isLoaded,
 		sourceId: SOURCE_ID,
-		data,
+		data: config?.data ?? null,
 		layers: activityLayers,
 		interactive: {
 			layerIds: [POINTS_LAYER_ID],
 			...(config?.onSelectFeature === undefined ? {} : { onSelectFeature: config.onSelectFeature }),
 		},
+		selection: {
+			layerId: SELECTED_LAYER_ID,
+			// An entry key is never empty, so the empty string can stand for none.
+			key: config?.selectedKey ?? '',
+			filter: (key) => selectedFilter(key === '' ? null : key),
+		},
 	});
-
-	// Re-scope the selection highlight without re-adding the layer.
-	useEffect(() => {
-		if (!isMapLive(map) || !isLoaded || !enabled) {
-			return;
-		}
-		try {
-			if (map.getLayer(SELECTED_LAYER_ID) !== undefined) {
-				map.setFilter(SELECTED_LAYER_ID, selectedFilter(selectedKey));
-			}
-		} catch {
-			// Map style not available; nothing to re-scope.
-		}
-	}, [map, isLoaded, enabled, selectedKey]);
 }

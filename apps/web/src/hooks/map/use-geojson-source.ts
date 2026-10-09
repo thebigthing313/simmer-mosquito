@@ -1,4 +1,10 @@
-import type { GeoJSONSource, LayerSpecification, Map as MapboxMap, MapMouseEvent } from 'mapbox-gl';
+import type {
+	ExpressionSpecification,
+	GeoJSONSource,
+	LayerSpecification,
+	Map as MapboxMap,
+	MapMouseEvent,
+} from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
 import { type MapSourceGeoJson, toMapboxGeoJson } from '../../components/map/geojson-adapter';
 import { registerHoverLayers } from '../../components/map/hover-cursor';
@@ -28,12 +34,48 @@ function removeAddedLayers(
 }
 
 /**
+ * Which features a source's selection layer draws.
+ *
+ * `key` is the selection as one comparable string, so a caller that rebuilds a
+ * list of ids every render does not re-filter on every render; `filter` turns
+ * that key into the layer's filter expression. The layer is re-filtered when
+ * `key` changes and not when `filter` does, so `filter` must read nothing but
+ * its argument.
+ */
+export interface GeoJsonSelection {
+	readonly layerId: string;
+	readonly key: string;
+	readonly filter: (key: string) => ExpressionSpecification;
+}
+
+/**
+ * Scopes the selection layer, when there is one and the style has it.
+ *
+ * `getLayer` and `setFilter` throw against a style a reconnect or restyle has
+ * torn down. That is a no-op here, because `style.load` re-adds the layers and
+ * applies the selection again on the way.
+ */
+function applySelection(activeMap: MapboxMap, selection: GeoJsonSelection | undefined): void {
+	if (selection === undefined) {
+		return;
+	}
+	try {
+		if (activeMap.getLayer(selection.layerId) !== undefined) {
+			activeMap.setFilter(selection.layerId, selection.filter(selection.key));
+		}
+	} catch {
+		// Map style not available; nothing to scope.
+	}
+}
+
+/**
  * One GeoJSON source and its layers, bound to a live Mapbox map.
  *
  * Adds the source and each layer the style does not have, does both again on
  * `style.load`, pushes later `data` through `setData`, and tears down layers
- * then source on unmount. `onEnsure` runs after every add and re-add, which is
- * where a caller repaints anything it keeps outside `data`.
+ * then source on unmount. A `selection` is filtered onto its layer after every
+ * add and re-add and on every change. `onEnsure` runs after every add and
+ * re-add, which is where a caller repaints anything else it keeps outside `data`.
  */
 export function useGeoJsonSource({
 	map,
@@ -43,6 +85,7 @@ export function useGeoJsonSource({
 	layers,
 	sourceOptions,
 	interactive,
+	selection,
 	onEnsure,
 }: {
 	readonly map: MapboxMap | null;
@@ -57,8 +100,8 @@ export function useGeoJsonSource({
 	readonly data: MapSourceGeoJson | null;
 	/**
 	 * The layers to add, in order. Called on every ensure rather than read once,
-	 * so it may close over live values — a selected id, say — without the source
-	 * being re-added when they change.
+	 * so it may close over live values without the source being re-added when
+	 * they change. A selection goes through `selection` instead.
 	 */
 	readonly layers: () => readonly LayerSpecification[];
 	/**
@@ -81,6 +124,13 @@ export function useGeoJsonSource({
 		readonly layerIds: readonly string[];
 		readonly onSelectFeature?: (id: string | null) => void;
 	};
+	/**
+	 * The layer that draws the selection, and the filter that scopes it. The
+	 * filter is applied after every add and every `style.load` re-add, since a
+	 * re-added layer carries the filter its spec was written with, and again
+	 * whenever `key` changes, without the source or a layer being re-added.
+	 */
+	readonly selection?: GeoJsonSelection;
 }): void {
 	const enabled = data !== null;
 	const isInteractive = interactive?.onSelectFeature !== undefined;
@@ -93,6 +143,7 @@ export function useGeoJsonSource({
 	const sourceOptionsRef = useRef(sourceOptions);
 	const onSelectRef = useRef(interactive?.onSelectFeature);
 	const interactiveLayerIdsRef = useRef(interactive?.layerIds ?? []);
+	const selectionRef = useRef(selection);
 	// The writes are an effect rather than render-phase assignments, which is what
 	// the React Compiler permits. Every read below happens after a commit, from an
 	// effect or from a Mapbox or user event, so the value each one sees is unchanged.
@@ -105,6 +156,7 @@ export function useGeoJsonSource({
 		sourceOptionsRef.current = sourceOptions;
 		onSelectRef.current = interactive?.onSelectFeature;
 		interactiveLayerIdsRef.current = interactive?.layerIds ?? [];
+		selectionRef.current = selection;
 	});
 
 	// The ids actually added, so teardown removes what this hook put there even
@@ -142,6 +194,7 @@ export function useGeoJsonSource({
 				}
 			}
 			addedLayerIdsRef.current = specs.map((layer) => layer.id);
+			applySelection(activeMap, selectionRef.current);
 			onEnsureRef.current?.();
 		}
 
@@ -189,6 +242,16 @@ export function useGeoJsonSource({
 			addedLayerIdsRef.current = [];
 		};
 	}, [map, isLoaded, enabled, isInteractive, sourceId]);
+
+	// A new selection re-filters its layer in place. The setup effect applies the
+	// same filter on every add and re-add, so this runs only when the key moves.
+	const selectionKey = selection?.key;
+	useEffect(() => {
+		if (!isMapLive(map) || !isLoaded || !enabled || selectionKey === undefined) {
+			return;
+		}
+		applySelection(map, selectionRef.current);
+	}, [map, isLoaded, enabled, selectionKey]);
 
 	// Data changes ride the existing source. A reconnect or restyle can run this
 	// against a torn-down style, where `getSource` throws; the setup effect

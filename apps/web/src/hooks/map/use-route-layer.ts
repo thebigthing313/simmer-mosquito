@@ -11,6 +11,7 @@ import type {
 } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
 import { toMapboxGeometry } from '../../components/map/geojson-adapter';
+import { registerHoverLayers } from '../../components/map/hover-cursor';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
@@ -361,21 +362,25 @@ export function useRouteLayer(
 		},
 	});
 
-	// Click and hover are this hook's own: a stop's shape is as clickable as its
-	// pin, a miss must not clear the selection, and the hover id is reported back
-	// so the list and the map can highlight together.
+	// Click and the hover report are this hook's own: a stop's shape is as
+	// clickable as its pin, a miss must not clear the selection, and the hovered
+	// stop is reported back so the list and the map can highlight together. The
+	// cursor is the shared registry's, which probes the same layers, so another
+	// layer on this map cannot wipe the pointer in the same event.
 	useEffect(() => {
 		if (!isMapLive(map) || !isLoaded || !enabled) {
 			return;
 		}
 		const activeMap = map;
 
+		function presentInteractiveLayers(): string[] {
+			return INTERACTIVE_LAYER_IDS.filter((layerId) => activeMap.getLayer(layerId) !== undefined);
+		}
+
 		function stopAt(event: MapMouseEvent): string | null {
 			// The stop id rides in `properties`, because the shape feature carries a
 			// feature id of its own.
-			const layers = INTERACTIVE_LAYER_IDS.filter(
-				(layerId) => activeMap.getLayer(layerId) !== undefined,
-			);
+			const layers = presentInteractiveLayers();
 			if (layers.length === 0) {
 				return null;
 			}
@@ -391,22 +396,17 @@ export function useRouteLayer(
 		}
 
 		function handleMove(event: MapMouseEvent) {
-			const id = stopAt(event);
-			activeMap.getCanvas().style.cursor = id === null ? '' : 'pointer';
-			onHoverRef.current?.(id);
+			onHoverRef.current?.(stopAt(event));
 		}
 
 		activeMap.on('click', handleClick);
 		activeMap.on('mousemove', handleMove);
+		const releaseHover = registerHoverLayers(activeMap, presentInteractiveLayers);
 
 		return () => {
 			activeMap.off('click', handleClick);
 			activeMap.off('mousemove', handleMove);
-			try {
-				activeMap.getCanvas().style.cursor = '';
-			} catch {
-				// Map already removed; nothing left to reset.
-			}
+			releaseHover();
 		};
 	}, [map, isLoaded, enabled]);
 
