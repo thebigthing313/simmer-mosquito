@@ -39,7 +39,6 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import {
 	CollectionFlagBadges,
 	collectionCrumb,
-	collectionEffectiveDate,
 	collectionTitle,
 	isPendingCollection,
 	SPECIES_SEX_VALUES,
@@ -144,9 +143,8 @@ function CollectionDetailContent({
 	readonly canEdit: boolean;
 	readonly askDelete: AskAcknowledged;
 }) {
-	const titleTimeZone = useOrganizationTimeZone();
-	const title = collectionTitle(collection, titleTimeZone);
-	useBreadcrumbLabel(collection.id, collectionCrumb(collection, titleTimeZone));
+	const title = collectionTitle(collection.effectiveDate);
+	useBreadcrumbLabel(collection.id, collectionCrumb(collection.effectiveDate));
 
 	// The method roster is still read, because the custom-field schema hangs off
 	// the collection method and a schema is not something a `select` can join. The
@@ -788,11 +786,11 @@ function DetailsCard({
 	readonly profileNameById: ReadonlyMap<string, string>;
 }) {
 	const timeZone = useOrganizationTimeZone();
-	const collectedDate = collectionEffectiveDate(collection, timeZone);
+	const collectedDate = collection.effectiveDate;
 	// The instant the trap went out, read back as the day the crew worked. The
 	// read seam hands `started_at` up as the `Date` the row schema parses, so
-	// this is where the organization's clock turns it into a calendar day — the
-	// same clock `collectionEffectiveDate` reads the collected day on.
+	// this is where the organization's clock turns it into a calendar day, the
+	// same clock `effectiveDate` is read on.
 	const startedDay =
 		collection.startedAt === null ? null : todayInTimeZone(timeZone, collection.startedAt);
 	return (

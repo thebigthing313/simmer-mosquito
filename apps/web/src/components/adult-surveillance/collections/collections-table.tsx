@@ -12,11 +12,11 @@ import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { useCollectionMethodOptions } from '../../../hooks/explorer/use-collection-method-options';
 import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
+import { collectionEffectiveDate } from '../../../hooks/queries/collection-day';
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { formatListDate } from '../../../lib/local-date';
 import { LinkedTableRow } from '../../record/linked-table-row';
-import { collectionEffectiveDate } from '../adult-display';
 import {
 	type CollectionListRow,
 	collectionPersonnelName,

@@ -1,4 +1,5 @@
 import type { Map as MapboxMap } from 'mapbox-gl';
+import { framingPadding } from './map-inset';
 import { getMapboxToken } from './map-styles';
 
 /**
@@ -100,7 +101,7 @@ export function moveMapToResult(map: MapboxMap, result: MapboxResolvedResult): v
 				[west, south],
 				[east, north],
 			],
-			{ duration: 700, maxZoom: 16, padding: 72 },
+			{ ...framingPadding(map, 72), duration: 700, maxZoom: 16 },
 		);
 		return;
 	}

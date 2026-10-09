@@ -39,7 +39,7 @@ import {
 } from '../catalog';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import { ControlMethodLookupList } from './control-method-lookup';
-import { serviceRequestContextFrom } from './helpers';
+import { numberInputValue, serviceRequestContextFrom } from './helpers';
 import { EditSettingsSheet } from './layout/edit-settings-sheet';
 import { LookupListFrame } from './layout/lookup-list-frame';
 
@@ -168,10 +168,10 @@ export function PublicSettingsDrawer({
 			onSave={(formData) =>
 				setServiceRequestContext(
 					serviceRequestContextFrom({
-						radiusAmount: Number(formData.get('Search radius')),
+						radiusAmount: numberInputValue(formData.get('Search radius')),
 						radiusUnitCode: String(formData.get('Radius unit') ?? ''),
-						daysBefore: Number(formData.get('Days before')),
-						daysAfter: Number(formData.get('Days after')),
+						daysBefore: numberInputValue(formData.get('Days before')),
+						daysAfter: numberInputValue(formData.get('Days after')),
 					}),
 				)
 			}

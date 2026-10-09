@@ -49,6 +49,7 @@ import { source_reductions } from '../../lib/collections/source_reductions';
 import { tag_items } from '../../lib/collections/tag_items';
 import { traps } from '../../lib/collections/traps';
 import { addCalendarDays, localDayStartAsInstant } from '../../lib/local-date';
+import { collectedOn } from '../queries/collection-day';
 import { activityGcTimeMs } from '../queries/shared';
 
 export interface DayActivityRead {
@@ -153,12 +154,10 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 		query: (query) =>
 			query
 				.from({ r: collections() })
+				// Collected that day, by the effective-day rule, or set that day, which is
+				// activity for whoever set the trap.
 				.where(({ r }) =>
-					or(
-						and(gte(r.collected_at, start), lt(r.collected_at, next)),
-						and(gte(r.started_at, start), lt(r.started_at, next)),
-						eq(r.collection_date, day),
-					),
+					or(collectedOn(r, day, timeZone), and(gte(r.started_at, start), lt(r.started_at, next))),
 				)
 				.join({ t: traps() }, ({ r, t }) => eq(r.trap_id, t.id), 'left')
 				.join({ ad: addresses() }, ({ r, ad }) => eq(r.address_id, ad.id), 'left')

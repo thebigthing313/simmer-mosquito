@@ -23,11 +23,8 @@
  *
  * ## The window
  *
- * Each date column is compared against a bound in its own type, because the two
- * collection timing modes date a collection from different columns and a
- * comparison only means something against the one it belongs to. A collection
- * with neither date is still pending, and a comparison against null is never
- * true, so it drops out on its own.
+ * `collectedSince` from `collection-day.ts`. A collection with neither date is
+ * still pending, and drops out on its own.
  *
  * A collection is windowed by when the trap was emptied, but its total only
  * exists once somebody keys it out. One emptied inside the window and identified
@@ -36,25 +33,14 @@
  * field activity makes.
  */
 
-import {
-	and,
-	coalesce,
-	eq,
-	gte,
-	inArray,
-	isNull,
-	not,
-	or,
-	toArray,
-	useLiveQuery,
-} from '@tanstack/react-db';
+import { and, coalesce, eq, inArray, isNull, not, toArray, useLiveQuery } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { collection_species } from '../../lib/collections/collection_species';
 import { collections } from '../../lib/collections/collections';
 import { traps } from '../../lib/collections/traps';
-import { localDayStartAsInstant } from '../../lib/local-date';
 import type { LinkedAddress } from './address-view';
+import { collectedSince, collectionEffectiveDate } from './collection-day';
 import { compareByCollectionDateDesc } from './collection-view';
 import { activityGcTimeMs, addressSelect } from './shared';
 
@@ -78,6 +64,8 @@ export interface OverThresholdCollection {
 	readonly total: number;
 	readonly collectedAt: Date | null;
 	readonly collectionDate: string | null;
+	/** The day it counts on, in the Organization's zone. See `collection-day.ts`. */
+	readonly effectiveDate: string | null;
 }
 
 export function useCollectionsOverThreshold(
@@ -96,8 +84,6 @@ export function useCollectionsOverThreshold(
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const sinceInstant = localDayStartAsInstant(sinceDate, timeZone);
-
 	// Eager, so this reads rows the app already holds. A retired method is left in:
 	// it stops being offered on new collections, and the ones already made by it
 	// still ran hot.
@@ -118,10 +104,7 @@ export function useCollectionsOverThreshold(
 				.where(({ collection }) =>
 					and(
 						inArray(collection.collection_method_id, methodIds),
-						or(
-							gte(collection.collected_at, sinceInstant),
-							gte(collection.collection_date, sinceDate),
-						),
+						collectedSince(collection, sinceDate, timeZone),
 					),
 				)
 				// `left`, not `inner`: a one-off collection names no trap, most name no
@@ -191,6 +174,7 @@ export function useCollectionsOverThreshold(
 					total,
 					collectedAt: row.collectedAt,
 					collectionDate: row.collectionDate,
+					effectiveDate: collectionEffectiveDate(row, timeZone),
 				},
 			];
 		})

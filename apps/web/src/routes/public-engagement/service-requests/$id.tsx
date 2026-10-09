@@ -29,6 +29,7 @@ import { LabelCount } from '../../../components/label-count';
 import { HabitatMapCard } from '../../../components/larval-surveillance/habitats/habitat-map-card';
 import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
 import { MapCanvas } from '../../../components/map';
+import { framingPadding } from '../../../components/map/map-inset';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
 	contactDisplayName,
@@ -398,7 +399,7 @@ function ContextMap({
 					[bounds.west, bounds.south],
 					[bounds.east, bounds.north],
 				],
-				{ padding: 56, duration: 400, maxZoom: 17 },
+				{ ...framingPadding(map, 56), duration: 400, maxZoom: 17 },
 			);
 		}
 	}, [map, radiusMeters, request.longitude, request.latitude]);

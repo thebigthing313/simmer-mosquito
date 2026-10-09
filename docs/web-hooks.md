@@ -213,6 +213,15 @@ Eight explorers wrote the four pieces out by hand, including the rule that
 matters: editing one bound past the other drags the other along, so the range
 never inverts into a window that can hold nothing.
 
+`direction` is `history` unless a caller passes `schedule`, and the binding
+carries it on to `DateRangeFilter`. The Missions and Assignments pages pass
+`schedule`, because a worklist reads work planned ahead: under `history` End
+stopped at today and every preset ended today, so a reader who touched either
+lost the fortnight ahead and could reach it again only through `All Time`
+(#1432). The schedule presets lead with `SCHEDULE_WINDOW`, which is also the
+window both pages open on and the one the operations overview's schedule
+panels read, so first load lights a preset and that preset is the way back.
+
 #### useFlyToSelection
 
 Ten explorers carried this effect. Half of them keyed it on the selected
@@ -353,7 +362,7 @@ one sends the whole world for a view across the line, because the endpoint
 takes one box, and a whole-world view here would hold every extent and skip a
 fit that was owed (#933).
 
-The effect depends on the four padding numbers rather than the padding object
+The effect depends on the four inset numbers rather than the inset object
 or a string key built from it. `insetPadding` returns a fresh object every
 render, so the object in the list re-runs the effect on every render, and the
 key in its place leaves the object read inside the effect and off the list,
@@ -658,6 +667,19 @@ drops the selection, then collapses its panel leaves the map framed around a
 panel that is no longer there, and every later zoom or locate is off by half
 the panel's width. One writer instead: the canvas knows what is over it, so
 the canvas owns the padding.
+
+A fit still wants a margin of its own, and a margin passed as `padding` is
+the same map state. Mapbox replaces the map's padding with a call's rather
+than adding the two, and `fitBounds` hands it on to `easeTo` or `flyTo`, which
+keep it unless the call says `retainPadding: false`. Before #1424 nothing in
+`apps/web` said so: a cluster click left a flat 48 on the map, a Region card
+left 64, and since this hook writes again only when the inset's four numbers
+change, every later selection centred on the whole canvas, under the results
+panel. So every fit takes its padding from `framingPadding` in
+`components/map/map-inset.ts`: the canvas's current padding off `getPadding()`
+plus the fit's margin on each side, with `retainPadding: false`. A fit can
+hand it an inset in place of `getPadding()`, which `useMapExtentFit` does,
+because on a fresh map it can run before this hook has written anything.
 
 #### useMapboxMap
 
@@ -1207,9 +1229,16 @@ number matters. `docs/dashboard-spec.md` is the rest.
 
 #### useActivityStrip
 
-The last-7-days strip off Electric: eight `useLiveQuery` subsets, one per
-activity type, each a 14-day window on the type's own operational date,
-folded into the 7-day count and the 7 before it in memory. It replaced a
+The last-7-days strip off Electric: seven `useLiveQuery` subsets, one per
+table, each a 14-day window on the type's own operational date, folded into
+the 7-day count and the 7 before it in memory. Which date that is comes from
+`ACTIVITY_DATES` in `hooks/queries/activity-dates.ts`, one entry per
+`OverviewRecordType`, each column written as a function over the table's ref
+so a misspelled column fails `tsc`. A collection has no single column: its
+entry is `collectedSince` and `collectionEffectiveDate` from
+`hooks/queries/collection-day.ts`, which every collection read hook windows
+and reduces its rows through, and which hands the day up as `effectiveDate` so
+no page works it out (#1427). It replaced a
 `readActivity` on `GET /dashboard`, and two things decided that. The strip is
 what a person opens the page for, and on the server it shared one round trip
 with the untreated habitats read, which was 4.7 seconds on the production

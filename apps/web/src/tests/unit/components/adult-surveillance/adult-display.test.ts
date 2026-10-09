@@ -1,50 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import {
-	collectionEffectiveDate,
+	collectionCrumb,
+	collectionRowDate,
+	collectionTitle,
 	SPECIES_SEX_VALUES,
 	SPECIES_STATUS_VALUES,
 } from '../../../../components/adult-surveillance/adult-display';
-import { operationalDayAsInstant } from '../../../../lib/local-date';
 
 /**
- * The two halves of an operational date, checked against each other.
- *
- * A collection's date is typed as a calendar day, widened to an instant to be
- * stored, and narrowed back to a calendar day to be read. Each half is correct
- * on its own terms and they were written months apart; what nothing covered was
- * whether they agree. They did not past ±12, which is issue #156.
+ * The collection's labels take the day the read hook hands up. Which day that
+ * is, and how a stamped instant reads back, is `collection-day.test.tsx`.
  */
-describe('a typed collection date, stamped and read back', () => {
-	/** Long after every day stamped here, so the same-day clamp never applies. */
-	const LONG_AFTER = new Date('2027-01-01T00:00:00.000Z');
-
-	it('reads back as the day that was typed, in a zone past +12', () => {
-		const typed = '2026-08-04';
-		const zone = 'Pacific/Auckland';
-		const collectedAt = operationalDayAsInstant(typed, zone, LONG_AFTER);
-		expect(collectionEffectiveDate({ collectedAt, collectionDate: null }, zone)).toBe(typed);
+describe('the collection labels', () => {
+	it('name a dated collection by its day', () => {
+		expect(collectionTitle('2026-08-12')).toBe('August 12, 2026');
+		expect(collectionCrumb('2026-08-12')).toBe('Collection · Aug 12, 2026');
+		expect(collectionRowDate('2026-08-12')).toBe('Wed, Aug 12, 2026');
 	});
 
-	it('agrees on the day a clamped same-day stamp falls on', () => {
-		// Keyed at 09:00 local, so the stamp is now rather than the organization's
-		// midday. Any instant that day answers the same question — that is what
-		// makes the clamp safe.
-		const zone = 'America/New_York';
-		const morning = new Date('2026-08-04T13:00:00.000Z');
-		const collectedAt = operationalDayAsInstant('2026-08-04', zone, morning);
-		expect(collectionEffectiveDate({ collectedAt, collectionDate: null }, zone)).toBe('2026-08-04');
-	});
-
-	it('is the stamp that had to change, not the reader', () => {
-		// The stamp this replaced, through the same reader in the same zone. If
-		// anything puts midday UTC back, the test above starts failing and this
-		// one says why.
-		expect(
-			collectionEffectiveDate(
-				{ collectedAt: '2026-08-04T12:00:00.000Z', collectionDate: null },
-				'Pacific/Auckland',
-			),
-		).toBe('2026-08-05');
+	it('name a collection with no day as pending', () => {
+		expect(collectionTitle(null)).toBe('Pending collection');
+		expect(collectionCrumb(null)).toBe('Pending collection');
+		expect(collectionRowDate(null)).toBe('Pending collection');
 	});
 });
 

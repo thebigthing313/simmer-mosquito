@@ -73,6 +73,25 @@ export function createFakeMap() {
 	const filterCalls: string[] = [];
 	let removed = false;
 	let doubleClickZoomEnabled = true;
+	// The map's viewport padding, kept the way mapbox keeps it: a camera call
+	// carrying a padding leaves it on the map afterwards unless the call says
+	// `retainPadding: false`.
+	let padding: Padding = { top: 0, right: 0, bottom: 0, left: 0 };
+
+	function record(
+		kind: CameraCall['kind'],
+		options: CameraOptions | undefined,
+		eventData?: object,
+	) {
+		cameraCalls.push({
+			kind,
+			...readCamera(options),
+			...(kind === 'flyTo' ? { eventData } : {}),
+		});
+		if (options?.padding !== undefined && options.retainPadding !== false) {
+			padding = toPadding(options.padding);
+		}
+	}
 
 	function assertLive() {
 		if (removed) {
@@ -160,17 +179,18 @@ export function createFakeMap() {
 			getSouth: () => origin.lat - 0.8,
 			getWest: () => origin.lng + 0.2,
 		}),
+		getPadding: () => ({ ...padding }),
 		flyTo(options: CameraOptions, eventData?: object) {
 			assertLive();
-			cameraCalls.push({ kind: 'flyTo', ...readCamera(options), eventData });
+			record('flyTo', options, eventData);
 		},
 		easeTo(options: CameraOptions) {
 			assertLive();
-			cameraCalls.push({ kind: 'easeTo', ...readCamera(options) });
+			record('easeTo', options);
 		},
 		fitBounds(_bounds: unknown, options: CameraOptions) {
 			assertLive();
-			cameraCalls.push({ kind: 'fitBounds', ...readCamera(options) });
+			record('fitBounds', options);
 		},
 		queryRenderedFeatures: vi.fn(() => [] as unknown[]),
 		doubleClickZoom: {
@@ -275,11 +295,22 @@ export function createFakeMap() {
 
 export type FakeMap = ReturnType<typeof createFakeMap>;
 
+type Padding = { top: number; right: number; bottom: number; left: number };
+
 type CameraOptions = {
-	readonly padding?: unknown;
+	readonly padding?: number | Partial<Padding>;
+	readonly retainPadding?: boolean;
 	readonly zoom?: number;
 	readonly duration?: number;
 };
+
+/** A padding as mapbox's `_extendPadding` reads one: a number is all four sides. */
+function toPadding(value: number | Partial<Padding>): Padding {
+	if (typeof value === 'number') {
+		return { top: value, right: value, bottom: value, left: value };
+	}
+	return { top: 0, right: 0, bottom: 0, left: 0, ...value };
+}
 
 /**
  * One camera move, reduced to what a test asks about: which call it was and the
@@ -290,12 +321,18 @@ interface CameraCall {
 	readonly kind: 'flyTo' | 'easeTo' | 'fitBounds';
 	readonly padding: unknown;
 	readonly zoom: number | undefined;
+	/** False when the call asked mapbox not to keep its padding on the map afterwards. */
+	readonly retainPadding: boolean | undefined;
 	/** What a `flyTo` hands its events, which is how a flight tells a listener to skip it. */
 	readonly eventData?: object | undefined;
 }
 
 function readCamera(options: CameraOptions | undefined): Omit<CameraCall, 'kind'> {
-	return { padding: options?.padding, zoom: options?.zoom };
+	return {
+		padding: options?.padding,
+		zoom: options?.zoom,
+		retainPadding: options?.retainPadding,
+	};
 }
 
 // React only treats `act` as a real flush boundary when it is told it is in a

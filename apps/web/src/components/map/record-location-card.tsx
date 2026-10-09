@@ -32,6 +32,7 @@ import {
 import { LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useRef } from 'react';
+import { fitMapToBox } from './fit-map-to-geometry';
 import { MapCanvas } from './map-canvas';
 import type { MapCamera } from './map-styles';
 
@@ -305,13 +306,7 @@ function fitToBounds(map: MapboxMap, bounds: BoundingBox | null, animate = false
 	const duration = animate ? 400 : 0;
 	const hasArea = bounds.west !== bounds.east || bounds.south !== bounds.north;
 	if (hasArea) {
-		map.fitBounds(
-			[
-				[bounds.west, bounds.south],
-				[bounds.east, bounds.north],
-			],
-			{ padding: 48, maxZoom: 17, duration },
-		);
+		fitMapToBox(map, bounds, { margin: 48, maxZoom: 17, duration });
 		return;
 	}
 	map.easeTo({ center: [bounds.west, bounds.south], zoom: 16, duration });

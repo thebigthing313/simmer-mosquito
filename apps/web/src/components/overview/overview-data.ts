@@ -111,7 +111,10 @@ export function periodDestination(
 	};
 }
 
-/** What each row is called, read off the record-nouns register the way the Dashboard strip reads it. */
+/**
+ * What each activity type is called, read off the record-nouns register. These
+ * pages and the Dashboard strip both read it.
+ */
 export const OVERVIEW_LABELS: Readonly<Record<OverviewRecordType, string>> = {
 	inspections: recordNoun('inspection').titleMany,
 	samples: recordNoun('sample').titleMany,

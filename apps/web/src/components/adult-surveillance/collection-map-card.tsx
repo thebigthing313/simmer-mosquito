@@ -4,12 +4,11 @@ import { Link } from '@tanstack/react-router';
 import type { AdultCollection } from '../../hooks/queries/collection-view';
 import { collectionPlaceLabel } from '../../hooks/queries/trap-view';
 import { useAdultCollection } from '../../hooks/queries/use-adult-collection';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { recordNoun } from '../../lib/record-nouns';
 import { MapCardAddress } from '../linked-address';
 import { MapCard, MapCardDetail, MapCardEyebrow, mapCardCoordinates } from '../map/map-card';
 import type { MapInset } from '../map/map-inset';
-import { CollectionFlagBadges, collectionEffectiveDate } from './adult-display';
+import { CollectionFlagBadges } from './adult-display';
 
 const CollectionEntityIcon = iconRegistry.entities.collection.icon;
 
@@ -28,7 +27,6 @@ export function CollectionMapCard({
 	readonly onClose: () => void;
 }) {
 	const { collection } = useAdultCollection(id);
-	const timeZone = useOrganizationTimeZone();
 
 	if (collection === undefined) {
 		return (
@@ -41,11 +39,11 @@ export function CollectionMapCard({
 		);
 	}
 
-	const effectiveDate = collectionEffectiveDate(collection, timeZone);
-
 	return (
 		<MapCard
-			eyebrow={<MapCardEyebrow date={effectiveDate ?? undefined} recordType="collection" />}
+			eyebrow={
+				<MapCardEyebrow date={collection.effectiveDate ?? undefined} recordType="collection" />
+			}
 			inset={inset}
 			onClose={onClose}
 			title={collectionTitle(collection)}

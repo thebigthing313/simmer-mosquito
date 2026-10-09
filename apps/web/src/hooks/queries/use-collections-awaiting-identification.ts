@@ -10,14 +10,14 @@
  * their ids.
  */
 
-import { coalesce, eq, gte, or, toArray, useLiveQuery } from '@tanstack/react-db';
+import { coalesce, eq, toArray, useLiveQuery } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { collection_species } from '../../lib/collections/collection_species';
 import { collections } from '../../lib/collections/collections';
 import { traps } from '../../lib/collections/traps';
-import { localDayStartAsInstant } from '../../lib/local-date';
 import type { LinkedAddress } from './address-view';
+import { collectedSince, collectionEffectiveDate } from './collection-day';
 import { compareByCollectionDateDesc } from './collection-view';
 import { activityGcTimeMs, addressSelect } from './shared';
 
@@ -38,6 +38,8 @@ export interface AwaitingCollection {
 	readonly methodName: string;
 	readonly collectedAt: Date | null;
 	readonly collectionDate: string | null;
+	/** The day it counts on, in the Organization's zone. See `collection-day.ts`. */
+	readonly effectiveDate: string | null;
 }
 
 export function useCollectionsAwaitingIdentification(
@@ -48,19 +50,12 @@ export function useCollectionsAwaitingIdentification(
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const sinceInstant = localDayStartAsInstant(sinceDate, timeZone);
-
 	const result = useLiveQuery({
 		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ collection: collections() })
-				.where(({ collection }) =>
-					or(
-						gte(collection.collected_at, sinceInstant),
-						gte(collection.collection_date, sinceDate),
-					),
-				)
+				.where(({ collection }) => collectedSince(collection, sinceDate, timeZone))
 				.join({ trap: traps() }, ({ collection, trap }) => eq(collection.trap_id, trap.id), 'left')
 				.join(
 					{ address: addresses() },
@@ -123,6 +118,7 @@ export function useCollectionsAwaitingIdentification(
 				methodName,
 				collectedAt,
 				collectionDate,
+				effectiveDate: collectionEffectiveDate({ collectedAt, collectionDate }, timeZone),
 			}),
 		)
 		.sort(compareByCollectionDateDesc);

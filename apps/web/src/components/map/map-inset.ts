@@ -1,3 +1,5 @@
+import type { Map as MapboxMap } from 'mapbox-gl';
+
 /**
  * How much of a map surface is covered by chrome floating over it.
  *
@@ -41,4 +43,29 @@ export function insetPadding(
 		bottom: base + covered.bottom,
 		left: base + covered.left,
 	};
+}
+
+/**
+ * The padding options for a camera call that frames something: the inset plus
+ * the call's own margin on every side, with `retainPadding: false`.
+ *
+ * The inset is the one the canvas holds, read off `getPadding()`, unless the
+ * caller hands one over. `useMapPadding`'s heading in `docs/web-hooks.md` says
+ * why every fit goes through this.
+ */
+export function framingPadding(
+	map: MapboxMap,
+	margin: number,
+	inset: MapInset = canvasPadding(map),
+): {
+	readonly padding: ReturnType<typeof insetPadding>;
+	readonly retainPadding: false;
+} {
+	return { padding: insetPadding(margin, inset), retainPadding: false };
+}
+
+/** The padding the map holds. Mapbox types every side optional and fills all four. */
+function canvasPadding(map: MapboxMap): MapInset {
+	const { top = 0, right = 0, bottom = 0, left = 0 } = map.getPadding();
+	return { top, right, bottom, left };
 }

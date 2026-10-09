@@ -5,7 +5,7 @@ import {
 } from '@simmer-mosquito/mapping';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
-import { insetPadding, type MapInset } from '../../components/map/map-inset';
+import { framingPadding, insetPadding, type MapInset } from '../../components/map/map-inset';
 import { useMapExtent } from './use-map-extent';
 import { isMapLive } from './use-mapbox-map';
 
@@ -63,9 +63,11 @@ export function useMapExtentFit(
 	const fitted = useRef<FitLedger>({ map: null, key: null });
 	// Chrome floating over the map is added to the fit margin, so a framed set
 	// sits in the part of the canvas the reader can see rather than under a panel.
-	// The padding object is rebuilt every render, so the effect takes its four
-	// numbers and builds the object itself; nothing it reads is a fresh identity.
-	const { top, right, bottom, left } = insetPadding(FIT_PADDING, inset);
+	// The inset is passed rather than read off the map, because on a fresh map
+	// this can run before the canvas has written its padding. The object is
+	// rebuilt every render, so the effect takes its four numbers and builds the
+	// object itself; nothing it reads is a fresh identity.
+	const { top, right, bottom, left } = insetPadding(0, inset);
 
 	useEffect(() => {
 		if (!isMapLive(map) || !isLoaded || bounds === null || fitKey === null) {
@@ -76,7 +78,7 @@ export function useMapExtentFit(
 			bounds,
 			fitKey,
 			url,
-			padding: { top, right, bottom, left },
+			inset: { top, right, bottom, left },
 			keepOpeningCamera,
 		});
 	}, [map, isLoaded, bounds, fitKey, url, top, right, bottom, left, keepOpeningCamera]);
@@ -94,7 +96,8 @@ interface FitRequest {
 	readonly bounds: BoundingBox;
 	readonly fitKey: string;
 	readonly url: string | null;
-	readonly padding: ReturnType<typeof insetPadding>;
+	/** The chrome over the map, which the fit margin is added to. */
+	readonly inset: MapInset;
 	/** Record the first frame on a map without moving to it. */
 	readonly keepOpeningCamera: boolean;
 }
@@ -107,7 +110,7 @@ interface FitRequest {
  */
 function frameOnce(
 	ledger: FitLedger,
-	{ map, bounds, fitKey, url, padding, keepOpeningCamera }: FitRequest,
+	{ map, bounds, fitKey, url, inset, keepOpeningCamera }: FitRequest,
 ): void {
 	const isFirstFit = ledger.map !== map;
 	if (!isFirstFit && ledger.key === fitKey) {
@@ -116,7 +119,7 @@ function frameOnce(
 	ledger.map = map;
 	ledger.key = fitKey;
 	if (isFirstFit ? !keepOpeningCamera : isRefitOwed(map, url, bounds)) {
-		fitMapToBounds(map, bounds, isFirstFit ? 0 : FIT_DURATION_MS, padding);
+		fitMapToBounds(map, bounds, isFirstFit ? 0 : FIT_DURATION_MS, inset);
 	}
 }
 
@@ -166,8 +169,9 @@ function fitMapToBounds(
 	map: MapboxMap,
 	bounds: BoundingBox,
 	duration: number,
-	padding: ReturnType<typeof insetPadding>,
+	inset: MapInset,
 ): void {
+	const padding = framingPadding(map, FIT_PADDING, inset);
 	// One record (or many stacked on one address) collapses the box to a point,
 	// which fitBounds cannot frame, so ease onto it at a sane zoom instead.
 	if (bounds.west === bounds.east && bounds.south === bounds.north) {
@@ -175,7 +179,7 @@ function fitMapToBounds(
 			center: [bounds.west, bounds.south],
 			zoom: Math.max(map.getZoom(), FIT_POINT_ZOOM),
 			duration,
-			padding,
+			...padding,
 		});
 		return;
 	}
@@ -185,6 +189,6 @@ function fitMapToBounds(
 			[bounds.west, bounds.south],
 			[bounds.east, bounds.north],
 		],
-		{ padding, maxZoom: FIT_MAX_ZOOM, duration },
+		{ ...padding, maxZoom: FIT_MAX_ZOOM, duration },
 	);
 }

@@ -10,18 +10,15 @@
  * `collectionDate` null, while `collection_date_duration` puts a plain day in
  * `collectionDate` and always leaves `collectedAt` null. Which of the two a row
  * uses is `collectionTimingMode`, and reading only one of the columns empties a
- * whole surface for half the organizations — see the `collectionEffectiveDate`
- * note in `-adult-display.tsx`.
+ * whole surface for half the organizations.
  *
- * Both columns ride up raw and the shared helper resolves them, because turning
- * the instant into a calendar day needs the organization's time zone. A zone is
- * an argument, not a column, so no compiled `select` can reach it: a projection
- * that took the UTC prefix would file a trap emptied at 10:30pm under the next
- * day, disagreeing with the server, which windows these rows in the
- * organization's zone.
+ * Both columns ride up raw, and every hook that returns them also returns
+ * `effectiveDate`, the day the collection counts on in the Organization's zone.
+ * `collection-day.ts` is where that day is worked out and says why a compiled
+ * `select` cannot do it.
  *
  * `collectedAt` is a `Date` and `collectionDate` a `YYYY-MM-DD` string, which is
- * how they are stored and what the shape streams. The helpers take both.
+ * how they are stored and what the shape streams.
  */
 import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import type { LinkedAddress } from './address-view';
@@ -67,6 +64,8 @@ export interface AdultCollection {
 	readonly collectedAt: Date | null;
 	/** The day it is filed under, `YYYY-MM-DD`, or null. See the module comment. */
 	readonly collectionDate: string | null;
+	/** The day it counts on, in the Organization's zone. See `collection-day.ts`. */
+	readonly effectiveDate: string | null;
 	readonly collectionTimingMode: AdultCollectionTimingMode;
 	readonly collectedByProfileId: string | null;
 	readonly startedAt: Date | null;
@@ -88,7 +87,7 @@ export interface AdultCollection {
 	readonly updatedByProfileId: string | null;
 }
 
-/** The two columns that between them date a collection. */
+/** The two columns that between them date a collection, which `collectionEffectiveDate` reads. */
 export interface CollectionDates {
 	readonly collectedAt: Date | string | null;
 	readonly collectionDate: string | null;
