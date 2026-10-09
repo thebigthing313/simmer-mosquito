@@ -11,6 +11,25 @@ interface HoverRegistry {
 const registries = new WeakMap<MapboxMap, HoverRegistry>();
 
 /**
+ * Takes back a pointer this registry drew, and leaves any other cursor alone.
+ *
+ * A restyle takes every probed layer off the map, and the last probe can be
+ * released while the cursor is over a feature; either way no later event would
+ * clear the pointer. A crosshair belongs to a draw or measure session, which
+ * restores its own cursor, so only `pointer` is cleared.
+ */
+function clearPointer(map: MapboxMap): void {
+	try {
+		const canvas = map.getCanvas();
+		if (canvas.style.cursor === 'pointer') {
+			canvas.style.cursor = '';
+		}
+	} catch {
+		// Map already removed; nothing left to reset.
+	}
+}
+
+/**
  * Shows the pointer cursor over any clickable feature on `map`, for every
  * layer registered here, from one `mousemove` handler per map.
  *
@@ -31,6 +50,7 @@ export function registerHoverLayers(map: MapboxMap, probe: LayerProbe): () => vo
 		const handleMove = (event: MapMouseEvent) => {
 			const layers = [...probes].flatMap((each) => each());
 			if (layers.length === 0) {
+				clearPointer(map);
 				return;
 			}
 			const hovering = map.queryRenderedFeatures(event.point, { layers }).length > 0;
@@ -50,5 +70,6 @@ export function registerHoverLayers(map: MapboxMap, probe: LayerProbe): () => vo
 		}
 		registries.delete(map);
 		map.off('mousemove', active.handleMove);
+		clearPointer(map);
 	};
 }

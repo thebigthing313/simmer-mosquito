@@ -6,10 +6,8 @@ import type {
 	LineLayerSpecification,
 	Map as MapboxMap,
 } from 'mapbox-gl';
-import { useEffect, useRef } from 'react';
 import type { MapSourceGeoJson } from '../../components/map/geojson-adapter';
 import { useGeoJsonSource } from './use-geojson-source';
-import { isMapLive } from './use-mapbox-map';
 
 const GEOJSON_SOURCE_ID = 'geojson-overlay';
 
@@ -86,9 +84,11 @@ export interface GeoJsonLayerInteraction {
 	readonly onSelectFeature?: (id: string | null) => void;
 }
 
-function geoJsonLayers(
-	selectedId: string | null,
-): (FillLayerSpecification | LineLayerSpecification | CircleLayerSpecification)[] {
+function geoJsonLayers(): (
+	| FillLayerSpecification
+	| LineLayerSpecification
+	| CircleLayerSpecification
+)[] {
 	return [
 		{
 			id: POLYGON_FILL_LAYER_ID,
@@ -128,7 +128,7 @@ function geoJsonLayers(
 			id: POINT_SELECTED_LAYER_ID,
 			type: 'circle',
 			source: GEOJSON_SOURCE_ID,
-			filter: selectedPointFilter(selectedId),
+			filter: selectedPointFilter(null),
 			paint: {
 				'circle-color': colors.selected,
 				'circle-radius': 10,
@@ -150,48 +150,23 @@ export function useGeoJsonLayer(
 	data: MapSourceGeoJson | null,
 	interaction?: GeoJsonLayerInteraction,
 ): void {
-	const enabled = data !== null;
-	const selectedId = interaction?.selectedId ?? null;
-
-	// The layer builder reads the selection at ensure time, so a new selection
-	// re-filters the highlight (below) instead of re-adding every layer.
-	const selectedRef = useRef(selectedId);
-	// The writes are an effect rather than render-phase assignments, which is what
-	// the React Compiler permits. Every read below happens after a commit, from an
-	// effect or from a Mapbox or user event, so the value each one sees is unchanged.
-	// The effect is declared above its readers, so the write lands first inside one
-	// commit.
-	useEffect(() => {
-		selectedRef.current = selectedId;
-	});
-
 	useGeoJsonSource({
 		map,
 		isLoaded,
 		sourceId: GEOJSON_SOURCE_ID,
 		data,
-		layers: () => geoJsonLayers(selectedRef.current),
+		layers: geoJsonLayers,
 		interactive: {
 			layerIds: INTERACTIVE_LAYER_IDS,
 			...(interaction?.onSelectFeature === undefined
 				? {}
 				: { onSelectFeature: interaction.onSelectFeature }),
 		},
+		selection: {
+			layerId: POINT_SELECTED_LAYER_ID,
+			// A feature id is never empty, so the empty string can stand for none.
+			key: interaction?.selectedId ?? '',
+			filter: (key) => selectedPointFilter(key === '' ? null : key),
+		},
 	});
-
-	// Re-scope the highlight to the selected feature without re-adding it.
-	useEffect(() => {
-		if (!isMapLive(map) || !isLoaded || !enabled) {
-			return;
-		}
-		// getLayer/setFilter throw if the style was torn down under a reconnect or
-		// restyle; the source hook re-applies the selection on `style.load`.
-		try {
-			if (map.getLayer(POINT_SELECTED_LAYER_ID) !== undefined) {
-				map.setFilter(POINT_SELECTED_LAYER_ID, selectedPointFilter(selectedId));
-			}
-		} catch {
-			// Map style not available; nothing to re-scope.
-		}
-	}, [map, isLoaded, enabled, selectedId]);
 }

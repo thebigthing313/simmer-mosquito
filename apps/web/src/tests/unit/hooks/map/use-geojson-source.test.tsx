@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { LayerSpecification } from 'mapbox-gl';
+import type { ExpressionSpecification, LayerSpecification, Map as MapboxMap } from 'mapbox-gl';
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useGeoJsonSource } from '../../../../hooks/map/use-geojson-source';
@@ -183,6 +183,109 @@ describe('useGeoJsonSource', () => {
 		});
 
 		expect(onEnsure).toHaveBeenCalledTimes(2);
+	});
+
+	describe('selection', () => {
+		function idFilter(key: string): ExpressionSpecification {
+			return ['==', ['get', 'id'], key === '' ? '__none__' : key];
+		}
+
+		function selectionProps(key: string) {
+			return {
+				map: null as MapboxMap | null,
+				isLoaded: true,
+				sourceId: 'test-source',
+				data: POINT,
+				layers: () => [fillLayer('points'), fillLayer('selected')],
+				selection: { layerId: 'selected', key, filter: idFilter },
+			};
+		}
+
+		it('scopes the selection layer on the first add', () => {
+			const fake = createFakeMap();
+			renderHook(useGeoJsonSource, { ...selectionProps('habitat-1'), map: fake.map });
+
+			expect(fake.layers.get('selected')?.filter).toEqual(idFilter('habitat-1'));
+		});
+
+		// The layers come back with the filter their spec was written with, which
+		// is the empty sentinel. A basemap switch keeps `isLoaded` true, so only
+		// the re-add itself can put the selection back.
+		it('puts the selection back after a basemap switch', () => {
+			const fake = createFakeMap();
+			renderHook(useGeoJsonSource, { ...selectionProps('habitat-1'), map: fake.map });
+
+			fake.wipeStyle();
+			act(() => {
+				fake.emit('style.load');
+			});
+
+			expect(fake.layers.get('selected')?.filter).toEqual(idFilter('habitat-1'));
+		});
+
+		it('re-scopes a new selection without re-adding the source or a layer', () => {
+			const fake = createFakeMap();
+			const harness = renderHook(useGeoJsonSource, {
+				...selectionProps('habitat-1'),
+				map: fake.map,
+			});
+			const addLayer = vi.spyOn(fake.map, 'addLayer');
+			const removeLayer = vi.spyOn(fake.map, 'removeLayer');
+			const addSource = vi.spyOn(fake.map, 'addSource');
+			const removeSource = vi.spyOn(fake.map, 'removeSource');
+			const filtersBefore = fake.filterCalls.length;
+
+			harness.rerender({ ...selectionProps('habitat-2'), map: fake.map });
+
+			expect(fake.filterCalls.slice(filtersBefore)).toEqual(['selected']);
+			expect(fake.layers.get('selected')?.filter).toEqual(idFilter('habitat-2'));
+			expect(addLayer).not.toHaveBeenCalled();
+			expect(removeLayer).not.toHaveBeenCalled();
+			expect(addSource).not.toHaveBeenCalled();
+			expect(removeSource).not.toHaveBeenCalled();
+		});
+
+		it('does not re-scope when a rerender carries the same selection', () => {
+			const fake = createFakeMap();
+			const harness = renderHook(useGeoJsonSource, {
+				...selectionProps('habitat-1'),
+				map: fake.map,
+			});
+			const filtersBefore = fake.filterCalls.length;
+
+			harness.rerender({ ...selectionProps('habitat-1'), map: fake.map });
+
+			expect(fake.filterCalls.length).toBe(filtersBefore);
+		});
+
+		it('ignores a selection change while the selection layer is absent', () => {
+			const fake = createFakeMap();
+			const harness = renderHook(useGeoJsonSource, {
+				...selectionProps('habitat-1'),
+				map: fake.map,
+			});
+			fake.layers.delete('selected');
+
+			expect(() => {
+				harness.rerender({ ...selectionProps('habitat-2'), map: fake.map });
+			}).not.toThrow();
+			expect(fake.layers.has('selected')).toBe(false);
+		});
+
+		it('ignores a selection change while the style throws', () => {
+			const fake = createFakeMap();
+			const harness = renderHook(useGeoJsonSource, {
+				...selectionProps('habitat-1'),
+				map: fake.map,
+			});
+			vi.spyOn(fake.map, 'getLayer').mockImplementation(() => {
+				throw new Error('Style is not done loading.');
+			});
+
+			expect(() => {
+				harness.rerender({ ...selectionProps('habitat-2'), map: fake.map });
+			}).not.toThrow();
+		});
 	});
 
 	describe('interaction', () => {

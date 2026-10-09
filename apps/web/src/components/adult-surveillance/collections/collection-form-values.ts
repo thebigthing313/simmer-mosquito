@@ -109,6 +109,24 @@ function parseDateValue(value: string | null): Date {
 	return new Date(value ?? '');
 }
 
+/**
+ * The trap a trap-mode save is recorded against: the one the form's `trapId`
+ * names, looked up in the trap list the form holds now. `null` in ad hoc mode,
+ * with no trap picked, or before the list holds the trap.
+ *
+ * A lookup and never a copy, because a copy taken at mount is empty on a cold
+ * load and then disagrees with `trapId` for the life of the form (#1436).
+ */
+export function savedTrap(
+	value: Pick<CollectionFormValues, 'sourceMode' | 'trapId'>,
+	traps: readonly TrapOption[],
+): TrapOption | null {
+	if (value.sourceMode !== 'trap' || value.trapId === null) {
+		return null;
+	}
+	return traps.find((trap) => trap.id === value.trapId) ?? null;
+}
+
 /** Where the chosen trap stands, as the context outline the map draws behind the form. */
 export function trapPoint(trap: TrapOption | null): GeoJsonGeometry | null {
 	if (trap === null) {

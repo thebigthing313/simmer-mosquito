@@ -6,10 +6,8 @@ import type {
 	LineLayerSpecification,
 	Map as MapboxMap,
 } from 'mapbox-gl';
-import { useEffect } from 'react';
 import type { MapSourceGeoJson } from '../../components/map/geojson-adapter';
 import { useGeoJsonSource } from './use-geojson-source';
-import { isMapLive } from './use-mapbox-map';
 
 const SOURCE_ID = 'nearby-context';
 const RING_FILL_LAYER_ID = `${SOURCE_ID}-ring-fill`;
@@ -183,18 +181,11 @@ export function useNearbyLayer(
 	isLoaded: boolean,
 	config?: NearbyLayerConfig,
 ): void {
-	const data = config?.data ?? null;
-	const enabled = data !== null;
-	const selectedIds = config?.selectedIds;
-	// Joined rather than passed as an array, because a caller that rebuilds the
-	// list every render would otherwise re-run the effect on every render.
-	const selectionKey = (selectedIds ?? []).join(',');
-
 	useGeoJsonSource({
 		map,
 		isLoaded,
 		sourceId: SOURCE_ID,
-		data,
+		data: config?.data ?? null,
 		layers: nearbyLayers,
 		// Only the points answer to a pointer: the ring is context and the centre
 		// is the record the ring is drawn around.
@@ -202,20 +193,12 @@ export function useNearbyLayer(
 			layerIds: [POINTS_LAYER_ID],
 			...(config?.onSelectFeature === undefined ? {} : { onSelectFeature: config.onSelectFeature }),
 		},
+		selection: {
+			layerId: SELECTED_LAYER_ID,
+			// Joined, because a caller that rebuilds the list every render would
+			// otherwise re-filter on every render.
+			key: (config?.selectedIds ?? []).join(','),
+			filter: (key) => selectedFilter(key === '' ? [] : key.split(',')),
+		},
 	});
-
-	// Re-scope the selection highlight without re-adding the layer.
-	useEffect(() => {
-		if (!isMapLive(map) || !isLoaded || !enabled) {
-			return;
-		}
-		const selectedKeys = selectionKey === '' ? [] : selectionKey.split(',');
-		try {
-			if (map.getLayer(SELECTED_LAYER_ID) !== undefined) {
-				map.setFilter(SELECTED_LAYER_ID, selectedFilter(selectedKeys));
-			}
-		} catch {
-			// Map style not available; nothing to re-scope.
-		}
-	}, [map, isLoaded, enabled, selectionKey]);
 }
