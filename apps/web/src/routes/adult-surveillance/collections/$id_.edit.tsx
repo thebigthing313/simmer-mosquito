@@ -3,6 +3,7 @@ import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import {
 	CollectionFormPage,
+	CollectionFormSkeleton,
 	type CollectionSaveInput,
 } from '../../../components/adult-surveillance/collections/collection-form';
 import {
@@ -11,7 +12,7 @@ import {
 	noLureValue,
 	noUnitValue,
 } from '../../../components/adult-surveillance/collections/collection-form-values';
-import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';
 import type {
@@ -29,7 +30,7 @@ import {
 	useCollectionRecord,
 } from '../../../hooks/queries/use-collection-record';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import { type TrapOption, useTrapOptions } from '../../../hooks/queries/use-trap-options';
+import { useTrapOptions } from '../../../hooks/queries/use-trap-options';
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
@@ -50,7 +51,6 @@ export const Route = createFileRoute('/adult-surveillance/collections/$id_/edit'
 });
 
 function EditCollectionRoute() {
-	const { traps } = useTrapOptions();
 	const methods = useCollectionMethodRoster();
 	const lures = useCollectionLureRoster();
 	const profiles = useProfileRoster();
@@ -62,7 +62,7 @@ function EditCollectionRoute() {
 		<RecordEditFrame
 			recordType="collection"
 			reading={{ isError, isReady, record: collection }}
-			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
+			skeleton={<CollectionFormSkeleton />}
 		>
 			{(record) => (
 				<EditCollectionLoader
@@ -70,7 +70,6 @@ function EditCollectionRoute() {
 					collectionLures={lures}
 					collectionMethods={methods}
 					profiles={profiles}
-					traps={traps}
 					units={units}
 				/>
 			)}
@@ -80,14 +79,12 @@ function EditCollectionRoute() {
 
 function EditCollectionLoader({
 	collection,
-	traps,
 	collectionMethods,
 	collectionLures,
 	profiles,
 	units,
 }: {
 	readonly collection: CollectionRecord;
-	readonly traps: readonly TrapOption[];
 	readonly collectionMethods: readonly SchemaCatalogListing[];
 	readonly collectionLures: readonly CatalogListing[];
 	readonly profiles: readonly ProfileListing[];
@@ -96,6 +93,9 @@ function EditCollectionLoader({
 	const navigate = useNavigate();
 	const timeZone = useOrganizationTimeZone();
 	const mutations = useCollectionMutations();
+	// Read here rather than beside the record, so the wait below covers it: the
+	// form reads the trap it opens on once, for the map's reference point (#1436).
+	const { traps, isReady: trapsReady } = useTrapOptions();
 	// The crew lives in its own table; the form edits it as a list and the save
 	// reconciles that against who is attached now.
 	const personnel = useAdditionalPersonnel({ type: 'collection', id: collection.id });
@@ -151,8 +151,8 @@ function EditCollectionLoader({
 			/>
 		);
 	}
-	if (!personnel.isReady) {
-		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
+	if (!personnel.isReady || !trapsReady) {
+		return <CollectionFormSkeleton />;
 	}
 
 	return (
