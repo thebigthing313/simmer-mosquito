@@ -14,6 +14,7 @@ export interface ApplicationFilterBinding {
 	readonly setFilters: (patch: Partial<ApplicationFilters>) => void;
 	readonly reset: () => void;
 	readonly activeCount: number;
+	readonly defaults: ApplicationFilters;
 	/** The Organization's today, which the date window ends on. */
 	readonly today: string;
 }
@@ -26,10 +27,11 @@ export interface ApplicationFilterBinding {
 export function useApplicationFilterState(): ApplicationFilterBinding {
 	const timeZone = useOrganizationTimeZone();
 	const today = todayInTimeZone(timeZone);
+	const defaults = applicationFilterDefaults(today);
 	const { filters, setFilters, reset, activeCount } = useSearchFilters(
-		applicationFilterDefaults(today),
+		defaults,
 		applicationFilterCodecs,
 		DATE_RANGE_COUNTING,
 	);
-	return { filters, setFilters, reset, activeCount, today };
+	return { filters, setFilters, reset, activeCount, defaults, today };
 }

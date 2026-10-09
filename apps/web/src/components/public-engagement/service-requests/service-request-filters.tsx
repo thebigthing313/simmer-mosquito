@@ -31,6 +31,8 @@ import type { Tag } from '../../../hooks/queries/tag-view';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
+	type DateRange,
+	DateRangeChip,
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
@@ -59,11 +61,15 @@ const STATUS_OPTIONS: readonly {
 export interface ServiceRequestFilterChipProps {
 	readonly activeFilterCount: number;
 	readonly availableTags: readonly Tag[];
+	/** The date window the list is cut to, and the window it opens on. */
+	readonly dates: DateRange;
+	readonly dateDefaults: DateRange;
 	readonly onClearAll: () => void;
 	readonly regions: ReturnType<typeof useRegionOptions>;
 	readonly search: string;
 	readonly selectedRegionIds: ReadonlySet<string>;
 	readonly selectedTagIds: ReadonlySet<string>;
+	readonly setDates: (next: DateRange) => void;
 	readonly setSearch: (next: string) => void;
 	readonly setSelectedRegionIds: (next: ReadonlySet<string>) => void;
 	readonly setSelectedTagIds: (next: ReadonlySet<string>) => void;
@@ -138,11 +144,14 @@ export function ServiceRequestFilterFields({
 export function ServiceRequestFilterChips({
 	activeFilterCount,
 	availableTags,
+	dateDefaults,
+	dates,
 	onClearAll,
 	regions,
 	search,
 	selectedRegionIds,
 	selectedTagIds,
+	setDates,
 	setSearch,
 	setSelectedRegionIds,
 	setSelectedTagIds,
@@ -155,6 +164,7 @@ export function ServiceRequestFilterChips({
 	return (
 		<ActiveFilterBar onClearAll={onClearAll}>
 			<StatusChip onReset={() => setStatus('all')} status={status} />
+			<DateRangeChip defaults={dateDefaults} range={dates} setRange={setDates} />
 			<SearchChip onClear={() => setSearch('')} search={search} />
 			{availableTags
 				.filter((tag) => selectedTagIds.has(tag.id))

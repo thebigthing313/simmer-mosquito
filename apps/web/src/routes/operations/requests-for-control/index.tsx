@@ -7,6 +7,7 @@ import { createLabel } from '../../../components/app-shell/navigation';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
+	DateRangeChip,
 	ExplorerMapPage,
 	ExplorerRow,
 	FilterChip,
@@ -154,6 +155,7 @@ function RequestsForControlRoute() {
 				<RequestControlFilters
 					activeFilterCount={activeFilterCount}
 					dateRange={dateRange}
+					defaults={filterDefaults}
 					filters={filters}
 					nameById={nameById}
 					onClearAll={reset}
@@ -233,6 +235,7 @@ function requestFeatures(mapped: readonly RequestListing[]): GeoJSON.GeoJSON | n
 function RequestControlFilters({
 	activeFilterCount,
 	dateRange,
+	defaults,
 	filters,
 	nameById,
 	onClearAll,
@@ -241,6 +244,7 @@ function RequestControlFilters({
 }: {
 	readonly activeFilterCount: number;
 	readonly dateRange: DateRangeBinding;
+	readonly defaults: RequestFilters;
 	readonly filters: RequestFilters;
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly onClearAll: () => void;
@@ -282,6 +286,7 @@ function RequestControlFilters({
 
 			<RequestControlChips
 				activeFilterCount={activeFilterCount}
+				defaults={defaults}
 				filters={filters}
 				nameById={nameById}
 				onClearAll={onClearAll}
@@ -294,12 +299,14 @@ function RequestControlFilters({
 /** What is currently narrowing the list, each chip removing its own filter. */
 function RequestControlChips({
 	activeFilterCount,
+	defaults,
 	filters,
 	nameById,
 	onClearAll,
 	setFilters,
 }: {
 	readonly activeFilterCount: number;
+	readonly defaults: RequestFilters;
 	readonly filters: RequestFilters;
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly onClearAll: () => void;
@@ -316,6 +323,7 @@ function RequestControlChips({
 					onRemove={() => setFilters({ status: 'open' })}
 				/>
 			)}
+			<DateRangeChip defaults={defaults} range={filters} setRange={setFilters} />
 			{[...filters.types].map((id) => (
 				<FilterChip
 					key={`type-${id}`}

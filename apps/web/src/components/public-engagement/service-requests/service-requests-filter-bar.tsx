@@ -1,7 +1,6 @@
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
-import { dateRangeLabel } from '../../../lib/local-date';
 import { DateRangeFilter } from '../../date-range-filter';
-import { ActiveFilterBar, FilterChip, SegmentedFilter } from '../../explorer';
+import { ActiveFilterBar, DateRangeChip, FilterChip, SegmentedFilter } from '../../explorer';
 import type { ServiceRequestStatusFilter } from './legend';
 import {
 	SERVICE_REQUEST_ORDER_OPTIONS,
@@ -47,7 +46,6 @@ export function ServiceRequestsFilterBar({
 	readonly today: string;
 }) {
 	const dateRange = useDateRangeFilters({ from: filters.from, to: filters.to, today, setFilters });
-	const isDateMoved = filters.from !== defaults.from || filters.to !== defaults.to;
 	return (
 		<div className="grid gap-4 rounded-md border border-border/50 bg-muted/20 p-4">
 			<div className="grid gap-4 lg:grid-cols-2">
@@ -75,12 +73,7 @@ export function ServiceRequestsFilterBar({
 							onRemove={() => setFilters({ status: 'all' })}
 						/>
 					)}
-					{isDateMoved ? (
-						<FilterChip
-							label={`Dates: ${dateRangeLabel(filters.from, filters.to)}`}
-							onRemove={() => setFilters({ from: defaults.from, to: defaults.to })}
-						/>
-					) : null}
+					<DateRangeChip defaults={defaults} range={filters} setRange={setFilters} />
 				</ActiveFilterBar>
 			)}
 		</div>

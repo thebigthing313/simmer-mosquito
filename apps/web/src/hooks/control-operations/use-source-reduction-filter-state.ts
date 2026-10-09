@@ -14,6 +14,7 @@ export interface SourceReductionFilterBinding {
 	readonly setFilters: (patch: Partial<SourceReductionFilters>) => void;
 	readonly reset: () => void;
 	readonly activeCount: number;
+	readonly defaults: SourceReductionFilters;
 	/** The Organization's today, which the date window ends on. */
 	readonly today: string;
 }
@@ -26,10 +27,11 @@ export interface SourceReductionFilterBinding {
 export function useSourceReductionFilterState(): SourceReductionFilterBinding {
 	const timeZone = useOrganizationTimeZone();
 	const today = todayInTimeZone(timeZone);
+	const defaults = sourceReductionFilterDefaults(today);
 	const { filters, setFilters, reset, activeCount } = useSearchFilters(
-		sourceReductionFilterDefaults(today),
+		defaults,
 		sourceReductionFilterCodecs,
 		DATE_RANGE_COUNTING,
 	);
-	return { filters, setFilters, reset, activeCount, today };
+	return { filters, setFilters, reset, activeCount, defaults, today };
 }

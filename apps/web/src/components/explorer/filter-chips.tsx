@@ -1,5 +1,6 @@
 import { XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { ReactNode } from 'react';
+import { dateRangeLabel } from '../../lib/local-date';
 
 /**
  * The active-filter row every explorer shows above its results.
@@ -26,6 +27,38 @@ export function ActiveFilterBar({
 				Clear all
 			</button>
 		</div>
+	);
+}
+
+/** A date window: `YYYY-MM-DD` bounds, either one empty when that end is open. */
+export interface DateRange {
+	readonly from: string;
+	readonly to: string;
+}
+
+/**
+ * The date window's chip, `Dates: ` and the range, drawn only while the window
+ * differs from the surface's default. Removing it writes the default bounds
+ * back through `setRange` and touches no other filter. Takes the current
+ * window, the default window and the write.
+ */
+export function DateRangeChip({
+	defaults,
+	range,
+	setRange,
+}: {
+	readonly defaults: DateRange;
+	readonly range: DateRange;
+	readonly setRange: (range: DateRange) => void;
+}) {
+	if (range.from === defaults.from && range.to === defaults.to) {
+		return null;
+	}
+	return (
+		<FilterChip
+			label={`Dates: ${dateRangeLabel(range.from, range.to)}`}
+			onRemove={() => setRange({ from: defaults.from, to: defaults.to })}
+		/>
 	);
 }
 
