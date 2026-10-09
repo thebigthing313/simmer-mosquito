@@ -10,19 +10,17 @@ interface IdentifiedRow {
 }
 
 /**
- * The label a picker shows for its current selection: what was just picked,
- * else the row read back by id from `collection`, else empty while that row is
- * still streaming in.
+ * The label of the row `value` names, read back by id from `collection`, or
+ * `''` for no value and while that row is still streaming in. What a picker
+ * shows over it after a pick is `useSearchPicker`'s rule.
  */
 export function useSelectedRowLabel<TRow extends IdentifiedRow>({
 	collection,
 	value,
-	pickedLabel,
 	toLabel,
 }: {
 	readonly collection: Collection<TRow, string | number>;
 	readonly value: string | null;
-	readonly pickedLabel: string;
 	readonly toLabel: (row: TRow) => string;
 }): string {
 	const queryId = value ?? unmatchableId;
@@ -38,9 +36,6 @@ export function useSelectedRowLabel<TRow extends IdentifiedRow>({
 
 	if (value === null) {
 		return '';
-	}
-	if (pickedLabel.length > 0) {
-		return pickedLabel;
 	}
 	const [selected] = (data ?? []) as unknown as readonly TRow[];
 	return selected === undefined ? '' : toLabel(selected);

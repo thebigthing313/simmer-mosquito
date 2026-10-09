@@ -4,6 +4,7 @@ import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
 	FillLayerSpecification,
+	GeoJSONFeature,
 	LineLayerSpecification,
 	Map as MapboxMap,
 	MapMouseEvent,
@@ -278,6 +279,15 @@ function shapeSignature(geometry: GeoJsonGeometry | null | undefined): string {
 }
 
 /**
+ * The stop a hit feature belongs to. The id rides in `properties`, because the
+ * shape feature carries a feature id of its own.
+ */
+function stopIdOf(feature: GeoJSONFeature | null | undefined): string | null {
+	const id = feature?.properties?.id;
+	return typeof id === 'string' ? id : null;
+}
+
+/**
  * Push selection and hover onto the pin and, where there is one, the shape.
  *
  * They are two features with two ids — the pin is keyed by the stop's id so the
@@ -362,11 +372,11 @@ export function useRouteLayer(
 		},
 	});
 
-	// Click and the hover report are this hook's own: a stop's shape is as
-	// clickable as its pin, a miss must not clear the selection, and the hovered
-	// stop is reported back so the list and the map can highlight together. The
-	// cursor is the shared registry's, which probes the same layers, so another
-	// layer on this map cannot wipe the pointer in the same event.
+	// Click is this hook's own: a stop's shape is as clickable as its pin, and a
+	// miss must not clear the selection. Hover is the shared registry's, which
+	// probes the same layers in its one hit-test per move, draws the cursor, and
+	// hands back the topmost stop feature so the list and the map can highlight
+	// together; another layer on this map cannot wipe the pointer in that event.
 	useEffect(() => {
 		if (!isMapLive(map) || !isLoaded || !enabled) {
 			return;
@@ -377,35 +387,24 @@ export function useRouteLayer(
 			return INTERACTIVE_LAYER_IDS.filter((layerId) => activeMap.getLayer(layerId) !== undefined);
 		}
 
-		function stopAt(event: MapMouseEvent): string | null {
-			// The stop id rides in `properties`, because the shape feature carries a
-			// feature id of its own.
+		function handleClick(event: MapMouseEvent) {
 			const layers = presentInteractiveLayers();
 			if (layers.length === 0) {
-				return null;
+				return;
 			}
-			const id = activeMap.queryRenderedFeatures(event.point, { layers })[0]?.properties?.id;
-			return typeof id === 'string' ? id : null;
-		}
-
-		function handleClick(event: MapMouseEvent) {
-			const id = stopAt(event);
+			const id = stopIdOf(activeMap.queryRenderedFeatures(event.point, { layers })[0]);
 			if (id !== null) {
 				onSelectRef.current?.(id);
 			}
 		}
 
-		function handleMove(event: MapMouseEvent) {
-			onHoverRef.current?.(stopAt(event));
-		}
-
 		activeMap.on('click', handleClick);
-		activeMap.on('mousemove', handleMove);
-		const releaseHover = registerHoverLayers(activeMap, presentInteractiveLayers);
+		const releaseHover = registerHoverLayers(activeMap, presentInteractiveLayers, (feature) => {
+			onHoverRef.current?.(stopIdOf(feature));
+		});
 
 		return () => {
 			activeMap.off('click', handleClick);
-			activeMap.off('mousemove', handleMove);
 			releaseHover();
 		};
 	}, [map, isLoaded, enabled]);

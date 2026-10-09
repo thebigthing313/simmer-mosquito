@@ -1,7 +1,8 @@
 import type { Contact } from '@simmer-mosquito/sync';
 import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import { ilike, or, useLiveQuery } from '@tanstack/react-db';
-import { useDeferredValue, useRef, useState } from 'react';
+import { useDeferredValue } from 'react';
+import { useSearchPicker } from '../../hooks/pickers/use-search-picker';
 import { useSelectedRowLabel } from '../../hooks/pickers/use-selected-row-label';
 import { contacts } from '../../lib/collections/contacts';
 import { OptionRow, PickerFallback, PickerFrame } from './entity-picker';
@@ -38,49 +39,22 @@ export function ContactPicker({
 	/** The bound field's `state.meta.errors`, drawn under the input. */
 	readonly errors?: readonly unknown[] | undefined;
 }) {
-	const [open, setOpen] = useState(false);
-	const [search, setSearch] = useState('');
-	const [pickedLabel, setPickedLabel] = useState('');
-	const deferredSearch = useDeferredValue(search);
-	const anchorRef = useRef<HTMLDivElement>(null);
 	// An edit form arrives holding only the contact id, so the current selection is
 	// resolved from the collection rather than left as an empty-looking field.
-	const selectedLabel = useSelectedRowLabel({
+	const resolvedLabel = useSelectedRowLabel({
 		collection: contacts(),
-		pickedLabel,
 		toLabel: (row) => contactLabel(contactLabelParts(row)),
 		value,
 	});
+	const picker = useSearchPicker({ value, resolvedLabel, onClear: () => onSelect(null) });
+	const deferredSearch = useDeferredValue(picker.search);
 
 	return (
-		<PickerFrame
-			errors={errors}
-			anchorRef={anchorRef}
-			label={label}
-			onClear={() => {
-				setPickedLabel('');
-				setSearch('');
-				onSelect(null);
-			}}
-			onOpen={() => setOpen(true)}
-			onOpenChange={setOpen}
-			onSearchChange={(next) => {
-				setSearch(next);
-				setOpen(true);
-			}}
-			open={open}
-			placeholder="Search contacts"
-			search={search}
-			selectedLabel={selectedLabel}
-			value={value}
-		>
+		<PickerFrame {...picker.frame} errors={errors} label={label} placeholder="Search contacts">
 			<ContactResults
 				onSelect={(contact) => {
-					const name = contactLabel(contact);
-					setPickedLabel(name);
-					setSearch(name);
+					picker.pick(contact.id, contactLabel(contact));
 					onSelect(contact);
-					setOpen(false);
 				}}
 				search={deferredSearch}
 				selectedValue={value}

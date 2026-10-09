@@ -707,10 +707,15 @@ call; the source lifecycle underneath it is `useGeoJsonSource`'s.
 
 Selection and hover emphasis go through feature-state so the list and the
 map stay in sync without rebuilding the source. The pointer cursor is
-`registerHoverLayers`', probing the same layers the click hit-tests, and the
-hook keeps its own `mousemove` only to report the hovered stop; a handler
-that wrote the cursor too would wipe another layer's pointer in the same
-event once a route map draws a second layer (#1426). The stop feature is
+`registerHoverLayers`', probing the same layers the click hit-tests, and a
+handler of the hook's own that wrote the cursor would wipe another layer's
+pointer in the same event once a route map draws a second layer (#1426). The
+hovered stop comes off the registry too, through its third argument. The
+registry hands the hook the topmost feature on its own layers from the one
+hit-test it already runs, or `null` when none was hit or a restyle took the
+layers away.
+The hook used to keep a `mousemove` of its own to find the stop, which was a
+second `queryRenderedFeatures` on every move (#1443). The stop feature is
 framework-free geometry so the hook stays decoupled from the route domain
 rows that produce it.
 
@@ -1007,8 +1012,9 @@ non-suspense query keeps the popover from suspending the page around it.
 
 #### useSearchPicker
 
-What a closed search-and-pick field says is decided here, for the trap and route
-pickers today and for the other five once they move onto it (#1434). Each picker
+What a closed search-and-pick field says is decided here, for all seven pickers
+that draw `PickerFrame`: trap, route, habitat, contact, address, the
+assignment's service request and the mission's request stop (#1434). Each picker
 used to hold its own `open`, `search` and picked label, and
 seeded the label once at mount, so it went stale two ways. A list that arrived
 after mount never filled the field, which is the collection forms on a cold
@@ -1041,8 +1047,10 @@ needs and this hook reads no collection.
 
 #### useSelectedRowLabel
 
-An edit form arrives holding only the id, so the row is read back by id
-while nothing has been picked this session. The query passes no `limit`,
+An edit form arrives holding only the id, so the row is read back by id. It
+returns that row's label for any `value` and knows nothing of a pick: whether a
+picked label stands over it is `useSearchPicker`'s rule, so the contact and
+address pickers pass this hook's answer in as `resolvedLabel`. The query passes no `limit`,
 because an id equality already yields at most one row and the query compiler
 rejects LIMIT without an ORDER BY.
 
