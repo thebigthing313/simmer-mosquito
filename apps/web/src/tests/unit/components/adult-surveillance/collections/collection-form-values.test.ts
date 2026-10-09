@@ -18,6 +18,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	type CollectionFormValues,
+	defaultCollectionFormValues,
 	noLureValue,
 	noUnitValue,
 	savedTrap,
@@ -83,6 +84,15 @@ describe('a collection the domain refuses', () => {
 		expect(result?.form).toBeUndefined();
 	});
 
+	// Collected as well: the set date is still required, which is the shape the
+	// create form opens in, with the collected date filled in as today.
+	it('names a missing set date beside a collected date', () => {
+		const result = validateCollection(values({ startedAt: null }), null);
+
+		expect(result?.fields?.startedAt).toBeDefined();
+		expect(result?.form).toBeUndefined();
+	});
+
 	it('names a missing collection date on the collection-date field', () => {
 		const result = validateCollection(
 			values({
@@ -125,5 +135,15 @@ describe('the trap a save carries', () => {
 
 	it('is none for a one-off collection', () => {
 		expect(savedTrap(values({ sourceMode: 'adhoc' }), [TRAP_OPTION])).toBeNull();
+	});
+});
+
+describe('a new collection in exact-timestamp mode', () => {
+	// A trap is often set the day before it is emptied, so a prefilled set date
+	// would save a wrong day that reads as a real one. The crew types it.
+	it('opens with no set date', () => {
+		expect(
+			defaultCollectionFormValues('2026-08-12', TRAP, 'exact_timestamps').startedAt,
+		).toBeNull();
 	});
 });
