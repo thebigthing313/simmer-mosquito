@@ -702,7 +702,10 @@ its margin, zoom cap, point zoom and duration off one table keyed by purpose.
 Ten fits and six flights used to pick their own numbers, so one record framed
 differently on a form, a detail card and an explorer card, and three fits had
 no answer for a box with no area (#1424). Outside that module only the zoom
-buttons, the north reset and this hook move the camera.
+buttons, the north reset and this hook call `easeTo`, `flyTo` or `fitBounds`.
+The `place` focus flies for 1100 ms, the locate button's old number rather than
+the search client's 700, because a place can be anywhere on the map and a
+reader follows a long flight better than a quick one.
 
 One race is left. A fit that starts while this hook's 300 ms padding animation
 is running stops it partway, and `getPadding()` then reads the in-between

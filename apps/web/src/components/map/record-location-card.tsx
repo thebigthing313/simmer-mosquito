@@ -99,7 +99,8 @@ export function RecordLocationCard({
 }) {
 	const contextGeojson = context?.geojson ?? null;
 	const bounds = unionBounds(geojson, contextGeojson);
-	// A record framed with its context is seeing one inside the other.
+	// With a context the point is seeing the record inside it, which frames tighter
+	// and moves quicker than the record on its own.
 	const purpose: FramePurpose = contextGeojson === null ? 'record' : 'context';
 	const focus = geojson ?? contextGeojson;
 	const centroid = focus === null ? null : centroidFromGeoJson(focus);
