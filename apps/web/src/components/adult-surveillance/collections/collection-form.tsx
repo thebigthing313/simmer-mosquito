@@ -1,6 +1,5 @@
 import { FormSection, LocationSection } from '@simmer-mosquito/ui-web/components/form';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { useState } from 'react';
 import { useRecordForm } from '../../../hooks/forms/use-record-form';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
@@ -19,12 +18,14 @@ import { FirstCommentSection } from '../../forms/first-comment-section';
 import { LocationAddressField } from '../../forms/location-band';
 import { RecordFormFrame } from '../../forms/record-form-frame';
 import { GeometryControl } from '../../map/geometry-control';
+import { EditFormSkeleton } from '../../record';
 import { TrapPicker } from '../adult-pickers';
 import {
 	type CollectionFormValues,
 	isPendingCollectionDraft,
 	lureOptions,
 	noLureValue,
+	savedTrap,
 	trapPoint,
 	validateCollection,
 } from './collection-form-values';
@@ -33,7 +34,10 @@ import { TimingSection } from './collection-timing-section';
 /** The resolved location + method a submit yields, once source mode is applied. */
 export interface CollectionSaveInput {
 	readonly values: CollectionFormValues;
-	/** The trap chosen in trap mode (for deriving method/location), else null. */
+	/**
+	 * The trap `values.trapId` names in trap mode (for deriving method/location),
+	 * else null. Read through `savedTrap`, so it cannot disagree with `trapId`.
+	 */
 	readonly trap: TrapOption | null;
 	/**
 	 * Ad-hoc collection's own point (its geometry). Set in ad-hoc mode; null in
@@ -70,6 +74,15 @@ export interface CollectionFormPageProps {
 	readonly onSave: (input: CollectionSaveInput) => Promise<void>;
 }
 
+/**
+ * What the create and edit routes draw until the form can mount. The form reads
+ * the trap it opens on once, so a route holds it back until the trap list is
+ * ready.
+ */
+export function CollectionFormSkeleton() {
+	return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
+}
+
 export function CollectionFormPage({
 	canSubmit,
 	traps,
@@ -84,17 +97,15 @@ export function CollectionFormPage({
 	header,
 	onSave,
 }: CollectionFormPageProps) {
-	const [selectedTrap, setSelectedTrap] = useState<TrapOption | null>(
-		() => traps.find((trap) => trap.id === defaultValues.trapId) ?? null,
-	);
 	// In trap mode the collection inherits the trap's point; in ad-hoc mode it
 	// carries its own drawn point. Only the first value is read, so the trap the
 	// form opens on frames the map from the first paint and later picks come
-	// through `setReferenceGeometry`.
+	// through `setReferenceGeometry`. The routes mount the form once the trap
+	// list is ready, so that first read finds the trap.
 	const location = useDrawLocation({
 		geometryKind: 'collection',
 		initialGeometry,
-		initialReferenceGeometry: trapPoint(selectedTrap),
+		initialReferenceGeometry: trapPoint(savedTrap(defaultValues, traps)),
 		missingMessage: 'Place the collection point on the map.',
 	});
 	const { addressCoord, draw, geometry, geometryType, referenceGeometry } = location;
@@ -116,7 +127,7 @@ export function CollectionFormPage({
 		onSubmit: async (value) => {
 			await onSave({
 				values: value,
-				trap: value.sourceMode === 'trap' ? selectedTrap : null,
+				trap: savedTrap(value, traps),
 				geometry: value.sourceMode === 'adhoc' ? geometry : null,
 				geometryChanged: location.geometryChanged,
 			});
@@ -219,35 +230,39 @@ export function CollectionFormPage({
 					{(sourceMode) =>
 						sourceMode === 'trap' ? (
 							<form.AppField name="trapId">
-								{(field) => (
-									<div className="grid gap-2">
-										<TrapPicker
-											errors={field.state.meta.errors}
-											onSelect={(trap) => {
-												field.handleChange(trap?.id ?? null);
-												setSelectedTrap(trap);
-												location.setReferenceGeometry(trapPoint(trap));
-												// Derive method + lure from the trap.
-												form.setFieldValue('collectionMethodId', trap?.collectionMethodId ?? '');
-												form.setFieldValue(
-													'collectionLureId',
-													trap?.collectionLureId ?? noLureValue,
-												);
-											}}
-											traps={traps}
-											value={field.state.value}
-										/>
-										{selectedTrap === null ? null : (
-											<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-2 text-muted-foreground text-xs">
-												Method:{' '}
-												<span className="font-medium text-foreground">
-													{methodNameById.get(selectedTrap.collectionMethodId) ?? 'Unknown method'}
-												</span>{' '}
-												· inherited from the trap.
-											</p>
-										)}
-									</div>
-								)}
+								{(field) => {
+									// The same lookup the save makes, so the hint and the save name
+									// one trap.
+									const chosen = savedTrap({ sourceMode, trapId: field.state.value }, traps);
+									return (
+										<div className="grid gap-2">
+											<TrapPicker
+												errors={field.state.meta.errors}
+												onSelect={(trap) => {
+													field.handleChange(trap?.id ?? null);
+													location.setReferenceGeometry(trapPoint(trap));
+													// Derive method + lure from the trap.
+													form.setFieldValue('collectionMethodId', trap?.collectionMethodId ?? '');
+													form.setFieldValue(
+														'collectionLureId',
+														trap?.collectionLureId ?? noLureValue,
+													);
+												}}
+												traps={traps}
+												value={field.state.value}
+											/>
+											{chosen === null ? null : (
+												<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-2 text-muted-foreground text-xs">
+													Method:{' '}
+													<span className="font-medium text-foreground">
+														{methodNameById.get(chosen.collectionMethodId) ?? 'Unknown method'}
+													</span>{' '}
+													· inherited from the trap.
+												</p>
+											)}
+										</div>
+									);
+								}}
 							</form.AppField>
 						) : (
 							<>

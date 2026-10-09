@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { z } from 'zod';
 import {
 	CollectionFormPage,
+	CollectionFormSkeleton,
 	type CollectionSaveInput,
 } from '../../../components/adult-surveillance/collections/collection-form';
 import {
@@ -88,7 +89,7 @@ function CreateCollectionRoute() {
 	const assignmentId = search.assignmentId ?? null;
 	const navigate = useNavigate();
 	const { settings } = useOrganizationWorkspace(auth.snapshot);
-	const { traps } = useTrapOptions();
+	const { traps, isReady: trapsReady } = useTrapOptions();
 	const methods = useCollectionMethodRoster();
 	const lures = useCollectionLureRoster();
 	const profiles = useProfileRoster();
@@ -168,6 +169,12 @@ function CreateCollectionRoute() {
 			}
 			await navigate({ to: '/adult-surveillance/collections/$id', params: { id: collectionId } });
 		});
+
+	// The form reads the trap it opens on once, to frame the map, so it waits for
+	// the trap list rather than opening on an empty one (#1436).
+	if (!trapsReady) {
+		return <CollectionFormSkeleton />;
+	}
 
 	return (
 		<>

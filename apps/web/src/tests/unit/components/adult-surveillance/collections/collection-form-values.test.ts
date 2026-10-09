@@ -20,12 +20,25 @@ import {
 	type CollectionFormValues,
 	noLureValue,
 	noUnitValue,
+	savedTrap,
 	validateCollection,
 } from '../../../../../components/adult-surveillance/collections/collection-form-values';
+import type { TrapOption } from '../../../../../hooks/queries/use-trap-options';
 
 const POINT = { type: 'Point', coordinates: [-118.24, 34.05] } as const;
 const TRAP = '44444444-4444-4444-8444-444444444444';
 const METHOD = '55555555-5555-4555-8555-555555555555';
+
+const TRAP_OPTION: TrapOption = {
+	id: TRAP,
+	trapName: 'Elm Court',
+	trapCode: 'LT-01',
+	description: null,
+	collectionMethodId: METHOD,
+	collectionLureId: null,
+	latitude: 34.05,
+	longitude: -118.24,
+};
 
 function values(overrides: Partial<CollectionFormValues> = {}): CollectionFormValues {
 	return {
@@ -94,5 +107,23 @@ describe('a collection the domain refuses', () => {
 
 		expect(result?.fields?.collectionMethodId).toBeDefined();
 		expect(result?.form).toBeUndefined();
+	});
+});
+
+describe('the trap a save carries', () => {
+	it('is the trap the form names, looked up in the list it holds', () => {
+		expect(savedTrap(values(), [TRAP_OPTION])).toBe(TRAP_OPTION);
+	});
+
+	it('is none once the pick is cleared', () => {
+		expect(savedTrap(values({ trapId: null }), [TRAP_OPTION])).toBeNull();
+	});
+
+	it('is none before the list holds the trap', () => {
+		expect(savedTrap(values(), [])).toBeNull();
+	});
+
+	it('is none for a one-off collection', () => {
+		expect(savedTrap(values({ sourceMode: 'adhoc' }), [TRAP_OPTION])).toBeNull();
 	});
 });
