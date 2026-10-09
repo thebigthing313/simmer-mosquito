@@ -60,8 +60,7 @@ export function TimingSection({
 										errors={field.state.meta.errors}
 										label="Set date"
 										onChange={(next: string) => field.handleChange(next === '' ? null : next)}
-										// Every exact-mode collection has a set date, emptied or
-										// not, so this does not follow the collected date.
+										// Every exact-mode collection has a set date, emptied or not.
 										required
 										value={field.state.value}
 									/>

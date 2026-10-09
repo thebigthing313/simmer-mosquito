@@ -84,7 +84,7 @@ describe('a collection the domain refuses', () => {
 		expect(result?.form).toBeUndefined();
 	});
 
-	// Emptied as well: the set date is still required, which is the shape the
+	// Collected as well: the set date is still required, which is the shape the
 	// create form opens in, with the collected date filled in as today.
 	it('names a missing set date beside a collected date', () => {
 		const result = validateCollection(values({ startedAt: null }), null);

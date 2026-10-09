@@ -222,9 +222,12 @@ describe('the set date in exact-timestamp mode', () => {
 
 	it('is not drawn in date-and-duration mode', () => {
 		renderForm(
-			formFor([ELM], ELM.id, noSave, {
-				...defaultCollectionFormValues(TODAY, ELM.id, 'collection_date_duration'),
-			}),
+			formFor(
+				[ELM],
+				ELM.id,
+				noSave,
+				defaultCollectionFormValues(TODAY, ELM.id, 'collection_date_duration'),
+			),
 		);
 
 		expect(screen.queryByText('Set date')).toBeNull();
