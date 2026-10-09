@@ -112,7 +112,45 @@ describe('useTileLayer', () => {
 		fake.click(-74.45, 40.35);
 
 		expect(selected).toEqual([]);
-		expect(fake.cameraCalls).toEqual([expect.objectContaining({ kind: 'fitBounds', padding: 48 })]);
+		expect(fake.cameraCalls).toEqual([
+			expect.objectContaining({
+				kind: 'fitBounds',
+				padding: { top: 48, right: 48, bottom: 48, left: 48 },
+				retainPadding: false,
+			}),
+		]);
+	});
+
+	// A fit that kept its own padding replaced the panel inset for good, and every
+	// later selection then centred on the whole canvas, under the panel (#1424).
+	it('frames a clicked cluster clear of the panel and leaves the panel inset on the map', () => {
+		const fake = createFakeMap();
+		mount(fake, { kind: 'traps', serverUrl: SERVER, onSelectFeature: () => {} });
+		const inset = { top: 0, right: 0, bottom: 0, left: 416 };
+		fake.map.easeTo({ padding: inset, duration: 0 });
+
+		fake.queryRenderedFeatures.mockReturnValueOnce([
+			{
+				properties: {
+					cluster: true,
+					point_count: 3,
+					cluster_west: -74.5,
+					cluster_south: 40.3,
+					cluster_east: -74.4,
+					cluster_north: 40.4,
+				},
+			},
+		]);
+		fake.click(-74.45, 40.35);
+
+		expect(fake.cameraCalls.at(-1)).toEqual(
+			expect.objectContaining({
+				kind: 'fitBounds',
+				padding: { top: 48, right: 48, bottom: 48, left: 464 },
+				retainPadding: false,
+			}),
+		);
+		expect(fake.map.getPadding()).toEqual(inset);
 	});
 
 	it('centres on a cluster whose points share one spot, at the zoom clustering stops', () => {
