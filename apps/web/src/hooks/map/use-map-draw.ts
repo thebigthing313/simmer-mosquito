@@ -10,16 +10,11 @@ import {
 	type DrawPoint,
 	type DrawPointRejection,
 	type DrawState,
+	drawView,
 	IDLE_DRAW_STATE,
 	next,
 } from '../../components/map/draw-machine';
-import {
-	continuedPartOf,
-	type DrawGeometry,
-	draftProgress,
-	editDraftOf,
-	holeDraftOf,
-} from '../../components/map/draw-parts';
+import type { DrawGeometry } from '../../components/map/draw-parts';
 import { fitMapToGeometry } from '../../components/map/fit-map-to-geometry';
 import { useDrawEditEvents } from './use-draw-edit-events';
 import { useDrawMapEvents } from './use-draw-map-events';
@@ -129,10 +124,7 @@ export function useMapDraw({
 			}),
 		);
 	};
-	// `repaint` reads only refs and the map, so it is never what an effect reacts
-	// to, and naming it in a dependency array would say otherwise. The effect below
-	// reaches it through an effect event; the ordinary function stays for
-	// `onEnsure` and `dispatch`, which are call sites outside an effect.
+	// `repaint` reads only refs, so the effect below reaches it as an effect event.
 	const repaintNow = useEffectEvent(() => {
 		repaint();
 	});
@@ -180,10 +172,7 @@ export function useMapDraw({
 		return { previous, state };
 	};
 
-	// What the draft source holds after a real state change: a new committed value,
-	// another vertex, a mode switch. The cursor and the drag are layered back on by
-	// `repaint` in the effect below, because what the map is showing this frame is
-	// commit-time information rather than render-time.
+	// The cursor and the drag are left off here and layered back on by `repaint`.
 	const features = buildFeatures({
 		committed: value,
 		mode,
@@ -193,10 +182,7 @@ export function useMapDraw({
 		highlighted,
 	});
 
-	// The source lifecycle — add, re-add on restyle, setData for updates, guarded
-	// teardown — is {@link useGeoJsonSource}'s. `onEnsure` repaints from the refs
-	// so a basemap switch mid-draw brings back the shape as it stands now, cursor
-	// included, rather than as of the last render.
+	// `onEnsure` repaints from the ref, so a restyle brings the cursor back too.
 	useGeoJsonSource({
 		map,
 		isLoaded,
@@ -206,10 +192,7 @@ export function useMapDraw({
 		onEnsure: repaint,
 	});
 
-	// `features` carries no cursor and no drag, so the source has just been set to
-	// the committed shape without the transients on it. Layering them back on is
-	// `repaint`'s job, and this is the commit-time moment to do it. Declared after
-	// the source primitive so its `setData` has already run.
+	// Declared after the source so its `setData` has already run.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `features` is the trigger rather than something the effect reads, and dropping it would stop the transients coming back after a state change.
 	useEffect(() => {
 		repaintNow();
@@ -230,11 +213,10 @@ export function useMapDraw({
 			pendingRef.current = { resolve, reject };
 		});
 
+	// One method per action, each one dispatch, because `MapDrawController` names
+	// the actions the forms, the toolbar and the part list call.
 	return {
-		isDrawing: mode.kind === 'draw' || mode.kind === 'edit',
-		isAddingPart: mode.kind === 'draw' && mode.target.kind === 'part',
-		isRequestingPoint: mode.kind === 'point',
-		...draftProgress(mode, value, vertices),
+		...drawView(view, value),
 		start: (drawType) => {
 			dispatch({ type: 'start', drawType });
 		},
@@ -247,11 +229,9 @@ export function useMapDraw({
 		continuePart: (partIndex) => {
 			dispatch({ type: 'continuePart', partIndex });
 		},
-		continuedPart: continuedPartOf(mode, value, vertices),
 		editPart: (partIndex) => {
 			dispatch({ type: 'editPart', partIndex });
 		},
-		editedPart: editDraftOf(mode, value),
 		moveVertex: (vertex, position) => {
 			dispatch({ type: 'moveVertex', vertex, position });
 		},
@@ -276,7 +256,6 @@ export function useMapDraw({
 		removeHole: (partIndex, holeIndex) => {
 			dispatch({ type: 'removeHole', partIndex, holeIndex });
 		},
-		holeDraft: holeDraftOf(mode, value, vertices),
 		highlightPart: (partIndex) => {
 			dispatch({ type: 'highlightPart', partIndex });
 		},
