@@ -3,6 +3,7 @@ import type { FilterOption } from '../../components/explorer/multi-select-filter
 
 /** The assignee filter's id for a row with a null `assignedToProfileId`. */
 const UNASSIGNED = 'unassigned';
+const UNASSIGNED_LABEL = 'Unassigned';
 
 /** The status and assignee sets a worklist filters on; an empty set is off. */
 export interface WorklistIndexFilters {
@@ -11,8 +12,8 @@ export interface WorklistIndexFilters {
 }
 
 /**
- * The selection, filtering and assignee options a worklist index page shares
- * with the other one, for the Missions and Assignments pages.
+ * The selection, filtering and assignee options the Missions and Assignments
+ * index pages share.
  *
  * Takes the loaded rows, how to read a row's status and assignee, the status
  * and assignee sets, an optional `matches` for a filter the page has and the
@@ -63,12 +64,12 @@ export function useWorklistIndex<Row extends { readonly id: string }>({
 	};
 
 	const assigneeOptions: readonly FilterOption[] = [
-		{ id: UNASSIGNED, label: 'Unassigned' },
+		{ id: UNASSIGNED, label: UNASSIGNED_LABEL },
 		...personnel.options,
 	];
 
 	const assigneeLabel = (id: string): string =>
-		id === UNASSIGNED ? 'Unassigned' : (personnel.nameById.get(id) ?? 'Unknown profile');
+		id === UNASSIGNED ? UNASSIGNED_LABEL : (personnel.nameById.get(id) ?? 'Unknown profile');
 
 	return {
 		visible,
