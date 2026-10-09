@@ -86,9 +86,9 @@ export function EditSettingsSheet({
 					<SheetTitle>{title}</SheetTitle>
 					{description === undefined ? null : <SheetDescription>{description}</SheetDescription>}
 				</SheetHeader>
-				{/* noValidate: a number input steps from its saved value, so the browser
-				    would refuse a fractional radius with a message naming no field. The
-				    caller's conversion is the one rule, and its error names the field. */}
+				{/* noValidate: the caller's `onSave` conversion owns every rule and its
+				    error names the field. The browser's own check names none, and on a
+				    number input it steps from the saved value. */}
 				<form className="grid gap-3.5" noValidate onSubmit={submit}>
 					<div className="grid gap-2.5 px-4">
 						{fields.map((field) => (
