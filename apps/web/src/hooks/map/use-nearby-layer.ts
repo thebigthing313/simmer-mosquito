@@ -181,6 +181,7 @@ export function useNearbyLayer(
 	isLoaded: boolean,
 	config?: NearbyLayerConfig,
 ): void {
+	const selectedIds = config?.selectedIds ?? [];
 	useGeoJsonSource({
 		map,
 		isLoaded,
@@ -196,9 +197,9 @@ export function useNearbyLayer(
 		selection: {
 			layerId: SELECTED_LAYER_ID,
 			// Joined, because a caller that rebuilds the list every render would
-			// otherwise re-filter on every render.
-			key: (config?.selectedIds ?? []).join(','),
-			filter: (key) => selectedFilter(key === '' ? [] : key.split(',')),
+			// otherwise re-filter on every render, and `null` for an empty list.
+			key: selectedIds.length === 0 ? null : selectedIds.join(','),
+			filter: (key) => selectedFilter(key === null ? [] : key.split(',')),
 		},
 	});
 }
