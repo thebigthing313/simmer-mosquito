@@ -136,6 +136,8 @@ function AssignmentsIndexRoute() {
 	const { countsById } = useAssignmentItemCounts(visibleIds);
 	const { features, counts, stops } = useAssignmentStops(selectedId);
 
+	// The empty state reads the set filters alone and not the window, because
+	// its copy already names the date range; the chip bar counts both.
 	const hasSetFilter = filters.people.size > 0 || filters.statuses.size > 0;
 
 	return (

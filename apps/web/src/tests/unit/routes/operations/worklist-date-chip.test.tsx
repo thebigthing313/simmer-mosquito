@@ -10,8 +10,8 @@
  * chip and no "Clear all", and the list was narrower than the bar admitted.
  * Each route is rendered whole and asked three things: the default window with
  * no set filter draws no bar, a moved window draws a `Dates:` chip and "Clear
- * all", and removing that chip writes the schedule window back and leaves a
- * status chip where it was.
+ * all", and removing that chip writes the schedule window back and leaves the
+ * status, control type and assignee chips where they were.
  *
  * The router is `routerStandIn` with one change: its `navigate` runs the
  * search updater it is handed against the stand-in URL and tells the mounted
@@ -27,9 +27,9 @@ import { datePresetRange, SCHEDULE_WINDOW } from '../../../../lib/date-presets';
 import { todayInTimeZone } from '../../../../lib/local-date';
 import { preloadRouteComponent, renderExplorer } from '../explorer-route-harness';
 
-const TIME_ZONE = 'America/New_York';
-
 const url = vi.hoisted(() => ({
+	/** The Organization's zone, which both pages resolve today in. */
+	timeZone: 'America/New_York',
 	/** What the stand-in router answers for `useSearch`, rewritten by each navigation. */
 	search: {} as Record<string, unknown>,
 }));
@@ -58,7 +58,7 @@ vi.mock('../../../../hooks/use-auth-snapshot', async () => {
 });
 
 vi.mock('../../../../hooks/use-organization-time-zone', () => ({
-	useOrganizationTimeZone: () => 'America/New_York',
+	useOrganizationTimeZone: () => url.timeZone,
 }));
 
 vi.mock('../../../../hooks/explorer/use-personnel-options', () => ({
@@ -128,7 +128,7 @@ afterEach(cleanup);
 
 /** The window both pages open on, resolved the way they resolve it. */
 function scheduleWindow(): { readonly from: string; readonly to: string } {
-	return datePresetRange(SCHEDULE_WINDOW, todayInTimeZone(TIME_ZONE));
+	return datePresetRange(SCHEDULE_WINDOW, todayInTimeZone(url.timeZone));
 }
 
 /** The window's start moved a day earlier, with the end left on the default. */
@@ -147,10 +147,25 @@ function dateChipRemover(): HTMLElement {
 	return screen.getByRole('button', { name: /^Remove Dates: .* filter$/ });
 }
 
+/**
+ * The set filters each page carries beside its window, as the URL spells them,
+ * and the chips they draw. `unassigned` is the assignee id for a row with no
+ * assignee, so it needs no profile behind it.
+ */
 describe.each([
-	{ name: 'Missions', page: () => Missions, status: 'scheduled' },
-	{ name: 'Assignments', page: () => Assignments, status: 'completed' },
-])('$name', ({ page, status }) => {
+	{
+		name: 'Missions',
+		page: () => Missions,
+		setFilters: { statuses: ['scheduled'], types: ['application'], people: ['unassigned'] },
+		chips: 3,
+	},
+	{
+		name: 'Assignments',
+		page: () => Assignments,
+		setFilters: { statuses: ['completed'], people: ['unassigned'] },
+		chips: 2,
+	},
+])('$name', ({ page, setFilters, chips }) => {
 	it('draws no chip bar on the default window with no set filter', () => {
 		render(page(), {});
 
@@ -165,8 +180,11 @@ describe.each([
 		expect(screen.getByRole('button', { name: 'Clear all' })).toBeTruthy();
 	});
 
-	it('writes the schedule window back when the Dates chip is removed, keeping the status chip', () => {
-		render(page(), { from: movedFrom(), to: 'any', statuses: [status] });
+	// Both bounds are moved, the end to the open bound, so the case reads each
+	// one being written back rather than one that never left the default.
+	it('writes the schedule window back when the Dates chip is removed, keeping every set filter', () => {
+		render(page(), { from: movedFrom(), to: 'any', ...setFilters });
+		expect(screen.getAllByRole('button', { name: /^Remove .* filter$/ })).toHaveLength(chips + 1);
 
 		act(() => {
 			fireEvent.click(dateChipRemover());
@@ -175,8 +193,9 @@ describe.each([
 		const defaults = scheduleWindow();
 		expect(url.search.from).toBe(defaults.from);
 		expect(url.search.to).toBe(defaults.to);
-		expect(url.search.statuses).toEqual([status]);
+		expect(url.search).toMatchObject(setFilters);
 		expect(screen.queryByRole('button', { name: /^Remove Dates: / })).toBeNull();
-		expect(screen.getAllByRole('button', { name: /^Remove .* filter$/ })).toHaveLength(1);
+		expect(screen.getAllByRole('button', { name: /^Remove .* filter$/ })).toHaveLength(chips);
+		expect(screen.getByRole('button', { name: 'Clear all' })).toBeTruthy();
 	});
 });

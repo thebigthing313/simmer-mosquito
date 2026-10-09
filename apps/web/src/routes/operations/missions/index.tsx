@@ -169,6 +169,8 @@ function MissionsRoute() {
 	const { stops } = useMissionStopViews(selectedId);
 	const features = missionStopFeatures(stops);
 
+	// The empty state reads the set filters alone and not the window, because
+	// its copy already names the date range; the chip bar counts both.
 	const hasSetFilter =
 		filters.statuses.size > 0 || filters.types.size > 0 || filters.people.size > 0;
 
