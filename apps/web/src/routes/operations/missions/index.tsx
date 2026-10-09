@@ -32,6 +32,10 @@ import {
 import { WorklistMap } from '../../../components/operations/worklist-map';
 import { WriteOnly } from '../../../components/write-only';
 import { useControlMethodNames } from '../../../hooks/explorer/use-control-method-names';
+import {
+	type DateRangeBinding,
+	useDateRangeFilters,
+} from '../../../hooks/explorer/use-date-range-filters';
 import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useMissionStopViews } from '../../../hooks/operations/use-mission-stop-views';
 import {
@@ -49,8 +53,8 @@ import { useMissionItemCounts } from '../../../hooks/queries/use-mission-item-co
 import { useMissions } from '../../../hooks/queries/use-missions';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
-import { activeDatePresetId, type DatePreset, datePresetRange } from '../../../lib/date-presets';
-import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
+import { datePresetRange, SCHEDULE_WINDOW } from '../../../lib/date-presets';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceSetParam,
@@ -103,23 +107,26 @@ export const Route = createFileRoute('/operations/missions/')({
 	validateSearch: searchValidator(FILTER_CODECS),
 });
 
-// A mission list is a schedule, not a history: it opens on the week just gone
-// plus the fortnight ahead, so today's dispatch and what is queued behind it are
-// both on screen without touching a filter.
-const DEFAULT_DAYS_BACK = 7;
-const DEFAULT_DAYS_AHEAD = 14;
-
 function MissionsRoute() {
 	const timeZone = useOrganizationTimeZone();
 	const today = todayInTimeZone(timeZone);
+	// A mission list is a schedule, not a history, so it opens on the schedule window.
+	const scheduleRange = datePresetRange(SCHEDULE_WINDOW, today);
 	const filterDefaults: MissionFilters = {
-		from: addCalendarDays(today, -DEFAULT_DAYS_BACK),
-		to: addCalendarDays(today, DEFAULT_DAYS_AHEAD),
+		from: scheduleRange.from,
+		to: scheduleRange.to,
 		statuses: new Set<MissionStatus>(),
 		types: new Set(),
 		people: new Set(),
 	};
 	const { filters, setFilters, reset } = useSearchFilters(filterDefaults, FILTER_CODECS);
+	const dateRange = useDateRangeFilters({
+		from: filters.from,
+		to: filters.to,
+		today,
+		setFilters,
+		direction: 'schedule',
+	});
 
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
@@ -151,24 +158,6 @@ function MissionsRoute() {
 	// drawn as.
 	const { stops } = useMissionStopViews(effectiveId);
 	const features = missionStopFeatures(stops);
-
-	const handleFromChange = (next: string) => {
-		setFilters({
-			from: next,
-			...(next !== '' && filters.to !== '' && next > filters.to ? { to: next } : {}),
-		});
-	};
-	const handleToChange = (next: string) => {
-		setFilters({
-			to: next,
-			...(next !== '' && filters.from !== '' && next < filters.from ? { from: next } : {}),
-		});
-	};
-	const applyPreset = (preset: DatePreset) => {
-		const range = datePresetRange(preset, today);
-		setFilters({ from: range.from, to: range.to });
-	};
-	const activePresetId = activeDatePresetId(filters.from, filters.to, today);
 
 	const handleSelect = (id: string) => {
 		setSelectedId(id);
@@ -227,16 +216,12 @@ function MissionsRoute() {
 					</div>
 
 					<MissionFilterBar
-						activePresetId={activePresetId}
 						assigneeOptions={assigneeOptions}
+						dateRange={dateRange}
 						filters={filters}
 						nameById={nameById}
-						onApplyPreset={applyPreset}
-						onFromChange={handleFromChange}
 						onReset={reset}
-						onToChange={handleToChange}
 						setFilters={setFilters}
-						today={today}
 					/>
 				</div>
 
@@ -257,27 +242,19 @@ function MissionsRoute() {
 
 /** The date window and the three set filters above the list, with their chips. */
 function MissionFilterBar({
-	activePresetId,
 	assigneeOptions,
+	dateRange,
 	filters,
 	nameById,
-	onApplyPreset,
-	onFromChange,
 	onReset,
-	onToChange,
 	setFilters,
-	today,
 }: {
-	readonly activePresetId: string | null;
 	readonly assigneeOptions: readonly FilterOption[];
+	readonly dateRange: DateRangeBinding;
 	readonly filters: MissionFilters;
 	readonly nameById: ReadonlyMap<string, string>;
-	readonly onApplyPreset: (preset: DatePreset) => void;
-	readonly onFromChange: (next: string) => void;
 	readonly onReset: () => void;
-	readonly onToChange: (next: string) => void;
 	readonly setFilters: (next: Partial<MissionFilters>) => void;
-	readonly today: string;
 }) {
 	const hasChips = filters.statuses.size > 0 || filters.types.size > 0 || filters.people.size > 0;
 
@@ -289,15 +266,7 @@ function MissionFilterBar({
 
 	return (
 		<>
-			<DateRangeFilter
-				activePresetId={activePresetId}
-				from={filters.from}
-				onApplyPreset={onApplyPreset}
-				onFromChange={onFromChange}
-				onToChange={onToChange}
-				to={filters.to}
-				today={today}
-			/>
+			<DateRangeFilter {...dateRange} />
 
 			<div className="flex flex-wrap gap-2">
 				<MultiSelectFilter
