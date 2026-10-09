@@ -21,6 +21,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const RELATIVE_JS = /^\.\.?\/.*\.js$/;
+const JS = '.js';
 const SOURCE_EXTENSIONS = ['.ts', '.tsx'];
 
 /**
@@ -45,9 +46,10 @@ function workspaceSourceSpecifier({ packagesRoot, originModulePath, moduleName, 
 	const target = path.resolve(path.dirname(originModulePath), moduleName);
 	if (fileExists(target)) return null;
 
-	const stem = moduleName.slice(0, -'.js'.length);
+	const stem = moduleName.slice(0, -JS.length);
+	const targetStem = target.slice(0, -JS.length);
 	for (const extension of SOURCE_EXTENSIONS) {
-		if (fileExists(target.slice(0, -'.js'.length) + extension)) return stem + extension;
+		if (fileExists(targetStem + extension)) return stem + extension;
 	}
 	return null;
 }

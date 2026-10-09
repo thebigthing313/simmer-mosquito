@@ -10,14 +10,10 @@
  *    physically under the root store, so both `node_modules` directories have
  *    to be on the resolver path — with the app's own first, so a version pinned
  *    here wins over whatever the root happens to have.
- * 3. Workspace source imports its siblings NodeNext style. `packages/auth`
- *    writes `./client/cookie-fetch.js` for a file that is `cookie-fetch.ts`,
- *    which `tsc` maps and Metro does not, so the bundle failed at the root
- *    layout (#1342). `metro/workspace-source.js` rewrites that one shape, a
- *    relative `.js` specifier from a package's `src/` with no `.js` file
- *    there, and hands everything else to the default resolver. Metro 0.84
- *    has no setting for this; that was checked before the resolver was
- *    written.
+ * 3. Workspace source imports its siblings NodeNext style, `./client/x.js`
+ *    for a file that is `x.ts`, which `tsc` maps and Metro does not (#1342).
+ *    `metro/workspace-source.js` rewrites that one shape and says why it is
+ *    a resolver rather than a setting.
  *
  * `disableHierarchicalLookup` stays off deliberately: pnpm's layout leans on
  * walking up from a symlink's *real* path, and turning it off is what usually

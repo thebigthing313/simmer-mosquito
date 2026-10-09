@@ -513,9 +513,10 @@ jobs:
       # Bundles `apps/mobile` through Metro, which nothing else in CI runs, so
       # a specifier Metro cannot resolve used to pass every gate above while the
       # app rendered nothing (#1342). After the build because `config` and
-      # `design-tokens` resolve to `dist/`. Android alone, since it needs no
-      # macOS runner; offline, with no Expo account; output to the runner's
-      # temp directory rather than the checkout.
+      # `design-tokens` resolve to `dist/`. One platform is enough to resolve
+      # every import, and Android is the one the app targets first; offline,
+      # with no Expo account; output to the runner's temp directory rather
+      # than the checkout.
       - name: Mobile bundle
         working-directory: apps/mobile
         env:

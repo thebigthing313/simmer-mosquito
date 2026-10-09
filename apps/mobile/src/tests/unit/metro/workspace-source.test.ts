@@ -79,7 +79,7 @@ describe('workspaceSourceSpecifier', () => {
 		).toBeNull();
 	});
 
-	it('leaves a .js specifier inside node_modules alone', () => {
+	it('leaves a file outside packages alone', () => {
 		expect(
 			workspaceSourceSpecifier({
 				packagesRoot,
@@ -90,7 +90,7 @@ describe('workspaceSourceSpecifier', () => {
 		).toBeNull();
 	});
 
-	it('leaves a node_modules tree under a package alone', () => {
+	it('leaves a node_modules tree inside a package alone', () => {
 		expect(
 			workspaceSourceSpecifier({
 				packagesRoot,
