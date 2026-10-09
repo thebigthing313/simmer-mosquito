@@ -14,6 +14,7 @@ import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
+	DateRangeChip,
 	FilterChip,
 	FilterFieldsLayout,
 	FilterGrid,
@@ -88,9 +89,10 @@ export function BiocontrolFilterChips({ binding }: { readonly binding: Biocontro
 	const { nameById: methodNameById } = useBiocontrolMethodOptions();
 	const { nameById: personNameById } = usePersonnelOptions();
 	const { nameById: regionNameById } = useRegionOptions();
-	const { filters, setFilters, reset } = binding;
+	const { filters, setFilters, reset, defaults } = binding;
 	return (
 		<ActiveFilterBar onClearAll={reset}>
+			<DateRangeChip defaults={defaults} range={filters} setRange={setFilters} />
 			{[...filters.methods].map((id) => (
 				<FilterChip
 					key={id}

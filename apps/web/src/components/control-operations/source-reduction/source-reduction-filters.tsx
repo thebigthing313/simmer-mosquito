@@ -14,6 +14,7 @@ import { useSourceReductionMethodOptions } from '../../../hooks/explorer/use-sou
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
+	DateRangeChip,
 	FilterChip,
 	FilterFieldsLayout,
 	FilterGrid,
@@ -86,9 +87,10 @@ export function SourceReductionFilterChips({
 	const { nameById: methodNameById } = useSourceReductionMethodOptions();
 	const { nameById: personNameById } = usePersonnelOptions();
 	const { nameById: regionNameById } = useRegionOptions();
-	const { filters, setFilters, reset } = binding;
+	const { filters, setFilters, reset, defaults } = binding;
 	return (
 		<ActiveFilterBar onClearAll={reset}>
+			<DateRangeChip defaults={defaults} range={filters} setRange={setFilters} />
 			{[...filters.methods].map((id) => (
 				<FilterChip
 					key={id}

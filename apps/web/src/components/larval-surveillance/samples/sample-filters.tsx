@@ -27,10 +27,10 @@ import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filt
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useSpeciesOptions } from '../../../hooks/explorer/use-species-options';
 import type { SampleFilterBinding } from '../../../hooks/larval-surveillance/use-sample-filter-state';
-import { dateRangeLabel } from '../../../lib/local-date';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
+	DateRangeChip,
 	FilterChip,
 	FilterFieldsLayout,
 	FilterGrid,
@@ -106,16 +106,10 @@ export function SampleFilterChips({ binding }: { readonly binding: SampleFilterB
 	const { filters, setFilters, reset, defaults } = binding;
 	const { nameById } = useSpeciesOptions();
 	const regions = useRegionOptions();
-	const isDefaultRange = filters.from === defaults.from && filters.to === defaults.to;
 	const status = filters.status;
 	return (
 		<ActiveFilterBar onClearAll={reset}>
-			{isDefaultRange ? null : (
-				<FilterChip
-					label={`Dates: ${dateRangeLabel(filters.from, filters.to)}`}
-					onRemove={() => setFilters({ from: defaults.from, to: defaults.to })}
-				/>
-			)}
+			<DateRangeChip defaults={defaults} range={filters} setRange={setFilters} />
 			{status === 'all' ? null : (
 				<FilterChip
 					color={SAMPLE_STATUS_COLORS[status]}
