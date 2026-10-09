@@ -59,6 +59,28 @@ export function renderExplorer(Explorer: () => ReactNode): RenderResult {
 }
 
 /**
+ * How long a summary case waits for the summary to draw, passed as the third
+ * argument to its first `findBy*` (#1444).
+ *
+ * Over 100 in view the summary draws only after three requests have answered
+ * in turn, the extent, the page and then the summary. Alone that is about a
+ * second and a half, and under four parallel `vitest` processes it ran past
+ * Testing Library's 1000ms default while the case still had time left, so the
+ * wait gave up on a summary that was still coming. The number is a tripwire
+ * against a summary that never draws, not a measure of speed, so do not
+ * tighten it because a run got slower: #545 and the watchdog in
+ * `vitest.shared.ts` give the reasoning.
+ */
+export const SUMMARY_WAIT = { timeout: 10_000 } as const;
+
+/**
+ * The test timeout a summary case passes to `it`, because `SUMMARY_WAIT` is
+ * longer than vitest's 5000ms default and the case has to outlast its own wait.
+ * The margin over the wait covers the render and the assertions after it.
+ */
+export const SUMMARY_CASE_TIMEOUT = 15_000;
+
+/**
  * The canvas, reduced to the two things the rail depends on it for: a map to
  * read a viewport off, and the extent request `fitToData` sends. The real one
  * observes the same query through `useMapExtentFit`, and so does this, which is

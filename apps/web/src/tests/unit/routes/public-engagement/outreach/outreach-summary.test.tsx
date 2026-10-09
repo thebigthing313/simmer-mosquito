@@ -22,6 +22,8 @@ import { installMemoryCollections, seedRows } from '../../../lib/collections/mem
 import {
 	preloadRouteComponent,
 	renderExplorer,
+	SUMMARY_CASE_TIMEOUT,
+	SUMMARY_WAIT,
 	stubPanelLayout,
 } from '../../explorer-route-harness';
 
@@ -107,49 +109,57 @@ const OUTREACH_ACTION = {
 };
 
 describe('the outreach actions explorer with outreach actions in view', () => {
-	it('draws the summary instead of the rows over 100 in view, with no pager', async () => {
-		harness.search = {
-			from: '2026-09-01',
-			to: '2026-09-28',
-			methods: ['method-1'],
-			people: ['person-1'],
-		};
-		harness.page = { outreachActions: [OUTREACH_ACTION], total: 240 };
-		harness.summary = {
-			total: 240,
-			groups: {
-				outreachMethodId: [{ value: 'method-1', count: 240 }],
-				technicianProfileId: [{ value: 'person-1', count: 240 }],
-			},
-			figures: { reachTotal: 7200 },
-		};
-		renderExplorer(OutreachExplorer);
+	// The summary waits on three requests in turn, so this case outlasts the
+	// 5000ms default; `SUMMARY_WAIT` in the harness says why.
+	it(
+		'draws the summary instead of the rows over 100 in view, with no pager',
+		async () => {
+			harness.search = {
+				from: '2026-09-01',
+				to: '2026-09-28',
+				methods: ['method-1'],
+				people: ['person-1'],
+			};
+			harness.page = { outreachActions: [OUTREACH_ACTION], total: 240 };
+			harness.summary = {
+				total: 240,
+				groups: {
+					outreachMethodId: [{ value: 'method-1', count: 240 }],
+					technicianProfileId: [{ value: 'person-1', count: 240 }],
+				},
+				figures: { reachTotal: 7200 },
+			};
+			renderExplorer(OutreachExplorer);
 
-		// The method the address bar holds is drawn as the selected group.
-		const method = await screen.findByRole('button', {
-			name: 'Unknown method, 240 outreach actions',
-		});
-		expect(method.getAttribute('aria-pressed')).toBe('true');
-		expect(
-			screen
-				.getByRole('button', { name: 'Unknown person, 240 outreach actions' })
-				.getAttribute('aria-pressed'),
-		).toBe('true');
-		expect(screen.getByRole('region', { name: 'Totals' }).textContent).toBe(
-			'TotalsTotal reach7,200 people',
-		);
-		expect(screen.queryByRole('link', { name: 'Unknown method' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
+			// The method the address bar holds is drawn as the selected group.
+			const method = await screen.findByRole(
+				'button',
+				{ name: 'Unknown method, 240 outreach actions' },
+				SUMMARY_WAIT,
+			);
+			expect(method.getAttribute('aria-pressed')).toBe('true');
+			expect(
+				screen
+					.getByRole('button', { name: 'Unknown person, 240 outreach actions' })
+					.getAttribute('aria-pressed'),
+			).toBe('true');
+			expect(screen.getByRole('region', { name: 'Totals' }).textContent).toBe(
+				'TotalsTotal reach7,200 people',
+			);
+			expect(screen.queryByRole('link', { name: 'Unknown method' })).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
 
-		const summaryRequest = harness.sent.find((url) => url.pathname === '/map/outreach/summary');
-		expect(Object.fromEntries(summaryRequest?.searchParams ?? [])).toEqual({
-			bbox: '0,-0.8,1,0',
-			outreachMethodId: 'method-1',
-			technician: 'person-1',
-			dateFrom: '2026-09-01',
-			dateTo: '2026-09-28',
-		});
-	});
+			const summaryRequest = harness.sent.find((url) => url.pathname === '/map/outreach/summary');
+			expect(Object.fromEntries(summaryRequest?.searchParams ?? [])).toEqual({
+				bbox: '0,-0.8,1,0',
+				outreachMethodId: 'method-1',
+				technician: 'person-1',
+				dateFrom: '2026-09-01',
+				dateTo: '2026-09-28',
+			});
+		},
+		SUMMARY_CASE_TIMEOUT,
+	);
 
 	it('draws the rows at 100 or fewer, with no pager and no summary request', async () => {
 		harness.page = { outreachActions: [OUTREACH_ACTION], total: 1 };

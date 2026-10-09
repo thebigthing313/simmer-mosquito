@@ -38,6 +38,8 @@ import { installMemoryCollections, seedRows } from '../../../lib/collections/mem
 import {
 	preloadRouteComponent,
 	renderExplorer,
+	SUMMARY_CASE_TIMEOUT,
+	SUMMARY_WAIT,
 	stubPanelLayout,
 } from '../../explorer-route-harness';
 
@@ -304,34 +306,40 @@ describe('the addresses explorer with nothing on the page', () => {
 // asked for under the page's own box and filters, and at 100 or fewer it draws
 // the rows, all on one page. What the summary draws is `address-summary.test.tsx`'s.
 describe('the addresses explorer with addresses in view', () => {
-	it('draws the summary instead of the rows over 100 in view, with no pager', async () => {
-		harness.search = { search: 'elm', regions: 'b1b2c3d4-0000-4000-8000-000000000009' };
-		harness.book = [INSIDE_B];
-		harness.extent = { west: 0, south: -1, east: 1, north: 0 };
-		harness.pageTotal = 140;
-		harness.summary = {
-			total: 140,
-			groups: {
-				locality: [{ value: 'Monroe Township', count: 140 }],
-				postalCode: [{ value: '08831', count: 140 }],
-			},
-		};
-		renderAddresses();
+	// The summary waits on three requests in turn, so this case outlasts the
+	// 5000ms default; `SUMMARY_WAIT` in the harness says why.
+	it(
+		'draws the summary instead of the rows over 100 in view, with no pager',
+		async () => {
+			harness.search = { search: 'elm', regions: 'b1b2c3d4-0000-4000-8000-000000000009' };
+			harness.book = [INSIDE_B];
+			harness.extent = { west: 0, south: -1, east: 1, north: 0 };
+			harness.pageTotal = 140;
+			harness.summary = {
+				total: 140,
+				groups: {
+					locality: [{ value: 'Monroe Township', count: 140 }],
+					postalCode: [{ value: '08831', count: 140 }],
+				},
+			};
+			renderAddresses();
 
-		const locality = await screen.findByRole('region', { name: 'Locality' });
-		expect(locality.textContent).toBe('LocalityMonroe Township140');
-		expect(screen.getByRole('region', { name: 'Postal Code' }).textContent).toBe(
-			'Postal Code08831140',
-		);
-		expect(screen.queryByText('2 Elm Court')).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
-		const summaryRequest = harness.sent.find((url) => url.pathname === '/map/addresses/summary');
-		expect(Object.fromEntries(summaryRequest?.searchParams ?? [])).toEqual({
-			bbox: '0,-0.8,1,0',
-			search: 'elm',
-			regionId: 'b1b2c3d4-0000-4000-8000-000000000009',
-		});
-	});
+			const locality = await screen.findByRole('region', { name: 'Locality' }, SUMMARY_WAIT);
+			expect(locality.textContent).toBe('LocalityMonroe Township140');
+			expect(screen.getByRole('region', { name: 'Postal Code' }).textContent).toBe(
+				'Postal Code08831140',
+			);
+			expect(screen.queryByText('2 Elm Court')).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
+			const summaryRequest = harness.sent.find((url) => url.pathname === '/map/addresses/summary');
+			expect(Object.fromEntries(summaryRequest?.searchParams ?? [])).toEqual({
+				bbox: '0,-0.8,1,0',
+				search: 'elm',
+				regionId: 'b1b2c3d4-0000-4000-8000-000000000009',
+			});
+		},
+		SUMMARY_CASE_TIMEOUT,
+	);
 
 	it('draws the rows at 100 or fewer, with no pager and no summary request', async () => {
 		harness.book = [INSIDE_A, INSIDE_B];
