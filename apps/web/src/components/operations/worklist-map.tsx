@@ -11,6 +11,7 @@ import type { RouteStopFeature } from '../../hooks/map/use-route-layer';
 import { type RecordType, recordNoun } from '../../lib/record-nouns';
 import { MapCanvas } from '../map';
 import { MapControlButton, MapControlGroup } from '../map/map-control';
+import { framingPadding } from '../map/map-inset';
 
 /**
  * The worklist map: numbered stops in sequence, auto-framed when the worklist
@@ -142,7 +143,7 @@ function fitToWorklist(
 			[west, south],
 			[east, north],
 		],
-		{ padding: 72, maxZoom: 16, duration },
+		{ ...framingPadding(instance, 72), maxZoom: 16, duration },
 	);
 }
 

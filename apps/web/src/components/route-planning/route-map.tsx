@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import type { RouteStopFeature } from '../../hooks/map/use-route-layer';
 import { MapCanvas } from '../map';
 import { MapControlButton, MapControlGroup } from '../map/map-control';
+import { framingPadding } from '../map/map-inset';
 import { boundsOfStops, type RouteStop } from './route-stop';
 
 /**
@@ -30,7 +31,7 @@ function fitToRoute(instance: MapboxMap, stops: readonly RouteStop[], animate: b
 			[west, south],
 			[east, north],
 		],
-		{ padding: 72, maxZoom: 16, duration },
+		{ ...framingPadding(instance, 72), maxZoom: 16, duration },
 	);
 }
 

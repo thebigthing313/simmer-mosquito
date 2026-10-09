@@ -651,6 +651,18 @@ describe('the inset the panel hands the map', () => {
 			bottom: 56,
 			left: 472,
 		});
+		expect(lastCall(fake, 'fitBounds')?.retainPadding).toBe(false);
+
+		probe.unmount();
+	});
+
+	// The fit's margin used to stay on the map, so the rail's viewport read 56px
+	// short on every side and a later fly-to centred on a box that was not the
+	// panel's (#1424).
+	it('leaves the panel inset on the map after framing an extent', () => {
+		const probe = mountProbe({ selected: SELECTED });
+
+		expect(fake.map.getPadding()).toEqual({ top: 0, right: 0, bottom: 0, left: 416 });
 
 		probe.unmount();
 	});
