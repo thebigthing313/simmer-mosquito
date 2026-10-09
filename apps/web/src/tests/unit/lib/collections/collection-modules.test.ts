@@ -17,7 +17,7 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { CollectionDeclaration, SyncedRow } from '../../../../lib/collections/registry';
 import { installMemoryCollections } from './memory-collections';
 
@@ -51,50 +51,32 @@ function moduleNames(): readonly string[] {
 	return readdirSync(collectionsDir).filter((name) => name.endsWith('.ts') && !support.has(name));
 }
 
-let modules: readonly CollectionModule[] = [];
-
 /**
- * Long, because this is fifty modules through Vite's transform. It measured
- * 1.3s on an idle machine and blew past 22s with two full runs going at once,
- * so the five-second default was timing the machine rather than anything this
- * file asserts. That is issue #509.
+ * Every collection module, imported once for the file, at module scope.
  *
- * `import-side-effects.test.ts` no longer sizes a budget at all: its imports
- * are the assertion rather than setup, so no hook can hold them and they run at
- * module scope, which vitest times with nothing (#545). Here the import is
- * setup, and a hook with a budget of its own is enough.
+ * This was a `beforeAll` with a 60s budget of its own (#509). Fifty modules
+ * through Vite's transform is the slow part, and with three full runs going at
+ * once the hook took 46.8s of its 60s, so the budget was timing the machine
+ * rather than anything this file asserts (#1455). Vitest applies no timeout to
+ * module scope, which is how `import-side-effects.test.ts` has run its sweeps
+ * since #545, and the watchdog in `vitest.shared.ts` is still the bound on a
+ * hang.
  *
- * A module that genuinely does not resolve still fails: a specifier that names
- * nothing rejects rather than hangs, so the hook reports the resolution error
- * and takes every case in the file down with it.
+ * The move costs no coverage. No source is installed when this runs, since the
+ * `beforeEach` below that installs one runs after collection, so a module that
+ * calls its factory while it loads still throws here and fails the file. A
+ * specifier naming no module rejects rather than hangs, and fails it too.
  */
-const IMPORT_TIMEOUT_MS = 60_000;
-
-/**
- * Import every collection module, once for the file.
- *
- * Once, because six of the cases used to re-await all fifty and whichever ran
- * first paid the whole transform against a five-second assertion budget. The
- * cost is setup, so it is spent in a hook with a budget of its own and the
- * cases keep the default: they read this array, and nothing in them can be
- * slow.
- *
- * With no source installed, so this is also the assertion that importing one
- * builds nothing. A module that called its factory at module scope throws here
- * rather than reach the cases below.
- */
-beforeAll(async () => {
-	modules = await Promise.all(
-		moduleNames().map(async (name) => {
-			const table = name.replace(/\.ts$/, '');
-			const exports = (await import(`../../../../lib/collections/${table}.ts`)) as Record<
-				string,
-				unknown
-			>;
-			return { name, table, exports, own: exports[table] as Resolver };
-		}),
-	);
-}, IMPORT_TIMEOUT_MS);
+const modules: readonly CollectionModule[] = await Promise.all(
+	moduleNames().map(async (name) => {
+		const table = name.replace(/\.ts$/, '');
+		const exports = (await import(`../../../../lib/collections/${table}.ts`)) as Record<
+			string,
+			unknown
+		>;
+		return { name, table, exports, own: exports[table] as Resolver };
+	}),
+);
 
 describe('collection modules', () => {
 	it('finds the collections to check', () => {
