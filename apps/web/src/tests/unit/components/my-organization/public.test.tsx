@@ -59,18 +59,31 @@ describe('PublicSettingsDrawer', () => {
 		expect(setServiceRequestContext).not.toHaveBeenCalled();
 	});
 
-	/**
-	 * The number input steps by 1 from the saved value, so the form's own
-	 * constraint validation stops a fractional day count before `onSave` runs.
-	 * `serviceRequestContextFrom` refuses it too, which the helpers suite covers.
-	 */
-	it('refuses a fractional day count', async () => {
+	it('refuses a fractional day count, naming the field', async () => {
 		openSheet();
 		fireEvent.change(screen.getByLabelText('Days after'), { target: { value: '1.5' } });
 		save();
 
-		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect((await screen.findByRole('alert')).textContent).toBe(
+			'Days after must be a nonnegative whole number.',
+		);
 		expect(setServiceRequestContext).not.toHaveBeenCalled();
+	});
+
+	/**
+	 * A number input steps from its saved value, so from a saved 1 the browser's
+	 * own validation would refuse 0.25 before the sheet's conversion ran.
+	 */
+	it('saves a fractional Search radius', async () => {
+		openSheet();
+		fireEvent.change(screen.getByLabelText('Search radius'), { target: { value: '0.25' } });
+		save();
+
+		await vi.waitFor(() => expect(setServiceRequestContext).toHaveBeenCalledTimes(1));
+		expect(setServiceRequestContext).toHaveBeenCalledWith({
+			radius: { amount: 0.25, unitCode: 'mi' },
+			timeWindow: { daysBefore: 7, daysAfter: 14 },
+		});
 	});
 
 	it('saves a day window of zero as zero', async () => {
