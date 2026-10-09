@@ -38,7 +38,9 @@ function removeAddedLayers(
  *
  * `key` is the selection as one comparable string, so a caller that rebuilds a
  * list of ids every render does not re-filter on every render; `filter` turns
- * that key into the layer's filter expression.
+ * that key into the layer's filter expression. The layer is re-filtered when
+ * `key` changes and not when `filter` does, so `filter` must read nothing but
+ * its argument.
  */
 export interface GeoJsonSelection {
 	readonly layerId: string;
