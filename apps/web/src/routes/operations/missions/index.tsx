@@ -18,6 +18,8 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
+	type DateRange,
+	DateRangeChip,
 	FilterChip,
 	type FilterOption,
 	MultiSelectFilter,
@@ -59,6 +61,7 @@ import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceSetParam,
+	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
 	idSetParam,
@@ -117,7 +120,11 @@ function MissionsRoute() {
 		types: new Set(),
 		people: new Set(),
 	};
-	const { filters, setFilters, reset } = useSearchFilters(filterDefaults, FILTER_CODECS);
+	const { filters, setFilters, reset, activeCount } = useSearchFilters(
+		filterDefaults,
+		FILTER_CODECS,
+		DATE_RANGE_COUNTING,
+	);
 	const dateRange = useDateRangeFilters({
 		from: filters.from,
 		to: filters.to,
@@ -156,13 +163,16 @@ function MissionsRoute() {
 	const visibleIds = visible.map((mission) => mission.id);
 	const { countsById } = useMissionItemCounts(visibleIds);
 
-	// Missions carry no geometry of their own — the map draws the union of the
+	// Missions carry no geometry of their own. The map draws the union of the
 	// selected mission's stops, in dispatch order and as the shapes they were
 	// drawn as.
 	const { stops } = useMissionStopViews(selectedId);
 	const features = missionStopFeatures(stops);
 
-	const hasChips = filters.statuses.size > 0 || filters.types.size > 0 || filters.people.size > 0;
+	// The empty state reads the set filters alone and not the window, because
+	// its copy already names the date range; the chip bar counts both.
+	const hasSetFilter =
+		filters.statuses.size > 0 || filters.types.size > 0 || filters.people.size > 0;
 
 	return (
 		<MapSplitPage
@@ -213,9 +223,11 @@ function MissionsRoute() {
 					</div>
 
 					<MissionFilterBar
+						activeCount={activeCount}
 						assigneeLabel={assigneeLabel}
 						assigneeOptions={assigneeOptions}
 						dateRange={dateRange}
+						defaultRange={scheduleRange}
 						filters={filters}
 						onReset={reset}
 						setFilters={setFilters}
@@ -224,7 +236,7 @@ function MissionsRoute() {
 
 				<MissionResults
 					countsById={countsById}
-					hasFilters={hasChips}
+					hasFilters={hasSetFilter}
 					isLoading={isLoading}
 					methodNameById={methodNameById}
 					missions={visible}
@@ -237,24 +249,30 @@ function MissionsRoute() {
 	);
 }
 
-/** The date window and the three set filters above the list, with their chips. */
+/**
+ * The date window and the three set filters above the list, with their chips.
+ * The chip bar draws while `activeCount` is above zero, which counts a window
+ * moved off `defaultRange` as one filter.
+ */
 function MissionFilterBar({
+	activeCount,
 	assigneeLabel,
 	assigneeOptions,
 	dateRange,
+	defaultRange,
 	filters,
 	onReset,
 	setFilters,
 }: {
+	readonly activeCount: number;
 	readonly assigneeLabel: (id: string) => string;
 	readonly assigneeOptions: readonly FilterOption[];
 	readonly dateRange: DateRangeBinding;
+	readonly defaultRange: DateRange;
 	readonly filters: MissionFilters;
 	readonly onReset: () => void;
 	readonly setFilters: (next: Partial<MissionFilters>) => void;
 }) {
-	const hasChips = filters.statuses.size > 0 || filters.types.size > 0 || filters.people.size > 0;
-
 	return (
 		<>
 			<DateRangeFilter {...dateRange} />
@@ -283,8 +301,9 @@ function MissionFilterBar({
 				/>
 			</div>
 
-			{hasChips ? (
+			{activeCount > 0 ? (
 				<ActiveFilterBar onClearAll={onReset}>
+					<DateRangeChip defaults={defaultRange} range={filters} setRange={setFilters} />
 					{[...filters.statuses].map((status) => (
 						<FilterChip
 							key={`status-${status}`}

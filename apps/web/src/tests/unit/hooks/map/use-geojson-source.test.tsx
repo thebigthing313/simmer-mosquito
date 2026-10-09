@@ -186,11 +186,11 @@ describe('useGeoJsonSource', () => {
 	});
 
 	describe('selection', () => {
-		function idFilter(key: string): ExpressionSpecification {
-			return ['==', ['get', 'id'], key === '' ? '__none__' : key];
+		function idFilter(key: string | null): ExpressionSpecification {
+			return ['==', ['get', 'id'], key ?? '__none__'];
 		}
 
-		function selectionProps(key: string) {
+		function selectionProps(key: string | null) {
 			return {
 				map: null as MapboxMap | null,
 				isLoaded: true,
@@ -206,6 +206,42 @@ describe('useGeoJsonSource', () => {
 			renderHook(useGeoJsonSource, { ...selectionProps('habitat-1'), map: fake.map });
 
 			expect(fake.layers.get('selected')?.filter).toEqual(idFilter('habitat-1'));
+		});
+
+		// The setup effect and the key effect both run on mount, and only the add
+		// should filter: the key has not moved since it did.
+		it('filters the selection layer once on mount', () => {
+			const fake = createFakeMap();
+			renderHook(useGeoJsonSource, { ...selectionProps('habitat-1'), map: fake.map });
+
+			expect(fake.filterCalls.filter((id) => id === 'selected')).toEqual(['selected']);
+		});
+
+		it('filters the selection layer once on a new map instance', () => {
+			const first = createFakeMap();
+			const harness = renderHook(useGeoJsonSource, {
+				...selectionProps('habitat-1'),
+				map: first.map,
+			});
+			const second = createFakeMap();
+
+			harness.rerender({ ...selectionProps('habitat-1'), map: second.map });
+
+			expect(second.filterCalls.filter((id) => id === 'selected')).toEqual(['selected']);
+			expect(second.layers.get('selected')?.filter).toEqual(idFilter('habitat-1'));
+		});
+
+		it('hands a null key to the filter, which matches no feature', () => {
+			const fake = createFakeMap();
+			const filter = vi.fn(idFilter);
+			renderHook(useGeoJsonSource, {
+				...selectionProps(null),
+				selection: { layerId: 'selected', key: null, filter },
+				map: fake.map,
+			});
+
+			expect(filter).toHaveBeenCalledWith(null);
+			expect(fake.layers.get('selected')?.filter).toEqual(['==', ['get', 'id'], '__none__']);
 		});
 
 		// The layers come back with the filter their spec was written with, which
