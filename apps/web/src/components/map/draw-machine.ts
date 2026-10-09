@@ -245,10 +245,10 @@ const TRANSITIONS: { readonly [K in DrawEvent['type']]: Transition<K> } = {
 	// own.
 	doubleClick: (state, _event, context) =>
 		isRubberBanding(state.mode) ? finish(state, context) : unchanged(state),
-	deleteSelected: (state) =>
-		state.mode.kind === 'edit' && state.mode.selected !== null && state.mode.sketch === null
-			? deleteVertex(state, state.mode.selected)
-			: unchanged(state),
+	deleteSelected: (state) => {
+		const selected = deletableVertex(state.mode);
+		return selected === null ? unchanged(state) : deleteVertex(state, selected);
+	},
 	grab: (state, { vertex, position }) => grab(state, vertex, position),
 	release: (state) => release(state),
 	dropDrag: (state) => unchanged(state.drag === null ? state : { ...state, drag: null }),
@@ -261,6 +261,15 @@ export function next(state: DrawState, event: DrawEvent, context: DrawContext): 
 	// through a union index, which is the whole of the cast.
 	const transition = TRANSITIONS[event.type] as Transition<DrawEvent['type']>;
 	return transition(state, event, context);
+}
+
+/**
+ * The vertex Delete would take: the picked one, while an edit has no sketch
+ * open. The edit listener claims the key from the browser on the same answer,
+ * so the two cannot disagree about whether a Delete was meant for the shape.
+ */
+export function deletableVertex(mode: Mode): DrawVertexRef | null {
+	return mode.kind === 'edit' && mode.sketch === null ? mode.selected : null;
 }
 
 // Nothing stays picked: every index after the one dropped has shifted, so a pick
@@ -305,7 +314,7 @@ function leaveDraft(
 		readonly mode: Mode;
 		readonly vertices?: readonly PlanarPosition[];
 		readonly highlighted?: number | null;
-		readonly pending: DrawPointRejection | { readonly resolve: DrawPoint };
+		readonly pending: DrawPointRejection | { readonly point: DrawPoint };
 	},
 ): DrawTransition {
 	const effects: DrawEffect[] = [];
@@ -313,7 +322,7 @@ function leaveDraft(
 		effects.push(
 			typeof pending === 'string'
 				? { kind: 'rejectPoint', reason: pending }
-				: { kind: 'resolvePoint', point: pending.resolve },
+				: { kind: 'resolvePoint', point: pending.point },
 		);
 	}
 	return { state: { mode, vertices, highlighted, cursor: null, drag: null }, effects };
@@ -524,7 +533,7 @@ function click(state: DrawState, position: PlanarPosition, context: DrawContext)
 	if (mode.kind === 'point') {
 		return leaveDraft(state, {
 			mode: { kind: 'idle' },
-			pending: { resolve: { type: 'Point', coordinates: position } },
+			pending: { point: { type: 'Point', coordinates: position } },
 		});
 	}
 	if (mode.kind !== 'draw') {

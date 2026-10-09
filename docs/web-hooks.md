@@ -500,8 +500,8 @@ callbacks and runs the effect.
 `useMapDraw` is the adapter and the only place draw state is written. It keeps
 the whole state in one ref that `dispatch` reads, runs through `next` and
 writes back straight away, because a handler can fire several events in one
-tick. It calls `setState` only when the mode, the vertices or the highlight
-changed, so a move that shifts only the cursor or the grabbed vertex repaints
+tick. It sets the React state it renders from only when the mode, the
+vertices or the highlight changed, so a move that shifts only the cursor or the grabbed vertex repaints
 the draft source and does not re-render, which keeps the rubber band at frame
 rate. Render reads React state and never the ref, and the ref is written only
 in `dispatch`, which runs from event handlers: the React Compiler allows that

@@ -178,6 +178,27 @@ describe('next', () => {
 		expect(state).toEqual({ ...IDLE_DRAW_STATE, highlighted: 1 });
 	});
 
+	// The other point click: one that finishes a point draft rather than answering
+	// a request. A point draft has no request pending, so there is nothing to tell.
+	it('leaves a point draft on its click the way every other exit does', () => {
+		const pointDraft: DrawState = {
+			...OPEN_DRAFT,
+			mode: { kind: 'draw', type: 'Point', target: { kind: 'replace' } },
+			vertices: [],
+		};
+
+		const { state, effects } = next(
+			pointDraft,
+			{ type: 'click', position: [-90.7, 35.7] },
+			CONTEXT,
+		);
+
+		expect(state).toEqual({ ...IDLE_DRAW_STATE, highlighted: 1 });
+		expect(effects).toEqual([
+			{ kind: 'emit', geometry: { type: 'Point', coordinates: [-90.7, 35.7] } },
+		]);
+	});
+
 	it('clears the committed shape when a fresh draw starts', () => {
 		const { effects } = next(OPEN_DRAFT, { type: 'start', drawType: 'Polygon' }, CONTEXT);
 

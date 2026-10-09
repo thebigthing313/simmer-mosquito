@@ -1,7 +1,7 @@
 import type { Map as MapboxMap, MapMouseEvent } from 'mapbox-gl';
 import { useEffect } from 'react';
 import { isOverEdge, vertexUnder } from '../../components/map/draw-layers';
-import type { DrawDispatch } from '../../components/map/draw-machine';
+import { type DrawDispatch, deletableVertex } from '../../components/map/draw-machine';
 import { isSketching } from '../../components/map/draw-parts';
 import { isAimedAtMap } from '../../components/map/map-keys';
 import { isMapLive } from './use-mapbox-map';
@@ -96,11 +96,7 @@ export function useDrawEditEvents({
 				return;
 			}
 			const { previous } = dispatch({ type: 'deleteSelected' });
-			if (
-				previous.mode.kind === 'edit' &&
-				previous.mode.selected !== null &&
-				previous.mode.sketch === null
-			) {
+			if (deletableVertex(previous.mode) !== null) {
 				event.preventDefault();
 			}
 		}
