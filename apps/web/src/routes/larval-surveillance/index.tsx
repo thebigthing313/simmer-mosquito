@@ -1,3 +1,4 @@
+import { isPositiveInspection } from '@simmer-mosquito/domain';
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
@@ -200,16 +201,16 @@ function DailyInspectionsPanel({ today }: { readonly today: string }) {
 }
 
 /**
- * One inspector's day, with how much of it came back breeding-positive.
+ * One inspector's day, with how many of its inspections were Positive
+ * Inspections. That rule reads abundance; whether a row draws its life-stage
+ * strip is a display decision and counts nothing.
  *
  * That count is the only thing this adds to the shared block: the question the
  * panel is usually asked is how much each person got through, and how much of
  * it was wet and holding larvae.
  */
 function InspectorGroupBlock({ group }: { readonly group: RowGroup<LarvalActivityRow> }) {
-	const positiveCount = group.rows.filter(
-		(inspection) => inspection.isWet && hasAnyLifeStage(inspection),
-	).length;
+	const positiveCount = group.rows.filter(isPositiveInspection).length;
 
 	return (
 		<PersonGroupBlock

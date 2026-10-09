@@ -215,13 +215,23 @@ const inspectionDisplayColumns: MapDisplayColumns<SafeInspectionDisplayRow> = {
 };
 
 /**
- * An inspection that found at least one life stage, eggs through pupae. One
- * fragment, because the tile paints by it, the filter narrows by it and the
- * summary counts by it, and the three have to agree.
+ * A Positive Inspection over `inspections i`, as `CONTEXT.md` defines it: wet,
+ * and a density other than `none` or a larvae count above zero. The larval
+ * doc's own rule, which holds under all three density policies where "any band
+ * above none" misses a `count_and_dips_required` Organization that stores no
+ * density. Life-stage flags are not read: the validator holds them to this rule
+ * on every write it accepts, and nothing in the table does (#1437).
+ *
+ * The one SQL spelling of the rule. The map tile paints by it, the `positive`
+ * filter narrows by it, the summary rail counts by it and the overview ratio
+ * counts by it, and all four have to agree; `isPositiveInspection` in
+ * `@simmer-mosquito/domain` is the same rule in TypeScript. The `coalesce`
+ * makes a row with no density and no count `false` rather than `null`, so the
+ * tile property and the summary grouping have two values and not three.
  */
-const inspectionPositiveSql = sql<boolean>`(
-	i.has_eggs or i.has_first_instar or i.has_second_instar
-	or i.has_third_instar or i.has_fourth_instar or i.has_pupae
+export const positiveInspectionSql = sql<boolean>`coalesce(
+	i.is_wet and (i.density <> 'none' or i.larvae_count > 0),
+	false
 )`;
 
 /**
@@ -241,7 +251,7 @@ export function inspectionSurface(
 			sql`i.is_wet as "isWet"`,
 			sql`i.density::text as "density"`,
 			sql`i.habitat_type_id as "habitatTypeId"`,
-			sql`${inspectionPositiveSql} as "positive"`,
+			sql`${positiveInspectionSql} as "positive"`,
 		],
 		filterWhere: inspectionFilterWhere,
 		// What the Inspections rail counts by over 100 in view (#1369), each named
@@ -249,7 +259,7 @@ export function inspectionSurface(
 		groupings: () => ({
 			isWet: sql`i.is_wet`,
 			density: sql`i.density::text`,
-			positive: inspectionPositiveSql,
+			positive: positiveInspectionSql,
 			habitatTypeId: sql`i.habitat_type_id`,
 			inspectedBy: sql`i.inspected_by_profile_id`,
 		}),
@@ -275,7 +285,7 @@ function inspectionFilterWhere(
 	}
 
 	if (filters?.positiveOnly === true) {
-		whereClauses.push(inspectionPositiveSql);
+		whereClauses.push(positiveInspectionSql);
 	}
 
 	if (filters?.habitatTypeIds !== undefined && filters.habitatTypeIds.length > 0) {

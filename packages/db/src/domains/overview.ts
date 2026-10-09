@@ -38,6 +38,7 @@ import { type Kysely, type RawBuilder, sql } from 'kysely';
 import type { SimmerDatabase } from '../index.js';
 import { collectionEffectiveDateExpr } from './adult-surveillance.js';
 import { readOrganizationToday } from './dashboard.js';
+import { positiveInspectionSql } from './larval-surveillance.js';
 import { assertIanaTimeZone } from './record-display-sql.js';
 
 export interface OverviewInput {
@@ -180,14 +181,6 @@ function typeSource(type: OverviewRecordType, timeZone: string): TypeSource {
 }
 
 /**
- * A Positive Inspection over `inspections i`: wet and indicating breeding,
- * `density <> 'none' or larvae_count > 0`, the larval doc's own rule, which
- * holds under all three density policies where "any band above none" misses
- * a `count_and_dips_required` Organization that stores no density.
- */
-const positiveInspection = sql<boolean>`(i.is_wet and (i.density <> 'none' or i.larvae_count > 0))`;
-
-/**
  * A collection that counts toward mosquitoes per collection, over
  * `collections c`: no problem, and either declared a zero result or carrying
  * at least one live species row. A problem collection with species rows is a
@@ -216,7 +209,7 @@ const collectionMosquitoes = sql<number>`(
 function ratioColumns(type: OverviewRecordType): RawBuilder<unknown> {
 	switch (type) {
 		case 'inspections':
-			return sql`, count(*) filter (where ${positiveInspection})::int as numerator, count(*)::int as denominator`;
+			return sql`, count(*) filter (where ${positiveInspectionSql})::int as numerator, count(*)::int as denominator`;
 		case 'collections':
 			return sql`, coalesce(sum(case when ${countedCollection} then ${collectionMosquitoes} else 0 end), 0)::int as numerator, count(*) filter (where ${countedCollection})::int as denominator`;
 		default:
