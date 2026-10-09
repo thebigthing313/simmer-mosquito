@@ -950,8 +950,9 @@ non-suspense query keeps the popover from suspending the page around it.
 
 #### useSearchPicker
 
-What a closed search-and-pick field says is decided here and nowhere else
-(#1434). Each picker used to hold its own `open`, `search` and picked label, and
+What a closed search-and-pick field says is decided here, for the trap and route
+pickers today and for the other five once they move onto it (#1434). Each picker
+used to hold its own `open`, `search` and picked label, and
 seeded the label once at mount, so it went stale two ways. A list that arrived
 after mount never filled the field, which is the collection forms on a cold
 load, where the eager `traps` set has not synced when the form first renders.
@@ -966,6 +967,15 @@ never be shown against another id. When `value` becomes `null` or an id the
 picker did not pick, the search text is dropped as well, which is a state
 adjustment during render against the previous `value` rather than an effect, so
 reopening does not start from the old record's name.
+
+A pick the caller does not bind is dropped the same way. The route editor's
+add-stop field calls `onSelect` and leaves `value` at `null`, so the pick and its
+text go, and reopening lists every trap again instead of searching for the one
+just added, which the editor no longer offers. That rule is read off the render
+after the pick, so a caller binding the pick has to set `value` in the same event
+as `pick`. Every caller does, through component state or a form field; one that
+set it later, after a request, would lose the picked label and show
+`resolvedLabel` instead.
 
 `resolvedLabel` is a string rather than a resolver callback because the
 resolutions differ in kind: a lookup over a list already in memory,

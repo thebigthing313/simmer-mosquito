@@ -81,6 +81,17 @@ describe('the trap picker', () => {
 		expect((input as HTMLInputElement).value).toBe('');
 	});
 
+	// Reopened, the same field offers every trap again rather than a search for
+	// the one just added, which the route editor no longer lists.
+	it('reopens with an empty search after a pick while its value stays null', () => {
+		const input = openPicker([RUNNING, RETIRED]);
+		fireEvent.click(screen.getByText('MP-1 - Mill Pond'));
+		fireEvent.focus(input);
+
+		expect((input as HTMLInputElement).value).toBe('');
+		expect(screen.getByText('CS-7 - Cedar Slough')).toBeDefined();
+	});
+
 	// The collection forms render before the eager `traps` set has synced, so
 	// the list a set value is named from can arrive after mount.
 	it('names a set trap once the list arrives after mount', () => {

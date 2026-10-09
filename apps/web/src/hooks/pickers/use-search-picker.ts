@@ -26,7 +26,8 @@ export interface SearchPickerFrame {
  * Takes the field's `value`, the caller's label for that value (`''` while it
  * is unknown), and what a clear does. The closed field shows `''` for no
  * value, the picked label when `value` is the id last picked, and
- * `resolvedLabel` otherwise, read on every render.
+ * `resolvedLabel` otherwise, read on every render. A pick that `value` does not
+ * take in the same render is dropped along with its search text.
  */
 export function useSearchPicker({
 	value,
@@ -44,14 +45,17 @@ export function useSearchPicker({
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
 	const [picked, setPicked] = useState<Picked | null>(null);
-	const [seenValue, setSeenValue] = useState(value);
+	const pickedId = picked?.id ?? null;
+	const [seen, setSeen] = useState({ value, pickedId });
 	const anchorRef = useRef<HTMLDivElement>(null);
 
-	// A value moved from outside drops the text typed or picked for the old one.
-	if (seenValue !== value) {
-		setSeenValue(value);
-		if (value === null || value !== picked?.id) {
+	// A value moved from outside, or a pick the caller did not bind, drops the
+	// pick and its text. A caller binding the pick sets `value` in the same event.
+	if (seen.value !== value || seen.pickedId !== pickedId) {
+		setSeen({ value, pickedId });
+		if (value === null || value !== pickedId) {
 			setSearch('');
+			setPicked(null);
 		}
 	}
 
