@@ -71,4 +71,26 @@ describe('the trap picker', () => {
 
 		expect(screen.getByText('No trap matches')).toBeDefined();
 	});
+
+	// The route editor's add-stop field: the stop is added and the field stays
+	// unbound, so the trap just picked must not stay in it once it closes.
+	it('stays empty after a pick while its value stays null', () => {
+		const input = openPicker([RUNNING, RETIRED]);
+		fireEvent.click(screen.getByText('MP-1 - Mill Pond'));
+
+		expect((input as HTMLInputElement).value).toBe('');
+	});
+
+	// The collection forms render before the eager `traps` set has synced, so
+	// the list a set value is named from can arrive after mount.
+	it('names a set trap once the list arrives after mount', () => {
+		const onSelect = () => undefined;
+		const { rerender } = render(<TrapPicker onSelect={onSelect} traps={[]} value={RUNNING.id} />);
+		const input = screen.getByPlaceholderText('Search traps') as HTMLInputElement;
+		expect(input.value).toBe('');
+
+		rerender(<TrapPicker onSelect={onSelect} traps={[RUNNING, RETIRED]} value={RUNNING.id} />);
+
+		expect(input.value).toBe('MP-1 - Mill Pond');
+	});
 });

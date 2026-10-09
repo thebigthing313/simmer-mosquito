@@ -8,7 +8,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@simmer-mosquito/ui-web/components/ui/select';
-import { useRef, useState } from 'react';
+import { useSearchPicker } from '../../../hooks/pickers/use-search-picker';
 import {
 	formatListDate,
 	formatLocalDate,
@@ -283,37 +283,17 @@ export function RoutePicker({
 	readonly value: string | null;
 	readonly onSelect: (route: RouteSummary | null) => void;
 }) {
-	const [open, setOpen] = useState(false);
-	const [search, setSearch] = useState('');
-	const [selectedLabel, setSelectedLabel] = useState(
-		() => routes.find((route) => route.id === value)?.routeName ?? '',
-	);
-	const anchorRef = useRef<HTMLDivElement>(null);
+	const picker = useSearchPicker({
+		value,
+		resolvedLabel: routes.find((route) => route.id === value)?.routeName ?? '',
+		onClear: () => onSelect(null),
+	});
 
-	const normalized = search.trim().toLowerCase();
+	const normalized = picker.search.trim().toLowerCase();
 	const matches = routeMatches(routes, normalized);
 
 	return (
-		<PickerFrame
-			anchorRef={anchorRef}
-			label="Route"
-			onClear={() => {
-				setSelectedLabel('');
-				setSearch('');
-				onSelect(null);
-			}}
-			onOpen={() => setOpen(true)}
-			onOpenChange={setOpen}
-			onSearchChange={(next) => {
-				setSearch(next);
-				setOpen(true);
-			}}
-			open={open}
-			placeholder="Search routes"
-			search={search}
-			selectedLabel={selectedLabel}
-			value={value}
-		>
+		<PickerFrame {...picker.frame} label="Route" placeholder="Search routes">
 			{matches.length === 0 ? (
 				<PickerFallback label={routes.length === 0 ? 'No routes yet' : 'No route matches'} />
 			) : (
@@ -322,10 +302,8 @@ export function RoutePicker({
 						<OptionRow
 							key={route.id}
 							onSelect={() => {
-								setSelectedLabel(route.routeName);
-								setSearch(route.routeName);
+								picker.pick(route.id, route.routeName);
 								onSelect(route);
-								setOpen(false);
 							}}
 							primary={route.routeName}
 							secondary={stopLabel(stopCountById.get(route.id))}
