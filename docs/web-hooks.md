@@ -1596,6 +1596,24 @@ keeps its refusal in-page, because a form is something the person can fix
 and resubmit; `DetailPageHeader`'s docblock carries the rule, and
 `AddMissionStopForm` is the caller that left this hook over it.
 
+#### useWorklistIndex
+
+The Missions and Assignments pages wrote the same assembly twice: the
+selection, its fallback to the first visible row, the `Unassigned` assignee
+option and the status and assignee filter (#1432). The hook owns that much
+and stops there. The load call and the stops call stay at the route, because
+missions read stop views and assignments read features and counts together,
+and each route keeps its rows, its card and its filter bar, since the two
+records share no status vocabulary.
+
+The selection is computed on read rather than held in an effect: a filter, a
+date change or a delete that takes the picked row out of the list leaves the
+picked id in state, and the page draws the first visible row until the picked
+one is back. Status is matched over the loaded rows rather than in the query
+because both records derive it from three nullable timestamps. A filter one
+page has and the other does not, control type on Missions, goes in `matches`
+rather than in a third set the hook would have to name.
+
 #### useMissionItemShapes
 
 The Electric shape streams only the centroid (ADR 0009), so a stop that is a

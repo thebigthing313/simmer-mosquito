@@ -13,7 +13,6 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useState } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DateRangeFilter } from '../../../components/date-range-filter';
@@ -23,6 +22,7 @@ import {
 	type FilterOption,
 	MultiSelectFilter,
 	RESULT_SKELETON_KEYS,
+	without,
 } from '../../../components/explorer';
 import {
 	MissionStatusBadge,
@@ -38,6 +38,7 @@ import {
 } from '../../../hooks/explorer/use-date-range-filters';
 import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useMissionStopViews } from '../../../hooks/operations/use-mission-stop-views';
+import { useWorklistIndex } from '../../../hooks/operations/use-worklist-index';
 import {
 	CONTROL_TYPES,
 	controlTypeLabel,
@@ -65,9 +66,6 @@ import {
 } from '../../../lib/search-filters';
 
 const MissionIcon = iconRegistry.entities.route.icon;
-
-/** Matches a null `assignedToProfileId`; a planned mission may carry nobody. */
-const UNASSIGNED = 'unassigned';
 
 const MISSION_STATUSES: readonly MissionStatus[] = [
 	'scheduled',
@@ -128,42 +126,41 @@ function MissionsRoute() {
 		direction: 'schedule',
 	});
 
-	const [selectedId, setSelectedId] = useState<string | null>(null);
-	const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
-	const [highlightId, setHighlightId] = useState<string | null>(null);
-
 	const { missions, isLoading } = useMissions(filters.from, filters.to);
-	const { options: personnelOptions, nameById } = usePersonnelOptions();
+	const personnel = usePersonnelOptions();
+	const { nameById } = personnel;
 	const methodNameById = useControlMethodNames();
 
-	const assigneeOptions: readonly FilterOption[] = [
-		{ id: UNASSIGNED, label: 'Unassigned' },
-		...personnelOptions,
-	];
-
-	const visible = missions.filter((mission) => matchesFilters(mission, filters));
+	// Status derives from three nullable timestamps and control type is the
+	// page's own filter, so both are matched over the loaded rows.
+	const {
+		visible,
+		selectedId,
+		selected,
+		selectedStopId,
+		setSelectedStopId,
+		highlightId,
+		setHighlightId,
+		handleSelect,
+		assigneeOptions,
+		assigneeLabel,
+	} = useWorklistIndex({
+		rows: missions,
+		statusOf: missionStatus,
+		assigneeOf: (mission) => mission.assignedToProfileId,
+		filters,
+		matches: (mission) => filters.types.size === 0 || filters.types.has(mission.controlType),
+		personnel,
+	});
 
 	const visibleIds = visible.map((mission) => mission.id);
 	const { countsById } = useMissionItemCounts(visibleIds);
 
-	// Default to the first row, and self-heal when a filter or delete removes it.
-	const effectiveId =
-		selectedId !== null && visible.some((mission) => mission.id === selectedId)
-			? selectedId
-			: (visible[0]?.id ?? null);
-	const selected = visible.find((mission) => mission.id === effectiveId) ?? null;
-
 	// Missions carry no geometry of their own — the map draws the union of the
 	// selected mission's stops, in dispatch order and as the shapes they were
 	// drawn as.
-	const { stops } = useMissionStopViews(effectiveId);
+	const { stops } = useMissionStopViews(selectedId);
 	const features = missionStopFeatures(stops);
-
-	const handleSelect = (id: string) => {
-		setSelectedId(id);
-		setSelectedStopId(null);
-		setHighlightId(null);
-	};
 
 	const hasChips = filters.statuses.size > 0 || filters.types.size > 0 || filters.people.size > 0;
 
@@ -172,7 +169,7 @@ function MissionsRoute() {
 			map={
 				<WorklistMap
 					features={features}
-					fitKey={effectiveId ?? undefined}
+					fitKey={selectedId ?? undefined}
 					highlightId={highlightId}
 					recordType="mission"
 					onHoverStop={setHighlightId}
@@ -216,10 +213,10 @@ function MissionsRoute() {
 					</div>
 
 					<MissionFilterBar
+						assigneeLabel={assigneeLabel}
 						assigneeOptions={assigneeOptions}
 						dateRange={dateRange}
 						filters={filters}
-						nameById={nameById}
 						onReset={reset}
 						setFilters={setFilters}
 					/>
@@ -233,7 +230,7 @@ function MissionsRoute() {
 					missions={visible}
 					nameById={nameById}
 					onSelect={handleSelect}
-					selectedId={effectiveId}
+					selectedId={selectedId}
 				/>
 			</div>
 		</MapSplitPage>
@@ -242,27 +239,21 @@ function MissionsRoute() {
 
 /** The date window and the three set filters above the list, with their chips. */
 function MissionFilterBar({
+	assigneeLabel,
 	assigneeOptions,
 	dateRange,
 	filters,
-	nameById,
 	onReset,
 	setFilters,
 }: {
+	readonly assigneeLabel: (id: string) => string;
 	readonly assigneeOptions: readonly FilterOption[];
 	readonly dateRange: DateRangeBinding;
 	readonly filters: MissionFilters;
-	readonly nameById: ReadonlyMap<string, string>;
 	readonly onReset: () => void;
 	readonly setFilters: (next: Partial<MissionFilters>) => void;
 }) {
 	const hasChips = filters.statuses.size > 0 || filters.types.size > 0 || filters.people.size > 0;
-
-	const without = <T,>(set: ReadonlySet<T>, value: T): Set<T> => {
-		const next = new Set(set);
-		next.delete(value);
-		return next;
-	};
 
 	return (
 		<>
@@ -311,7 +302,7 @@ function MissionFilterBar({
 					{[...filters.people].map((id) => (
 						<FilterChip
 							key={`person-${id}`}
-							label={id === UNASSIGNED ? 'Unassigned' : (nameById.get(id) ?? 'Unknown profile')}
+							label={assigneeLabel(id)}
 							onRemove={() => setFilters({ people: without(filters.people, id) })}
 						/>
 					))}
@@ -319,24 +310,6 @@ function MissionFilterBar({
 			) : null}
 		</>
 	);
-}
-
-/**
- * Status, control type, and assignee are matched here rather than in the query:
- * status derives from three nullable timestamps rather than a column, and
- * "unassigned" matches a null one. An empty set means the filter is off.
- */
-function matchesFilters(mission: MissionListing, filters: MissionFilters): boolean {
-	if (filters.statuses.size > 0 && !filters.statuses.has(missionStatus(mission))) {
-		return false;
-	}
-	if (filters.types.size > 0 && !filters.types.has(mission.controlType)) {
-		return false;
-	}
-	if (filters.people.size > 0 && !filters.people.has(mission.assignedToProfileId ?? UNASSIGNED)) {
-		return false;
-	}
-	return true;
 }
 
 function MissionResults({

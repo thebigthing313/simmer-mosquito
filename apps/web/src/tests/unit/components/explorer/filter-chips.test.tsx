@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ActiveFilterBar, DateRangeChip } from '../../../../components/explorer';
+import { ActiveFilterBar, DateRangeChip, without } from '../../../../components/explorer';
 
 afterEach(cleanup);
 
@@ -44,5 +44,13 @@ describe('DateRangeChip', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Remove Dates: From Jun 1 filter' }));
 		expect(setRange).toHaveBeenCalledTimes(1);
 		expect(setRange).toHaveBeenCalledWith({ from: '2026-09-09', to: '2026-10-09' });
+	});
+});
+
+describe('without', () => {
+	it('drops one value and leaves the set it was given alone', () => {
+		const set = new Set(['a', 'b']);
+		expect([...without(set, 'a')]).toEqual(['b']);
+		expect([...set]).toEqual(['a', 'b']);
 	});
 });

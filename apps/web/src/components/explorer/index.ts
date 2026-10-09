@@ -11,7 +11,13 @@
 export { ExplorerHeader } from './explorer-header';
 export { ExplorerMapPage } from './explorer-map-page';
 export { ExplorerRow } from './explorer-row';
-export { ActiveFilterBar, type DateRange, DateRangeChip, FilterChip } from './filter-chips';
+export {
+	ActiveFilterBar,
+	type DateRange,
+	DateRangeChip,
+	FilterChip,
+	without,
+} from './filter-chips';
 export { FilterFieldsLayout, FilterGrid } from './filter-layout';
 export { type FilterOption, MultiSelectFilter, toggle } from './multi-select-filter';
 export { RESULT_SKELETON_KEYS } from './result-skeleton';
