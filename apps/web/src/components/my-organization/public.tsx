@@ -83,8 +83,7 @@ function ServiceRequestContextGuide({ settings }: { readonly settings: Organizat
 			<div className="grid gap-1">
 				<span className="font-medium text-sm text-foreground">Service request context</span>
 				<p className="m-0 text-sm leading-snug text-muted-foreground">
-					These defaults decide which nearby records are shown alongside a resident service request
-					so staff can see recent local activity.
+					This setting decides which nearby records a service request shows.
 				</p>
 			</div>
 			<div className="grid gap-2 md:grid-cols-3">
