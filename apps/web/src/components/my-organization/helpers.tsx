@@ -115,15 +115,18 @@ export function unitDefaultsFrom(values: UnitDefaultsFormValues): UnitDefaults {
 
 /**
  * The service request context, from the four inputs that describe it. The
- * radius may be fractional and the day windows may not. The server checks that
- * the unit code names a distance unit that exists.
+ * radius must be greater than zero and may be fractional, which is the domain
+ * builder's rule, and the day windows are whole numbers from zero. An empty
+ * input arrives as `null` and is refused rather than read as zero. Each
+ * message names the field by the label the sheet draws. The server checks
+ * that the unit code names a distance unit that exists.
  */
 export function serviceRequestContextFrom(
 	values: PublicSettingsFormValues,
 ): ServiceRequestContextSettings {
 	return {
 		radius: {
-			amount: nonnegativeNumberValue(values.radiusAmount, 'Related-record radius'),
+			amount: positiveNumberValue(values.radiusAmount, 'Search radius'),
 			unitCode: requiredTextValue(values.radiusUnitCode, 'Radius unit'),
 		},
 		timeWindow: {
@@ -210,15 +213,30 @@ export function validateEmail({ value }: { readonly value: string }): string | u
 	return 'Main contact must be a valid email address.';
 }
 
-function nonnegativeNumberValue(value: number | null, label: string): number {
-	if (value === null || !Number.isFinite(value) || value < 0) {
-		throw new Error(`${label} must be zero or greater.`);
+/**
+ * A number input's text, with an empty one as `null`. `Number('')` is 0, so
+ * reading the text straight through would save a cleared field as zero.
+ */
+export function numberInputValue(value: FormDataEntryValue | null): number | null {
+	const text = typeof value === 'string' ? value.trim() : '';
+	return text.length === 0 ? null : Number(text);
+}
+
+function positiveNumberValue(value: number | null, label: string): number {
+	if (value === null) {
+		throw new Error(`${label} is required.`);
+	}
+	if (!Number.isFinite(value) || value <= 0) {
+		throw new Error(`${label} must be greater than zero.`);
 	}
 	return value;
 }
 
 function nonnegativeIntegerValue(value: number | null, label: string): number {
-	if (value === null || !Number.isInteger(value) || value < 0) {
+	if (value === null) {
+		throw new Error(`${label} is required.`);
+	}
+	if (!Number.isInteger(value) || value < 0) {
 		throw new Error(`${label} must be a nonnegative whole number.`);
 	}
 	return value;
