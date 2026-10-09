@@ -32,8 +32,7 @@ export interface SettingsSheetProps<Values, Payload> extends SettingsSheetOption
  * The sheet every My Organization settings section edits in: the Edit
  * trigger, the header, the form with its error alert, and Save and Cancel.
  * The body is the caller's, drawn from the form it is handed. Save is
- * disabled while the Organization row is still loading. Who may open the
- * sheet is the caller's question, answered where the Edit control is drawn.
+ * disabled while the Organization row is still loading.
  */
 export function SettingsSheet<Values, Payload>({
 	title,

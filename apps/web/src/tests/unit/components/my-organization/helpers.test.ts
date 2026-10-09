@@ -1,3 +1,4 @@
+import { DEFAULT_UNIT_DEFAULTS } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
 import {
 	densityRangesOrNull,
@@ -13,7 +14,6 @@ import type {
 	DensityRangeFormValues,
 	OrganizationDetailsFormValues,
 	PublicSettingsFormValues,
-	UnitDefaultsFormValues,
 } from '../../../../components/my-organization/types';
 
 const VALID: PublicSettingsFormValues = {
@@ -67,9 +67,9 @@ describe('organizationDetailsFieldsFrom', () => {
 
 describe('unitDefaultsFrom', () => {
 	it('refuses an empty default, naming its unit type', () => {
-		const values = { distance: 'mi', area: ' ' } as unknown as UnitDefaultsFormValues;
-
-		expect(() => unitDefaultsFrom(values)).toThrow('Area is required.');
+		expect(() => unitDefaultsFrom({ ...DEFAULT_UNIT_DEFAULTS, area: ' ' })).toThrow(
+			'Area is required.',
+		);
 	});
 });
 
