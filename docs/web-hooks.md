@@ -213,6 +213,15 @@ Eight explorers wrote the four pieces out by hand, including the rule that
 matters: editing one bound past the other drags the other along, so the range
 never inverts into a window that can hold nothing.
 
+`direction` is `history` unless a caller passes `schedule`, and the binding
+carries it on to `DateRangeFilter`. The Missions and Assignments pages pass
+`schedule`, because a worklist reads work planned ahead: under `history` End
+stopped at today and every preset ended today, so a reader who touched either
+lost the fortnight ahead and could reach it again only through `All Time`
+(#1432). The schedule presets lead with `SCHEDULE_WINDOW`, which is also the
+window both pages open on and the one the operations overview's schedule
+panels read, so first load lights a preset and that preset is the way back.
+
 #### useFlyToSelection
 
 Ten explorers carried this effect. Half of them keyed it on the selected

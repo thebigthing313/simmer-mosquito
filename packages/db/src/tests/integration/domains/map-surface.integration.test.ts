@@ -1228,9 +1228,12 @@ describeDbIntegration('inspection summary against Postgres', () => {
 						{ value: 'none', count: 1 },
 						{ value: null, count: 1 },
 					]),
+					// A Positive Inspection reads abundance, not life stages (#1422).
+					// The two `light` rows carry no stage flag and are positive on
+					// their band; under the life-stage rule this was 2 true, 4 false.
 					positive: [
-						{ value: false, count: 4 },
-						{ value: true, count: 2 },
+						{ value: true, count: 4 },
+						{ value: false, count: 2 },
 					],
 					habitatTypeId: expect.arrayContaining([
 						{ value: typeId, count: 3 },

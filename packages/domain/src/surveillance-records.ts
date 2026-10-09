@@ -58,6 +58,26 @@ export interface NormalizedLarvalInspectionResult extends ImmatureStageFlags {
 	readonly isBreedingPositive: boolean;
 }
 
+/** The fields a Positive Inspection is decided on, and no others. */
+export interface PositiveInspectionInput {
+	readonly isWet: boolean;
+	readonly density: LarvalDensity | null;
+	readonly larvaeCount: number | null;
+}
+
+/**
+ * A Positive Inspection as `CONTEXT.md` defines it: wet, and a density other
+ * than `none` or a larvae count above zero. Life-stage flags are not read. The
+ * validator holds them to this rule on every write it accepts, so on those rows
+ * they agree, and abundance is the half that holds under every density policy.
+ * `positiveInspectionSql` in `packages/db` is the same rule in SQL.
+ */
+export function isPositiveInspection(input: PositiveInspectionInput): boolean {
+	if (!input.isWet) return false;
+	if (input.density !== null && input.density !== 'none') return true;
+	return input.larvaeCount !== null && input.larvaeCount > 0;
+}
+
 export function normalizeLarvalInspectionResult(
 	input: LarvalInspectionResultInput,
 ): NormalizedLarvalInspectionResult {
@@ -121,10 +141,13 @@ export function normalizeInspectionResult(
 				)
 			: density;
 
-	const isBreedingPositive =
-		normalizedDensity !== null && normalizedDensity !== 'none'
-			? true
-			: larvaeCount !== null && larvaeCount > 0;
+	// Past the dry return, so wet unless `isWet` was not a boolean, which is
+	// already an issue above and is read as wet here as it always was.
+	const isBreedingPositive = isPositiveInspection({
+		isWet: true,
+		density: normalizedDensity,
+		larvaeCount,
+	});
 	checkStageAgreement(isBreedingPositive, hasAnyStage, path, issues);
 
 	return {
