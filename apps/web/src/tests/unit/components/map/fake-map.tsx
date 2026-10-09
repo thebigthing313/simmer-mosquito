@@ -136,6 +136,10 @@ export function createFakeMap() {
 			}
 			layers.set(id, { ...layer, minzoom, maxzoom } as LayerSpecification);
 		},
+		/** Accepted and dropped: no suite here asserts emphasis, only that writing it is safe. */
+		setFeatureState() {
+			assertLive();
+		},
 		getCanvas: () => canvas,
 		getCanvasContainer: () => canvasContainer,
 		getContainer: () => container,

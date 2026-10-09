@@ -589,13 +589,24 @@ side, a map that was destroyed while this subtree was hidden, handed straight
 back to the setup that follows.
 
 What stays with the caller is everything that makes a layer worth having, its
-specs, its colour expressions, its feature model, and any effect that
-re-scopes a layer without re-adding it, like a selection filter. The two
+specs, its colour expressions and its feature model. The two
 editing sessions, `useMapDraw` and `useMapMeasure`, keep their own state on
 top of this. Their live cursor never enters `data`, because it moves every
 frame and would cost a render per frame, so they repaint it imperatively and
 pass that same repaint as `onEnsure`, which is what puts a half-drawn shape
 back after a restyle.
+
+A selection filter is the hook's, through `selection`: the layer that draws
+it, a string key, and the function from that key to the filter. It used to be
+three effects in `useNearbyLayer`, `useActivityLayer` and `useGeoJsonLayer`,
+each re-filtering when the selection changed, and two of them built the
+selection layer from a spec holding the empty sentinel. A basemap switch is a
+`setStyle` on the same map, so `isLoaded` stays true, `style.load` re-added the
+layer with that spec, and no effect ran again: the ring was gone until the
+selection next changed (#1426). The hook now applies the filter after every
+add and re-add as well as on every change of key. The key is a string so a
+caller rebuilding an array of ids every render does not re-filter on every
+render.
 
 `removeAddedLayers` is module level rather than inline in the cleanup,
 because that loop sits inside a try block and the React Compiler cannot lower
@@ -637,8 +648,12 @@ call; the source lifecycle underneath it is `useGeoJsonSource`'s.
 
 #### useRouteLayer
 
-Selection and cursor emphasis go through feature-state so the list and the
-map stay in sync without rebuilding the source. The stop feature is
+Selection and hover emphasis go through feature-state so the list and the
+map stay in sync without rebuilding the source. The pointer cursor is
+`registerHoverLayers`', probing the same layers the click hit-tests, and the
+hook keeps its own `mousemove` only to report the hovered stop; a handler
+that wrote the cursor too would wipe another layer's pointer in the same
+event once a route map draws a second layer (#1426). The stop feature is
 framework-free geometry so the hook stays decoupled from the route domain
 rows that produce it.
 
