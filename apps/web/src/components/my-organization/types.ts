@@ -1,5 +1,11 @@
-import type { RangeDensity, UnitDefaults } from '@simmer-mosquito/domain';
+import type {
+	LarvalInspectionEntryMode,
+	OrganizationSettings,
+	RangeDensity,
+	UnitDefaults,
+} from '@simmer-mosquito/domain';
 import type React from 'react';
+import type { OrganizationSettingsMutations } from '../../hooks/mutations/use-organization-settings-mutations';
 
 // Re-exported rather than re-declared: two identical unions under one name
 // are what `fallow dead-code` calls a duplicate export.
@@ -20,13 +26,6 @@ export type ControlMethodCollectionKey =
 	| 'biocontrolMethods'
 	| 'outreachMethods';
 export type ControlAssetCollectionKey = 'vehicles' | 'equipment';
-export interface SetupCatalog {
-	readonly domain: SetupDomain;
-	readonly label: string;
-	readonly count: number;
-	readonly editable: boolean;
-	readonly detail: string;
-}
 
 export interface OrganizationDetailsFormValues {
 	readonly name: string;
@@ -85,39 +84,69 @@ export interface DensityRangeFormValue {
 
 export type UnitDefaultsFormValues = UnitDefaults;
 
-export type SetupDomain =
-	| 'adultSurveillance'
-	| 'larvalSurveillance'
-	| 'controlOperations'
-	| 'publicEngagement'
-	| 'sharedOperations';
-
-export type SettingField = TextSettingField | SelectSettingField | SwitchSettingField;
-
-export interface TextSettingField {
-	readonly kind: 'text';
+/** A setting the section draws read-only: its label, its value and the options that name it. */
+export interface DisplaySettingField {
 	readonly label: string;
 	readonly value: string;
-	readonly editable: boolean;
-	readonly inputType?: React.HTMLInputTypeAttribute | undefined;
-}
-
-export interface SelectSettingField {
-	readonly kind: 'select';
-	readonly label: string;
-	readonly value: string;
-	readonly editable: boolean;
 	readonly options: readonly SelectOption[];
-}
-
-export interface SwitchSettingField {
-	readonly kind: 'switch';
-	readonly label: string;
-	readonly checked: boolean;
-	readonly editable: boolean;
 }
 
 export interface SelectOption {
 	readonly label: string;
 	readonly value: string;
+}
+
+export interface LarvalSettingsFormValues {
+	readonly mode: LarvalInspectionEntryMode;
+	readonly densityEnabled: boolean;
+	readonly ranges: DensityRangeFormValues;
+}
+
+/** The keys of `Values` whose value is a `Field`. */
+type SettingsFieldKey<Values, Field> = {
+	[Key in keyof Values]: Values[Key] extends Field ? Key : never;
+}[keyof Values] &
+	string;
+
+/** One input in a settings section's sheet, named by the value it edits. */
+export type SettingsSectionField<Values> =
+	| {
+			readonly kind: 'text';
+			readonly key: SettingsFieldKey<Values, string>;
+			readonly label: string;
+	  }
+	| {
+			readonly kind: 'number';
+			readonly key: SettingsFieldKey<Values, number | null>;
+			readonly label: string;
+	  }
+	| {
+			readonly kind: 'select';
+			readonly key: SettingsFieldKey<Values, string>;
+			readonly label: string;
+			readonly options: readonly SelectOption[];
+	  }
+	| {
+			readonly kind: 'switch';
+			readonly key: SettingsFieldKey<Values, boolean>;
+			readonly label: string;
+	  };
+
+/**
+ * A settings section, described rather than drawn: the values its sheet opens
+ * with, the inputs that edit them, and how they become a write.
+ */
+export interface SettingsSection<Values, Payload> {
+	readonly title: string;
+	readonly description?: string | undefined;
+	/** The values the sheet opens with. */
+	readonly read: (settings: OrganizationSettings) => Values;
+	readonly fields: readonly SettingsSectionField<Values>[];
+	/** The write's input. Throws, naming the field, on a value it cannot convert. */
+	readonly convert: (values: Values) => Payload;
+	readonly save: (mutations: OrganizationSettingsMutations, payload: Payload) => Promise<unknown>;
+	/** The toast's words when a refused write carries no reason of its own. */
+	readonly failureMessage: string;
+	/** Drawn under the inputs, from the values as they stand. */
+	readonly preview?: ((values: Values) => React.ReactNode) | undefined;
 }

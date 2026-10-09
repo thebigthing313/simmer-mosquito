@@ -685,6 +685,42 @@ The branch lives outside the call site's try block because the React Compiler
 bails on a whole component when a try block holds a branching expression
 (#856). The same rule names the toast copy in `MissionNotificationsCard`.
 
+#### SettingsSheet
+
+Every My Organization settings section edits in this frame, and the frame
+holds the one answer to a failed save. The People sheets are not settings
+sections and keep their own. A value the conversion cannot read
+stays in the open sheet as the form's error alert, which is `role="alert"`;
+a valid save closes the sheet and starts the write, and a write the server
+refuses afterwards arrives as a toast through `watchWrite`. Before #1431 the
+sheets split on this. The label-keyed sheet that drew adult surveillance, batch
+tracking and the service request context awaited the write and held the sheet
+open with the refusal inline, while the organization details, unit defaults
+and larval sheets converted first, closed, and toasted. Three sheets of four
+already did the second, and once the client checks a value by the rule the domain
+does, a server refusal is the rare case, so that is the one the frame keeps.
+
+The body is the caller's, handed the form, rather than a field list the frame
+reads. Organization details carries field validators of its own, unit defaults
+draws one select per unit type and the larval sheet lays its density bands out
+in fieldsets, and none of those is a list of inputs keyed by name.
+
+#### SettingsSectionSheet
+
+A section that is a list of inputs over its settings is a `SettingsSection`
+descriptor in `settings-sections.tsx`, drawn here. Each field is named by a key
+of the section's values and its label is display text only. The sheet it
+replaced named every input by its label, and three callers read `FormData`
+back by those strings, so renaming a label broke a save with nothing to say
+so, and the generic sheet compared against `'Collection timing'` twice to
+decide whether to draw the timing guide. The guide is now the adult section's
+`preview`, and the frame names no setting.
+
+A descriptor splits `convert` from `save` on purpose. The frame has to know a
+value is bad before it closes, and an `async` save that both converts and
+writes would hand a conversion error back as a rejection indistinguishable
+from a refused write. `convert` is synchronous and throws; `save` only writes.
+
 #### ReinviteControl
 
 The redo is its own command, reached from the row it is about, because a second
