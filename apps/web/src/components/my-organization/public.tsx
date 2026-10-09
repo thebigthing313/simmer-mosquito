@@ -25,7 +25,6 @@ import {
 import { useState } from 'react';
 import type { CatalogMutations } from '../../hooks/mutations/catalog-fields';
 import { useNotificationTypeMutations } from '../../hooks/mutations/use-notification-type-mutations';
-import { useOrganizationSettingsMutations } from '../../hooks/mutations/use-organization-settings-mutations';
 import { useOutreachMethodMutations } from '../../hooks/mutations/use-outreach-method-mutations';
 import type { DescribedCatalogRecord } from '../../hooks/queries/catalog-record-view';
 import { useNotificationTypeRecords } from '../../hooks/queries/use-notification-type-records';
@@ -39,8 +38,6 @@ import {
 } from '../catalog';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import { ControlMethodLookupList } from './control-method-lookup';
-import { numberInputValue, serviceRequestContextFrom } from './helpers';
-import { EditSettingsSheet } from './layout/edit-settings-sheet';
 import { LookupListFrame } from './layout/lookup-list-frame';
 
 export function PublicEngagementSettings({
@@ -122,61 +119,6 @@ function PublicSettingTile({
 			<span className="text-sm font-semibold text-foreground">{value}</span>
 			<p className="m-0 text-xs leading-snug text-muted-foreground">{detail}</p>
 		</div>
-	);
-}
-
-export function PublicSettingsDrawer({
-	canManage,
-	settings,
-}: {
-	readonly canManage: boolean;
-	readonly settings: OrganizationSettings;
-}) {
-	const { setServiceRequestContext } = useOrganizationSettingsMutations();
-
-	return (
-		<EditSettingsSheet
-			fields={[
-				{
-					kind: 'text',
-					label: 'Search radius',
-					value: String(settings.publicEngagement.serviceRequestContext.radius.amount),
-					editable: canManage,
-					inputType: 'number',
-				},
-				{
-					kind: 'text',
-					label: 'Radius unit',
-					value: settings.publicEngagement.serviceRequestContext.radius.unitCode,
-					editable: canManage,
-				},
-				{
-					kind: 'text',
-					label: 'Days before',
-					value: String(settings.publicEngagement.serviceRequestContext.timeWindow.daysBefore),
-					editable: canManage,
-					inputType: 'number',
-				},
-				{
-					kind: 'text',
-					label: 'Days after',
-					value: String(settings.publicEngagement.serviceRequestContext.timeWindow.daysAfter),
-					editable: canManage,
-					inputType: 'number',
-				},
-			]}
-			onSave={(formData) =>
-				setServiceRequestContext(
-					serviceRequestContextFrom({
-						radiusAmount: numberInputValue(formData.get('Search radius')),
-						radiusUnitCode: String(formData.get('Radius unit') ?? ''),
-						daysBefore: numberInputValue(formData.get('Days before')),
-						daysAfter: numberInputValue(formData.get('Days after')),
-					}),
-				)
-			}
-			title="Edit Public Engagement"
-		/>
 	);
 }
 

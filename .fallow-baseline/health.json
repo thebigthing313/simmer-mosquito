@@ -283,11 +283,6 @@
         "count": 1
       }
     },
-    "apps/web/src/components/my-organization/helpers.tsx": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/components/my-organization/people.tsx": {
       "crap_moderate": {
         "count": 1
@@ -309,11 +304,6 @@
       }
     },
     "apps/web/src/components/route-planning/route-detail-page.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/hooks/map/use-map-draw.ts": {
       "complexity_moderate": {
         "count": 1
       }
