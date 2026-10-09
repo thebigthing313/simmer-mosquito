@@ -25,6 +25,7 @@ import { useMissions } from '../../hooks/queries/use-missions';
 import { useProfileRoster } from '../../hooks/queries/use-profile-roster';
 import { useRequestedControlActions } from '../../hooks/queries/use-requested-control-actions';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { datePresetRange, SCHEDULE_WINDOW } from '../../lib/date-presets';
 import { addCalendarDays, todayInTimeZone } from '../../lib/local-date';
 
 const OperationsIcon = iconRegistry.entities.vehicle.icon;
@@ -37,11 +38,9 @@ export const Route = createFileRoute('/operations/')({
 	component: OperationsOverviewRoute,
 });
 
-// The overview reads the same schedule window the three map pages open on: the
-// week just gone plus the fortnight ahead. Requests look further back, because an
-// unresolved one from a month ago is still work that has not been done.
-const SCHEDULE_DAYS_BACK = 7;
-const SCHEDULE_DAYS_AHEAD = 14;
+// The schedule panels read SCHEDULE_WINDOW, the window the Missions and
+// Assignments pages open on. Requests look further back, because an unresolved
+// one from a month ago is still work that has not been done.
 const REQUEST_WINDOW_DAYS = 90;
 
 /** Enough rows to see the shape of the queue without turning a panel into a list page. */
@@ -50,8 +49,7 @@ const PANEL_ROW_LIMIT = 8;
 function OperationsOverviewRoute() {
 	const timeZone = useOrganizationTimeZone();
 	const today = todayInTimeZone(timeZone);
-	const scheduleFrom = addCalendarDays(today, -SCHEDULE_DAYS_BACK);
-	const scheduleTo = addCalendarDays(today, SCHEDULE_DAYS_AHEAD);
+	const { from: scheduleFrom, to: scheduleTo } = datePresetRange(SCHEDULE_WINDOW, today);
 	const requestFrom = addCalendarDays(today, -(REQUEST_WINDOW_DAYS - 1));
 
 	const profiles = useProfileRoster();

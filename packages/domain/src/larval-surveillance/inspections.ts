@@ -40,8 +40,12 @@ export type {
 	ImmatureStageFlags,
 	LarvalInspectionResultInput,
 	NormalizedLarvalInspectionResult,
+	PositiveInspectionInput,
 } from '../surveillance-records.js';
-export { normalizeLarvalInspectionResult } from '../surveillance-records.js';
+export {
+	isPositiveInspection,
+	normalizeLarvalInspectionResult,
+} from '../surveillance-records.js';
 
 export interface InspectionResultCommandInput
 	extends LarvalCommandInput,
