@@ -287,7 +287,10 @@ function densityRangesFromFormValues(values: DensityRangeFormValues): LarvalDens
 		medium: densityRangeFromFormValue(values.medium, 'medium'),
 		heavy: densityRangeFromFormValue(values.heavy, 'heavy'),
 		veryHeavy: {
-			minInclusive: requiredFiniteNumber(values.very_heavy.minInclusive, 'Very heavy minimum'),
+			minInclusive: densityBoundValue(
+				values.very_heavy.minInclusive,
+				densityFieldName('very_heavy', 'minInclusive'),
+			),
 		},
 	};
 	validateDensityRangesForUi(ranges);
@@ -306,16 +309,25 @@ export function safeDensityRangesFromFormValues(
 
 function densityRangeFromFormValue(
 	value: DensityRangeFormValue,
-	label: string,
+	density: RangeDensity,
 ): LarvalDensityRange {
 	const minInclusive =
-		label === 'light'
+		density === 'light'
 			? 0
-			: requiredFiniteNumber(value.minInclusive, `${densityLabel(label)} lower bound`);
+			: densityBoundValue(value.minInclusive, densityFieldName(density, 'minInclusive'));
 	return {
 		minInclusive,
-		maxExclusive: requiredFiniteNumber(value.maxExclusive, `${densityLabel(label)} upper bound`),
+		maxExclusive: densityBoundValue(value.maxExclusive, densityFieldName(density, 'maxExclusive')),
 	};
+}
+
+/**
+ * A density bound named the way the sheet draws it, by the field label inside
+ * the band's fieldset, so a person can find the field a message is about.
+ */
+function densityFieldName(density: RangeDensity, bound: keyof DensityRangeFormValue): string {
+	const field = bound === 'minInclusive' ? 'Greater than' : 'Up to and including';
+	return `${field} in ${densityLabel(density)}`;
 }
 
 function validateDensityRangesForUi(ranges: LarvalDensityRanges): void {
@@ -325,31 +337,44 @@ function validateDensityRangesForUi(ranges: LarvalDensityRanges): void {
 		['heavy', ranges.heavy],
 		['very_heavy', ranges.veryHeavy],
 	];
+	let previous: RangeDensity | null = null;
 	let previousMax: number | null = null;
 	for (const [density, range] of sequence) {
-		if (previousMax === null && range.minInclusive !== 0) {
-			throw new Error('Light lower bound must be 0 larvae per dip.');
+		const greaterThan = densityFieldName(density, 'minInclusive');
+		if (previous === null && range.minInclusive !== 0) {
+			throw new Error(`${greaterThan} must be 0.`);
 		}
-		if (previousMax !== null && range.minInclusive !== previousMax) {
-			throw new Error(`${densityLabel(density)} lower bound must match the previous upper bound.`);
+		if (previous !== null && range.minInclusive !== previousMax) {
+			throw new Error(`${greaterThan} must equal ${densityFieldName(previous, 'maxExclusive')}.`);
 		}
 		if (
 			range.maxExclusive !== null &&
 			range.maxExclusive !== undefined &&
 			range.maxExclusive <= range.minInclusive
 		) {
-			throw new Error(`${densityLabel(density)} upper bound must be greater than its lower bound.`);
+			throw new Error(
+				`${densityFieldName(density, 'maxExclusive')} must be more than ${greaterThan}.`,
+			);
 		}
+		previous = density;
 		previousMax = range.maxExclusive ?? null;
 	}
 }
 
-function requiredFiniteNumber(value: string, label: string): number {
-	const numberValue = Number(value);
-	if (!Number.isFinite(numberValue) || numberValue < 0) {
-		throw new Error(`${label} must be a number greater than or equal to zero.`);
+/**
+ * A bound the person typed, refused by name when it is empty, blank, negative
+ * or not a number. Empty is checked first, because `Number('')` is 0 and would
+ * otherwise reach the band ordering check and be blamed on the wrong rule.
+ */
+function densityBoundValue(text: string, field: string): number {
+	const value = numberInputValue(text);
+	if (value === null) {
+		throw new Error(`${field} is required.`);
 	}
-	return numberValue;
+	if (!Number.isFinite(value) || value < 0) {
+		throw new Error(`${field} must be a number of 0 or more.`);
+	}
+	return value;
 }
 
 export function densityKeyForSettings(density: RangeDensity): keyof LarvalDensityRanges {
