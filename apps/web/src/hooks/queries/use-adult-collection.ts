@@ -18,6 +18,8 @@ import { collection_lures } from '../../lib/collections/collection_lures';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { collections } from '../../lib/collections/collections';
 import { traps } from '../../lib/collections/traps';
+import { useOrganizationTimeZone } from '../use-organization-time-zone';
+import { collectionEffectiveDate } from './collection-day';
 import type { AdultCollection } from './collection-view';
 import { addressSelect, useRecordById } from './shared';
 
@@ -29,6 +31,7 @@ export function useAdultCollection(
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
+	const timeZone = useOrganizationTimeZone();
 	const result = useRecordById({
 		collection: collections(),
 		id: collectionId,
@@ -99,5 +102,10 @@ export function useAdultCollection(
 				})),
 	});
 
-	return { collection: result.record, isReady: result.isReady, isError: result.isError };
+	const collection =
+		result.record === undefined
+			? undefined
+			: { ...result.record, effectiveDate: collectionEffectiveDate(result.record, timeZone) };
+
+	return { collection, isReady: result.isReady, isError: result.isError };
 }

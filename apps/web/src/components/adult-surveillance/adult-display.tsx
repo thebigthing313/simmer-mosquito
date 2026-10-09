@@ -5,81 +5,34 @@ import {
 	type SpeciesStatus,
 } from '@simmer-mosquito/domain';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { formatWeekdayDate, todayInTimeZone } from '../../lib/local-date';
+import { formatWeekdayDate } from '../../lib/local-date';
 import { formatFullDate, formatMonthDayYear } from '../../lib/record-dates';
 
 // --- shared labels ----------------------------------------------------------
 
 /**
- * The calendar day a collection is anchored to, `YYYY-MM-DD`, or null when
- * pending. `exact_timestamps` keeps an instant in `collectedAt` (null until the
- * trap is retrieved) and `collection_date_duration` keeps a plain day in
- * `collectionDate`, so this reads whichever the mode filled. The instant becomes
- * a day in the organization's zone, matching `collectionEffectiveDateExpr` on
- * the server. `collectedAt` arrives as a `Date` from the query hooks and as a
- * string from the older read paths.
- */
-export function collectionEffectiveDate(
-	collection: {
-		readonly collectedAt: Date | string | null;
-		readonly collectionDate: string | null;
-	},
-	timeZone: string,
-): string | null {
-	const { collectedAt, collectionDate } = collection;
-	if (collectedAt === null) {
-		return collectionDate === null ? null : collectionDate.slice(0, 10);
-	}
-	const instant = collectedAt instanceof Date ? collectedAt : new Date(collectedAt);
-	if (!Number.isNaN(instant.getTime())) {
-		return todayInTimeZone(timeZone, instant);
-	}
-	// An unparseable string still carries its leading date, so it is worth reading;
-	// an invalid `Date` carries nothing, and guessing would be worse than a blank.
-	return typeof collectedAt === 'string' ? collectedAt.slice(0, 10) : null;
-}
-
-/**
  * Heading for a collection detail page: `August 12, 2026`, or `Pending
- * collection` when the trap has not been retrieved. The breadcrumb takes the
- * short form; see {@link collectionCrumb}.
+ * collection` when the trap has not been retrieved. Takes the collection's
+ * `effectiveDate`. The breadcrumb takes the short form; see
+ * {@link collectionCrumb}.
  */
-export function collectionTitle(
-	collection: {
-		readonly collectedAt: Date | string | null;
-		readonly collectionDate: string | null;
-	},
-	timeZone: string,
-): string {
-	const date = collectionEffectiveDate(collection, timeZone);
-	return date === null ? 'Pending collection' : formatFullDate(date);
+export function collectionTitle(effectiveDate: string | null): string {
+	return effectiveDate === null ? 'Pending collection' : formatFullDate(effectiveDate);
 }
 
 /** The same collection in the breadcrumb trail: `Collection · Aug 12, 2026`. */
-export function collectionCrumb(
-	collection: {
-		readonly collectedAt: Date | string | null;
-		readonly collectionDate: string | null;
-	},
-	timeZone: string,
-): string {
-	const date = collectionEffectiveDate(collection, timeZone);
-	return date === null ? 'Pending collection' : `Collection · ${formatMonthDayYear(date)}`;
+export function collectionCrumb(effectiveDate: string | null): string {
+	return effectiveDate === null
+		? 'Pending collection'
+		: `Collection · ${formatMonthDayYear(effectiveDate)}`;
 }
 
 /**
  * A collection's date as a row reads it: `Wed, Aug 12, 2026`. The weekday says
  * whether a gap in a weekly run is a missed visit or a weekend.
  */
-export function collectionRowDate(
-	collection: {
-		readonly collectedAt: Date | string | null;
-		readonly collectionDate: string | null;
-	},
-	timeZone: string,
-): string {
-	const date = collectionEffectiveDate(collection, timeZone);
-	return date === null ? 'Pending collection' : formatWeekdayDate(date);
+export function collectionRowDate(effectiveDate: string | null): string {
+	return effectiveDate === null ? 'Pending collection' : formatWeekdayDate(effectiveDate);
 }
 
 // Shared, read-only presentation for adult-surveillance values, so overview,

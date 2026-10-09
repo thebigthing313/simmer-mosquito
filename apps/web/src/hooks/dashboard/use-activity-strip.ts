@@ -3,11 +3,11 @@
  * types, how many records fall in the 7 days ending today and how many in the
  * 7 before, so a cell and its delta chip come from one read.
  *
- * Eight `useLiveQuery` subsets, one per table, each a 14-day window on the
- * type's own operational date, folded into the two counts here. Samples have
- * no date of their own and are counted on the parent inspection's: the
- * inspections read carries a correlated include of each inspection's sample
- * ids, so one subset serves both cells.
+ * Seven `useLiveQuery` subsets, one per table, each a 14-day window on the
+ * date `ACTIVITY_DATES` names for the type, folded into the two counts here.
+ * Samples have no date of their own and are counted on the parent
+ * inspection's: the inspections read carries a correlated include of each
+ * inspection's sample ids, so one subset serves both cells.
  *
  * Takes `today` as `YYYY-MM-DD` in the Organization's zone and the zone
  * itself, which the collections read needs to reduce `collected_at` to a day.
@@ -15,13 +15,9 @@
  * has never recorded is a cell like any other.
  */
 
-import { eq, gte, or, toArray, useLiveQuery } from '@tanstack/react-db';
-import {
-	ACTIVITY_TYPE_KEYS,
-	type ActivityCount,
-	type ActivityTypeKey,
-	type DateWindow,
-} from '../../components/dashboard/dashboard-data';
+import { OVERVIEW_RECORD_TYPES, type OverviewRecordType } from '@simmer-mosquito/domain';
+import { eq, gte, toArray, useLiveQuery } from '@tanstack/react-db';
+import type { ActivityCount, DateWindow } from '../../components/dashboard/dashboard-data';
 import { applications } from '../../lib/collections/applications';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
 import { collections } from '../../lib/collections/collections';
@@ -30,7 +26,8 @@ import { outreach_actions } from '../../lib/collections/outreach_actions';
 import { samples } from '../../lib/collections/samples';
 import { service_requests } from '../../lib/collections/service_requests';
 import { source_reductions } from '../../lib/collections/source_reductions';
-import { addCalendarDays, localCalendarDay, localDayStartAsInstant } from '../../lib/local-date';
+import { addCalendarDays } from '../../lib/local-date';
+import { ACTIVITY_DATES } from '../queries/activity-dates';
 import { activityGcTimeMs } from '../queries/shared';
 
 /** The strip's window: today and the six days before it. */
@@ -41,7 +38,7 @@ export interface ActivityStripRead {
 	readonly windowDays: number;
 	readonly window: DateWindow;
 	readonly priorWindow: DateWindow;
-	readonly types: Readonly<Record<ActivityTypeKey, ActivityCount>>;
+	readonly types: Readonly<Record<OverviewRecordType, ActivityCount>>;
 	readonly isReady: boolean;
 	readonly isError: boolean;
 }
@@ -62,17 +59,17 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 		to: addCalendarDays(window.from, -1),
 	};
 	const since = priorWindow.from;
-	const sinceInstant = localDayStartAsInstant(since, timeZone);
 
 	const inspectionRows = useLiveQuery({
 		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ inspection: inspections() })
-				.where(({ inspection }) => gte(inspection.inspection_date, since))
+				.where(({ inspection }) => gte(ACTIVITY_DATES.inspections.column(inspection), since))
 				.select(({ inspection }) => ({
 					id: inspection.id,
-					date: inspection.inspection_date,
+					// The inspection's date, which is also what its samples count on.
+					date: ACTIVITY_DATES.samples.parentColumn(inspection),
 					// Ids alone: the count is all the strip reads off a sample.
 					sampleIds: toArray(
 						query
@@ -88,9 +85,7 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 		query: (query) =>
 			query
 				.from({ collection: collections() })
-				.where(({ collection }) =>
-					or(gte(collection.collected_at, sinceInstant), gte(collection.collection_date, since)),
-				)
+				.where(({ collection }) => ACTIVITY_DATES.collections.since(collection, since, timeZone))
 				.select(({ collection }) => ({
 					id: collection.id,
 					collectedAt: collection.collected_at,
@@ -103,8 +98,11 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 		query: (query) =>
 			query
 				.from({ application: applications() })
-				.where(({ application }) => gte(application.application_date, since))
-				.select(({ application }) => ({ id: application.id, date: application.application_date })),
+				.where(({ application }) => gte(ACTIVITY_DATES.applications.column(application), since))
+				.select(({ application }) => ({
+					id: application.id,
+					date: ACTIVITY_DATES.applications.column(application),
+				})),
 	});
 
 	const sourceReductionRows = useLiveQuery({
@@ -112,8 +110,11 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 		query: (query) =>
 			query
 				.from({ reduction: source_reductions() })
-				.where(({ reduction }) => gte(reduction.source_reduction_date, since))
-				.select(({ reduction }) => ({ id: reduction.id, date: reduction.source_reduction_date })),
+				.where(({ reduction }) => gte(ACTIVITY_DATES.sourceReductions.column(reduction), since))
+				.select(({ reduction }) => ({
+					id: reduction.id,
+					date: ACTIVITY_DATES.sourceReductions.column(reduction),
+				})),
 	});
 
 	const releaseRows = useLiveQuery({
@@ -121,8 +122,11 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 		query: (query) =>
 			query
 				.from({ release: biocontrol_actions() })
-				.where(({ release }) => gte(release.biocontrol_date, since))
-				.select(({ release }) => ({ id: release.id, date: release.biocontrol_date })),
+				.where(({ release }) => gte(ACTIVITY_DATES.releases.column(release), since))
+				.select(({ release }) => ({
+					id: release.id,
+					date: ACTIVITY_DATES.releases.column(release),
+				})),
 	});
 
 	const serviceRequestRows = useLiveQuery({
@@ -130,8 +134,11 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 		query: (query) =>
 			query
 				.from({ request: service_requests() })
-				.where(({ request }) => gte(request.request_date, since))
-				.select(({ request }) => ({ id: request.id, date: request.request_date })),
+				.where(({ request }) => gte(ACTIVITY_DATES.serviceRequests.column(request), since))
+				.select(({ request }) => ({
+					id: request.id,
+					date: ACTIVITY_DATES.serviceRequests.column(request),
+				})),
 	});
 
 	const outreachRows = useLiveQuery({
@@ -139,8 +146,11 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 		query: (query) =>
 			query
 				.from({ outreach: outreach_actions() })
-				.where(({ outreach }) => gte(outreach.outreach_date, since))
-				.select(({ outreach }) => ({ id: outreach.id, date: outreach.outreach_date })),
+				.where(({ outreach }) => gte(ACTIVITY_DATES.outreachActions.column(outreach), since))
+				.select(({ outreach }) => ({
+					id: outreach.id,
+					date: ACTIVITY_DATES.outreachActions.column(outreach),
+				})),
 	});
 
 	const reads = [
@@ -158,15 +168,12 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 		date: row.date,
 		weight: (row.sampleIds as readonly unknown[]).length,
 	}));
-	// The effective date, the way every collection read reduces it: `collected_at`
-	// in the Organization's zone under exact timestamps, `collection_date` otherwise.
 	const collectionDates = collectionRows.data.map((row) => ({
-		date:
-			row.collectedAt === null ? row.collectionDate : localCalendarDay(row.collectedAt, timeZone),
+		date: ACTIVITY_DATES.collections.day(row, timeZone),
 		weight: 1,
 	}));
 
-	const dated: Readonly<Record<ActivityTypeKey, readonly DatedRow[]>> = {
+	const dated: Readonly<Record<OverviewRecordType, readonly DatedRow[]>> = {
 		inspections: inspectionDates,
 		samples: sampleDates,
 		collections: collectionDates,
@@ -177,8 +184,8 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 		outreachActions: outreachRows.data.map(one),
 	};
 
-	const types = {} as Record<ActivityTypeKey, ActivityCount>;
-	for (const key of ACTIVITY_TYPE_KEYS) {
+	const types = {} as Record<OverviewRecordType, ActivityCount>;
+	for (const key of OVERVIEW_RECORD_TYPES) {
 		types[key] = windowCounts(dated[key], window, priorWindow);
 	}
 

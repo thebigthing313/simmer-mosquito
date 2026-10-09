@@ -1201,9 +1201,16 @@ number matters. `docs/dashboard-spec.md` is the rest.
 
 #### useActivityStrip
 
-The last-7-days strip off Electric: eight `useLiveQuery` subsets, one per
-activity type, each a 14-day window on the type's own operational date,
-folded into the 7-day count and the 7 before it in memory. It replaced a
+The last-7-days strip off Electric: seven `useLiveQuery` subsets, one per
+table, each a 14-day window on the type's own operational date, folded into
+the 7-day count and the 7 before it in memory. Which date that is comes from
+`ACTIVITY_DATES` in `hooks/queries/activity-dates.ts`, one entry per
+`OverviewRecordType`, each column written as a function over the table's ref
+so a misspelled column fails `tsc`. A collection has no single column: its
+entry is `collectedSince` and `collectionEffectiveDate` from
+`hooks/queries/collection-day.ts`, which every collection read hook windows
+and reduces its rows through, and which hands the day up as `effectiveDate` so
+no page works it out (#1427). It replaced a
 `readActivity` on `GET /dashboard`, and two things decided that. The strip is
 what a person opens the page for, and on the server it shared one round trip
 with the untreated habitats read, which was 4.7 seconds on the production

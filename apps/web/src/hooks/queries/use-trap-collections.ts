@@ -13,19 +13,19 @@
  * and every one of them carries its species rows. `seasons` is how many are asked
  * for; `null` lifts the bound.
  *
- * The bound is applied to each date column in its own type, because the two
- * collection timing modes store the date in different columns and a comparison
- * only means something against the one it belongs to. A trap still out has
- * neither, and a comparison against null is never true — so the third clause is
- * what keeps the "Trap out" bucket in the window. Without it the collection an
- * operator is most likely looking for is the one that disappears.
+ * The bound is `collectedSince` from `collection-day.ts`. A trap still out has
+ * neither date column, and a comparison against null is never true, so the
+ * pending clause beside it is what keeps the "Trap out" bucket in the window.
+ * Without it the collection an operator is most likely looking for is the one
+ * that disappears.
  */
 
 import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
-import { and, eq, gte, isNull, or, toArray, useLiveQuery } from '@tanstack/react-db';
+import { and, eq, isNull, or, toArray, useLiveQuery } from '@tanstack/react-db';
 import { collection_species } from '../../lib/collections/collection_species';
 import { collections } from '../../lib/collections/collections';
-import { localDayStartAsInstant, todayInTimeZone } from '../../lib/local-date';
+import { todayInTimeZone } from '../../lib/local-date';
+import { collectedSince, collectionEffectiveDate } from './collection-day';
 import type { AdultCollectionTimingMode } from './collection-view';
 import { activityGcTimeMs } from './shared';
 
@@ -43,6 +43,8 @@ export interface TrapCollection {
 	readonly id: string;
 	readonly collectedAt: Date | null;
 	readonly collectionDate: string | null;
+	/** The day it counts on, in the Organization's zone. See `collection-day.ts`. */
+	readonly effectiveDate: string | null;
 	readonly collectionTimingMode: AdultCollectionTimingMode;
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
@@ -63,13 +65,11 @@ export function useTrapCollections(
 	readonly isError: boolean;
 } {
 	const { seasons, timeZone } = options;
-	// A calendar year boundary in the organization's zone, as both the string a
-	// `date` column compares against and the instant a `timestamptz` one does.
+	// A calendar year boundary in the organization's zone.
 	const sinceDate =
 		seasons === null
 			? null
 			: `${Number(todayInTimeZone(timeZone).slice(0, 4)) - (seasons - 1)}-01-01`;
-	const sinceInstant = sinceDate === null ? null : localDayStartAsInstant(sinceDate, timeZone);
 
 	const result = useLiveQuery({
 		gcTime: activityGcTimeMs,
@@ -77,13 +77,12 @@ export function useTrapCollections(
 			query
 				.from({ collection: collections() })
 				.where(({ collection }) =>
-					sinceDate === null || sinceInstant === null
+					sinceDate === null
 						? eq(collection.trap_id, trapId)
 						: and(
 								eq(collection.trap_id, trapId),
 								or(
-									gte(collection.collected_at, sinceInstant),
-									gte(collection.collection_date, sinceDate),
+									collectedSince(collection, sinceDate, timeZone),
 									and(isNull(collection.collected_at), isNull(collection.collection_date)),
 								),
 							),
@@ -111,5 +110,10 @@ export function useTrapCollections(
 				})),
 	});
 
-	return { collections: result.data, isReady: result.isReady, isError: result.isError };
+	const dated = result.data.map((row) => ({
+		...row,
+		effectiveDate: collectionEffectiveDate(row, timeZone),
+	}));
+
+	return { collections: dated, isReady: result.isReady, isError: result.isError };
 }
