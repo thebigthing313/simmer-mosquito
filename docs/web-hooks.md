@@ -525,6 +525,20 @@ is picked, and a mousedown only when the grab took. The edit listener lets go
 of a held vertex when it is torn down, since the mouseup that would land it
 has lost its listener.
 
+The controller's readings, whether a draw is open, how far along it is and
+which part it is on, come from `drawView` in the machine module, which the
+adapter spreads into what it returns. The tests split on the same line as the
+code. The machine's suite,
+`tests/unit/components/map/draw-machine.test.ts`, holds every case about a
+reported shape, a controller reading or what the draft paints: it drives
+`next` with each reported shape fed back as the committed value, the way a
+form does, reads the controller through `drawView` and the paint through
+`buildFeatures`, and needs no jsdom and no fake map. The `useMapDraw` suite
+keeps what only the adapter does against a map: a committed shape reaching
+the source, the layers, a restyle, a teardown, the cursor, the double-click
+zoom, focus, which key target counts, the listeners that turn a double-click
+or a key into an event, and the promise a point request returns.
+
 The draft paint reads the shared selection colours from
 `packages/design-tokens`, not a private amber: the thing being drawn is the
 selected spatial context, and it has to match the selection halo the tile
@@ -1390,6 +1404,24 @@ One query, not two. This read the whole eager `traps` table into a `Map` and
 looked each stop's trap up in it. The join does the same work without
 materialising every trap the organization runs to name the twenty on this
 route.
+
+### my-organization
+
+#### useSettingsSheet
+
+The hook that `SettingsSheet` calls, and the frame's whole behaviour: open
+state, reset on open, and submit as convert, close, then write. It is a hook of
+its own rather than state inside the frame so that `SettingsSheetForm<Values>`
+names the form a body is handed. TanStack's form type takes a dozen generic
+parameters, and the rest of `apps/web` passes a form between components as
+`any`; reading it off this hook's return type keeps a body's field names
+checked against its values.
+
+A conversion that throws is caught by the form kit's `useAppForm` and recorded
+as a `SaveFailure`, which is what puts the message in the sheet's error alert.
+The hook catches nothing itself. Reset on open clears that message along with
+the values, so a sheet reopened after a refused attempt starts from what is
+saved.
 
 ### daily-work
 

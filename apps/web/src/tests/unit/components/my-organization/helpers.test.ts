@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	densityRangesOrNull,
+	larvalEntryPolicyFrom,
+	larvalSettingsFormValues,
 	numberInputValue,
 	safeDensityRangesFromFormValues,
 	serviceRequestContextFrom,
@@ -188,5 +190,38 @@ describe('safeDensityRangesFromFormValues', () => {
 		expect(safeDensityRangesFromFormValues(withBound('medium', 'maxExclusive', ''))).toBeNull();
 		expect(safeDensityRangesFromFormValues(withBound('medium', 'maxExclusive', '-1'))).toBeNull();
 		expect(safeDensityRangesFromFormValues(BANDS)).not.toBeNull();
+	});
+});
+
+describe('larval settings conversion', () => {
+	it('opens on the saved mode and bands', () => {
+		expect(
+			larvalSettingsFormValues({
+				mode: 'hybrid',
+				densityRanges: {
+					light: { minInclusive: 0, maxExclusive: 1 },
+					medium: { minInclusive: 1, maxExclusive: 5 },
+					heavy: { minInclusive: 5, maxExclusive: 10 },
+					veryHeavy: { minInclusive: 10 },
+				},
+			}),
+		).toEqual({ mode: 'hybrid', densityEnabled: true, ranges: BANDS });
+	});
+
+	it('opens with density inference off when the Organization keys plain counts', () => {
+		expect(larvalSettingsFormValues({ mode: 'density_only', densityRanges: null })).toMatchObject({
+			mode: 'density_only',
+			densityEnabled: false,
+		});
+	});
+
+	it('saves the mode with the bands, or with none while density inference is off', () => {
+		expect(larvalEntryPolicyFrom({ mode: 'hybrid', densityEnabled: true, ranges: BANDS })).toEqual({
+			mode: 'hybrid',
+			densityRanges: densityRangesOrNull(true, BANDS),
+		});
+		expect(larvalEntryPolicyFrom({ mode: 'hybrid', densityEnabled: false, ranges: BANDS })).toEqual(
+			{ mode: 'hybrid', densityRanges: null },
+		);
 	});
 });
