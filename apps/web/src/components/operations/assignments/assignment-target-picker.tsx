@@ -1,8 +1,9 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useOpenServiceRequests } from '../../../hooks/operations/use-open-service-requests';
 import { useRequestAddresses } from '../../../hooks/operations/use-request-addresses';
+import { useSearchPicker } from '../../../hooks/pickers/use-search-picker';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import { type TrapListing, useActiveTraps } from '../../../hooks/queries/use-active-traps';
 import { TrapPicker } from '../../adult-surveillance/adult-pickers';
@@ -189,7 +190,7 @@ function requestMatches<
 ): readonly { readonly request: TRequest; readonly label: string }[] {
 	const labelled = requests.map((request) => ({
 		request,
-		label: addressById.get(request.addressId) ?? `Request ${request.id.slice(0, 8)}`,
+		label: requestLabel(request, addressById),
 	}));
 	const filtered =
 		normalized.length === 0
@@ -202,6 +203,14 @@ function requestMatches<
 	return filtered.slice(0, 8);
 }
 
+/** A request is named by its address, or by its id while the address is unknown. */
+function requestLabel(
+	request: { readonly id: string; readonly addressId: string },
+	addressById: ReadonlyMap<string, string>,
+): string {
+	return addressById.get(request.addressId) ?? `Request ${request.id.slice(0, 8)}`;
+}
+
 function ServiceRequestPicker({
 	value,
 	onSelect,
@@ -209,38 +218,20 @@ function ServiceRequestPicker({
 	readonly value: string | null;
 	readonly onSelect: (selection: AssignmentTargetSelection | null) => void;
 }) {
-	const [open, setOpen] = useState(false);
-	const [search, setSearch] = useState('');
-	const [selectedLabel, setSelectedLabel] = useState('');
-	const anchorRef = useRef<HTMLDivElement>(null);
-
 	const { requests, isReady } = useOpenServiceRequests();
 	const addressById = useRequestAddresses(requests);
+	const current = requests.find((request) => request.id === value);
+	const picker = useSearchPicker({
+		value,
+		resolvedLabel: current === undefined ? '' : requestLabel(current, addressById),
+		onClear: () => onSelect(null),
+	});
 
-	const normalized = search.trim().toLowerCase();
+	const normalized = picker.search.trim().toLowerCase();
 	const matches = requestMatches(requests, addressById, normalized);
 
 	return (
-		<PickerFrame
-			anchorRef={anchorRef}
-			label="Service request"
-			onClear={() => {
-				setSelectedLabel('');
-				setSearch('');
-				onSelect(null);
-			}}
-			onOpen={() => setOpen(true)}
-			onOpenChange={setOpen}
-			onSearchChange={(next) => {
-				setSearch(next);
-				setOpen(true);
-			}}
-			open={open}
-			placeholder="Search open requests"
-			search={search}
-			selectedLabel={selectedLabel}
-			value={value}
-		>
+		<PickerFrame {...picker.frame} label="Service request" placeholder="Search open requests">
 			{matches.length === 0 ? (
 				<PickerFallback
 					label={
@@ -257,10 +248,8 @@ function ServiceRequestPicker({
 						<OptionRow
 							key={request.id}
 							onSelect={() => {
-								setSelectedLabel(label);
-								setSearch(label);
+								picker.pick(request.id, label);
 								onSelect({ type: 'serviceRequest', id: request.id, name: label });
-								setOpen(false);
 							}}
 							primary={label}
 							secondary={request.details}

@@ -1,10 +1,18 @@
-import type { Map as MapboxMap, MapMouseEvent } from 'mapbox-gl';
+import type { GeoJSONFeature, Map as MapboxMap, MapMouseEvent } from 'mapbox-gl';
 
 /** Returns the interactive layer ids a caller has on the map right now. */
 type LayerProbe = () => readonly string[];
 
+/** Receives the topmost feature hit on the caller's own layers, or `null`. */
+type HoverListener = (feature: GeoJSONFeature | null) => void;
+
+interface HoverRegistration {
+	readonly probe: LayerProbe;
+	readonly onHover: HoverListener | undefined;
+}
+
 interface HoverRegistry {
-	readonly probes: Set<LayerProbe>;
+	readonly registrations: Set<HoverRegistration>;
 	readonly handleMove: (event: MapMouseEvent) => void;
 }
 
@@ -39,33 +47,55 @@ function clearPointer(map: MapboxMap): void {
  * and the fifth layer's miss wiped it in the same event. One handler asks for
  * every registered layer in a single `queryRenderedFeatures`.
  *
- * It runs on the event rather than on the next frame, because the draw hooks
- * set their crosshair on the same event after this handler and have to win.
- * Returns the function that takes `probe` back off.
+ * A caller passing `onHover` is handed, on every move, the topmost feature of
+ * that hit-test lying on one of its own layers, or `null` when none of them was
+ * hit or none is on the map. It runs on the event rather than on the next
+ * frame, because the draw hooks set their crosshair on the same event after
+ * this handler and have to win. Returns the function that takes this
+ * registration, `probe` and `onHover` together, back off.
  */
-export function registerHoverLayers(map: MapboxMap, probe: LayerProbe): () => void {
+export function registerHoverLayers(
+	map: MapboxMap,
+	probe: LayerProbe,
+	onHover?: HoverListener,
+): () => void {
 	let registry = registries.get(map);
 	if (registry === undefined) {
-		const probes = new Set<LayerProbe>();
+		const registrations = new Set<HoverRegistration>();
 		const handleMove = (event: MapMouseEvent) => {
-			const layers = [...probes].flatMap((each) => each());
+			const probed = [...registrations].map((registration) => ({
+				onHover: registration.onHover,
+				ownLayers: registration.probe(),
+			}));
+			const layers = probed.flatMap(({ ownLayers }) => ownLayers);
 			if (layers.length === 0) {
 				clearPointer(map);
+				for (const { onHover: listener } of probed) {
+					listener?.(null);
+				}
 				return;
 			}
-			const hovering = map.queryRenderedFeatures(event.point, { layers }).length > 0;
-			map.getCanvas().style.cursor = hovering ? 'pointer' : '';
+			const features = map.queryRenderedFeatures(event.point, { layers });
+			map.getCanvas().style.cursor = features.length > 0 ? 'pointer' : '';
+			for (const { onHover: listener, ownLayers } of probed) {
+				if (listener === undefined) {
+					continue;
+				}
+				const hit = features.find((feature) => ownLayers.includes(feature.layer?.id ?? ''));
+				listener(hit ?? null);
+			}
 		};
-		registry = { probes, handleMove };
+		registry = { registrations, handleMove };
 		registries.set(map, registry);
 		map.on('mousemove', handleMove);
 	}
 	const active = registry;
-	active.probes.add(probe);
+	const registration: HoverRegistration = { probe, onHover };
+	active.registrations.add(registration);
 
 	return () => {
-		active.probes.delete(probe);
-		if (active.probes.size > 0) {
+		active.registrations.delete(registration);
+		if (active.registrations.size > 0) {
 			return;
 		}
 		registries.delete(map);

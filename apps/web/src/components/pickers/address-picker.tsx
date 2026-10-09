@@ -3,7 +3,8 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Separator } from '@simmer-mosquito/ui-web/components/ui/separator';
 import { PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { ilike, or, useLiveQuery } from '@tanstack/react-db';
-import { useDeferredValue, useRef, useState } from 'react';
+import { useDeferredValue, useState } from 'react';
+import { useSearchPicker } from '../../hooks/pickers/use-search-picker';
 import { useSelectedRowLabel } from '../../hooks/pickers/use-selected-row-label';
 import { addressPrimaryLabel, addressSecondaryLabel } from '../../lib/address-format';
 import { addresses } from '../../lib/collections/addresses';
@@ -44,52 +45,25 @@ export function AddressPicker({
 	/** The bound field's `state.meta.errors`, drawn under the input. */
 	readonly errors?: readonly unknown[] | undefined;
 }) {
-	const [open, setOpen] = useState(false);
-	const [search, setSearch] = useState('');
-	const [pickedLabel, setPickedLabel] = useState('');
 	const [isCreating, setIsCreating] = useState(false);
-	const deferredSearch = useDeferredValue(search);
-	const anchorRef = useRef<HTMLDivElement>(null);
 	// An edit form arrives holding only the address id, so the current selection is
 	// resolved from the collection rather than left as an empty-looking field.
-	const selectedLabel = useSelectedRowLabel({
+	const resolvedLabel = useSelectedRowLabel({
 		collection: addresses(),
-		pickedLabel,
 		toLabel: (row) => addressPrimaryLabel(addressLabelParts(row)),
 		value,
 	});
+	const picker = useSearchPicker({ value, resolvedLabel, onClear: () => onSelect(null) });
+	const deferredSearch = useDeferredValue(picker.search);
 
 	const pick = (address: AddressOption) => {
-		const name = addressPrimaryLabel(address);
-		setPickedLabel(name);
-		setSearch(name);
+		picker.pick(address.id, addressPrimaryLabel(address));
 		onSelect(address);
-		setOpen(false);
 	};
 
 	return (
 		<div className="grid gap-3">
-			<PickerFrame
-				errors={errors}
-				anchorRef={anchorRef}
-				label={label}
-				onClear={() => {
-					setPickedLabel('');
-					setSearch('');
-					onSelect(null);
-				}}
-				onOpen={() => setOpen(true)}
-				onOpenChange={setOpen}
-				onSearchChange={(next) => {
-					setSearch(next);
-					setOpen(true);
-				}}
-				open={open}
-				placeholder="Search addresses"
-				search={search}
-				selectedLabel={selectedLabel}
-				value={value}
-			>
+			<PickerFrame {...picker.frame} errors={errors} label={label} placeholder="Search addresses">
 				<AddressResults onSelect={pick} search={deferredSearch} selectedValue={value} />
 				{create === undefined ? null : (
 					<>
@@ -97,7 +71,7 @@ export function AddressPicker({
 						<Button
 							className="justify-start"
 							onClick={() => {
-								setOpen(false);
+								picker.frame.onOpenChange(false);
 								setIsCreating(true);
 							}}
 							size="sm"
@@ -112,7 +86,7 @@ export function AddressPicker({
 			</PickerFrame>
 			{create === undefined || !isCreating ? null : (
 				<NewAddressForm
-					initialSearch={search}
+					initialSearch={picker.search}
 					onCancel={() => setIsCreating(false)}
 					onCreated={(address) => {
 						pick(address);
