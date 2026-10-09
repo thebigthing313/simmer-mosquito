@@ -72,8 +72,8 @@ describe('useRouteLayer', () => {
 		release();
 	});
 
-	// The registry's hit-test is the only one: the route reads its hovered stop
-	// off it rather than querying its own layers a second time.
+	// The route reads its hovered stop off the registry's hit-test rather than
+	// querying its own layers a second time, so one move is one query.
 	it('runs one hit-test per move on a map with only the route', () => {
 		const fake = createFakeMap();
 		const onHoverStop = vi.fn();

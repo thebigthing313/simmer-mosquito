@@ -682,9 +682,10 @@ map stay in sync without rebuilding the source. The pointer cursor is
 `registerHoverLayers`', probing the same layers the click hit-tests, and a
 handler of the hook's own that wrote the cursor would wipe another layer's
 pointer in the same event once a route map draws a second layer (#1426). The
-hovered stop comes off the registry too, as the third argument: the registry
-hands the hook the topmost feature on its own layers from the one hit-test it
-already runs, or `null` when none was hit or a restyle took the layers away.
+hovered stop comes off the registry too, through its third argument. The
+registry hands the hook the topmost feature on its own layers from the one
+hit-test it already runs, or `null` when none was hit or a restyle took the
+layers away.
 The hook used to keep a `mousemove` of its own to find the stop, which was a
 second `queryRenderedFeatures` on every move (#1443). The stop feature is
 framework-free geometry so the hook stays decoupled from the route domain

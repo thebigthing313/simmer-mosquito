@@ -51,8 +51,8 @@ function clearPointer(map: MapboxMap): void {
  * that hit-test lying on one of its own layers, or `null` when none of them was
  * hit or none is on the map. It runs on the event rather than on the next
  * frame, because the draw hooks set their crosshair on the same event after
- * this handler and have to win. Returns the function that takes `probe` back
- * off.
+ * this handler and have to win. Returns the function that takes this
+ * registration, `probe` and `onHover` together, back off.
  */
 export function registerHoverLayers(
 	map: MapboxMap,
@@ -63,23 +63,26 @@ export function registerHoverLayers(
 	if (registry === undefined) {
 		const registrations = new Set<HoverRegistration>();
 		const handleMove = (event: MapMouseEvent) => {
-			const probed = [...registrations].map((each) => ({ each, layers: each.probe() }));
-			const layers = probed.flatMap(({ layers: own }) => own);
+			const probed = [...registrations].map((registration) => ({
+				onHover: registration.onHover,
+				ownLayers: registration.probe(),
+			}));
+			const layers = probed.flatMap(({ ownLayers }) => ownLayers);
 			if (layers.length === 0) {
 				clearPointer(map);
-				for (const { each } of probed) {
-					each.onHover?.(null);
+				for (const { onHover: listener } of probed) {
+					listener?.(null);
 				}
 				return;
 			}
 			const features = map.queryRenderedFeatures(event.point, { layers });
 			map.getCanvas().style.cursor = features.length > 0 ? 'pointer' : '';
-			for (const { each, layers: own } of probed) {
-				if (each.onHover === undefined) {
+			for (const { onHover: listener, ownLayers } of probed) {
+				if (listener === undefined) {
 					continue;
 				}
-				const hit = features.find((feature) => own.includes(feature.layer?.id ?? ''));
-				each.onHover(hit ?? null);
+				const hit = features.find((feature) => ownLayers.includes(feature.layer?.id ?? ''));
+				listener(hit ?? null);
 			}
 		};
 		registry = { registrations, handleMove };
