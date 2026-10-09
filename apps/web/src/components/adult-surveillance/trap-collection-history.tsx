@@ -24,7 +24,7 @@ export function TrapCollectionHistory({ trap }: { readonly trap: TrapListing }) 
 		timeZone,
 	});
 
-	const years = groupByYear(collections as readonly DirectoryCollection[], timeZone);
+	const years = groupByYear(collections as readonly DirectoryCollection[]);
 
 	// Resolved once for the pane rather than inside each row: reading the catalog
 	// per expanded collection would put a query behind every disclosure on the page.
@@ -37,7 +37,6 @@ export function TrapCollectionHistory({ trap }: { readonly trap: TrapListing }) 
 			isReady={isReady}
 			onLoadEarlier={allSeasons ? undefined : () => setAllSeasons(true)}
 			speciesNameById={speciesNameById}
-			timeZone={timeZone}
 			years={years}
 		/>
 	);

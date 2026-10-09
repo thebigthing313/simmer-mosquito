@@ -26,7 +26,6 @@ import { useState } from 'react';
 import {
 	aggregateSpeciesDistribution,
 	CollectionFlagBadges,
-	collectionEffectiveDate,
 	collectionRowDate,
 	SpeciesDistributionBars,
 } from '../../../components/adult-surveillance/adult-display';
@@ -243,7 +242,6 @@ function TrapCollectionsList({
 	readonly isError: boolean;
 	readonly trapId: string;
 }) {
-	const timeZone = useOrganizationTimeZone();
 	const { page, pageCount, pageRows, setPage } = usePagedRows(collections, {
 		pageSize: collectionsPageSize,
 		resetKey: trapId,
@@ -285,7 +283,7 @@ function TrapCollectionsList({
 												params={{ id: collection.id }}
 												to="/adult-surveillance/collections/$id"
 											>
-												{collectionRowDate(collection, timeZone)}
+												{collectionRowDate(collection.effectiveDate)}
 											</Link>
 										</TableCell>
 										<TableCell>
@@ -328,12 +326,11 @@ function speciesInWindow(input: {
 	readonly collections: readonly TrapCollection[];
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly unidentifiedSpeciesIds: ReadonlySet<string>;
-	readonly timeZone: string;
 	readonly from: string;
 	readonly to: string;
 }) {
 	const inRange = input.collections.filter((collection) =>
-		withinDateRange(collectionEffectiveDate(collection, input.timeZone), input.from, input.to),
+		withinDateRange(collection.effectiveDate, input.from, input.to),
 	);
 	const specimens = inRange.flatMap((collection) =>
 		collection.species.filter(
@@ -391,7 +388,6 @@ function TrapSpeciesDistribution({
 		collections,
 		nameById,
 		unidentifiedSpeciesIds,
-		timeZone,
 		from,
 		to,
 	});

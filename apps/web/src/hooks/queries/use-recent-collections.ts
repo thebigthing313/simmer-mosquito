@@ -13,22 +13,19 @@
  *
  * ## The window
  *
- * Each date column is compared against a bound in its own type, because the two
- * collection timing modes date a collection from different columns and a
- * comparison only means something against the one it belongs to. A collection
- * with neither date is genuinely pending and drops out on its own — a comparison
- * against null is never true — which is right here and wrong in the trap
- * directory, where "still out" is a bucket worth showing.
+ * `collectedSince` from `collection-day.ts`. A collection with neither date is
+ * genuinely pending and drops out on its own, which is right here and wrong in
+ * the trap directory, where "still out" is a bucket worth showing.
  */
 
-import { coalesce, eq, gte, or, useLiveQuery } from '@tanstack/react-db';
+import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { collections } from '../../lib/collections/collections';
 import { profiles } from '../../lib/collections/profiles';
 import { traps } from '../../lib/collections/traps';
-import { localDayStartAsInstant } from '../../lib/local-date';
 import type { LinkedAddress } from './address-view';
+import { collectedSince, collectionEffectiveDate } from './collection-day';
 import { compareByCollectionDateDesc } from './collection-view';
 import { activityGcTimeMs, addressSelect } from './shared';
 
@@ -50,6 +47,8 @@ export interface ActivityCollection {
 	readonly longitude: number;
 	readonly collectedAt: Date | null;
 	readonly collectionDate: string | null;
+	/** The day it counts on, in the Organization's zone. See `collection-day.ts`. */
+	readonly effectiveDate: string | null;
 	readonly collectionTimingMode: string;
 	readonly collectedByProfileId: string | null;
 	/** Who emptied the trap. `null` when nobody was recorded. */
@@ -67,19 +66,12 @@ export function useRecentCollections(
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const sinceInstant = localDayStartAsInstant(sinceDate, timeZone);
-
 	const result = useLiveQuery({
 		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ collection: collections() })
-				.where(({ collection }) =>
-					or(
-						gte(collection.collected_at, sinceInstant),
-						gte(collection.collection_date, sinceDate),
-					),
-				)
+				.where(({ collection }) => collectedSince(collection, sinceDate, timeZone))
 				// `left` throughout: a one-off collection names no trap, most name no
 				// address and nobody need have been recorded as collector.
 				.join({ trap: traps() }, ({ collection, trap }) => eq(collection.trap_id, trap.id), 'left')
@@ -120,9 +112,10 @@ export function useRecentCollections(
 				})),
 	});
 
-	const rows = result.data;
-	// Sorted here rather than in the query — see `compareByCollectionDateDesc`.
-	const sorted = [...rows].sort(compareByCollectionDateDesc);
+	// Sorted here rather than in the query; see `compareByCollectionDateDesc`.
+	const sorted = result.data
+		.map((row) => ({ ...row, effectiveDate: collectionEffectiveDate(row, timeZone) }))
+		.sort(compareByCollectionDateDesc);
 
 	return { collections: sorted, isReady: result.isReady, isError: result.isError };
 }

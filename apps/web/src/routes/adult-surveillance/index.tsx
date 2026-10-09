@@ -12,10 +12,7 @@ import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/r
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useId, useState } from 'react';
-import {
-	CollectionFlagBadges,
-	collectionEffectiveDate,
-} from '../../components/adult-surveillance/adult-display';
+import { CollectionFlagBadges } from '../../components/adult-surveillance/adult-display';
 import {
 	SPECIES_WINDOWS,
 	SpeciesCompositionPanel,
@@ -90,14 +87,8 @@ function AdultSurveillanceOverviewRoute() {
 }
 
 /** A collection's date as `Wed, Aug 12` — an em dash while it is still pending. */
-function collectionDayLabel(
-	collection: {
-		readonly collectedAt: Date | null;
-		readonly collectionDate: string | null;
-	},
-	timeZone: string,
-): string {
-	return formatWeekdayMonthDay(collectionEffectiveDate(collection, timeZone) ?? '');
+function collectionDayLabel(effectiveDate: string | null): string {
+	return formatWeekdayMonthDay(effectiveDate ?? '');
 }
 
 function CollectionLink({
@@ -127,14 +118,11 @@ interface DayGroup {
 	readonly rows: readonly ActivityCollection[];
 }
 
-function groupByDay(
-	collections: readonly ActivityCollection[],
-	timeZone: string,
-): readonly DayGroup[] {
+function groupByDay(collections: readonly ActivityCollection[]): readonly DayGroup[] {
 	const groups = new Map<string, ActivityCollection[]>();
 	for (const collection of collections) {
-		const day = collectionEffectiveDate(collection, timeZone) ?? '';
-		if (day === '') {
+		const day = collection.effectiveDate;
+		if (day === null) {
 			continue;
 		}
 		const existing = groups.get(day);
@@ -151,7 +139,7 @@ function groupByDay(
 function RecentCollectionsPanel({ since }: { readonly since: string }) {
 	const timeZone = useOrganizationTimeZone();
 	const { collections, isReady, isError } = useRecentCollections(since, timeZone);
-	const groups = groupByDay(collections, timeZone);
+	const groups = groupByDay(collections);
 
 	return (
 		<Panel
@@ -297,7 +285,7 @@ function AwaitingIdentificationPanel({ since }: { readonly since: string }) {
 									</span>
 								</div>
 								<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-									{collectionDayLabel(collection, timeZone)}
+									{collectionDayLabel(collection.effectiveDate)}
 								</span>
 							</li>
 						))}
@@ -362,7 +350,7 @@ function OverThresholdPanel({ since }: { readonly since: string }) {
 								key={collection.id}
 							>
 								<span className="w-11 shrink-0 text-muted-foreground text-xs tabular-nums">
-									{formatMonthDay(collectionEffectiveDate(collection, timeZone) ?? '')}
+									{formatMonthDay(collection.effectiveDate ?? '')}
 								</span>
 								{/*
 								 * The reason to read this panel is to open the collection that ran
@@ -441,7 +429,7 @@ function AttentionPanel({ since }: { readonly since: string }) {
 									</span>
 								</div>
 								<span className="w-11 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
-									{collectionDayLabel(collection, timeZone)}
+									{collectionDayLabel(collection.effectiveDate)}
 								</span>
 							</li>
 						))}

@@ -3,7 +3,6 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { collectionEffectiveDate } from '../../../components/adult-surveillance/adult-display';
 import { CollectionMapCard } from '../../../components/adult-surveillance/collection-map-card';
 import {
 	CollectionFilterChips,
@@ -35,6 +34,7 @@ import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
+import { collectionEffectiveDate } from '../../../hooks/queries/collection-day';
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { formatListDate } from '../../../lib/local-date';

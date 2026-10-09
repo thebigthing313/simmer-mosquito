@@ -51,10 +51,11 @@ register the way `activity-strip.tsx` reads it, `recordNoun(…).titleMany`, so
 | Outreach actions | `outreachActions` | `Outreach actions` | `outreach_actions.outreach_date` | `/public-engagement/outreach` |
 
 Live rows only, `deleted_at is null`. A collection with neither timestamp nor
-date is undated and is counted nowhere, as on the Dashboard. The keys are the
-strip's `ACTIVITY_TYPE_KEYS` and become `OVERVIEW_RECORD_TYPES`, a register the
-domain owns in `packages/domain/src/overview/`; whether the strip then reads
-the domain's list is the map's open fog item and not this build's.
+date is undated and is counted nowhere, as on the Dashboard. The keys are
+`OVERVIEW_RECORD_TYPES`, a register the domain owns in
+`packages/domain/src/overview/`. The Dashboard strip reads the same list and
+the same labels since #1427, and the client names each type's date column once,
+in `ACTIVITY_DATES` under `apps/web/src/hooks/queries/activity-dates.ts`.
 
 Two ratios sit under the eight, each drawn as a share or a rate with a count
 beside it. Both are a ratio of sums per column, never a mean of ratios.

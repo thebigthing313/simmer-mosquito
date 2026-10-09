@@ -1,7 +1,7 @@
 import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
 import { compareByCollectionDateDesc } from '../../hooks/queries/collection-view';
 import type { TrapListing } from '../../hooks/queries/use-active-traps';
-import { collectionEffectiveDate, isPendingCollection } from './adult-display';
+import { isPendingCollection } from './adult-display';
 
 /**
  * The fold behind the trap directory's right half: a trap's flat run of
@@ -59,6 +59,8 @@ export interface DirectoryCollection {
 	 */
 	readonly collectedAt: Date | string | null;
 	readonly collectionDate: string | null;
+	/** The day it counts on, as `useTrapCollections` hands it up. */
+	readonly effectiveDate: string | null;
 	readonly collectionTimingMode: string;
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
@@ -85,11 +87,10 @@ export interface SpecimenTotals {
  */
 export function groupByYear(
 	collections: readonly DirectoryCollection[],
-	timeZone: string,
 ): readonly CollectionYear[] {
 	const byYear = new Map<string, DirectoryCollection[]>();
 	for (const collection of collections) {
-		const date = collectionEffectiveDate(collection, timeZone);
+		const date = collection.effectiveDate;
 		const key = date === null ? UNDATED_GROUP_KEY : date.slice(0, 4);
 		const bucket = byYear.get(key);
 		if (bucket === undefined) {

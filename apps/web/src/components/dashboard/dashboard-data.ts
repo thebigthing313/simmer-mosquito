@@ -66,20 +66,6 @@ export interface DateWindow {
 	readonly to: string;
 }
 
-/** The eight activity types, in strip order. `useActivityStrip` counts each off its own table. */
-export const ACTIVITY_TYPE_KEYS = [
-	'inspections',
-	'samples',
-	'collections',
-	'applications',
-	'sourceReductions',
-	'releases',
-	'serviceRequests',
-	'outreachActions',
-] as const;
-
-export type ActivityTypeKey = (typeof ACTIVITY_TYPE_KEYS)[number];
-
 export interface DashboardResponse {
 	/** `YYYY-MM-DD` in the Organization's zone. */
 	readonly today: string;
