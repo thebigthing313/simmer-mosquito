@@ -14,6 +14,7 @@ export interface OutreachFilterBinding {
 	readonly setFilters: (patch: Partial<OutreachFilters>) => void;
 	readonly reset: () => void;
 	readonly activeCount: number;
+	readonly defaults: OutreachFilters;
 	/** The Organization's today, which the date window ends on. */
 	readonly today: string;
 }
@@ -26,10 +27,11 @@ export interface OutreachFilterBinding {
 export function useOutreachFilterState(): OutreachFilterBinding {
 	const timeZone = useOrganizationTimeZone();
 	const today = todayInTimeZone(timeZone);
+	const defaults = outreachFilterDefaults(today);
 	const { filters, setFilters, reset, activeCount } = useSearchFilters(
-		outreachFilterDefaults(today),
+		defaults,
 		outreachFilterCodecs,
 		DATE_RANGE_COUNTING,
 	);
-	return { filters, setFilters, reset, activeCount, today };
+	return { filters, setFilters, reset, activeCount, defaults, today };
 }

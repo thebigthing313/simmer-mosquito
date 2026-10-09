@@ -14,6 +14,7 @@ export interface CollectionFilterBinding {
 	readonly setFilters: (patch: Partial<CollectionFilters>) => void;
 	readonly reset: () => void;
 	readonly activeCount: number;
+	readonly defaults: CollectionFilters;
 	/** The Organization's today, which the date window ends on. */
 	readonly today: string;
 }
@@ -26,10 +27,11 @@ export interface CollectionFilterBinding {
 export function useCollectionFilterState(): CollectionFilterBinding {
 	const timeZone = useOrganizationTimeZone();
 	const today = todayInTimeZone(timeZone);
+	const defaults = collectionFilterDefaults(today);
 	const { filters, setFilters, reset, activeCount } = useSearchFilters(
-		collectionFilterDefaults(today),
+		defaults,
 		collectionFilterCodecs,
 		DATE_RANGE_COUNTING,
 	);
-	return { filters, setFilters, reset, activeCount, today };
+	return { filters, setFilters, reset, activeCount, defaults, today };
 }

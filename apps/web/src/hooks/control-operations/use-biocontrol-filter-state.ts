@@ -14,6 +14,7 @@ export interface BiocontrolFilterBinding {
 	readonly setFilters: (patch: Partial<BiocontrolFilters>) => void;
 	readonly reset: () => void;
 	readonly activeCount: number;
+	readonly defaults: BiocontrolFilters;
 	/** The Organization's today, which the date window ends on. */
 	readonly today: string;
 }
@@ -26,10 +27,11 @@ export interface BiocontrolFilterBinding {
 export function useBiocontrolFilterState(): BiocontrolFilterBinding {
 	const timeZone = useOrganizationTimeZone();
 	const today = todayInTimeZone(timeZone);
+	const defaults = biocontrolFilterDefaults(today);
 	const { filters, setFilters, reset, activeCount } = useSearchFilters(
-		biocontrolFilterDefaults(today),
+		defaults,
 		biocontrolFilterCodecs,
 		DATE_RANGE_COUNTING,
 	);
-	return { filters, setFilters, reset, activeCount, today };
+	return { filters, setFilters, reset, activeCount, defaults, today };
 }

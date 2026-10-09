@@ -8,9 +8,8 @@
 import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
-import { dateRangeLabel } from '../../lib/local-date';
 import type { FilterCounting } from '../../lib/search-filters';
-import { ActiveFilterBar, FilterChip, type FilterOption, toggle } from '../explorer';
+import { ActiveFilterBar, DateRangeChip, FilterChip, type FilterOption, toggle } from '../explorer';
 import { densityLabel } from '../larval-display';
 import { INSPECTION_DENSITY_COLORS } from '../map';
 import type { InspectionFilters, WaterFilterValue } from './inspections-search';
@@ -155,15 +154,13 @@ export function InspectionFilterChips({
 	readonly state: InspectionFilterState;
 }) {
 	const { densities, inspectorIds, typeIds, wetness } = state;
-	const isDefaultRange = state.dateFrom === defaults.from && state.dateTo === defaults.to;
 	return (
 		<ActiveFilterBar onClearAll={onClearAll}>
-			{isDefaultRange ? null : (
-				<FilterChip
-					label={`Dates: ${dateRangeLabel(state.dateFrom, state.dateTo)}`}
-					onRemove={onResetDates}
-				/>
-			)}
+			<DateRangeChip
+				defaults={defaults}
+				range={{ from: state.dateFrom, to: state.dateTo }}
+				setRange={onResetDates}
+			/>
 			{wetness === 'all' ? null : (
 				<FilterChip
 					label={`Water: ${wetness === 'wet' ? 'Wet' : 'Dry'}`}
