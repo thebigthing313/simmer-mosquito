@@ -230,6 +230,13 @@ A flag on the event rather than a pause on the listener, because a pan the
 reader makes during or after the flight is a real change of viewport and must
 still re-page.
 
+This is the only flight an explorer selection makes, and a map card moves no
+camera. The Address card used to fly as well, once its geometry request
+answered, so one pick in the Address Book moved the map twice: on a cold pick
+the hook's flight was cut short and restarted, and on a cached one the card's
+was replaced in the same commit (#1423). A card that has better coordinates
+than the row is a reason to fix the row.
+
 #### useExplorerResource
 
 Nine explorer routes each ran the same four hooks in the same order and spent

@@ -109,7 +109,6 @@ function AddressesExplorerRoute() {
 						<AddressMapCard
 							id={selected.id}
 							inset={panel.inset}
-							map={map}
 							onClose={() => setSelectedId(null)}
 						/>
 					)}

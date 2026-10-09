@@ -29,13 +29,15 @@
  * `write-attribution.test.tsx` gives.
  */
 
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { addresses } from '../../../../../lib/collections/addresses';
 import { organizations } from '../../../../../lib/collections/organizations';
 import type { MinimumRole } from '../../../../../lib/write-access';
 import { installMemoryCollections, seedRows } from '../../../lib/collections/memory-collections';
 import {
+	mountedCanvas,
 	preloadRouteComponent,
 	renderExplorer,
 	SUMMARY_CASE_TIMEOUT,
@@ -118,6 +120,10 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
 			}
 			if (url.pathname.endsWith('/summary')) {
 				return harness.summary;
+			}
+			const one = harness.book.find((row) => url.pathname === `/map/addresses/${row.id}`);
+			if (one !== undefined) {
+				return { address: { lat: one.lat, lng: one.lng, geomType: 'Point', geojson: null } };
 			}
 			return pageInsideBox(url.searchParams.get('bbox'), url.searchParams.get('search'));
 		}),
@@ -349,5 +355,43 @@ describe('the addresses explorer with addresses in view', () => {
 		expect(await screen.findByText('1 11th Street')).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
 		expect(harness.sent.some((url) => url.pathname === '/map/addresses/summary')).toBe(false);
+	});
+});
+
+// The card used to fly the camera too, once the address's geometry answered,
+// so one pick moved the map twice and the first flight was cut short (#1423).
+// The explorer's flight is the one left, and a card moves no camera.
+describe('the addresses explorer with an address selected', () => {
+	function flights(): number {
+		return mountedCanvas.fake?.cameraCalls.filter((call) => call.kind === 'flyTo').length ?? 0;
+	}
+
+	beforeEach(() => {
+		harness.book = [INSIDE_A, INSIDE_B];
+		harness.extent = { west: 0, south: -1, east: 1, north: 0 };
+		seedRows(addresses, [
+			{ id: INSIDE_A.id, display_name: INSIDE_A.displayName, address_line_1: '1 11th Street' },
+		]);
+	});
+
+	it('flies once when the address is picked from the rail', async () => {
+		renderAddresses();
+
+		fireEvent.click(await screen.findByRole('button', { name: 'Show 1 11th Street on the map' }));
+
+		// The card draws the coordinates once the geometry it reads has answered,
+		// which is when its flight used to go out.
+		expect(await screen.findByText('-0.4000, 0.5000')).toBeTruthy();
+		expect(flights()).toBe(1);
+	});
+
+	it('flies once when the address is picked on the map', async () => {
+		renderAddresses();
+		await screen.findByText('1 11th Street');
+
+		act(() => mountedCanvas.layers[0]?.onSelectFeature?.(INSIDE_A.id));
+
+		expect(await screen.findByText('-0.4000, 0.5000')).toBeTruthy();
+		expect(flights()).toBe(1);
 	});
 });
