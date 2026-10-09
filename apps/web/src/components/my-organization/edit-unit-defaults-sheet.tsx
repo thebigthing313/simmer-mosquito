@@ -5,6 +5,7 @@ import { unitDefaultsFrom, unitOptionsForDefault } from './helpers';
 import { SettingsSheet } from './layout/settings-sheet';
 import type { UnitDefaultsFormValues } from './types';
 
+/** The sheet that edits the default unit for each unit type, one select per type. */
 export function EditUnitDefaultsSheet({
 	defaultValues,
 	description,

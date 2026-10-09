@@ -18,11 +18,11 @@ import { defaultDensityRangeValues } from './constants';
 import type {
 	DensityRangeFormValue,
 	DensityRangeFormValues,
+	DisplaySettingField,
 	LarvalSettingsFormValues,
 	OrganizationDetailsFormValues,
 	PublicSettingsFormValues,
 	SelectOption,
-	SelectSettingField,
 	SimmerRole,
 	UnitDefaultsFormValues,
 } from './types';
@@ -408,7 +408,7 @@ function selectField(
 	label: string,
 	value: string,
 	options: readonly SelectOption[],
-): SelectSettingField {
+): DisplaySettingField {
 	return {
 		label,
 		value,
@@ -419,7 +419,7 @@ function selectField(
 export function unitDefaultFields(
 	unitDefaults: UnitDefaults,
 	units: readonly UnitLabel[],
-): readonly SelectSettingField[] {
+): readonly DisplaySettingField[] {
 	return (Object.entries(unitDefaults) as Array<[keyof UnitDefaults, string]>).map(
 		([unitType, code]) =>
 			selectField(
@@ -473,6 +473,6 @@ export function selectOptionsForValue(
 	return [{ label: value, value }, ...options];
 }
 
-export function displayFieldValue(field: SelectSettingField): string {
+export function displayFieldValue(field: DisplaySettingField): string {
 	return field.options.find((option) => option.value === field.value)?.label ?? field.value;
 }

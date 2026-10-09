@@ -85,7 +85,7 @@ export interface DensityRangeFormValue {
 export type UnitDefaultsFormValues = UnitDefaults;
 
 /** A setting the section draws read-only: its label, its value and the options that name it. */
-export interface SelectSettingField {
+export interface DisplaySettingField {
 	readonly label: string;
 	readonly value: string;
 	readonly options: readonly SelectOption[];

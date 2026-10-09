@@ -1,6 +1,6 @@
 import type React from 'react';
 import { displayFieldValue } from '../helpers';
-import type { SelectSettingField } from '../types';
+import type { DisplaySettingField } from '../types';
 import { OrgSection } from './org-section';
 import { OrgSurface } from './org-surface';
 import { SectionHeader } from './section-header';
@@ -21,7 +21,7 @@ export function DomainSection({
 }: {
 	readonly canManage: boolean;
 	readonly children?: React.ReactNode;
-	readonly displayFields?: readonly SelectSettingField[];
+	readonly displayFields?: readonly DisplaySettingField[];
 	readonly editAction?: React.ReactNode;
 	readonly id: string;
 	readonly meta: string;
@@ -40,7 +40,7 @@ export function DomainSection({
 	);
 }
 
-function SettingsDisplayGrid({ fields }: { readonly fields: readonly SelectSettingField[] }) {
+function SettingsDisplayGrid({ fields }: { readonly fields: readonly DisplaySettingField[] }) {
 	return (
 		<div className="grid gap-2 md:grid-cols-4">
 			{fields.map((field) => (

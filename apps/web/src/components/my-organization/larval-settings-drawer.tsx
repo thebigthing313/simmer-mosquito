@@ -74,6 +74,7 @@ export function LarvalSettingsDrawer({
 	);
 }
 
+/** The density inference switch and one editor per density band, disabled while it is off. */
 function DensityRangesEditor({
 	canManage,
 	form,
@@ -127,6 +128,7 @@ function DensityRangesEditor({
 	);
 }
 
+/** One density band's two bounds, as the text typed into them. */
 function DensityRangeEditor({
 	density,
 	disabled,

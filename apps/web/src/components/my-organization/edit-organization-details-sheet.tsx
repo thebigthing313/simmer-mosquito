@@ -4,6 +4,7 @@ import { organizationDetailsFieldsFrom, validateEmail } from './helpers';
 import { SettingsSheet } from './layout/settings-sheet';
 import type { OrganizationDetailsFormValues } from './types';
 
+/** The sheet that edits the Organization's name, contact, mailing address and timezone. */
 export function EditOrganizationDetailsSheet({
 	defaultValues,
 	description,

@@ -46,6 +46,7 @@ export function SettingsSectionSheet<Values, Payload>({
 	);
 }
 
+/** One descriptor field, drawn as the form kit input its kind names. */
 function SettingsFieldInput<Values>({
 	disabled,
 	field,

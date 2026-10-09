@@ -687,16 +687,17 @@ bails on a whole component when a try block holds a branching expression
 
 #### SettingsSheet
 
-Every My Organization settings sheet is drawn in this frame, and the frame
-holds the one answer to a failed save. A value the conversion cannot read
+Every My Organization settings section edits in this frame, and the frame
+holds the one answer to a failed save. The People sheets are not settings
+sections and keep their own. A value the conversion cannot read
 stays in the open sheet as the form's error alert, which is `role="alert"`;
 a valid save closes the sheet and starts the write, and a write the server
 refuses afterwards arrives as a toast through `watchWrite`. Before #1431 the
 sheets split on this. The label-keyed sheet that drew adult surveillance, batch
 tracking and the service request context awaited the write and held the sheet
 open with the refusal inline, while the organization details, unit defaults
-and larval sheets converted first, closed, and toasted. The second was three of
-the four mechanisms, and once the client checks a value by the rule the domain
+and larval sheets converted first, closed, and toasted. Three sheets of four
+already did the second, and once the client checks a value by the rule the domain
 does, a server refusal is the rare case, so that is the one the frame keeps.
 
 The body is the caller's, handed the form, rather than a field list the frame

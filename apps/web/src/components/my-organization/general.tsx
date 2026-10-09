@@ -16,7 +16,7 @@ import {
 } from './helpers';
 import { DomainSection } from './layout/domain-section';
 import { TagSections } from './tag-sections';
-import type { SelectSettingField } from './types';
+import type { DisplaySettingField } from './types';
 
 export function GeneralOrganizationSection({
 	canManage,
@@ -38,7 +38,7 @@ export function GeneralOrganizationSection({
 	readonly organizationName: string;
 	readonly settings: OrganizationSettings;
 	readonly timezone: string;
-	readonly unitFields: readonly SelectSettingField[];
+	readonly unitFields: readonly DisplaySettingField[];
 	readonly units: readonly UnitLabel[];
 }) {
 	const [isCreatingTag, setIsCreatingTag] = useState(false);
