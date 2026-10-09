@@ -9,6 +9,10 @@
  * a save from a Trap's "Record Collection" on a cold tab threw "Unable to
  * determine the collection location." (#1436). These cases render the form
  * against an empty list, hand it the loaded one, and read what a save sends.
+ *
+ * The last block reads which date the timing section marks required. In exact
+ * mode every collection needs a set date, emptied or not, and the marker used to
+ * show only while the collected date was empty (#1440).
  */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -82,6 +86,7 @@ function formFor(
 	traps: readonly TrapOption[],
 	trapId: string | null,
 	onSave: (input: CollectionSaveInput) => Promise<void>,
+	values: Partial<CollectionFormPageProps['defaultValues']> = {},
 ) {
 	const props: CollectionFormPageProps = {
 		canSubmit: true,
@@ -91,6 +96,7 @@ function formFor(
 		defaultValues: {
 			...defaultCollectionFormValues(TODAY, trapId, 'exact_timestamps'),
 			startedAt: SET_DAY,
+			...values,
 		},
 		header: {
 			title: 'Record Collection',
@@ -189,5 +195,39 @@ describe('picking in the trap picker', () => {
 			),
 		);
 		expect(onSave).not.toHaveBeenCalled();
+	});
+});
+
+/** Whether the date field labelled `label` carries the required marker. */
+function markedRequired(label: string): boolean {
+	return screen.getByText(label).querySelector('[aria-hidden="true"]')?.textContent === '*';
+}
+
+describe('the set date in exact-timestamp mode', () => {
+	const noSave = vi.fn(async (_input: CollectionSaveInput) => undefined);
+
+	it('is required on the form as it opens, with the collected date filled', () => {
+		renderForm(formFor([ELM], ELM.id, noSave, { startedAt: null }));
+
+		expect(markedRequired('Set date')).toBe(true);
+		expect(markedRequired('Collected date')).toBe(false);
+	});
+
+	it('is still required with the collected date left empty', () => {
+		renderForm(formFor([ELM], ELM.id, noSave, { startedAt: null, collectedAt: null }));
+
+		expect(markedRequired('Set date')).toBe(true);
+		expect(markedRequired('Collected date')).toBe(false);
+	});
+
+	it('is not drawn in date-and-duration mode', () => {
+		renderForm(
+			formFor([ELM], ELM.id, noSave, {
+				...defaultCollectionFormValues(TODAY, ELM.id, 'collection_date_duration'),
+			}),
+		);
+
+		expect(screen.queryByText('Set date')).toBeNull();
+		expect(markedRequired('Collection date')).toBe(true);
 	});
 });

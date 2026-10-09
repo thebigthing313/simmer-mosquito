@@ -5,7 +5,7 @@ import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { unitOptions } from '../../../lib/unit-options';
 import { DateControl } from '../../date-control';
-import { type CollectionFormValues, isPendingCollectionDraft } from './collection-form-values';
+import type { CollectionFormValues } from './collection-form-values';
 
 export function TimingSection({
 	form,
@@ -48,14 +48,9 @@ export function TimingSection({
 			</form.AppField>
 
 			<form.Subscribe
-				selector={(state: { values: CollectionFormValues }) => ({
-					timingMode: state.values.timingMode,
-					// Which of the two dates is the required one swaps with this, so the
-					// section has to re-render when it changes and not only on the mode.
-					pending: isPendingCollectionDraft(state.values),
-				})}
+				selector={(state: { values: CollectionFormValues }) => state.values.timingMode}
 			>
-				{({ timingMode, pending }: { timingMode: AdultCollectionTimingMode; pending: boolean }) =>
+				{(timingMode: AdultCollectionTimingMode) =>
 					timingMode === 'exact_timestamps' ? (
 						<div className="grid gap-5 @md/fields:grid-cols-2">
 							<form.AppField name="startedAt">
@@ -65,7 +60,9 @@ export function TimingSection({
 										errors={field.state.meta.errors}
 										label="Set date"
 										onChange={(next: string) => field.handleChange(next === '' ? null : next)}
-										required={pending}
+										// Every exact-mode collection has a set date, emptied or
+										// not, so this does not follow the collected date.
+										required
 										value={field.state.value}
 									/>
 								)}
