@@ -49,11 +49,9 @@ export function insetPadding(
  * The padding options for a camera call that frames something: the inset plus
  * the call's own margin on every side, with `retainPadding: false`.
  *
- * Mapbox keeps a call's padding on the map afterwards unless told not to, so a
- * fit carrying its own margin used to replace the panel inset `useMapPadding`
- * wrote, and every later fly-to centred under the panel. The inset is the one
- * the canvas holds, read off `getPadding()`, unless the caller hands one over,
- * which is for a fit that can run before the canvas has written its padding.
+ * The inset is the one the canvas holds, read off `getPadding()`, unless the
+ * caller hands one over. `useMapPadding`'s heading in `docs/web-hooks.md` says
+ * why every fit goes through this.
  */
 export function framingPadding(
 	map: MapboxMap,
