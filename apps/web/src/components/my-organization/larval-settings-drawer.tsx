@@ -107,7 +107,9 @@ export function LarvalSettingsDrawer({
 						Adjust inspection entry rules and optional density inference ranges.
 					</SheetDescription>
 				</SheetHeader>
-				<form className="grid gap-3.5 px-4" onSubmit={submit}>
+				{/* The browser does not validate this form. The density conversion is the only
+				rule, so its message, which names the band and the field, is the one shown. */}
+				<form className="grid gap-3.5 px-4" noValidate onSubmit={submit}>
 					<Field className="min-w-0 gap-1">
 						<FieldLabel htmlFor={`${id}-entry-mode`}>Entry mode</FieldLabel>
 						<Select

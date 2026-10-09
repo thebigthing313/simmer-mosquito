@@ -1,4 +1,5 @@
-import { useDeferredValue, useRef, useState } from 'react';
+import { useDeferredValue } from 'react';
+import { useSearchPicker } from '../../hooks/pickers/use-search-picker';
 import type { HabitatMatch } from '../../hooks/queries/habitat-view';
 import { useHabitatNames } from '../../hooks/queries/use-habitat-names';
 import { useHabitatSearch } from '../../hooks/queries/use-habitat-search';
@@ -23,48 +24,26 @@ export function HabitatPicker({
 	/** The bound field's `state.meta.errors`, drawn under the input. */
 	readonly errors?: readonly unknown[] | undefined;
 }) {
-	const [open, setOpen] = useState(false);
-	const [search, setSearch] = useState('');
-	const [pickedLabel, setPickedLabel] = useState('');
-	const deferredSearch = useDeferredValue(search);
-	const anchorRef = useRef<HTMLDivElement>(null);
-
 	/*
 	 * A habitat this picker did not pick still has to say its name: a form opened
 	 * on a record already holding one, or a create form seeded from the habitat's
-	 * page. Habitats sync on demand, so the name is a subset read.
+	 * page. Habitats sync on demand, so the name is a subset read, made for any
+	 * value because whether the picked name stands over it is the hook's rule.
 	 */
-	const names = useHabitatNames(value === null || pickedLabel !== '' ? [] : [value]);
-	const selectedLabel = pickedLabel !== '' ? pickedLabel : (names.get(value ?? '') ?? '');
+	const names = useHabitatNames(value === null ? [] : [value]);
+	const picker = useSearchPicker({
+		value,
+		resolvedLabel: names.get(value ?? '') ?? '',
+		onClear: () => onSelect(null),
+	});
+	const deferredSearch = useDeferredValue(picker.search);
 
 	return (
-		<PickerFrame
-			anchorRef={anchorRef}
-			errors={errors}
-			label={label}
-			onClear={() => {
-				setPickedLabel('');
-				setSearch('');
-				onSelect(null);
-			}}
-			onOpen={() => setOpen(true)}
-			onOpenChange={setOpen}
-			onSearchChange={(next) => {
-				setSearch(next);
-				setOpen(true);
-			}}
-			open={open}
-			placeholder="Search habitats"
-			search={search}
-			selectedLabel={selectedLabel}
-			value={value}
-		>
+		<PickerFrame {...picker.frame} errors={errors} label={label} placeholder="Search habitats">
 			<HabitatResults
 				onSelect={(habitat) => {
-					setPickedLabel(habitat.name);
-					setSearch(habitat.name);
+					picker.pick(habitat.id, habitat.name);
 					onSelect(habitat);
-					setOpen(false);
 				}}
 				organizationId={organizationId}
 				search={deferredSearch}
