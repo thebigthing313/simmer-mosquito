@@ -1,4 +1,3 @@
-import { boundsFromGeoJson } from '@simmer-mosquito/mapping';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -7,8 +6,9 @@ import { useRecordTags } from '../../../hooks/queries/use-record-tags';
 import { useRegion } from '../../../hooks/queries/use-region';
 import { useRegionGeometry } from '../../../hooks/use-region-geometry';
 import { recordNoun } from '../../../lib/record-nouns';
+import { frameOnMap } from '../../map/map-camera';
 import { MapCard, MapCardEyebrow, MapCardText } from '../../map/map-card';
-import { framingPadding, type MapInset } from '../../map/map-inset';
+import type { MapInset } from '../../map/map-inset';
 import { TagBadge } from '../../tag-badge';
 
 /**
@@ -39,17 +39,7 @@ export function RegionMapCard({
 		if (map === null || geojson === null) {
 			return;
 		}
-		const bounds = boundsFromGeoJson(geojson);
-		if (bounds === null) {
-			return;
-		}
-		map.fitBounds(
-			[
-				[bounds.west, bounds.south],
-				[bounds.east, bounds.north],
-			],
-			{ ...framingPadding(map, 64), maxZoom: 15, duration: 600 },
-		);
+		frameOnMap(map, geojson, { purpose: 'record', animate: true });
 	}, [map, geojson]);
 
 	if (region === undefined) {

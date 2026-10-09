@@ -3,37 +3,9 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import type { RouteStopFeature } from '../../hooks/map/use-route-layer';
 import { MapCanvas } from '../map';
+import { frameOnMap } from '../map/map-camera';
 import { MapControlButton, MapControlGroup } from '../map/map-control';
-import { framingPadding } from '../map/map-inset';
 import { boundsOfStops, type RouteStop } from './route-stop';
-
-/**
- * Frame a map on a route's stops. It takes the stops as an argument rather than
- * closing over them so the auto-fit effect can depend on the stops themselves.
- */
-function fitToRoute(instance: MapboxMap, stops: readonly RouteStop[], animate: boolean): void {
-	const bounds = boundsOfStops(stops);
-	if (bounds === null) {
-		return;
-	}
-	const [[west, south], [east, north]] = bounds;
-	const duration = animate ? 650 : 0;
-	if (west === east && south === north) {
-		instance.easeTo({
-			center: [west, south],
-			zoom: Math.max(instance.getZoom(), 15),
-			duration,
-		});
-		return;
-	}
-	instance.fitBounds(
-		[
-			[west, south],
-			[east, north],
-		],
-		{ ...framingPadding(instance, 72), maxZoom: 16, duration },
-	);
-}
 
 interface RouteMapProps {
 	readonly stops: readonly RouteStop[];
@@ -69,10 +41,8 @@ export function RouteMap({
 
 	// Auto-fit once per fitKey, but only after geometry has actually resolved.
 	useEffect(() => {
-		if (map === null) {
-			return;
-		}
-		if (boundsOfStops(stops) === null) {
+		const bounds = boundsOfStops(stops);
+		if (map === null || bounds === null) {
 			return;
 		}
 		const key = fitKey ?? '';
@@ -80,12 +50,12 @@ export function RouteMap({
 			return;
 		}
 		lastFitRef.current = key;
-		fitToRoute(map, stops, true);
+		frameOnMap(map, bounds, { purpose: 'collection', animate: true });
 	}, [map, fitKey, stops]);
 
 	const handleZoom = () => {
 		if (map !== null) {
-			fitToRoute(map, stops, true);
+			frameOnMap(map, boundsOfStops(stops), { purpose: 'collection', animate: true });
 		}
 	};
 
