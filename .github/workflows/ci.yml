@@ -510,6 +510,18 @@ jobs:
       - name: Build
         run: pnpm nx run-many -t build --exclude=@simmer-mosquito/web,@simmer-mosquito/admin,@simmer-mosquito/server
 
+      # Bundles `apps/mobile` through Metro, which nothing else in CI runs, so
+      # a specifier Metro cannot resolve used to pass every gate above while the
+      # app rendered nothing (#1342). After the build because `config` and
+      # `design-tokens` resolve to `dist/`. Android alone, since it needs no
+      # macOS runner; offline, with no Expo account; output to the runner's
+      # temp directory rather than the checkout.
+      - name: Mobile bundle
+        working-directory: apps/mobile
+        env:
+          EXPO_OFFLINE: '1'
+        run: pnpm exec expo export --platform android --output-dir "$RUNNER_TEMP/mobile-export"
+
   # The unit suites, split over four runners. `apps/web` gets three of them:
   # under one `pnpm test` it ran for three minutes after every other project
   # had finished, most of that route suites importing the route tree. `--shard` splits it by file, and the fourth runner
