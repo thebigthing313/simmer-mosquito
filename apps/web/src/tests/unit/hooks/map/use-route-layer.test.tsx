@@ -23,6 +23,9 @@ const STOPS: readonly RouteStopFeature[] = [
 	{ id: 'stop-2', lng: -90.6, lat: 35.6, ordinal: 2, tone: 'default' },
 ];
 
+/** A hit on the first stop's pin, carrying the layer the registry sorts it by. */
+const PIN_HIT = { layer: { id: 'route-sites-stop' }, properties: { id: 'stop-1' } };
+
 function useRoute(props: { readonly map: MapboxMap; readonly config: RouteLayerConfig }): void {
 	useRouteLayer(props.map, true, props.config);
 }
@@ -35,7 +38,7 @@ describe('useRouteLayer', () => {
 		const onHoverStop = vi.fn();
 		renderHook(useRoute, { map: fake.map, config: { stops: STOPS, onHoverStop } });
 
-		fake.queryRenderedFeatures.mockReturnValue([{ properties: { id: 'stop-1' } }]);
+		fake.queryRenderedFeatures.mockReturnValue([PIN_HIT]);
 		act(() => {
 			fake.emit('mousemove', { point: { x: 1, y: 1 } });
 		});
@@ -60,16 +63,49 @@ describe('useRouteLayer', () => {
 		fake.queryRenderedFeatures.mockImplementation(((
 			_point: unknown,
 			options: { layers: readonly string[] },
-		) =>
-			options.layers.includes('route-sites-stop')
-				? [{ properties: { id: 'stop-1' } }]
-				: []) as never);
+		) => (options.layers.includes('route-sites-stop') ? [PIN_HIT] : [])) as never);
 		act(() => {
 			fake.emit('mousemove', { point: { x: 1, y: 1 } });
 		});
 
 		expect(fake.canvas.style.cursor).toBe('pointer');
 		release();
+	});
+
+	// The registry's hit-test is the only one: the route reads its hovered stop
+	// off it rather than querying its own layers a second time.
+	it('runs one hit-test per move on a map with only the route', () => {
+		const fake = createFakeMap();
+		const onHoverStop = vi.fn();
+		renderHook(useRoute, { map: fake.map, config: { stops: STOPS, onHoverStop } });
+
+		fake.queryRenderedFeatures.mockReturnValue([PIN_HIT]);
+		act(() => {
+			fake.emit('mousemove', { point: { x: 1, y: 1 } });
+		});
+
+		expect(fake.queryRenderedFeatures).toHaveBeenCalledTimes(1);
+		expect(onHoverStop).toHaveBeenLastCalledWith('stop-1');
+	});
+
+	it('reports no hovered stop when the style has lost its layers', () => {
+		const fake = createFakeMap();
+		const onHoverStop = vi.fn();
+		renderHook(useRoute, { map: fake.map, config: { stops: STOPS, onHoverStop } });
+
+		for (const layerId of [
+			'route-sites-stop',
+			'route-sites-shape-fill',
+			'route-sites-shape-line',
+		]) {
+			fake.map.removeLayer(layerId);
+		}
+		act(() => {
+			fake.emit('mousemove', { point: { x: 1, y: 1 } });
+		});
+
+		expect(fake.queryRenderedFeatures).not.toHaveBeenCalled();
+		expect(onHoverStop).toHaveBeenLastCalledWith(null);
 	});
 
 	it('probes the pins first, then the shape fill and line the style has', () => {
