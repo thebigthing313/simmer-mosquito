@@ -1383,6 +1383,24 @@ looked each stop's trap up in it. The join does the same work without
 materialising every trap the organization runs to name the twenty on this
 route.
 
+### my-organization
+
+#### useSettingsSheet
+
+The hook that `SettingsSheet` calls, and the frame's whole behaviour: open
+state, reset on open, and submit as convert, close, then write. It is a hook of
+its own rather than state inside the frame so that `SettingsSheetForm<Values>`
+names the form a body is handed. TanStack's form type takes a dozen generic
+parameters, and the rest of `apps/web` passes a form between components as
+`any`; reading it off this hook's return type keeps a body's field names
+checked against its values.
+
+A conversion that throws is caught by the form kit's `useAppForm` and recorded
+as a `SaveFailure`, which is what puts the message in the sheet's error alert.
+The hook catches nothing itself. Reset on open clears that message along with
+the values, so a sheet reopened after a refused attempt starts from what is
+saved.
+
 ### daily-work
 
 #### useDailyWorkDay

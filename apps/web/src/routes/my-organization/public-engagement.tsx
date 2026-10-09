@@ -1,10 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { DomainSection } from '../../components/my-organization/layout/domain-section';
 import { OrganizationWorkspaceShell } from '../../components/my-organization/layout/organization-workspace-shell';
-import {
-	PublicEngagementSettings,
-	PublicSettingsDrawer,
-} from '../../components/my-organization/public';
+import { SettingsSectionSheet } from '../../components/my-organization/layout/settings-section-sheet';
+import { PublicEngagementSettings } from '../../components/my-organization/public';
+import { serviceRequestContextSection } from '../../components/my-organization/settings-sections';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 
 export const Route = createFileRoute('/my-organization/public-engagement')({
@@ -20,12 +19,14 @@ function MyOrganizationPublicEngagementRoute() {
 			<DomainSection
 				canManage={workspace.canManage}
 				editAction={
-					<PublicSettingsDrawer canManage={workspace.canManage} settings={workspace.settings} />
+					<SettingsSectionSheet
+						canManage={workspace.canManage}
+						section={serviceRequestContextSection}
+						settings={workspace.settings}
+					/>
 				}
-				fields={[]}
 				id="public"
 				meta="Service request context, outreach, and resident notifications"
-				setupItems={[]}
 				title="Public Engagement"
 			>
 				<PublicEngagementSettings

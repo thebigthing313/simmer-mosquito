@@ -1,10 +1,10 @@
 import type {
-	AdultCollectionTimingMode,
 	LarvalDensity,
 	LarvalDensityRange,
 	LarvalDensityRanges,
 	OrganizationSettings,
 	RangeDensity,
+	ResolvedLarvalInspectionEntryPolicy,
 	ServiceRequestContextSettings,
 	UnitDefaults,
 } from '@simmer-mosquito/domain';
@@ -18,13 +18,12 @@ import { defaultDensityRangeValues } from './constants';
 import type {
 	DensityRangeFormValue,
 	DensityRangeFormValues,
+	LarvalSettingsFormValues,
 	OrganizationDetailsFormValues,
 	PublicSettingsFormValues,
 	SelectOption,
 	SelectSettingField,
-	SettingField,
 	SimmerRole,
-	TextSettingField,
 	UnitDefaultsFormValues,
 } from './types';
 
@@ -178,19 +177,6 @@ export function saveFailureMessage(error: unknown, fallback: string): string {
 	return message === 'Unable to save changes.' ? fallback : message;
 }
 
-/**
- * A required choice, read out of the settings sheet's `FormData`, which
- * `EditSettingsSheet` keys by the label it drew.
- */
-export function requiredFormText(formData: FormData, name: string): string {
-	const value = formData.get(name);
-	const text = typeof value === 'string' ? value.trim() : '';
-	if (text.length === 0) {
-		throw new Error(`${name} is required.`);
-	}
-	return text;
-}
-
 export function requiredTextValue(value: string, label: string): string {
 	const text = value.trim();
 	if (text.length === 0) {
@@ -217,7 +203,7 @@ export function validateEmail({ value }: { readonly value: string }): string | u
  * A number input's text, with an empty one as `null`. `Number('')` is 0, so
  * reading the text straight through would save a cleared field as zero.
  */
-export function numberInputValue(value: FormDataEntryValue | null): number | null {
+export function numberInputValue(value: string | null): number | null {
 	const text = typeof value === 'string' ? value.trim() : '';
 	return text.length === 0 ? null : Number(text);
 }
@@ -242,7 +228,7 @@ function nonnegativeIntegerValue(value: number | null, label: string): number {
 	return value;
 }
 
-export function densityRangeFormValues(ranges: LarvalDensityRanges | null): DensityRangeFormValues {
+function densityRangeFormValues(ranges: LarvalDensityRanges | null): DensityRangeFormValues {
 	if (ranges === null) {
 		return defaultDensityRangeValues;
 	}
@@ -279,6 +265,30 @@ export function densityRangesOrNull(
 		return null;
 	}
 	return densityRangesFromFormValues(values);
+}
+
+/** What the larval sheet opens with, from the policy the Organization saved. */
+export function larvalSettingsFormValues(
+	policy: ResolvedLarvalInspectionEntryPolicy,
+): LarvalSettingsFormValues {
+	return {
+		mode: policy.mode,
+		densityEnabled: policy.densityRanges !== null,
+		ranges: densityRangeFormValues(policy.densityRanges),
+	};
+}
+
+/**
+ * The entry policy to save. Throws, naming the band and the field, on a
+ * density bound it cannot read or one out of order.
+ */
+export function larvalEntryPolicyFrom(
+	values: LarvalSettingsFormValues,
+): ResolvedLarvalInspectionEntryPolicy {
+	return {
+		mode: values.mode,
+		densityRanges: densityRangesOrNull(values.densityEnabled, values.ranges),
+	};
 }
 
 function densityRangesFromFormValues(values: DensityRangeFormValues): LarvalDensityRanges {
@@ -341,9 +351,6 @@ function validateDensityRangesForUi(ranges: LarvalDensityRanges): void {
 	let previousMax: number | null = null;
 	for (const [density, range] of sequence) {
 		const greaterThan = densityFieldName(density, 'minInclusive');
-		if (previous === null && range.minInclusive !== 0) {
-			throw new Error(`${greaterThan} must be 0.`);
-		}
 		if (previous !== null && range.minInclusive !== previousMax) {
 			throw new Error(`${greaterThan} must equal ${densityFieldName(previous, 'maxExclusive')}.`);
 		}
@@ -397,33 +404,14 @@ export function formatDensityRange(range: LarvalDensityRange | null): string {
 		: `More than ${range.minInclusive} and up to ${range.maxExclusive} larvae per dip`;
 }
 
-export function textField(
-	label: string,
-	value: string,
-	options: {
-		readonly editable?: boolean;
-		readonly inputType?: React.HTMLInputTypeAttribute;
-	} = {},
-): TextSettingField {
-	return {
-		kind: 'text',
-		label,
-		value,
-		editable: options.editable ?? true,
-		inputType: options.inputType,
-	};
-}
-
-export function selectField(
+function selectField(
 	label: string,
 	value: string,
 	options: readonly SelectOption[],
 ): SelectSettingField {
 	return {
-		kind: 'select',
 		label,
 		value,
-		editable: true,
 		options: selectOptionsForValue(value, options),
 	};
 }
@@ -485,26 +473,6 @@ export function selectOptionsForValue(
 	return [{ label: value, value }, ...options];
 }
 
-export function displayFieldValue(field: SettingField): string {
-	if (field.kind === 'switch') {
-		return field.checked ? 'Enabled' : 'Disabled';
-	}
-
-	if (field.kind === 'select') {
-		return field.options.find((option) => option.value === field.value)?.label ?? field.value;
-	}
-
-	return field.value.length === 0 ? 'Not set' : field.value;
-}
-
-export function collectionTimingModeFromFields(
-	fields: readonly SettingField[],
-): AdultCollectionTimingMode {
-	const field = fields.find(
-		(item): item is SelectSettingField =>
-			item.kind === 'select' && item.label === 'Collection timing',
-	);
-	return field?.value === 'collection_date_duration'
-		? 'collection_date_duration'
-		: 'exact_timestamps';
+export function displayFieldValue(field: SelectSettingField): string {
+	return field.options.find((option) => option.value === field.value)?.label ?? field.value;
 }

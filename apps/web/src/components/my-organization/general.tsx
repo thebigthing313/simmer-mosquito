@@ -16,10 +16,9 @@ import {
 } from './helpers';
 import { DomainSection } from './layout/domain-section';
 import { TagSections } from './tag-sections';
-import type { SettingField } from './types';
+import type { SelectSettingField } from './types';
 
 export function GeneralOrganizationSection({
-	organizationFields,
 	canManage,
 	canManageTags,
 	organization,
@@ -29,7 +28,6 @@ export function GeneralOrganizationSection({
 	unitFields,
 	units,
 }: {
-	readonly organizationFields: readonly SettingField[];
 	readonly canManage: boolean;
 	/**
 	 * The tag catalog is `MANAGER` on the server (`fieldWork.createTag` and its
@@ -40,7 +38,7 @@ export function GeneralOrganizationSection({
 	readonly organizationName: string;
 	readonly settings: OrganizationSettings;
 	readonly timezone: string;
-	readonly unitFields: readonly SettingField[];
+	readonly unitFields: readonly SelectSettingField[];
 	readonly units: readonly UnitLabel[];
 }) {
 	const [isCreatingTag, setIsCreatingTag] = useState(false);
@@ -55,10 +53,8 @@ export function GeneralOrganizationSection({
 						title={`Edit ${organizationName}`}
 					/>
 				}
-				fields={organizationFields}
 				id="organization"
 				meta="Current organization details"
-				setupItems={[]}
 				title={organizationName}
 			>
 				<OrganizationDetailsSummary organization={organization} timezone={timezone} />
@@ -73,10 +69,9 @@ export function GeneralOrganizationSection({
 						units={units}
 					/>
 				}
-				fields={unitFields}
+				displayFields={unitFields}
 				id="units"
 				meta="Measurement choices used across forms and summaries"
-				setupItems={[]}
 				title="Unit Defaults"
 			/>
 
@@ -94,10 +89,8 @@ export function GeneralOrganizationSection({
 						Add Tag
 					</Button>
 				}
-				fields={[]}
 				id="tags"
 				meta="Shared record tagging vocabulary"
-				setupItems={[]}
 				title="Tags"
 			>
 				<TagSections
