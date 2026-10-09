@@ -2648,4 +2648,19 @@ describe('useMapDraw', () => {
 		await expect(pending).resolves.toEqual({ type: 'Point', coordinates: [-90.7, 35.7] });
 		expect(result.current.isRequestingPoint).toBe(false);
 	});
+
+	// Escape is the Cancel control on the map, so it rejects a pending request
+	// as cancelled, the way the control does, and not as superseded.
+	it('cancels a requested point on an Escape the map got', async () => {
+		const { result } = mount();
+
+		let pending: Promise<unknown> | null = null;
+		act(() => {
+			pending = result.current.requestPoint();
+		});
+		pressKey('Escape');
+
+		await expect(pending).rejects.toThrow('Point selection cancelled.');
+		expect(result.current.isRequestingPoint).toBe(false);
+	});
 });
