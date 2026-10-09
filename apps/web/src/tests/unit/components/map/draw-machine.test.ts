@@ -1,5 +1,5 @@
 import type { OwnedGeometryKind } from '@simmer-mosquito/domain';
-import type { PlanarPosition } from '@simmer-mosquito/mapping';
+import { closeRing, type PlanarPosition } from '@simmer-mosquito/mapping';
 import { describe, expect, it } from 'vitest';
 import { buildFeatures } from '../../../../components/map/draw-features';
 import {
@@ -17,14 +17,16 @@ import {
 	drawParts,
 	type Mode,
 } from '../../../../components/map/draw-parts';
+import {
+	ACROSS_BLOCK,
+	BLOCK,
+	BULGED_BLOCK,
+	ESCAPING_POND,
+	OUTSIDE_SKETCH,
+	POND,
+	SECOND_SQUARE,
+} from './draw-fixtures';
 
-/** A four-corner area with room inside it, committed as the shape being drawn on. */
-const BLOCK: readonly PlanarPosition[] = [
-	[-91, 34],
-	[-91, 37],
-	[-88, 37],
-	[-88, 34],
-];
 const COMMITTED: DrawGeometry = { type: 'Polygon', coordinates: [[...BLOCK, [-91, 34]]] };
 const CONTEXT: DrawContext = { value: COMMITTED, geometryKind: 'habitat' };
 
@@ -317,10 +319,6 @@ function roles(run: Run): (string | undefined)[] {
 	return painted(run).map((feature) => feature.properties?.role ?? feature.geometry.type);
 }
 
-function closed(ring: readonly PlanarPosition[]): PlanarPosition[] {
-	return [...ring, ring[0] as PlanarPosition];
-}
-
 /** Map clicks outside an edit, one per position. */
 function clicks(positions: readonly PlanarPosition[]): DrawEvent[] {
 	return positions.map((position) => ({ type: 'click', position }));
@@ -383,54 +381,20 @@ const FINISH: DrawEvent = { type: 'finish' };
 const CANCEL: DrawEvent = { type: 'cancel' };
 const UNDO: DrawEvent = { type: 'undo' };
 
-const SECOND_SQUARE: readonly PlanarPosition[] = [
-	[-80, 35],
-	[-80, 36],
-	[-79, 36],
-];
-/** Well inside {@link BLOCK}. */
-const POND: readonly PlanarPosition[] = [
-	[-90, 35],
-	[-90, 36],
-	[-89, 36],
-	[-89, 35],
-];
-/** Two corners inside {@link BLOCK} and two outside its eastern edge. */
-const ESCAPING_POND: readonly PlanarPosition[] = [
-	[-89, 35],
-	[-89, 36],
-	[-85, 36],
-	[-85, 35],
-];
-const HOLED_BLOCK: DrawGeometry = { type: 'Polygon', coordinates: [closed(BLOCK), closed(POND)] };
+const HOLED_BLOCK: DrawGeometry = {
+	type: 'Polygon',
+	coordinates: [closeRing(BLOCK), closeRing(POND)],
+};
 
 /**
- * A line crossing {@link BLOCK}'s northern edge twice, drawn north of it, and
- * the same line reflected about that edge. Outside the piece it pushes the edge
- * out to 38, inside it pulls the edge in to 36.
+ * {@link OUTSIDE_SKETCH} reflected about {@link BLOCK}'s northern edge. Outside
+ * the piece the line pushes the edge out to 38, inside it pulls the edge in to 36.
  */
-const OUTSIDE_SKETCH: readonly PlanarPosition[] = [
-	[-90.5, 36],
-	[-90.5, 38],
-	[-89.5, 38],
-	[-89.5, 36],
-];
 const INSIDE_SKETCH: readonly PlanarPosition[] = [
 	[-90.5, 38],
 	[-90.5, 36],
 	[-89.5, 36],
 	[-89.5, 38],
-];
-/** {@link BLOCK} with {@link OUTSIDE_SKETCH} taken into its northern edge. */
-const BULGED_BLOCK: readonly PlanarPosition[] = [
-	[-90.5, 37],
-	[-90.5, 38],
-	[-89.5, 38],
-	[-89.5, 37],
-	[-88, 37],
-	[-88, 34],
-	[-91, 34],
-	[-91, 37],
 ];
 /** {@link BLOCK} with {@link INSIDE_SKETCH} taken into its northern edge. */
 const NOTCHED_BLOCK: readonly PlanarPosition[] = [
@@ -442,11 +406,6 @@ const NOTCHED_BLOCK: readonly PlanarPosition[] = [
 	[-88, 34],
 	[-91, 34],
 	[-91, 37],
-];
-/** A line straight down the middle of {@link BLOCK}, out both sides. */
-const ACROSS_BLOCK: readonly PlanarPosition[] = [
-	[-89.5, 33],
-	[-89.5, 38],
 ];
 /** The two halves {@link ACROSS_BLOCK} leaves, wound the way the block was. */
 const WEST_HALF: readonly PlanarPosition[] = [
@@ -559,7 +518,7 @@ describe('next, driven the way a form drives it', () => {
 
 			const removed = drive(second, { type: 'removePart', partIndex: 0 });
 
-			expect(removed.value).toEqual({ type: 'Polygon', coordinates: [closed(SECOND_SQUARE)] });
+			expect(removed.value).toEqual({ type: 'Polygon', coordinates: [closeRing(SECOND_SQUARE)] });
 		});
 
 		it('leaves nothing behind when the last piece goes', () => {
@@ -745,7 +704,7 @@ describe('next, driven the way a form drives it', () => {
 
 			expect(run.value).toEqual({
 				type: 'MultiPolygon',
-				coordinates: [[closed(TRIANGLE)], [closed(BLOCK), closed(POND)]],
+				coordinates: [[closeRing(TRIANGLE)], [closeRing(BLOCK), closeRing(POND)]],
 			});
 		});
 
@@ -771,7 +730,7 @@ describe('next, driven the way a form drives it', () => {
 
 			expect(run.value).toEqual({
 				type: 'Polygon',
-				coordinates: [closed([...TRIANGLE, [-89, 35]])],
+				coordinates: [closeRing([...TRIANGLE, [-89, 35]])],
 			});
 		});
 
@@ -845,7 +804,7 @@ describe('next, driven the way a form drives it', () => {
 
 			expect(run.value).toEqual({
 				type: 'MultiPolygon',
-				coordinates: [[closed(TRIANGLE)], [closed([...SECOND_SQUARE, [-79, 35]])]],
+				coordinates: [[closeRing(TRIANGLE)], [closeRing([...SECOND_SQUARE, [-79, 35]])]],
 			});
 		});
 
@@ -891,7 +850,7 @@ describe('next, driven the way a form drives it', () => {
 
 			expect(run.value).toEqual({
 				type: 'Polygon',
-				coordinates: [closed([...BLOCK, [-88, 33]]), closed(POND)],
+				coordinates: [closeRing([...BLOCK, [-88, 33]]), closeRing(POND)],
 			});
 		});
 
@@ -994,7 +953,7 @@ describe('next, driven the way a form drives it', () => {
 			expect(run.value).toEqual({
 				type: 'Polygon',
 				coordinates: [
-					closed([
+					closeRing([
 						[-90, 35],
 						[-90, 36],
 						[-88, 36],
@@ -1018,7 +977,7 @@ describe('next, driven the way a form drives it', () => {
 			expect(drive(inserted, FINISH).value).toEqual({
 				type: 'Polygon',
 				coordinates: [
-					closed([
+					closeRing([
 						[-90, 35],
 						[-90, 35.5],
 						[-90, 36],
@@ -1078,8 +1037,8 @@ describe('next, driven the way a form drives it', () => {
 			expect(run.value).toEqual({
 				type: 'Polygon',
 				coordinates: [
-					closed(BLOCK),
-					closed([
+					closeRing(BLOCK),
+					closeRing([
 						[-90.5, 35],
 						[-90, 36],
 						[-89, 36],
@@ -1126,13 +1085,13 @@ describe('next, driven the way a form drives it', () => {
 				type: 'MultiPolygon',
 				coordinates: [
 					[
-						closed([
+						closeRing([
 							[-91, 35],
 							[-90, 36],
 							[-89, 36],
 						]),
 					],
-					[closed(SECOND_SQUARE)],
+					[closeRing(SECOND_SQUARE)],
 				],
 			});
 		});
@@ -1214,7 +1173,7 @@ describe('next, driven the way a form drives it', () => {
 		it('extends a piece when the reshape line runs outside it', () => {
 			const run = finishReshape(sketchOver(drawPolygon(begin(), BLOCK), OUTSIDE_SKETCH));
 
-			expect(run.value).toEqual({ type: 'Polygon', coordinates: [closed(BULGED_BLOCK)] });
+			expect(run.value).toEqual({ type: 'Polygon', coordinates: [closeRing(BULGED_BLOCK)] });
 		});
 
 		// The same line reflected about the edge it crosses. Nothing in the gesture
@@ -1222,7 +1181,7 @@ describe('next, driven the way a form drives it', () => {
 		it('carves a piece away when the reshape line runs inside it', () => {
 			const run = finishReshape(sketchOver(drawPolygon(begin(), BLOCK), INSIDE_SKETCH));
 
-			expect(run.value).toEqual({ type: 'Polygon', coordinates: [closed(NOTCHED_BLOCK)] });
+			expect(run.value).toEqual({ type: 'Polygon', coordinates: [closeRing(NOTCHED_BLOCK)] });
 		});
 
 		// The line leaves the piece at -89.5 and comes back, so there are three
@@ -1242,7 +1201,7 @@ describe('next, driven the way a form drives it', () => {
 			expect(run.value).toEqual({
 				type: 'Polygon',
 				coordinates: [
-					closed([
+					closeRing([
 						[-90.5, 37],
 						[-90.5, 36],
 						[-90, 36],
@@ -1285,7 +1244,7 @@ describe('next, driven the way a form drives it', () => {
 
 			expect(run.value).toEqual({
 				type: 'Polygon',
-				coordinates: [closed(BULGED_BLOCK), closed(POND)],
+				coordinates: [closeRing(BULGED_BLOCK), closeRing(POND)],
 			});
 		});
 
@@ -1345,7 +1304,7 @@ describe('next, driven the way a form drives it', () => {
 
 			expect(run.value).toEqual({
 				type: 'MultiPolygon',
-				coordinates: [[closed(TRIANGLE)], [closed(BULGED_BLOCK)]],
+				coordinates: [[closeRing(TRIANGLE)], [closeRing(BULGED_BLOCK)]],
 			});
 		});
 
@@ -1401,7 +1360,7 @@ describe('next, driven the way a form drives it', () => {
 
 			expect(run.value).toEqual({
 				type: 'MultiPolygon',
-				coordinates: [[closed(WEST_HALF)], [closed(EAST_HALF)]],
+				coordinates: [[closeRing(WEST_HALF)], [closeRing(EAST_HALF)]],
 			});
 		});
 
@@ -1418,16 +1377,16 @@ describe('next, driven the way a form drives it', () => {
 				type: 'MultiPolygon',
 				coordinates: [
 					[
-						closed([
+						closeRing([
 							[-88.5, 34],
 							[-91, 34],
 							[-91, 37],
 							[-88.5, 37],
 						]),
-						closed(POND),
+						closeRing(POND),
 					],
 					[
-						closed([
+						closeRing([
 							[-88.5, 37],
 							[-88, 37],
 							[-88, 34],
@@ -1483,7 +1442,7 @@ describe('next, driven the way a form drives it', () => {
 
 			expect(run.value).toEqual({
 				type: 'MultiPolygon',
-				coordinates: [[closed(WEST_HALF)], [closed(EAST_HALF)], [closed(SECOND_SQUARE)]],
+				coordinates: [[closeRing(WEST_HALF)], [closeRing(EAST_HALF)], [closeRing(SECOND_SQUARE)]],
 			});
 		});
 
