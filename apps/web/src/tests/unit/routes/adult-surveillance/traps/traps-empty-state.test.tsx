@@ -35,6 +35,8 @@ import {
 	createSurfaceNames,
 	preloadRouteComponent,
 	renderExplorer,
+	SUMMARY_CASE_TIMEOUT,
+	SUMMARY_WAIT,
 	stubPanelLayout,
 } from '../../explorer-route-harness';
 
@@ -218,27 +220,33 @@ describe('the traps explorer with traps in view', () => {
 		isActive: true,
 	};
 
-	it('draws the summary instead of the rows over 100 in view, with no pager', async () => {
-		harness.extent = { west: 0, south: -1, east: 1, north: 0 };
-		harness.page = { traps: [TRAP], total: 150 };
-		harness.summary = {
-			total: 150,
-			groups: {
-				collectionMethodId: [{ value: 'method-1', count: 150 }],
-				isActive: [{ value: true, count: 150 }],
-			},
-		};
-		renderTraps();
+	// The summary waits on three requests in turn, so this case outlasts the
+	// 5000ms default; `SUMMARY_WAIT` in the harness says why.
+	it(
+		'draws the summary instead of the rows over 100 in view, with no pager',
+		async () => {
+			harness.extent = { west: 0, south: -1, east: 1, north: 0 };
+			harness.page = { traps: [TRAP], total: 150 };
+			harness.summary = {
+				total: 150,
+				groups: {
+					collectionMethodId: [{ value: 'method-1', count: 150 }],
+					isActive: [{ value: true, count: 150 }],
+				},
+			};
+			renderTraps();
 
-		// The default status is drawn as the selected group.
-		const active = await screen.findByRole('button', { name: 'Active, 150 traps' });
-		expect(active.getAttribute('aria-pressed')).toBe('true');
-		expect(screen.queryByText('G7 - Gravid 7')).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
-		const summaryRequest = harness.sent.find((url) => url.pathname === '/map/traps/summary');
-		expect(summaryRequest?.searchParams.get('bbox')).toBe('0,-0.8,1,0');
-		expect(summaryRequest?.searchParams.get('status')).toBe('active');
-	});
+			// The default status is drawn as the selected group.
+			const active = await screen.findByRole('button', { name: 'Active, 150 traps' }, SUMMARY_WAIT);
+			expect(active.getAttribute('aria-pressed')).toBe('true');
+			expect(screen.queryByText('G7 - Gravid 7')).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
+			const summaryRequest = harness.sent.find((url) => url.pathname === '/map/traps/summary');
+			expect(summaryRequest?.searchParams.get('bbox')).toBe('0,-0.8,1,0');
+			expect(summaryRequest?.searchParams.get('status')).toBe('active');
+		},
+		SUMMARY_CASE_TIMEOUT,
+	);
 
 	it('draws the rows at 100 or fewer, with no pager and no summary request', async () => {
 		harness.extent = { west: 0, south: -1, east: 1, north: 0 };

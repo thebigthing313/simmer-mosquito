@@ -21,6 +21,8 @@ import { installMemoryCollections, seedRows } from '../../../lib/collections/mem
 import {
 	preloadRouteComponent,
 	renderExplorer,
+	SUMMARY_CASE_TIMEOUT,
+	SUMMARY_WAIT,
 	stubPanelLayout,
 } from '../../explorer-route-harness';
 
@@ -111,42 +113,52 @@ const COLLECTION = {
 };
 
 describe('the collections explorer with collections in view', () => {
-	it('draws the summary instead of the rows over 100 in view, with no pager', async () => {
-		harness.search = { from: '2026-09-01', to: '2026-09-28', problems: true };
-		harness.page = { collections: [COLLECTION], total: 240 };
-		harness.summary = {
-			total: 240,
-			groups: {
-				problem: [{ value: true, count: 240 }],
-				awaiting: [
-					{ value: false, count: 200 },
-					{ value: true, count: 40 },
-				],
-				collectionMethodId: [{ value: 'method-1', count: 240 }],
-			},
-			figures: { zeroResult: 12, collected: 180 },
-		};
-		renderExplorer(CollectionsExplorer);
+	// The summary waits on three requests in turn, so this case outlasts the
+	// 5000ms default; `SUMMARY_WAIT` in the harness says why.
+	it(
+		'draws the summary instead of the rows over 100 in view, with no pager',
+		async () => {
+			harness.search = { from: '2026-09-01', to: '2026-09-28', problems: true };
+			harness.page = { collections: [COLLECTION], total: 240 };
+			harness.summary = {
+				total: 240,
+				groups: {
+					problem: [{ value: true, count: 240 }],
+					awaiting: [
+						{ value: false, count: 200 },
+						{ value: true, count: 40 },
+					],
+					collectionMethodId: [{ value: 'method-1', count: 240 }],
+				},
+				figures: { zeroResult: 12, collected: 180 },
+			};
+			renderExplorer(CollectionsExplorer);
 
-		// The flag the address bar holds is drawn as the selected group.
-		const problem = await screen.findByRole('button', {
-			name: 'Problem reported, 240 collections',
-		});
-		expect(problem.getAttribute('aria-pressed')).toBe('true');
-		expect(screen.getByRole('region', { name: 'Status' }).textContent).toBe(
-			'StatusZero result12Collected180',
-		);
-		expect(screen.queryByText('12 Kings Hwy')).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
+			// The flag the address bar holds is drawn as the selected group.
+			const problem = await screen.findByRole(
+				'button',
+				{ name: 'Problem reported, 240 collections' },
+				SUMMARY_WAIT,
+			);
+			expect(problem.getAttribute('aria-pressed')).toBe('true');
+			expect(screen.getByRole('region', { name: 'Status' }).textContent).toBe(
+				'StatusZero result12Collected180',
+			);
+			expect(screen.queryByText('12 Kings Hwy')).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
 
-		const summaryRequest = harness.sent.find((url) => url.pathname === '/map/collections/summary');
-		expect(Object.fromEntries(summaryRequest?.searchParams ?? [])).toEqual({
-			bbox: '0,-0.8,1,0',
-			problem: 'true',
-			dateFrom: '2026-09-01',
-			dateTo: '2026-09-28',
-		});
-	});
+			const summaryRequest = harness.sent.find(
+				(url) => url.pathname === '/map/collections/summary',
+			);
+			expect(Object.fromEntries(summaryRequest?.searchParams ?? [])).toEqual({
+				bbox: '0,-0.8,1,0',
+				problem: 'true',
+				dateFrom: '2026-09-01',
+				dateTo: '2026-09-28',
+			});
+		},
+		SUMMARY_CASE_TIMEOUT,
+	);
 
 	it('draws the rows at 100 or fewer, with no pager and no summary request', async () => {
 		harness.page = { collections: [COLLECTION], total: 1 };
