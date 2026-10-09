@@ -923,6 +923,13 @@ describe('next, driven the way a form drives it', () => {
 
 			expect(roles(run)).toEqual(['Polygon', ...Array.from({ length: 8 }, () => 'vertex')]);
 		});
+
+		it('renders the corners of a hole as vertices of its piece', () => {
+			expect(roles(begin(HOLED_BLOCK))).toEqual([
+				'Polygon',
+				...Array.from({ length: 8 }, () => 'vertex'),
+			]);
+		});
 	});
 
 	// Every way out of a draft that puts the committed shape back as it was. Each

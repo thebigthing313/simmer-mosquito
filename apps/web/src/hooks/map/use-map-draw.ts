@@ -82,13 +82,13 @@ export function useMapDraw({
 	// What a render reads. The cursor and the drag are left out: both move every
 	// frame and ride `repaint` instead, so a mousemove repaints the rubber band
 	// without re-rendering anything.
-	const [view, setView] =
+	const [rendered, setRendered] =
 		useState<Pick<DrawState, 'mode' | 'vertices' | 'highlighted'>>(IDLE_DRAW_STATE);
-	const { mode, vertices, highlighted } = view;
+	const { mode, vertices, highlighted } = rendered;
 
 	// The whole state, written by `dispatch` the moment an event lands, because a
 	// handler can fire several events in one tick and each has to see the last.
-	// Render never reads it: it reads `view`, which `dispatch` keeps in step.
+	// Render never reads it: it reads `rendered`, which `dispatch` keeps in step.
 	const stateRef = useRef<DrawState>(IDLE_DRAW_STATE);
 	const contextRef = useRef<DrawContext>({ value, geometryKind });
 	const onChangeRef = useRef(onChange);
@@ -124,7 +124,7 @@ export function useMapDraw({
 			}),
 		);
 	};
-	// `repaint` reads only refs, so the effect below reaches it as an effect event.
+	// `repaint` reads only refs and the map, so the effect below reaches it as an effect event.
 	const repaintNow = useEffectEvent(() => {
 		repaint();
 	});
@@ -162,7 +162,7 @@ export function useMapDraw({
 			state.vertices !== previous.vertices ||
 			state.highlighted !== previous.highlighted
 		) {
-			setView({ mode: state.mode, vertices: state.vertices, highlighted: state.highlighted });
+			setRendered({ mode: state.mode, vertices: state.vertices, highlighted: state.highlighted });
 		} else if (state.cursor !== previous.cursor || state.drag !== previous.drag) {
 			repaint();
 		}
@@ -216,7 +216,7 @@ export function useMapDraw({
 	// One method per action, each one dispatch, because `MapDrawController` names
 	// the actions the forms, the toolbar and the part list call.
 	return {
-		...drawView(view, value),
+		...drawView(rendered, value),
 		start: (drawType) => {
 			dispatch({ type: 'start', drawType });
 		},

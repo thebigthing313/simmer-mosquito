@@ -726,25 +726,6 @@ describe('useMapDraw', () => {
 		expect(fake.listenerCount('click')).toBe(0);
 	});
 
-	it('renders the corners of a hole as vertices of its piece', () => {
-		const { fake } = mount({
-			type: 'Polygon',
-			coordinates: [closed(BLOCK), closed(POND)],
-		});
-
-		expect(roles(fake)).toEqual([
-			'Polygon',
-			'vertex',
-			'vertex',
-			'vertex',
-			'vertex',
-			'vertex',
-			'vertex',
-			'vertex',
-			'vertex',
-		]);
-	});
-
 	// Every case above this one calls `deleteVertex`, so nothing had ever pressed
 	// the key that calls it. Both keys, because a laptop keyboard often has only
 	// Backspace and the arm takes either.
