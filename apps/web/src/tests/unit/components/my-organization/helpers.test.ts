@@ -4,12 +4,16 @@ import {
 	larvalEntryPolicyFrom,
 	larvalSettingsFormValues,
 	numberInputValue,
+	organizationDetailsFieldsFrom,
 	safeDensityRangesFromFormValues,
 	serviceRequestContextFrom,
+	unitDefaultsFrom,
 } from '../../../../components/my-organization/helpers';
 import type {
 	DensityRangeFormValues,
+	OrganizationDetailsFormValues,
 	PublicSettingsFormValues,
+	UnitDefaultsFormValues,
 } from '../../../../components/my-organization/types';
 
 const VALID: PublicSettingsFormValues = {
@@ -18,6 +22,56 @@ const VALID: PublicSettingsFormValues = {
 	daysBefore: 7,
 	daysAfter: 14,
 };
+
+const DETAILS: OrganizationDetailsFormValues = {
+	name: ' Coastal Mosquito Control ',
+	mainContactEmail: 'office@example.org',
+	phoneNumber: '',
+	mailingAddressLine1: '',
+	mailingAddressLine2: '',
+	mailingLocality: '',
+	mailingRegion: '',
+	mailingPostalCode: '',
+	timezone: 'America/New_York',
+};
+
+describe('organizationDetailsFieldsFrom', () => {
+	it('trims what was typed and reads an emptied input as null', () => {
+		expect(organizationDetailsFieldsFrom(DETAILS)).toEqual({
+			name: 'Coastal Mosquito Control',
+			mainContactEmail: 'office@example.org',
+			phoneNumber: null,
+			mailingAddressLine1: null,
+			mailingAddressLine2: null,
+			mailingLocality: null,
+			mailingRegion: null,
+			mailingPostalCode: null,
+			timezone: 'America/New_York',
+		});
+	});
+
+	it('saves an empty Main contact as no contact', () => {
+		expect(
+			organizationDetailsFieldsFrom({ ...DETAILS, mainContactEmail: '  ' }).mainContactEmail,
+		).toBeNull();
+	});
+
+	it.each([
+		[{ name: ' ' }, 'Organization name is required.'],
+		[{ timezone: '' }, 'Timezone is required.'],
+		[{ mainContactEmail: 'not-an-email' }, 'Main contact must be a valid email address.'],
+	])('refuses %o', (change, message) => {
+		expect(() => organizationDetailsFieldsFrom({ ...DETAILS, ...change })).toThrow(message);
+	});
+});
+
+describe('unitDefaultsFrom', () => {
+	it('refuses an empty default, naming its unit type', () => {
+		const values = { distance: 'mi', area: ' ' } as unknown as UnitDefaultsFormValues;
+
+		expect(() => unitDefaultsFrom(values)).toThrow('Area is required.');
+	});
+});
 
 describe('serviceRequestContextFrom', () => {
 	it('builds the context from valid values, a fractional radius included', () => {

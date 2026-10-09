@@ -19,11 +19,7 @@ function MyOrganizationAdultSurveillanceRoute() {
 			<DomainSection
 				canManage={workspace.canManage}
 				editAction={
-					<SettingsSectionSheet
-						canManage={workspace.canManage}
-						section={collectionTimingSection}
-						settings={workspace.settings}
-					/>
+					<SettingsSectionSheet section={collectionTimingSection} settings={workspace.settings} />
 				}
 				id="adult"
 				meta="Trap collection methods, lures, and adult surveillance references"

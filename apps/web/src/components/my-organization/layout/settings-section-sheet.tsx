@@ -9,11 +9,9 @@ import { SettingsSheet } from './settings-sheet';
  * then the section's preview of the values as they stand.
  */
 export function SettingsSectionSheet<Values, Payload>({
-	canManage,
 	section,
 	settings,
 }: {
-	readonly canManage: boolean;
 	readonly section: SettingsSection<Values, Payload>;
 	readonly settings: OrganizationSettings;
 }) {
@@ -22,7 +20,6 @@ export function SettingsSectionSheet<Values, Payload>({
 
 	return (
 		<SettingsSheet
-			canSave={canManage && mutations.canWrite}
 			convert={section.convert}
 			description={section.description}
 			failureMessage={section.failureMessage}
@@ -33,7 +30,7 @@ export function SettingsSectionSheet<Values, Payload>({
 			{(form) => (
 				<>
 					{section.fields.map((field) => (
-						<SettingsFieldInput disabled={!canManage} field={field} form={form} key={field.key} />
+						<SettingsFieldInput field={field} form={form} key={field.key} />
 					))}
 					{preview === undefined ? null : (
 						<form.Subscribe selector={(state) => state.values}>
@@ -48,11 +45,9 @@ export function SettingsSectionSheet<Values, Payload>({
 
 /** One descriptor field, drawn as the form kit input its kind names. */
 function SettingsFieldInput<Values>({
-	disabled,
 	field,
 	form,
 }: {
-	readonly disabled: boolean;
 	readonly field: SettingsSectionField<Values>;
 	readonly form: SettingsSheetForm<Values>;
 }) {
@@ -63,20 +58,19 @@ function SettingsFieldInput<Values>({
 			{(input) => {
 				switch (field.kind) {
 					case 'number':
-						return <input.NumberField disabled={disabled} label={field.label} />;
+						return <input.NumberField label={field.label} />;
 					case 'select':
 						return (
 							<input.SelectField
-								disabled={disabled}
 								label={field.label}
 								options={field.options}
 								placeholder="Not set"
 							/>
 						);
 					case 'switch':
-						return <input.SwitchField disabled={disabled} label={field.label} />;
+						return <input.SwitchField label={field.label} />;
 					case 'text':
-						return <input.TextField disabled={disabled} label={field.label} />;
+						return <input.TextField label={field.label} />;
 				}
 			}}
 		</form.AppField>
