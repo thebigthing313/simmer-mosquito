@@ -62,6 +62,13 @@ export function DateRangeChip({
 	);
 }
 
+/** The same set less one value, for the chip that removes that value. */
+export function without<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
+	const next = new Set(set);
+	next.delete(value);
+	return next;
+}
+
 /** One active filter, with the swatch it maps to on the map when it has one. */
 export function FilterChip({
 	label,

@@ -473,29 +473,57 @@ be asked a question without a map (#630). The hook is still the door the
 forms, the toolbar and the part list know, so it re-exports the vocabulary
 rather than teaching them a second path to the same types.
 
-The hook is one file with six hooks under it, each in its own file since the
-hooks sweep. `useDrawSession` holds the five buttons that open, close and
-take back a draw, and the point request, because every one of them ends the
-same way, by putting the control somewhere new and leaving nothing of the last
-draw behind, so they share one `clear`. What a finished draw does with the
-committed parts is `applyParts`'s and stays in `useDrawPartActions`.
-`useDrawVertexActions` is its own hook because all of its gestures write the
-edit mode and nothing else in the controller does; the ones that change the
-rings land through `changeRings`, so a gesture costs exactly one Undo step and
-none of them can forget to record one. `useDrawPartActions` is its own because
-its four actions share one piece of state, the highlighted index.
-`useDrawMapEvents` is its own because an idle map should carry no extra click,
+Every transition the control makes is one pure function, `next(state, event,
+context)` in `components/map/draw-machine`, which imports neither React nor
+Mapbox and answers with the next state and a list of effects (#1425). The
+state is the mode, the placed vertices, the highlighted part, the cursor and
+the grabbed vertex. The context is what the machine reads and does not own,
+the committed `value` and the record kind. The effects are the side effects a
+transition has: report a geometry to `onChange`, resolve or reject the pending
+point request, and frame a part on the map. Before #1425 five hooks wrote the
+transitions, each handed its own selection of refs and setters, and each exit
+from a draft reset a different subset of the state, while this section claimed
+they shared one `clear`.
+
+Every exit from a draft now goes through one helper in the machine,
+`leaveDraft`. It drops the cursor and the grabbed vertex, sets the vertices to
+what the next mode opens with (empty, or the seeded outline for a
+continuation), and tells a pending point request why it ended. The highlight
+is the exit's own call: the openers clear it, and cancel, Escape, commit,
+finish, the point click and the point request leave it alone, which is the
+behaviour each had before the machine. Escape and the Cancel control are one
+event. A pending point request is rejected as cancelled when the user abandons
+it and as superseded when a new draft or a new request opens over it. The
+`point` mode is plain data, and the adapter holds the request's promise
+callbacks and runs the effect.
+
+`useMapDraw` is the adapter and the only place draw state is written. It keeps
+the whole state in one ref that `dispatch` reads, runs through `next` and
+writes back straight away, because a handler can fire several events in one
+tick. It sets the React state it renders from only when the mode, the
+vertices or the highlight changed, so a move that shifts only the cursor or the grabbed vertex repaints
+the draft source and does not re-render, which keeps the rubber band at frame
+rate. Render reads React state and never the ref, and the ref is written only
+in `dispatch`, which runs from event handlers: the React Compiler allows that
+and refuses a ref write during render (#826).
+
+Two listener hooks stay in their own files, and each takes the map, `isLoaded`,
+the mode it is live for and `dispatch`, and no setter or state ref.
+`useDrawMapEvents` turns clicks, moves, double-clicks, Enter and Escape into
+events. It is its own hook because an idle map should carry no extra click,
 move or key listener, and because the cursor and the double-click zoom it
 takes over have to be handed back on every exit, including the one where the
 map has already been removed. `useDrawEditEvents` is live only while a part is
-open for editing, because none of it belongs on a map that is drawing or idle;
-what each gesture does to the rings is the controller's, and it only says
-which ring and which vertex was meant.
-
-Frequently-changing render inputs live in refs so the rubber band can be
-repainted on mousemove without a React re-render per frame. The ref writes
-are an effect rather than render-phase assignments, which is what the React
-Compiler permits.
+open for editing. It reads which vertex or edge is under the pointer off the
+map and hands the gesture to the machine, and it reads mouseup on the window,
+because a button released off the canvas never reaches the map. Both answer
+Enter, Escape and Delete only when the map is the key target. `dispatch` hands
+a listener the state on both sides of the event, because whether a gesture is
+claimed from Mapbox or the browser reads the state it arrived in: a
+double-click only while a segment trails the cursor, Delete only while a vertex
+is picked, and a mousedown only when the grab took. The edit listener lets go
+of a held vertex when it is torn down, since the mouseup that would land it
+has lost its listener.
 
 The draft paint reads the shared selection colours from
 `packages/design-tokens`, not a private amber: the thing being drawn is the
@@ -1570,6 +1598,24 @@ reporting a refused start, complete, cancel or reopen anywhere else. A form
 keeps its refusal in-page, because a form is something the person can fix
 and resubmit; `DetailPageHeader`'s docblock carries the rule, and
 `AddMissionStopForm` is the caller that left this hook over it.
+
+#### useWorklistIndex
+
+The Missions and Assignments pages wrote the same assembly twice: the
+selection, its fallback to the first visible row, the `Unassigned` assignee
+option and the status and assignee filter (#1432). The hook owns that much
+and stops there. The load call and the stops call stay at the route, because
+missions read stop views and assignments read features and counts together,
+and each route keeps its rows, its card and its filter bar, since the two
+records share no status vocabulary.
+
+The selection is computed on read rather than held in an effect: a filter, a
+date change or a delete that takes the picked row out of the list leaves the
+picked id in state, and the page draws the first visible row until the picked
+one is back. Status is matched over the loaded rows rather than in the query
+because both records derive it from three nullable timestamps. A filter one
+page has and the other does not, control type on Missions, goes in `matches`
+rather than in a third set the hook would have to name.
 
 #### useMissionItemShapes
 
