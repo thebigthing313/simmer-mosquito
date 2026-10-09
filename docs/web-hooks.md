@@ -508,7 +508,13 @@ map has already been removed. `useDrawEditEvents` is live only while a part is
 open for editing. It reads which vertex or edge is under the pointer off the
 map and hands the gesture to the machine, and it reads mouseup on the window,
 because a button released off the canvas never reaches the map. Both answer
-Enter, Escape and Delete only when the map is the key target.
+Enter, Escape and Delete only when the map is the key target. `dispatch` hands
+a listener the state on both sides of the event, because whether a gesture is
+claimed from Mapbox or the browser reads the state it arrived in: a
+double-click only while a segment trails the cursor, Delete only while a vertex
+is picked, and a mousedown only when the grab took. The edit listener lets go
+of a held vertex when it is torn down, since the mouseup that would land it
+has lost its listener.
 
 The draft paint reads the shared selection colours from
 `packages/design-tokens`, not a private amber: the thing being drawn is the

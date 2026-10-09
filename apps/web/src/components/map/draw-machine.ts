@@ -146,127 +146,144 @@ export type DrawEvent =
 	/** Delete or Backspace on the map: drops the picked vertex. */
 	| { readonly type: 'deleteSelected' }
 	| { readonly type: 'grab'; readonly vertex: DrawVertexRef; readonly position: PlanarPosition }
-	| { readonly type: 'release' };
+	| { readonly type: 'release' }
+	/**
+	 * The edit listeners going away with a vertex still held. The vertex is let go
+	 * where it was grabbed rather than landed, because no release ever came.
+	 */
+	| { readonly type: 'dropDrag' };
 
 export interface DrawTransition {
 	readonly state: DrawState;
 	readonly effects: readonly DrawEffect[];
 }
 
+/**
+ * How the adapter's listeners hand it an event. They get the state on both sides
+ * of it back, because whether a gesture is claimed from Mapbox or the browser
+ * reads the state the event arrived in, and the cursor's shape reads the state
+ * it left behind.
+ */
+export type DrawDispatch = (event: DrawEvent) => {
+	readonly previous: DrawState;
+	readonly state: DrawState;
+};
+
+/** One transition, for the event of type `K`. */
+type Transition<K extends DrawEvent['type']> = (
+	state: DrawState,
+	event: Extract<DrawEvent, { readonly type: K }>,
+	context: DrawContext,
+) => DrawTransition;
+
+/**
+ * Every event's transition, keyed by the event's type. A table rather than one
+ * switch, so each transition is its own small function and the compiler holds
+ * the table to the event union: an event with no transition fails `tsc`.
+ */
+const TRANSITIONS: { readonly [K in DrawEvent['type']]: Transition<K> } = {
+	// A fresh draw clears every committed part, at any part count, so the map
+	// shows exactly what the in-progress shape will become.
+	start: (state, { drawType }) =>
+		withEffect(
+			leaveDraft(state, {
+				mode: { kind: 'draw', type: drawType, target: { kind: 'replace' } },
+				highlighted: null,
+				pending: 'superseded',
+			}),
+			{ kind: 'emit', geometry: null },
+		),
+	startPart: (state, _event, context) => startPart(state, context),
+	startHole: (state, { partIndex }, context) => startHole(state, partIndex, context),
+	continuePart: (state, { partIndex }, context) => continuePart(state, partIndex, context),
+	editPart: (state, { partIndex }, context) => editPart(state, partIndex, context),
+	cancel: (state) => leaveDraft(state, { mode: { kind: 'idle' }, pending: 'cancelled' }),
+	commit: (state, { geometry }) =>
+		withEffect(leaveDraft(state, { mode: { kind: 'idle' }, pending: 'superseded' }), {
+			kind: 'emit',
+			geometry,
+		}),
+	undo: (state) => undo(state),
+	finish: (state, _event, context) => finish(state, context),
+	requestPoint: (state) => leaveDraft(state, { mode: { kind: 'point' }, pending: 'superseded' }),
+	highlightPart: (state, { partIndex }) =>
+		unchanged(partIndex === state.highlighted ? state : { ...state, highlighted: partIndex }),
+	removePart: (state, { partIndex }, context) => ({
+		state: state.highlighted === null ? state : { ...state, highlighted: null },
+		effects: [
+			{
+				kind: 'emit',
+				geometry: geometryFromParts(drawParts(context.value).filter((_, at) => at !== partIndex)),
+			},
+		],
+	}),
+	removeHole: (state, { partIndex, holeIndex }, context) =>
+		removeHole(state, partIndex, holeIndex, context),
+	zoomToPart: (state, { partIndex }, context) => {
+		const part = drawParts(context.value)[partIndex];
+		return part === undefined ? unchanged(state) : { state, effects: [{ kind: 'frame', part }] };
+	},
+	selectVertex: (state, { vertex }) => withEdit(state, (mode) => ({ ...mode, selected: vertex })),
+	moveVertex: (state, { vertex, position }) =>
+		changeRings(
+			state,
+			(rings) => moveRingVertex(rings, vertex, position),
+			() => vertex,
+		),
+	insertVertex: (state, { edge, position }) => insertVertex(state, edge, position),
+	deleteVertex: (state, { vertex }) => deleteVertex(state, vertex),
+	startReshape: (state) => openSketch(state, 'reshape'),
+	// Not refused here even where the record kind cannot hold two pieces. The
+	// draft names that refusal and the toolbar says it, which is the only place
+	// the user would find out why the tool did nothing.
+	startSplit: (state) => openSketch(state, 'split'),
+	sketchVertex: (state, { position }) => sketchVertex(state, position),
+	click: (state, { position }, context) => click(state, position, context),
+	editClick: (state, event) => editClick(state, event),
+	move: (state, { position }) => move(state, position),
+	// A sketch completes the way a draw does rather than needing a gesture of its
+	// own.
+	doubleClick: (state, _event, context) =>
+		isRubberBanding(state.mode) ? finish(state, context) : unchanged(state),
+	deleteSelected: (state) =>
+		state.mode.kind === 'edit' && state.mode.selected !== null && state.mode.sketch === null
+			? deleteVertex(state, state.mode.selected)
+			: unchanged(state),
+	grab: (state, { vertex, position }) => grab(state, vertex, position),
+	release: (state) => release(state),
+	dropDrag: (state) => unchanged(state.drag === null ? state : { ...state, drag: null }),
+};
+
 /** The state after `event`, and the side effects the adapter runs for it. */
 export function next(state: DrawState, event: DrawEvent, context: DrawContext): DrawTransition {
-	switch (event.type) {
-		case 'start':
-			// A fresh draw clears every committed part, at any part count, so the map
-			// shows exactly what the in-progress shape will become.
-			return withEffect(
-				leaveDraft(state, {
-					mode: { kind: 'draw', type: event.drawType, target: { kind: 'replace' } },
-					highlighted: null,
-					pending: 'superseded',
-				}),
-				{ kind: 'emit', geometry: null },
-			);
-		case 'startPart':
-			return startPart(state, context);
-		case 'startHole':
-			return startHole(state, event.partIndex, context);
-		case 'continuePart':
-			return continuePart(state, event.partIndex, context);
-		case 'editPart':
-			return editPart(state, event.partIndex, context);
-		case 'cancel':
-			return leaveDraft(state, { mode: { kind: 'idle' }, pending: 'cancelled' });
-		case 'commit':
-			return withEffect(leaveDraft(state, { mode: { kind: 'idle' }, pending: 'superseded' }), {
-				kind: 'emit',
-				geometry: event.geometry,
-			});
-		case 'undo':
-			return undo(state);
-		case 'finish':
-			return finish(state, context);
-		case 'requestPoint':
-			return leaveDraft(state, { mode: { kind: 'point' }, pending: 'superseded' });
-		case 'highlightPart':
-			return unchanged(
-				event.partIndex === state.highlighted ? state : { ...state, highlighted: event.partIndex },
-			);
-		case 'removePart':
-			return {
-				state: state.highlighted === null ? state : { ...state, highlighted: null },
-				effects: [
-					{
-						kind: 'emit',
-						geometry: geometryFromParts(
-							drawParts(context.value).filter((_, at) => at !== event.partIndex),
-						),
-					},
-				],
-			};
-		case 'removeHole':
-			return removeHole(state, event.partIndex, event.holeIndex, context);
-		case 'zoomToPart': {
-			const part = drawParts(context.value)[event.partIndex];
-			return part === undefined ? unchanged(state) : { state, effects: [{ kind: 'frame', part }] };
-		}
-		case 'selectVertex':
-			return withEdit(state, (mode) => ({ ...mode, selected: event.vertex }));
-		case 'moveVertex':
-			return changeRings(
-				state,
-				(rings) => moveRingVertex(rings, event.vertex, event.position),
-				() => event.vertex,
-			);
-		case 'insertVertex':
-			return insertVertex(state, event.edge, event.position);
-		case 'deleteVertex':
-			// Nothing stays picked: every index after the one dropped has shifted, so a
-			// pick kept here would name a different corner than the one on screen did.
-			return changeRings(
-				state,
-				(rings) => removeRingVertex(rings, event.vertex),
-				() => null,
-			);
-		case 'startReshape':
-			return openSketch(state, 'reshape');
-		case 'startSplit':
-			// Not refused here even where the record kind cannot hold two pieces. The
-			// draft names that refusal and the toolbar says it, which is the only place
-			// the user would find out why the tool did nothing.
-			return openSketch(state, 'split');
-		case 'sketchVertex':
-			return sketchVertex(state, event.position);
-		case 'click':
-			return click(state, event.position, context);
-		case 'editClick':
-			return editClick(state, event);
-		case 'move':
-			return move(state, event.position);
-		case 'doubleClick':
-			// A sketch completes the way a draw does rather than needing a gesture of
-			// its own.
-			return isRubberBanding(state.mode) ? finish(state, context) : unchanged(state);
-		case 'deleteSelected':
-			return state.mode.kind === 'edit' &&
-				state.mode.selected !== null &&
-				state.mode.sketch === null
-				? next(state, { type: 'deleteVertex', vertex: state.mode.selected }, context)
-				: unchanged(state);
-		case 'grab':
-			// An open sketch takes the pointer over completely, so no vertex can be
-			// grabbed until it has landed.
-			if (state.mode.kind !== 'edit' || state.mode.sketch !== null) {
-				return unchanged(state);
-			}
-			return unchanged({
-				...state,
-				mode: { ...state.mode, selected: event.vertex },
-				drag: { vertex: event.vertex, position: event.position },
-			});
-		case 'release':
-			return release(state);
+	// The table is keyed by the event's own type, so the transition looked up
+	// is the one written for this event. TypeScript cannot correlate the two
+	// through a union index, which is the whole of the cast.
+	const transition = TRANSITIONS[event.type] as Transition<DrawEvent['type']>;
+	return transition(state, event, context);
+}
+
+// Nothing stays picked: every index after the one dropped has shifted, so a pick
+// kept here would name a different corner than the one on screen did.
+function deleteVertex(state: DrawState, vertex: DrawVertexRef): DrawTransition {
+	return changeRings(
+		state,
+		(rings) => removeRingVertex(rings, vertex),
+		() => null,
+	);
+}
+
+// An open sketch takes the pointer over completely, so no vertex can be grabbed
+// until it has landed.
+function grab(state: DrawState, vertex: DrawVertexRef, position: PlanarPosition): DrawTransition {
+	if (state.mode.kind !== 'edit' || state.mode.sketch !== null) {
+		return unchanged(state);
 	}
+	return unchanged({
+		...state,
+		mode: { ...state.mode, selected: vertex },
+		drag: { vertex, position },
+	});
 }
 
 /**

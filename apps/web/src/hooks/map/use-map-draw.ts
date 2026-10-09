@@ -5,8 +5,8 @@ import { buildFeatures } from '../../components/map/draw-features';
 import { drawLayers, SOURCE_ID } from '../../components/map/draw-layers';
 import {
 	type DrawContext,
+	type DrawDispatch,
 	type DrawEffect,
-	type DrawEvent,
 	type DrawPoint,
 	type DrawPointRejection,
 	type DrawState,
@@ -161,7 +161,7 @@ export function useMapDraw({
 	// The one place the draw state is written. A change to what a render reads
 	// re-renders; a change to the cursor or the drag alone repaints and nothing
 	// else, which is what keeps the rubber band at frame rate.
-	const dispatch = (event: DrawEvent): DrawState => {
+	const dispatch: DrawDispatch = (event) => {
 		const previous = stateRef.current;
 		const { state, effects } = next(previous, event, contextRef.current);
 		stateRef.current = state;
@@ -177,7 +177,7 @@ export function useMapDraw({
 		for (const effect of effects) {
 			settle(effect);
 		}
-		return state;
+		return { previous, state };
 	};
 
 	// What the draft source holds after a real state change: a new committed value,

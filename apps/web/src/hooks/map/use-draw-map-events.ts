@@ -1,7 +1,7 @@
 import type { Map as MapboxMap, MapMouseEvent } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
-import type { DrawEvent, DrawState } from '../../components/map/draw-machine';
-import type { Mode } from '../../components/map/draw-parts';
+import type { DrawDispatch } from '../../components/map/draw-machine';
+import { isRubberBanding, type Mode } from '../../components/map/draw-parts';
 import { isAimedAtMap } from '../../components/map/map-keys';
 import { isMapLive } from './use-mapbox-map';
 
@@ -20,7 +20,7 @@ export function useDrawMapEvents({
 	readonly map: MapboxMap | null;
 	readonly isLoaded: boolean;
 	readonly mode: Mode;
-	readonly dispatch: (event: DrawEvent) => DrawState;
+	readonly dispatch: DrawDispatch;
 }): void {
 	// Whether this draft has already been handed the canvas. The effect re-runs
 	// on every mode change and an edit changes mode on every drag, so focusing on
@@ -55,21 +55,26 @@ export function useDrawMapEvents({
 		}
 
 		function handleMove(event: MapMouseEvent) {
-			const state = dispatch({ type: 'move', position: [event.lngLat.lng, event.lngLat.lat] });
+			const { previous } = dispatch({
+				type: 'move',
+				position: [event.lngLat.lng, event.lngLat.lat],
+			});
 			// An edit owns the cursor: {@link useDrawEditEvents} says whether a vertex
 			// is under the pointer, and this would paint over the answer. Both
 			// handlers are live at once and which runs last follows whichever effect
 			// re-registered most recently, so the answer cannot be left to order.
-			if (state.mode.kind !== 'edit') {
+			if (previous.mode.kind !== 'edit') {
 				canvas.style.cursor = 'crosshair';
 			}
 		}
 
-		// The double-click zoom is off for as long as this listener is live, so
-		// claiming the gesture costs nothing when the machine has no use for it.
+		// Claimed only when the machine finishes on it, which is when a segment is
+		// trailing the cursor.
 		function handleDoubleClick(event: MapMouseEvent) {
-			event.preventDefault();
-			dispatch({ type: 'doubleClick' });
+			const { previous } = dispatch({ type: 'doubleClick' });
+			if (isRubberBanding(previous.mode)) {
+				event.preventDefault();
+			}
 		}
 
 		// The location panel sits beside the map and its controls stay live while a

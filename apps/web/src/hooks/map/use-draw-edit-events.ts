@@ -1,7 +1,7 @@
 import type { Map as MapboxMap, MapMouseEvent } from 'mapbox-gl';
 import { useEffect } from 'react';
 import { isOverEdge, vertexUnder } from '../../components/map/draw-layers';
-import type { DrawEvent, DrawState } from '../../components/map/draw-machine';
+import type { DrawDispatch } from '../../components/map/draw-machine';
 import { isSketching } from '../../components/map/draw-parts';
 import { isAimedAtMap } from '../../components/map/map-keys';
 import { isMapLive } from './use-mapbox-map';
@@ -21,7 +21,7 @@ export function useDrawEditEvents({
 	readonly map: MapboxMap | null;
 	readonly isLoaded: boolean;
 	readonly isEditing: boolean;
-	readonly dispatch: (event: DrawEvent) => DrawState;
+	readonly dispatch: DrawDispatch;
 }): void {
 	useEffect(() => {
 		if (!isMapLive(map) || !isLoaded || !isEditing) {
@@ -35,7 +35,7 @@ export function useDrawEditEvents({
 			if (vertex === null) {
 				return;
 			}
-			const state = dispatch({
+			const { state } = dispatch({
 				type: 'grab',
 				vertex,
 				position: [event.lngLat.lng, event.lngLat.lat],
@@ -52,7 +52,10 @@ export function useDrawEditEvents({
 		// adapter repaints it without a render, so it follows the cursor at frame
 		// rate. What is left here is the cursor's shape.
 		function handleMove(event: MapMouseEvent) {
-			const state = dispatch({ type: 'move', position: [event.lngLat.lng, event.lngLat.lat] });
+			const { state } = dispatch({
+				type: 'move',
+				position: [event.lngLat.lng, event.lngLat.lat],
+			});
 			if (isSketching(state.mode)) {
 				canvas.style.cursor = 'crosshair';
 				return;
@@ -83,9 +86,8 @@ export function useDrawEditEvents({
 		// Backspace as well as Delete, because a laptop keyboard often has only the
 		// one key. That is also why the surface guard is here and not optional: the
 		// location panel sits beside the map, and a backspace meant for a
-		// description would otherwise take a corner off the shape. Neither key does
-		// anything on the map surface by default, so claiming it there costs
-		// nothing when no vertex is picked.
+		// description would otherwise take a corner off the shape. The key is
+		// claimed only when a vertex was picked to take.
 		function handleKeyDown(event: KeyboardEvent) {
 			if (
 				(event.key !== 'Delete' && event.key !== 'Backspace') ||
@@ -93,8 +95,14 @@ export function useDrawEditEvents({
 			) {
 				return;
 			}
-			event.preventDefault();
-			dispatch({ type: 'deleteSelected' });
+			const { previous } = dispatch({ type: 'deleteSelected' });
+			if (
+				previous.mode.kind === 'edit' &&
+				previous.mode.selected !== null &&
+				previous.mode.sketch === null
+			) {
+				event.preventDefault();
+			}
 		}
 
 		activeMap.on('mousedown', handleDown);
@@ -109,6 +117,8 @@ export function useDrawEditEvents({
 			activeMap.off('click', handleClick);
 			window.removeEventListener('mouseup', handleUp);
 			window.removeEventListener('keydown', handleKeyDown);
+			// The mouseup that would land a held vertex has just lost its listener.
+			dispatch({ type: 'dropDrag' });
 		};
 	}, [map, isLoaded, isEditing, dispatch]);
 }

@@ -61,16 +61,10 @@ const EXITS: readonly {
 	readonly pending: DrawEffect;
 }[] = [
 	{
+		// Escape is not a row of its own: the adapter sends it as this event, and
+		// the useMapDraw suite presses the real key, over a draft and over a
+		// pending point request.
 		name: 'cancel',
-		event: { type: 'cancel' },
-		mode: 'idle',
-		vertices: [],
-		highlighted: 1,
-		pending: { kind: 'rejectPoint', reason: 'cancelled' },
-	},
-	{
-		// The adapter sends Escape on the map as the cancel event.
-		name: 'Escape',
 		event: { type: 'cancel' },
 		mode: 'idle',
 		vertices: [],
