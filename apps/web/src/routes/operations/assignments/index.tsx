@@ -13,7 +13,6 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useState } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DateRangeFilter } from '../../../components/date-range-filter';
@@ -23,6 +22,7 @@ import {
 	type FilterOption,
 	MultiSelectFilter,
 	RESULT_SKELETON_KEYS,
+	without,
 } from '../../../components/explorer';
 import { AssignmentStatusBadge } from '../../../components/operations/assignments/assignment-display';
 import { WorklistMap } from '../../../components/operations/worklist-map';
@@ -30,6 +30,7 @@ import { WriteOnly } from '../../../components/write-only';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useAssignmentStops } from '../../../hooks/operations/use-assignment-stops';
+import { useWorklistIndex } from '../../../hooks/operations/use-worklist-index';
 import {
 	ASSIGNMENT_STATUS_LABELS,
 	type AssignmentListing,
@@ -54,9 +55,6 @@ import {
 } from '../../../lib/search-filters';
 
 const AssignmentIcon = iconRegistry.entities.vehicle.icon;
-
-/** Matches a null `assignedToProfileId`; planning drafts may carry nobody. */
-const UNASSIGNED = 'unassigned';
 
 const STATUS_OPTIONS: readonly FilterOption[] = [
 	{ id: 'notStarted', label: 'Not started' },
@@ -104,49 +102,33 @@ function AssignmentsIndexRoute() {
 		direction: 'schedule',
 	});
 
-	const [selectedId, setSelectedId] = useState<string | null>(null);
-	const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
-	const [highlightId, setHighlightId] = useState<string | null>(null);
-
 	const { assignments, isLoading } = useAssignments(filters.from, filters.to);
-	const { options: personnelOptions, nameById } = usePersonnelOptions();
+	const personnel = usePersonnelOptions();
+	const { nameById } = personnel;
 
-	const assigneeOptions: readonly FilterOption[] = [
-		{ id: UNASSIGNED, label: 'Unassigned' },
-		...personnelOptions,
-	];
-
-	// Assignee and status are filtered here rather than in the query: status is
-	// derived from three nullable timestamps, and "unassigned" matches a null column.
-	const visible = assignments.filter((assignment) => {
-		if (filters.statuses.size > 0 && !filters.statuses.has(assignmentStatus(assignment))) {
-			return false;
-		}
-		if (filters.people.size > 0) {
-			const key = assignment.assignedToProfileId ?? UNASSIGNED;
-			if (!filters.people.has(key)) {
-				return false;
-			}
-		}
-		return true;
+	// Status derives from three nullable timestamps, so it is matched over the loaded rows.
+	const {
+		visible,
+		selectedId,
+		selected,
+		selectedStopId,
+		setSelectedStopId,
+		highlightId,
+		setHighlightId,
+		handleSelect,
+		assigneeOptions,
+		assigneeLabel,
+	} = useWorklistIndex({
+		rows: assignments,
+		statusOf: assignmentStatus,
+		assigneeOf: (assignment) => assignment.assignedToProfileId,
+		filters,
+		personnel,
 	});
 
 	const visibleIds = visible.map((assignment) => assignment.id);
 	const { countsById } = useAssignmentItemCounts(visibleIds);
-
-	// Default to the first row, and self-heal when a filter or delete removes it.
-	const effectiveId =
-		selectedId !== null && visible.some((assignment) => assignment.id === selectedId)
-			? selectedId
-			: (visible[0]?.id ?? null);
-	const selected = visible.find((assignment) => assignment.id === effectiveId) ?? null;
-	const { features, counts, stops } = useAssignmentStops(effectiveId);
-
-	const handleSelect = (id: string) => {
-		setSelectedId(id);
-		setSelectedStopId(null);
-		setHighlightId(null);
-	};
+	const { features, counts, stops } = useAssignmentStops(selectedId);
 
 	const hasFilters = filters.people.size > 0 || filters.statuses.size > 0;
 
@@ -155,7 +137,7 @@ function AssignmentsIndexRoute() {
 			map={
 				<WorklistMap
 					features={features}
-					fitKey={effectiveId ?? undefined}
+					fitKey={selectedId ?? undefined}
 					highlightId={highlightId}
 					recordType="assignment"
 					onHoverStop={setHighlightId}
@@ -222,23 +204,15 @@ function AssignmentsIndexRoute() {
 							{[...filters.people].map((id) => (
 								<FilterChip
 									key={id}
-									label={id === UNASSIGNED ? 'Unassigned' : (nameById.get(id) ?? 'Unknown profile')}
-									onRemove={() => {
-										const next = new Set(filters.people);
-										next.delete(id);
-										setFilters({ people: next });
-									}}
+									label={assigneeLabel(id)}
+									onRemove={() => setFilters({ people: without(filters.people, id) })}
 								/>
 							))}
 							{[...filters.statuses].map((status) => (
 								<FilterChip
 									key={status}
 									label={ASSIGNMENT_STATUS_LABELS[status as AssignmentStatus] ?? status}
-									onRemove={() => {
-										const next = new Set(filters.statuses);
-										next.delete(status);
-										setFilters({ statuses: next });
-									}}
+									onRemove={() => setFilters({ statuses: without(filters.statuses, status) })}
 								/>
 							))}
 						</ActiveFilterBar>
@@ -252,7 +226,7 @@ function AssignmentsIndexRoute() {
 					isLoading={isLoading}
 					nameById={nameById}
 					onSelect={handleSelect}
-					selectedId={effectiveId}
+					selectedId={selectedId}
 				/>
 			</div>
 		</MapSplitPage>
