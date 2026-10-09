@@ -36,29 +36,41 @@ function removeAddedLayers(
 /**
  * Which features a source's selection layer draws.
  *
- * `key` is the selection as one comparable string, so a caller that rebuilds a
- * list of ids every render does not re-filter on every render; `filter` turns
- * that key into the layer's filter expression. The layer is re-filtered when
- * `key` changes and not when `filter` does, so `filter` must read nothing but
- * its argument.
+ * `key` is the selection as one comparable value, so a caller that rebuilds a
+ * list of ids every render does not re-filter on every render, and `null` means
+ * nothing is selected. `filter` turns that key into the layer's filter
+ * expression. The layer is re-filtered when `key` changes and not when `filter`
+ * does, so `filter` must read nothing but its argument.
  */
 export interface GeoJsonSelection {
 	readonly layerId: string;
-	readonly key: string;
-	readonly filter: (key: string) => ExpressionSpecification;
+	readonly key: string | null;
+	readonly filter: (key: string | null) => ExpressionSpecification;
 }
+
+/**
+ * The selection key the layer was last filtered with, boxed so that a `null`
+ * key and nothing applied yet are two different answers.
+ */
+type AppliedKey = { readonly key: string | null } | null;
 
 /**
  * Scopes the selection layer, when there is one and the style has it.
  *
  * `getLayer` and `setFilter` throw against a style a reconnect or restyle has
  * torn down. That is a no-op here, because `style.load` re-adds the layers and
- * applies the selection again on the way.
+ * applies the selection again on the way. The key is recorded as applied either
+ * way, since the next add applies whatever the key is by then.
  */
-function applySelection(activeMap: MapboxMap, selection: GeoJsonSelection | undefined): void {
+function applySelection(
+	activeMap: MapboxMap,
+	selection: GeoJsonSelection | undefined,
+	appliedKeyRef: { current: AppliedKey },
+): void {
 	if (selection === undefined) {
 		return;
 	}
+	appliedKeyRef.current = { key: selection.key };
 	try {
 		if (activeMap.getLayer(selection.layerId) !== undefined) {
 			activeMap.setFilter(selection.layerId, selection.filter(selection.key));
@@ -162,6 +174,9 @@ export function useGeoJsonSource({
 	// The ids actually added, so teardown removes what this hook put there even
 	// if `layers()` would answer differently by then.
 	const addedLayerIdsRef = useRef<readonly string[]>([]);
+	// The key the selection layer was last filtered with, so the key effect can
+	// tell a key that moved from one an add has already applied.
+	const appliedKeyRef = useRef<AppliedKey>(null);
 
 	useEffect(() => {
 		if (!isMapLive(map) || !isLoaded || !enabled) {
@@ -194,7 +209,7 @@ export function useGeoJsonSource({
 				}
 			}
 			addedLayerIdsRef.current = specs.map((layer) => layer.id);
-			applySelection(activeMap, selectionRef.current);
+			applySelection(activeMap, selectionRef.current, appliedKeyRef);
 			onEnsureRef.current?.();
 		}
 
@@ -240,17 +255,23 @@ export function useGeoJsonSource({
 				// Map already removed; nothing left to clean up.
 			}
 			addedLayerIdsRef.current = [];
+			appliedKeyRef.current = null;
 		};
 	}, [map, isLoaded, enabled, isInteractive, sourceId]);
 
-	// A new selection re-filters its layer in place. The setup effect applies the
-	// same filter on every add and re-add, so this runs only when the key moves.
+	// A new selection re-filters its layer in place. This effect also runs on
+	// every commit that runs the setup effect, since both depend on the map,
+	// `isLoaded` and `enabled`, and the add has already filtered with the current
+	// key by then. So it filters only a key that differs from the one last applied.
 	const selectionKey = selection?.key;
 	useEffect(() => {
 		if (!isMapLive(map) || !isLoaded || !enabled || selectionKey === undefined) {
 			return;
 		}
-		applySelection(map, selectionRef.current);
+		if (appliedKeyRef.current !== null && appliedKeyRef.current.key === selectionKey) {
+			return;
+		}
+		applySelection(map, selectionRef.current, appliedKeyRef);
 	}, [map, isLoaded, enabled, selectionKey]);
 
 	// Data changes ride the existing source. A reconnect or restyle can run this
