@@ -17,9 +17,19 @@ import {
 	type BiocontrolFilters,
 	biocontrolFilterDefaults,
 } from '../../../../../components/control-operations/biocontrol/biocontrol-actions-search';
-import { biocontrolSummaryGroupings } from '../../../../../components/control-operations/biocontrol/biocontrol-summary';
-import { ExplorerSummary } from '../../../../../components/explorer/explorer-summary';
+import { biocontrolFilterDeclarations } from '../../../../../components/control-operations/biocontrol/biocontrol-filters';
+import { biocontrolSummaryFigures } from '../../../../../components/control-operations/biocontrol/biocontrol-summary';
+import { DeclaredSummary } from '../../../../../components/explorer/declared-summary';
 import type { MapSummary } from '../../../../../hooks/explorer/use-explorer-summary';
+
+// Method and Technician each name a catalog, which the summary reads for
+// names. The ids differ, so one lookup serves both.
+vi.mock('../../../../../hooks/explorer/use-catalog-options', () => ({
+	useCatalogOptions: () => ({
+		options: [],
+		nameById: new Map([...METHOD_NAMES, ...PERSON_NAMES]),
+	}),
+}));
 
 afterEach(cleanup);
 
@@ -80,17 +90,12 @@ const DEFAULTS = biocontrolFilterDefaults('2026-09-28');
 
 function renderSummary(filters: Partial<BiocontrolFilters> = {}, summary = SUMMARY) {
 	const setFilters = vi.fn<(patch: Partial<BiocontrolFilters>) => void>();
-	const groupings = biocontrolSummaryGroupings({
-		summary,
-		filters: { ...DEFAULTS, ...filters },
-		setFilters,
-		methodNameById: METHOD_NAMES,
-		personNameById: PERSON_NAMES,
-		unitById: UNITS,
-	});
 	render(
-		<ExplorerSummary
-			groupings={groupings}
+		<DeclaredSummary
+			binding={{ filters: { ...DEFAULTS, ...filters }, setFilters }}
+			declarations={biocontrolFilterDeclarations}
+			figures={(data) => biocontrolSummaryFigures(data, UNITS)}
+			order={['methods', 'people', 'habitat']}
 			recordType="biocontrolAction"
 			state={{ data: summary, isError: false, retry: () => undefined }}
 		/>,

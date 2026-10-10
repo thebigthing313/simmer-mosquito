@@ -23,7 +23,6 @@ export interface InspectionCatalogs {
 	readonly habitatTypes: readonly FilterOption[];
 	readonly personnel: readonly FilterOption[];
 	readonly typeNameById: ReadonlyMap<string, string>;
-	readonly personnelNameById: ReadonlyMap<string, string>;
 }
 
 /** Each inspection filter's control, chip and summary grouping, in chip order. */

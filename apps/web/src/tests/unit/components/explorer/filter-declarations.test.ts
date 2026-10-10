@@ -14,6 +14,8 @@ import {
 	declaredSummaryGroupings,
 	defineFilterDeclarations,
 	REGION_SOURCE,
+	type SourceNames,
+	summarySources,
 } from '../../../../components/explorer/filter-declarations';
 import type { RecordSetLinks } from '../../../../components/explorer/record-set';
 import type { MapSummary } from '../../../../hooks/explorer/use-explorer-summary';
@@ -124,7 +126,7 @@ const SUMMARY: MapSummary = {
 	},
 };
 
-const NAMES = { places: new Map([['place-north', 'North Marsh']]) };
+const NAMES: SourceNames = new Map([[REGION_SOURCE, new Map([['place-north', 'North Marsh']])]]);
 
 function groupsOf(
 	name: 'places' | 'flagged' | 'state' | 'sizes',
@@ -132,12 +134,12 @@ function groupsOf(
 	summary: MapSummary = SUMMARY,
 ) {
 	const setFilters = vi.fn<(patch: Partial<Filters>) => void>();
-	const [grouping] = declaredSummaryGroupings(declarations, [name], {
-		summary,
-		filters: { ...DEFAULTS, ...filters },
-		setFilters,
-		names: NAMES,
-	});
+	const [grouping] = declaredSummaryGroupings(
+		declarations,
+		[name],
+		{ summary, filters: { ...DEFAULTS, ...filters }, setFilters },
+		NAMES,
+	);
 	if (grouping === undefined) {
 		throw new Error(`No ${name} grouping`);
 	}
@@ -260,11 +262,19 @@ describe('a choice set grouping', () => {
 describe('declaredSummaryGroupings', () => {
 	it('refuses a filter that declares no summary grouping', () => {
 		expect(() =>
-			declaredSummaryGroupings(declarations, ['hidden'], {
-				summary: SUMMARY,
-				filters: DEFAULTS,
-				setFilters: () => undefined,
-			}),
+			declaredSummaryGroupings(
+				declarations,
+				['hidden'],
+				{ summary: SUMMARY, filters: DEFAULTS, setFilters: () => undefined },
+				NAMES,
+			),
 		).toThrow('The hidden filter declares no summary grouping.');
+	});
+});
+
+describe('summarySources', () => {
+	it('lists the option source of each id set the order groups by, and nothing else', () => {
+		expect(summarySources(declarations, ['flagged', 'places', 'sizes'])).toEqual([REGION_SOURCE]);
+		expect(summarySources(declarations, ['flagged', 'state'])).toEqual([]);
 	});
 });

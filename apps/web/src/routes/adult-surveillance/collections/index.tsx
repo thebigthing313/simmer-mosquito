@@ -11,7 +11,7 @@ import {
 	collectionRowLabel,
 	collectionSwatch,
 } from '../../../components/adult-surveillance/collections/collection-row-parts';
-import { collectionSummaryGroupings } from '../../../components/adult-surveillance/collections/collection-summary';
+import { collectionSummaryFigures } from '../../../components/adult-surveillance/collections/collection-summary';
 import {
 	collectionFilterCodecs,
 	collectionRecordSet,
@@ -20,8 +20,8 @@ import { collectionLegend } from '../../../components/adult-surveillance/collect
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
+import { DeclaredSummary } from '../../../components/explorer/declared-summary';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
-import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
@@ -52,7 +52,7 @@ function CollectionsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
 	const binding = useRecordSetFilters(collectionRecordSet, 'map');
-	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
+	const { filters: query, reset: clearAll, activeCount: activeFilterCount } = binding;
 	const panel = useExplorerPanel();
 
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
@@ -112,20 +112,14 @@ function CollectionsExplorerRoute() {
 				// Over 100 in view the rows would not fit on one page, so the panel
 				// says what is in view instead (#1373).
 				summary: summary.isShown ? (
-					<ExplorerSummary
+					<DeclaredSummary
+						binding={binding}
 						chips={
 							<DeclaredFilterChips binding={binding} declarations={collectionFilterDeclarations} />
 						}
-						groupings={
-							summary.data === null
-								? []
-								: collectionSummaryGroupings({
-										summary: summary.data,
-										filters: query,
-										setFilters,
-										methodNameById,
-									})
-						}
+						declarations={collectionFilterDeclarations}
+						figures={collectionSummaryFigures}
+						order={['problems', 'awaiting', 'methods']}
 						recordType="collection"
 						state={summary}
 					/>

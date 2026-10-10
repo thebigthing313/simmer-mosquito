@@ -13,13 +13,27 @@
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { applicationSummaryGroupings } from '../../../../../components/control-operations/chemical/application-summary';
+import { applicationFilterDeclarations } from '../../../../../components/control-operations/chemical/application-filters';
+import { applicationSummaryFigures } from '../../../../../components/control-operations/chemical/application-summary';
 import {
 	type ApplicationFilters,
 	applicationFilterDefaults,
 } from '../../../../../components/control-operations/chemical/applications-search';
-import { ExplorerSummary } from '../../../../../components/explorer/explorer-summary';
+import { DeclaredSummary } from '../../../../../components/explorer/declared-summary';
 import type { MapSummary } from '../../../../../hooks/explorer/use-explorer-summary';
+
+// Each id set's declaration names its source, which the summary reads for
+// names. Method and Applicator are both catalogs, and the ids differ, so one
+// lookup serves both.
+vi.mock('../../../../../hooks/explorer/use-catalog-options', () => ({
+	useCatalogOptions: () => ({
+		options: [],
+		nameById: new Map([...METHOD_NAMES, ...PERSON_NAMES]),
+	}),
+}));
+vi.mock('../../../../../hooks/explorer/use-insecticide-options', () => ({
+	useInsecticideOptions: () => ({ options: [], nameById: INSECTICIDE_NAMES }),
+}));
 
 afterEach(cleanup);
 
@@ -88,18 +102,17 @@ const DEFAULTS = applicationFilterDefaults('2026-09-28');
 
 function renderSummary(filters: Partial<ApplicationFilters> = {}, summary = SUMMARY) {
 	const setFilters = vi.fn<(patch: Partial<ApplicationFilters>) => void>();
-	const groupings = applicationSummaryGroupings({
-		summary,
-		filters: { ...DEFAULTS, ...filters },
-		setFilters,
-		insecticideNameById: INSECTICIDE_NAMES,
-		methodNameById: METHOD_NAMES,
-		personNameById: PERSON_NAMES,
-		unitById: UNITS,
-	});
 	render(
-		<ExplorerSummary
-			groupings={groupings}
+		<DeclaredSummary
+			binding={{ filters: { ...DEFAULTS, ...filters }, setFilters }}
+			declarations={applicationFilterDeclarations}
+			figures={(data) =>
+				applicationSummaryFigures(data, {
+					insecticideNameById: INSECTICIDE_NAMES,
+					unitById: UNITS,
+				})
+			}
+			order={['insecticides', 'methods', 'people']}
 			recordType="application"
 			state={{ data: summary, isError: false, retry: () => undefined }}
 		/>,

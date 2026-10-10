@@ -3,14 +3,13 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow, FilterGrid } from '../../../components/explorer';
 import { DeclaredFilterChips, filterFields } from '../../../components/explorer/declared-filters';
+import { DeclaredSummary } from '../../../components/explorer/declared-summary';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
-import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { densityLabel, hasAnyLifeStage } from '../../../components/larval-display';
 import { inspectionFilterDeclarations } from '../../../components/larval-surveillance/inspection-filters';
 import type { InspectionListing } from '../../../components/larval-surveillance/inspection-listing';
 import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
-import { inspectionSummaryGroupings } from '../../../components/larval-surveillance/inspections/inspection-summary';
 import { inspectionLegend } from '../../../components/larval-surveillance/inspections/legend';
 import {
 	type InspectionFilters,
@@ -62,7 +61,7 @@ function inspectionsHeading(total: number, isLoading: boolean) {
 
 function InspectionsExplorerRoute() {
 	const binding = useRecordSetFilters(inspectionRecordSet, 'map');
-	const { activeCount: activeFilterCount, clearAll, filters, setFilters } = binding;
+	const { activeCount: activeFilterCount, clearAll, filters } = binding;
 
 	const panel = useExplorerPanel();
 
@@ -116,21 +115,13 @@ function InspectionsExplorerRoute() {
 				// Over 100 in view the rows would not fit on one page, so the panel
 				// says what is in view instead (#1369).
 				summary: summary.isShown ? (
-					<ExplorerSummary
+					<DeclaredSummary
+						binding={binding}
 						chips={
 							<DeclaredFilterChips binding={binding} declarations={inspectionFilterDeclarations} />
 						}
-						groupings={
-							summary.data === null
-								? []
-								: inspectionSummaryGroupings({
-										summary: summary.data,
-										filters,
-										setFilters,
-										typeNameById: catalogs.typeNameById,
-										inspectorNameById: catalogs.personnelNameById,
-									})
-						}
+						declarations={inspectionFilterDeclarations}
+						order={['water', 'density', 'positive', 'types', 'inspectors']}
 						recordType="inspection"
 						state={summary}
 					/>

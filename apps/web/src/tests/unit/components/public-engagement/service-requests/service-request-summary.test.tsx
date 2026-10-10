@@ -11,10 +11,19 @@
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ExplorerSummary } from '../../../../../components/explorer/explorer-summary';
-import { serviceRequestSummaryGroupings } from '../../../../../components/public-engagement/service-requests/service-request-summary';
+import { DeclaredSummary } from '../../../../../components/explorer/declared-summary';
+import { serviceRequestFilterDeclarations } from '../../../../../components/public-engagement/service-requests/service-request-filters';
+import { serviceRequestSummaryFigures } from '../../../../../components/public-engagement/service-requests/service-request-summary';
 import type { ServiceRequestFilters } from '../../../../../components/public-engagement/service-requests/service-requests-search';
 import type { MapSummary } from '../../../../../hooks/explorer/use-explorer-summary';
+
+// The Tags declaration names the Tag catalog, which the summary reads for names.
+vi.mock('../../../../../hooks/explorer/use-tag-options', () => ({
+	useTagOptions: () => ({
+		options: [],
+		byId: new Map([...TAG_NAMES].map(([id, name]) => [id, { id, name, color: null }])),
+	}),
+}));
 
 afterEach(cleanup);
 
@@ -67,15 +76,12 @@ const DEFAULTS: ServiceRequestFilters = {
 
 function renderSummary(filters: Partial<ServiceRequestFilters> = {}, summary = SUMMARY) {
 	const setFilters = vi.fn<(patch: Partial<ServiceRequestFilters>) => void>();
-	const groupings = serviceRequestSummaryGroupings({
-		summary,
-		filters: { ...DEFAULTS, ...filters },
-		setFilters,
-		tagNameById: TAG_NAMES,
-	});
 	render(
-		<ExplorerSummary
-			groupings={groupings}
+		<DeclaredSummary
+			binding={{ filters: { ...DEFAULTS, ...filters }, setFilters }}
+			declarations={serviceRequestFilterDeclarations}
+			figures={serviceRequestSummaryFigures}
+			order={['status', 'tags']}
 			recordType="serviceRequest"
 			state={{ data: summary, isError: false, retry: () => undefined }}
 		/>,
