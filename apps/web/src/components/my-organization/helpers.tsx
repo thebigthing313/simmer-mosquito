@@ -8,6 +8,7 @@ import type {
 	ServiceRequestContextSettings,
 	UnitDefaults,
 } from '@simmer-mosquito/domain';
+import { isEmailAddress } from '@simmer-mosquito/domain';
 import type { Organization } from '@simmer-mosquito/sync';
 import { toast } from 'sonner';
 import type { OrganizationDetailsFields } from '../../hooks/mutations/use-organization-settings-mutations';
@@ -193,7 +194,7 @@ function nullableTextValue(value: string): string | null {
 
 function emailValue(value: string): string | null {
 	const text = nullableTextValue(value);
-	if (text !== null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
+	if (text !== null && !isEmailAddress(text)) {
 		throw new Error('Main contact must be a valid email address.');
 	}
 	return text;

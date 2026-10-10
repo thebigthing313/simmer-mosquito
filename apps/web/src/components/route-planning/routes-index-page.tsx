@@ -22,10 +22,10 @@ import type { RouteSelection } from '../../hooks/route-planning/use-route-select
 import { useHasRole } from '../../hooks/use-can-write';
 import { createLabel } from '../app-shell/navigation';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
+import { StopSequenceMap } from '../map/stop-sequence-map';
 import { WriteOnly } from '../write-only';
 import { RouteCreateDialog } from './route-create-dialog';
-import { RouteMap } from './route-map';
-import { type RouteStop, routeCountLabel, stopCountLabel } from './route-stop';
+import { routeCountLabel, stopCountLabel } from './route-stop';
 import type { RouteSummary } from './route-summary';
 import type { RoutePlanningSurface } from './surface';
 
@@ -33,7 +33,6 @@ const RouteIcon = iconRegistry.entities.route.icon;
 
 /** The stops of whichever route the list has selected. */
 export interface SelectedRouteStops {
-	readonly stops: readonly RouteStop[];
 	readonly features: readonly RouteStopFeature[];
 	readonly itemCount: number;
 }
@@ -76,20 +75,21 @@ export function RoutesIndexPage({
 			: routes.filter((route) => route.routeName.toLowerCase().includes(search));
 
 	const selectedRoute = routes.find((route) => route.id === effectiveRouteId) ?? null;
-	const { stops, features, itemCount } = selectedStops;
+	const { features, itemCount } = selectedStops;
 
 	return (
 		<>
 			<MapSplitPage
 				map={
-					<RouteMap
+					<StopSequenceMap
 						features={features}
 						fitKey={effectiveRouteId ?? undefined}
 						highlightId={highlightId}
 						onHoverStop={setHighlightId}
 						onSelectStop={setSelectedStopId}
+						recordType="route"
 						selectedId={selectedStopId}
-						stops={stops}
+						stopCount={itemCount}
 					>
 						{selectedRoute !== null ? (
 							<div className="pointer-events-none absolute inset-x-4 top-4 flex justify-center sm:justify-start">
@@ -116,7 +116,7 @@ export function RoutesIndexPage({
 								</div>
 							</div>
 						) : null}
-					</RouteMap>
+					</StopSequenceMap>
 				}
 			>
 				<div className="flex h-full min-h-0 flex-col">

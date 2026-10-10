@@ -2,7 +2,8 @@ import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Link } from '@tanstack/react-router';
-import { useCollectionMethodRecords } from '../../hooks/queries/use-collection-method-records';
+import { catalogs } from '../../hooks/queries/catalog-register';
+import { useCatalogRecords } from '../../hooks/queries/use-catalog-records';
 import { CollectionLureLookupList } from './collection-lure-lookup';
 import { CollectionTimingGuide } from './collection-timing-guide';
 import { ArrowRightIcon } from './constants';
@@ -34,7 +35,7 @@ export function AdultSurveillanceSettings({
  * use them; this shows their counts and points there.
  */
 function CollectionMethodLookupPointer() {
-	const { activeRecords, inactiveRecords } = useCollectionMethodRecords();
+	const { activeRecords, inactiveRecords } = useCatalogRecords(catalogs.collectionMethods);
 
 	return (
 		<LookupListFrame

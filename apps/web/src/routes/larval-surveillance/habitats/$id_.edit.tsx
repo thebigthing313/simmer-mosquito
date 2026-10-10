@@ -17,9 +17,10 @@ import {
 	type HabitatRedraw,
 	useHabitatMutations,
 } from '../../../hooks/mutations/use-habitat-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { type HabitatRecord, useHabitatRecord } from '../../../hooks/queries/use-habitat-record';
-import { useHabitatTypeRoster } from '../../../hooks/queries/use-habitat-type-roster';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
@@ -39,7 +40,7 @@ export const Route = createFileRoute('/larval-surveillance/habitats/$id_/edit')(
 function EditHabitatRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
-	const habitatTypes = useHabitatTypeRoster();
+	const habitatTypes = useCatalogRoster(catalogs.habitatTypes);
 	const { habitat, isReady, isError } = useHabitatRecord(id);
 	const organizationId =
 		auth.snapshot?.authenticated === true ? (auth.snapshot.localIdentity.organizationId ?? '') : '';

@@ -11,7 +11,8 @@ import {
 import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
-import { useOutreachMethodRoster } from '../../../hooks/queries/use-outreach-method-roster';
+import { catalogs } from '../../../hooks/queries/catalog-register';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useMissionStopExecution } from '../../../hooks/use-mission-stop-execution';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -47,7 +48,7 @@ function CreateOutreachActionRoute() {
 	const navigate = useNavigate();
 	const timeZone = useOrganizationTimeZone();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const methods = useOutreachMethodRoster();
+	const methods = useCatalogRoster(catalogs.outreachMethods);
 	const profiles = useProfileRoster();
 
 	const actorProfileId =

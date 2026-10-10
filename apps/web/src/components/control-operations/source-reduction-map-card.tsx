@@ -42,7 +42,7 @@ export function SourceReductionMapCard({
 			eyebrow={<MapCardEyebrow date={action.actionDate} recordType="sourceReduction" />}
 			inset={inset}
 			onClose={onClose}
-			title={action.methodName}
+			title={action.methodName ?? 'Unknown method'}
 			viewDetailLink={(content) => (
 				<Link params={{ id: action.id }} to="/control-operations/source-reduction/$id">
 					{content}

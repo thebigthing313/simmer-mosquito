@@ -7,8 +7,9 @@
 
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import type { TrapFilterBinding } from '../../../hooks/adult-surveillance/use-trap-filter-state';
-import { useCollectionMethodOptions } from '../../../hooks/explorer/use-collection-method-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import {
 	ActiveFilterBar,
 	FilterChip,
@@ -33,7 +34,7 @@ export function TrapFilterFields({
 	readonly wide?: boolean;
 }) {
 	const { filters, setFilters, activeCount, searchInput, setSearchInput, clearSearch } = binding;
-	const { options: methods } = useCollectionMethodOptions();
+	const { options: methods } = useCatalogOptions(catalogs.collectionMethods);
 	const regions = useRegionOptions();
 
 	const controls = (
@@ -84,7 +85,7 @@ export function TrapFilterFields({
  * groupings.
  */
 export function TrapFilterChips({ binding }: { readonly binding: TrapFilterBinding }) {
-	const { nameById: methodNameById } = useCollectionMethodOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
 	const { nameById: regionNameById } = useRegionOptions();
 	const { filters, setFilters, clearSearch, clearAll } = binding;
 	return (

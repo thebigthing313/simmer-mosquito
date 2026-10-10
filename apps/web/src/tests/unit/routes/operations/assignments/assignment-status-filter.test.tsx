@@ -39,8 +39,9 @@ vi.mock('../../../../../hooks/use-organization-time-zone', () => ({
 	useOrganizationTimeZone: () => 'America/New_York',
 }));
 
-vi.mock('../../../../../hooks/explorer/use-personnel-options', () => ({
-	usePersonnelOptions: () => ({ options: [], nameById: new Map() }),
+vi.mock('../../../../../hooks/explorer/use-catalog-options', async (original) => ({
+	...(await original<typeof import('../../../../../hooks/explorer/use-catalog-options')>()),
+	useCatalogOptions: () => ({ options: [], nameById: new Map() }),
 }));
 
 const ROWS = vi.hoisted((): readonly AssignmentListing[] => [
@@ -87,8 +88,8 @@ vi.mock('../../../../../components/app-shell/outlet/map-split-page', () => ({
 	MapSplitPage: ({ children }: { readonly children?: ReactNode }) => <>{children}</>,
 }));
 
-vi.mock('../../../../../components/operations/worklist-map', () => ({
-	WorklistMap: () => null,
+vi.mock('../../../../../components/map/stop-sequence-map', () => ({
+	StopSequenceMap: () => null,
 }));
 
 let Assignments: () => ReactNode;

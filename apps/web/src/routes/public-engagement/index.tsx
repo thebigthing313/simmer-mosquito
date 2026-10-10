@@ -415,7 +415,7 @@ function RecentOutreachPanel({ since }: { readonly since: string }) {
 								icon={<OutreachIcon aria-hidden="true" className="size-4" />}
 								key={action.id}
 								params={{ id: action.id }}
-								primary={action.methodName}
+								primary={action.methodName ?? 'Unknown method'}
 								secondary={outreachSecondary(action)}
 								to="/public-engagement/outreach/$id"
 							/>

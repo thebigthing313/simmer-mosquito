@@ -138,13 +138,20 @@ export interface OpenRequest {
 // --- missions ---------------------------------------------------------------
 
 /**
+ * Where a mission can be in its life, in the order a filter lists them. The
+ * status filter decodes a link against this list, so a member it does not
+ * name is dropped rather than filtering the list to nothing.
+ */
+export const MISSION_STATUSES = ['scheduled', 'inProgress', 'completed', 'cancelled'] as const;
+
+/**
  * Mission lifecycle, derived from timestamps — there is no status column.
  *
  * The precedence matches `deriveMissionLifecycleStatus` in the domain and the
  * server's own read, so a row carrying two terminal timestamps can never render
  * as one state while writing as another.
  */
-export type MissionStatus = 'scheduled' | 'inProgress' | 'completed' | 'cancelled';
+export type MissionStatus = (typeof MISSION_STATUSES)[number];
 
 export const MISSION_STATUS_LABELS: Readonly<Record<MissionStatus, string>> = {
 	scheduled: 'Scheduled',
