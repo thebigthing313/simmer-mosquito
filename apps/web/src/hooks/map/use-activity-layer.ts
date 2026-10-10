@@ -114,9 +114,8 @@ export function useActivityLayer(
 		},
 		selection: {
 			layerId: SELECTED_LAYER_ID,
-			// An entry key is never empty, so the empty string can stand for none.
-			key: config?.selectedKey ?? '',
-			filter: (key) => selectedFilter(key === '' ? null : key),
+			key: config?.selectedKey ?? null,
+			filter: selectedFilter,
 		},
 	});
 }

@@ -111,7 +111,6 @@ function renderSection() {
 			canManage={true}
 			canManageTags={true}
 			organization={ORGANIZATION}
-			organizationFields={[]}
 			organizationName="Test Organization"
 			settings={SETTINGS}
 			timezone="America/Chicago"

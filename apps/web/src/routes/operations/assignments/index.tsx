@@ -18,6 +18,7 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
+	DateRangeChip,
 	FilterChip,
 	type FilterOption,
 	MultiSelectFilter,
@@ -48,6 +49,7 @@ import { datePresetRange, SCHEDULE_WINDOW } from '../../../lib/date-presets';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import {
+	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
 	idSetParam,
@@ -93,7 +95,11 @@ function AssignmentsIndexRoute() {
 		people: new Set(),
 		statuses: new Set(),
 	};
-	const { filters, setFilters, reset } = useSearchFilters(filterDefaults, FILTER_CODECS);
+	const { filters, setFilters, reset, activeCount } = useSearchFilters(
+		filterDefaults,
+		FILTER_CODECS,
+		DATE_RANGE_COUNTING,
+	);
 	const dateRange = useDateRangeFilters({
 		from: filters.from,
 		to: filters.to,
@@ -130,7 +136,9 @@ function AssignmentsIndexRoute() {
 	const { countsById } = useAssignmentItemCounts(visibleIds);
 	const { features, counts, stops } = useAssignmentStops(selectedId);
 
-	const hasFilters = filters.people.size > 0 || filters.statuses.size > 0;
+	// The empty state reads the set filters alone and not the window, because
+	// its copy already names the date range; the chip bar counts both.
+	const hasSetFilter = filters.people.size > 0 || filters.statuses.size > 0;
 
 	return (
 		<MapSplitPage
@@ -199,8 +207,9 @@ function AssignmentsIndexRoute() {
 						/>
 					</div>
 
-					{hasFilters ? (
+					{activeCount > 0 ? (
 						<ActiveFilterBar onClearAll={reset}>
+							<DateRangeChip defaults={scheduleRange} range={filters} setRange={setFilters} />
 							{[...filters.people].map((id) => (
 								<FilterChip
 									key={id}
@@ -222,7 +231,7 @@ function AssignmentsIndexRoute() {
 				<AssignmentResults
 					assignments={visible}
 					countsById={countsById}
-					hasFilters={hasFilters}
+					hasFilters={hasSetFilter}
 					isLoading={isLoading}
 					nameById={nameById}
 					onSelect={handleSelect}
