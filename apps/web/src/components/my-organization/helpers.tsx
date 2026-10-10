@@ -9,7 +9,12 @@ import type {
 	ServiceRequestOverdueDays,
 	UnitDefaults,
 } from '@simmer-mosquito/domain';
-import { isEmailAddress, MAX_SERVICE_REQUEST_OVERDUE_DAYS } from '@simmer-mosquito/domain';
+import {
+	type DomainValidationIssue,
+	isEmailAddress,
+	MAX_SERVICE_REQUEST_OVERDUE_DAYS,
+	normalizeServiceRequestOverdueDays,
+} from '@simmer-mosquito/domain';
 import type { Organization } from '@simmer-mosquito/sync';
 import { toast } from 'sonner';
 import type { OrganizationDetailsFields } from '../../hooks/mutations/use-organization-settings-mutations';
@@ -154,12 +159,14 @@ export function serviceRequestOverdueDaysFrom(
 	if (days === null) {
 		throw new Error(`${OVERDUE_DAYS_LABEL} is required.`);
 	}
-	if (!Number.isInteger(days) || days < 1 || days > MAX_SERVICE_REQUEST_OVERDUE_DAYS) {
+	const issues: DomainValidationIssue[] = [];
+	const threshold = normalizeServiceRequestOverdueDays(days, OVERDUE_DAYS_LABEL, issues);
+	if (issues.length > 0) {
 		throw new Error(
 			`${OVERDUE_DAYS_LABEL} must be a whole number from 1 to ${MAX_SERVICE_REQUEST_OVERDUE_DAYS}.`,
 		);
 	}
-	return days;
+	return threshold;
 }
 
 /** The days input's label, which the refusals name it by. */

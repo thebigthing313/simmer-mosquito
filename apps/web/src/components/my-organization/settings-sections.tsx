@@ -101,7 +101,7 @@ export const serviceRequestContextSection: SettingsSection<
 		serviceRequestOverdueDays: serviceRequestOverdueDaysFrom(values),
 	}),
 	// One after the other: the second states the stamp the first committed
-	// under, and a write whose value did not move sends nothing.
+	// under, and the server merges each into what is stored.
 	save: async (mutations, write) => {
 		await mutations.setServiceRequestContext(write.serviceRequestContext);
 		await mutations.setServiceRequestOverdueDays(write.serviceRequestOverdueDays);

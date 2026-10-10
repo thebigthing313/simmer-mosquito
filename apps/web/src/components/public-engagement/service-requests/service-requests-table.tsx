@@ -125,7 +125,7 @@ function RequestRow({
 			<TableCell className="font-medium tabular-nums">{title}</TableCell>
 			<TableCell className="tabular-nums">{formatRequestDate(row.requestDate)}</TableCell>
 			{/* A closed request has stopped ageing, and Received already dates it. */}
-			<TableCell className={cn('tabular-nums', overdue && 'font-medium text-warning')}>
+			<TableCell className={cn('tabular-nums', overdue && 'text-warning')}>
 				{isServiceRequestOpen(row) ? formatRequestAge(row.requestDate, today) : <AbsentValue />}
 				{overdue ? <span className="sr-only"> Overdue</span> : null}
 			</TableCell>

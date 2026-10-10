@@ -38,13 +38,6 @@ export interface ServiceRequestContextSettings {
 }
 
 /**
- * One key press records one species. Sex and physiological status are not bound
- * to the key — the adult entry modal carries a sticky mode that every press
- * inherits — so an organization needs one key per species rather than one per
- * species/sex/status combination, and the same binding set serves adult and
- * larval identification.
- */
-/**
  * How many whole days an open service request may age, counted from its
  * request date, before it is overdue; or `'off'`, which marks nothing overdue.
  * Off is its own value rather than `0` because a missing value resolves to the
@@ -52,6 +45,13 @@ export interface ServiceRequestContextSettings {
  */
 export type ServiceRequestOverdueDays = number | 'off';
 
+/**
+ * One key press records one species. Sex and physiological status are not bound
+ * to the key — the adult entry modal carries a sticky mode that every press
+ * inherits — so an organization needs one key per species rather than one per
+ * species/sex/status combination, and the same binding set serves adult and
+ * larval identification.
+ */
 export interface SpeciesKeyBinding {
 	readonly key: string;
 	readonly speciesId: DomainId;

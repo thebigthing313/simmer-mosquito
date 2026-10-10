@@ -314,7 +314,7 @@ function DateColumn({
 		<span
 			className={cn(
 				'w-[3.25rem] shrink-0 text-xs leading-tight tabular-nums',
-				warning === undefined ? 'text-muted-foreground' : 'font-medium text-warning',
+				warning === undefined ? 'text-muted-foreground' : 'text-warning',
 				isStacked && 'pt-0.5',
 			)}
 		>

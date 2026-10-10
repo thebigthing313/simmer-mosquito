@@ -756,8 +756,9 @@ stays drawn while the switch is off; `serviceRequestOverdueDaysFrom` ignores it
 then, so an emptied input does not stop a save that turns the threshold off,
 and the number is still there when the switch goes back on. The section's
 `save` writes the context and then the threshold, one after the other, because
-the second write states the `updated_at` the first committed under, and a write
-whose value did not move sends nothing.
+the second write states the `updated_at` the first committed under. The two
+are not one transaction: a refused threshold write after a saved context
+leaves the context saved, and the toast names the section.
 
 #### ReinviteControl
 
