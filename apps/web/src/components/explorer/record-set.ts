@@ -3,6 +3,7 @@ import type { LinkProps } from '@tanstack/react-router';
 import type { MapQueryValue } from '../../lib/map-query-params';
 import type { RecordType } from '../../lib/record-nouns';
 import type { FilterCodecs, FilterCounting, SearchCodec } from '../../lib/search-filters';
+import type { MapTileLayer } from '../map/tile-layers';
 
 /** The two surfaces a record set is drawn on. */
 export type RecordSetSurface = 'map' | 'table';
@@ -61,20 +62,54 @@ export interface RecordSetLinks<TFilters> {
 	readonly applies: { readonly [Key in keyof TFilters]-?: AppliedOn };
 }
 
-/** The `/map/*` list endpoint both surfaces page through, and where its rows arrive. */
+/**
+ * The `/map/*` list endpoint both surfaces page through, where its rows arrive,
+ * and where one record arrives when the Map reads it by id.
+ */
 export interface RecordSetEndpoint {
 	/** The list endpoint, e.g. `/map/biocontrol`. */
 	readonly path: `/map/${string}`;
 	/** The key the rows arrive under in the response body, e.g. `biocontrolActions`. */
 	readonly rowsKey: string;
+	/**
+	 * The key one record arrives under from `GET {path}/:id`, e.g.
+	 * `biocontrolAction`. Only the Map reads it, for a selected record that is
+	 * not on the page.
+	 */
+	readonly rowKey: string;
 }
+
+/**
+ * A tileset a record set's Map can draw. Regions is not a record set, and its
+ * layer also carries the ticked set.
+ */
+type RecordSetTileKind = Exclude<MapTileLayer['kind'], 'regions'>;
+
+/** The filters the tileset `TKind` draws under. */
+type TileFiltersOf<TKind extends RecordSetTileKind> = NonNullable<
+	Extract<MapTileLayer, { readonly kind: TKind }>['filters']
+>;
+
+/** True when `A` and `B` are one type, rather than each assignable to the other. */
+type Same<A, B> =
+	(<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+/**
+ * The tilesets whose filter type is exactly `TTile`, which is what a record
+ * set's `tileFilters` returns. Exact rather than assignable, because a tile
+ * filter type is optional fields throughout and most would pass for another:
+ * Outreach's and Source Reduction's differ by one field name.
+ */
+type RecordSetTileset<TTile> = {
+	[TKind in RecordSetTileKind]: Same<TileFiltersOf<TKind>, TTile> extends true ? TKind : never;
+}[RecordSetTileKind];
 
 /**
  * One Map/Table pair over one record type and one filter contract.
  *
  * `TFilters` is inferred from `codecs` alone and `TTile` from `tileFilters`,
  * so everything else is checked against them rather than widening them: a
- * misspelled key and a missing key both fail.
+ * misspelled key, a missing key and a tileset drawing other filters all fail.
  */
 export interface RecordSet<TFilters, TTile = unknown> extends RecordSetLinks<TFilters> {
 	/**
@@ -90,6 +125,11 @@ export interface RecordSet<TFilters, TTile = unknown> extends RecordSetLinks<TFi
 	/** The filter a search box writes, for a set that has one. */
 	readonly textSearch?: TextSearch<TFilters>;
 	readonly endpoint: RecordSetEndpoint;
+	/**
+	 * The tileset the Map draws, one whose filter type is exactly `TTile`. The
+	 * Table does not read it.
+	 */
+	readonly tileset: RecordSetTileset<TTile>;
 	/**
 	 * The filters as the tile layer reads them, with an unset filter absent.
 	 * The Map draws its tiles from this and both surfaces build their list
@@ -117,6 +157,7 @@ export function defineRecordSet<TFilters, TTile>(
 			| ((context: RecordSetContext) => FilterCounting<NoInfer<TFilters>>);
 		readonly textSearch?: TextSearch<NoInfer<TFilters>>;
 		readonly endpoint: RecordSetEndpoint;
+		readonly tileset: NoInfer<RecordSetTileset<TTile>>;
 		readonly tileFilters: (filters: NoInfer<TFilters>, context: RecordSetContext) => TTile;
 		readonly listParams: (tile: NoInfer<TTile>) => Readonly<Record<string, MapQueryValue>>;
 	},

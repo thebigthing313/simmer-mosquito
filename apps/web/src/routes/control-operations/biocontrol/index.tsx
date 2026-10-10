@@ -75,8 +75,6 @@ function BiocontrolExplorerRoute() {
 	}: ExplorerResource<BiocontrolListRow> = useExplorerResource({
 		set: biocontrolRecordSet,
 		binding,
-		tileset: 'biocontrol',
-		rowKey: 'biocontrolAction',
 		summarize: true,
 	});
 

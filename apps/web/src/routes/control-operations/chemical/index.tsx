@@ -72,8 +72,6 @@ function ApplicationsExplorerRoute() {
 	}: ExplorerResource<ApplicationListRow> = useExplorerResource({
 		set: applicationRecordSet,
 		binding,
-		tileset: 'chemical',
-		rowKey: 'application',
 		normalizeRow: normalizeApplication,
 		summarize: true,
 	});

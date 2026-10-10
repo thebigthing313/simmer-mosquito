@@ -86,8 +86,6 @@ function HabitatsExplorerRoute() {
 	}: ExplorerResource<HabitatListRow> = useExplorerResource({
 		set: habitatRecordSet,
 		binding,
-		tileset: 'habitats',
-		rowKey: 'habitat',
 		summarize: true,
 	});
 	// Tags for the rows actually on screen, so the subset request stays small.

@@ -63,9 +63,13 @@ export function useRecordExtras(): RecordExtras {
 		// The record is already saved, so a failed note cannot fail the save. But
 		// the text the user typed is not on the record, so it is reported rather
 		// than dropped.
-		await attachLinksBestEffort('the note', async () => {
-			await addComment(target, text);
-		});
+		await attachLinksBestEffort(
+			'the note',
+			async () => {
+				await addComment(target, text);
+			},
+			{ write: 'comment', recordType: target.type },
+		);
 	};
 
 	const attach = async ({
@@ -77,8 +81,10 @@ export function useRecordExtras(): RecordExtras {
 		readonly profileIds: readonly string[];
 		readonly commentText: string;
 	}) => {
-		await attachLinksBestEffort('the additional personnel', () =>
-			setPersonnel({ target, existing: [], profileIds }),
+		await attachLinksBestEffort(
+			'the additional personnel',
+			() => setPersonnel({ target, existing: [], profileIds }),
+			{ write: 'add', recordType: target.type },
 		);
 		await attachComment(target, commentText);
 	};
