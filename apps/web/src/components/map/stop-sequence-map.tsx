@@ -13,7 +13,7 @@ import { frameOnMap } from './map-camera';
 import { MapCanvas } from './map-canvas';
 import { MapControlButton, MapControlGroup } from './map-control';
 
-/** The record types that are an ordered run of stops. */
+/** Any other record type compiled here and drew `Zoom to trap` (#1523). */
 type StopRunRecordType = Extract<RecordType, 'route' | 'mission' | 'assignment'>;
 
 /**

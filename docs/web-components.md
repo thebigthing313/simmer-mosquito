@@ -674,6 +674,11 @@ It fits once per `fitKey` rather than handing the stops to `MapCanvas`'s
 stop on a Route edit page would move the camera under the person placing it,
 which none of these surfaces does.
 
+`recordType` takes only `route`, `mission` and `assignment`, an `Extract` over
+`RecordType`, because the wider type let `recordType="trap"` compile and draw
+`Zoom to trap` (#1523). A rename in the register narrows the alias rather than
+failing on it, so the error lands on the call site passing the old name.
+
 #### MapSearch
 
 Two resets that were effects are read off the state they key on (#1183). The

@@ -476,8 +476,8 @@ describe('StopSequenceMap copy for a Route', () => {
 
 /*
  * Only a Route, a Mission or an Assignment is a run of stops, so the type
- * refuses any other record type (#1523). The case holds no assertion of its
- * own: `pnpm typecheck` fails when the directive below has nothing to expect.
+ * refuses any other record type (#1523). The assertion that matters is the
+ * directive below, which `pnpm typecheck` fails when it has nothing to expect.
  */
 describe('StopSequenceMap record type', () => {
 	it('refuses a record type that is not a run of stops', () => {
