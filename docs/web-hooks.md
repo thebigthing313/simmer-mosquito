@@ -1278,7 +1278,13 @@ so a misspelled column fails `tsc`. A collection has no single column: its
 entry is `collectedSince` and `collectionEffectiveDate` from
 `hooks/queries/collection-day.ts`, which every collection read hook windows
 and reduces its rows through, and which hands the day up as `effectiveDate` so
-no page works it out (#1427). It replaced a
+no page works it out (#1427). `PERFORMED_ACTIONS` in
+`hooks/queries/performed-action-reads.ts` reads its `date` for each of the four
+performed control actions from the same register rather than naming the column
+again. A performed control action type added later takes its date column here
+and its joins there, and the heading over `useLinkedControlActions`,
+`useInspectionSamples` and `useHabitatHistory` says what that module holds. It
+replaced a
 `readActivity` on `GET /dashboard`, and two things decided that. The strip is
 what a person opens the page for, and on the server it shared one round trip
 with the untreated habitats read, which was 4.7 seconds on the production
@@ -1968,6 +1974,16 @@ on a `date` column, so the bound is a plain `YYYY-MM-DD` string, no zone
 and no instant. See `use-recent-collections.ts` for the adult case, where it
 is neither.
 
+They are two files of 58 and 54 lines, and they stay two. Every join, the date
+and the measured columns already come from `PERFORMED_ACTIONS`, so what the two
+files still share is the shape of the query. One hook over both would be
+generic over the collection, and the compiler cannot relate the ref the query
+builder hands back to the `PERFORMED_ACTIONS` entry passed in beside it, so the
+call to that entry's predicates would need a cast across the two row types. A
+cast is what the module's no column map rule exists to keep out. That was
+decided in #1428 and #1498, so a duplication report naming the pair is expected
+and is not a finding to fix.
+
 #### usePeopleDirectory
 
 A Profile is who work is attributed to; a Membership is the access that
@@ -2097,6 +2113,28 @@ in keeps its `null` id beside the `null` name, which is how a page tells
 subset each action table is asked for, so a join that took the predicate over
 fails there. A join also works inside a correlated `toArray` include, which is
 how a species count gets its taxon's name.
+
+The control action joins are not written in these hooks. `PERFORMED_ACTIONS`
+in `hooks/queries/performed-action-reads.ts` holds them for the four performed
+control actions, one entry per type: a join predicate for the method, for the
+product on a Chemical Application, for the unit on every type but an Outreach
+Action, and for whoever performed it, plus `measured`, which returns the
+method, performer, amount and unit columns under one set of field names. Before
+#1428 about ten read hooks wrote those joins and columns out per type; eleven
+compose them from the module now, `useLinkedControlActions` and
+`useHabitatHistory` among them. A hook keeps its own `from`, `where`, ordering
+and the field names of the view it returns. The same module exports
+`controlActionBaseSelect`, the placement and audit fields (address, inspection,
+request, mission item, coordinates, metadata and the four audit columns) that
+`useApplication`, `useSourceReduction`, `useBiocontrolAction` and
+`useOutreachAction` project the same way. It leaves out `habitatId`, because an
+Outreach Action has no habitat.
+
+The module has no column map, for the reason `performed-action-writes.ts`
+gives on the write side. Every column is a property access on a typed ref
+inside a function, never a column name in a string, so a misspelled column
+fails `tsc` in that file rather than answering `undefined`. #1498 checked it by
+renaming two columns there and reading two TS2551s.
 
 #### useInspection and useHabitatSuspense
 
