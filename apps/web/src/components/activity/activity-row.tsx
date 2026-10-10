@@ -1,4 +1,5 @@
 import { mapFamily } from '@simmer-mosquito/design-tokens';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { ExplorerRow } from '../explorer';
 import { hasDetailBadges, recordBadges, type StatusPlacement } from '../record/record-badges';
 import {
@@ -7,7 +8,6 @@ import {
 	type ActivityLookups,
 	activityEntryKey,
 	activityRow,
-	formatActivityTime,
 } from './activity-data';
 
 /**
@@ -20,15 +20,14 @@ export function ActivityRow({
 	entry,
 	isSelected,
 	lookups,
-	timeZone,
 	onSelect,
 }: {
 	readonly entry: ActivityEntry;
 	readonly isSelected: boolean;
 	readonly lookups: ActivityLookups;
-	readonly timeZone: string | undefined;
 	readonly onSelect: (key: string) => void;
 }) {
+	const clock = useOrganizationClock();
 	const key = activityEntryKey(entry);
 	const { title, subtitle, categoryLabel, link, facts, tags } = activityRow(entry, lookups);
 	const verb = ACTIVITY_ROLE_LABEL[entry.role] ?? entry.role;
@@ -48,7 +47,7 @@ export function ActivityRow({
 				// The verb leads, because what the person did to the record is what this page
 				// adds over the record's own explorer. The time of day rides at the end for
 				// the three kinds that have one.
-				subtitle={[verb, subtitle, formatActivityTime(entry.occurredAt, timeZone)]
+				subtitle={[verb, subtitle, clock.formatInstant(entry.occurredAt, 'time')]
 					.filter((part) => part !== null && part !== '')
 					.join(' · ')}
 				swatch={{

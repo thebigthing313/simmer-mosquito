@@ -3,13 +3,12 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import {
 	controlTypeLabel,
-	formatScheduledStart,
 	type MissionListing,
 	type MissionProgressCounts,
 	missionDisplayName,
 	missionStatus,
 } from '../../../hooks/queries/operations-view';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { MissionStatusBadge, stopSummary } from '../operations-display';
 
 /**
@@ -34,8 +33,8 @@ export function MissionRow({
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
-	const timeZone = useOrganizationTimeZone();
-	const name = missionDisplayName(mission, timeZone);
+	const clock = useOrganizationClock();
+	const name = missionDisplayName(mission, clock);
 
 	return (
 		<li
@@ -60,7 +59,7 @@ export function MissionRow({
 					<p className="m-0 mt-1 text-muted-foreground text-xs">
 						{controlTypeLabel(mission.controlType)}
 						{methodName === null ? '' : ` · ${methodName}`}
-						{` · ${formatScheduledStart(mission.scheduledStartAt, timeZone)}`}
+						{` · ${clock.formatInstant(mission.scheduledStartAt, 'dateTime')}`}
 					</p>
 					<p className="m-0 mt-1 text-muted-foreground text-xs">
 						{assigneeName ?? 'Unassigned'} · {stopSummary(counts)}

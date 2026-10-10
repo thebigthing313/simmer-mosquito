@@ -1,11 +1,10 @@
 import {
 	controlTypeLabel,
-	formatRequestedAt,
 	type RequestListing,
 	requestDisplayName,
 	requestStatus,
 } from '../../../hooks/queries/operations-view';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { ExplorerRow } from '../../explorer';
 import { RequestStatusBadge } from '../../request-status-badge';
 
@@ -38,11 +37,11 @@ export function RequestRow({
 	const methodName = lookup(methodNameById, request.recommendedMethodId);
 	const requesterName = lookup(personNameById, request.requestedByProfileId);
 	const subject = requestDisplayName(request);
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const detail = [
 		controlTypeLabel(request.controlType),
 		methodName,
-		formatRequestedAt(request.requestedAt, timeZone),
+		clock.formatInstant(request.requestedAt, 'date'),
 	]
 		.filter((part): part is string => part !== null)
 		.join(' · ');

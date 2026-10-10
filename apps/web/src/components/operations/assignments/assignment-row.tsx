@@ -7,10 +7,9 @@ import {
 	assignmentOwnName,
 	assignmentStatus,
 	formatAssignmentDate,
-	formatDueAt,
 	type ProgressCounts,
 } from '../../../hooks/queries/assignment-view';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { stopSummary } from '../operations-display';
 import { AssignmentStatusBadge } from './assignment-display';
 
@@ -34,8 +33,8 @@ export function AssignmentRow({
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
-	const timeZone = useOrganizationTimeZone();
-	const due = formatDueAt(assignment.dueAt, timeZone);
+	const clock = useOrganizationClock();
+	const due = clock.formatInstant(assignment.dueAt, 'dueAt');
 	const name = assignmentDisplayName(assignment);
 
 	return (

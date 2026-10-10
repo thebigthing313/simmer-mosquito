@@ -16,7 +16,7 @@ import type {
 	HabitatHistorySourceReduction,
 	HabitatHistorySpecies,
 } from '../../../hooks/queries/use-habitat-history';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { formatCount } from '../../../lib/format-count';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -24,7 +24,7 @@ import { sampleName } from '../../../lib/sample-name';
 import { DensityBadge, LifeStageStrip } from '../../larval-display';
 import { RequestStatusBadge } from '../../request-status-badge';
 import { HISTORY_UNAVAILABLE, HistoryTab } from './habitat-history-tab';
-import { amountWithUnit, formatDateTime } from './habitat-history-values';
+import { amountWithUnit } from './habitat-history-values';
 
 const historyLinkClassName = recordLink({ tone: 'inherit', underline: 'hover' });
 const InspectionIcon = iconRegistry.entities.inspection.icon;
@@ -312,7 +312,7 @@ export function RequestHistory({
 	readonly habitatId: string;
 	readonly isError: boolean;
 }) {
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 
 	return (
 		<HistoryTab
@@ -347,7 +347,7 @@ export function RequestHistory({
 							params={{ id: request.id }}
 							to="/operations/requests-for-control/$id"
 						>
-							{formatDateTime(request.requestedAt, timeZone)}
+							{clock.formatInstant(request.requestedAt, 'dateTime')}
 						</Link>
 					</TableCell>
 					<TableCell className="whitespace-nowrap">

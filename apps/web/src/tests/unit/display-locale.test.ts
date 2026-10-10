@@ -25,9 +25,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { formatOperationalDate } from '../../components/operations/operations-data';
 import { formatRequestDate } from '../../components/public-engagement/public-engagement-display';
-import { formatAssignmentDate, formatDueAt } from '../../hooks/queries/assignment-view';
+import { formatAssignmentDate } from '../../hooks/queries/assignment-view';
 import { formatAmount, formatCount } from '../../lib/format-count';
 import { formatListDate, localTimeOfDay, todayInTimeZone } from '../../lib/local-date';
+import { createOrganizationClock } from '../../lib/organization-clock';
 
 const HOST_LOCALE = 'de-DE';
 
@@ -160,7 +161,9 @@ describe('a host that is not en-US', () => {
 	// A due time is an instant on the organization's clock, so the zone is the
 	// organization's and only the wording is pinned.
 	it('renders a due time as en-US on the organization clock', () => {
-		expect(formatDueAt('2026-08-04T20:30:00Z', 'America/New_York')).toBe('Aug 4, 4:30 PM');
+		expect(
+			createOrganizationClock('America/New_York').formatInstant('2026-08-04T20:30:00Z', 'dueAt'),
+		).toBe('Aug 4, 4:30 PM');
 	});
 
 	it('separates thousands the en-US way', () => {
