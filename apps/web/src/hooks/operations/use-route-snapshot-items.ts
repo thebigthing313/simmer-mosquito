@@ -1,6 +1,6 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { route_items } from '../../lib/collections/route_items';
-import { activityGcTimeMs, unmatchableId } from '../queries/shared';
+import { liveQueryGcTimeMs, unmatchableId } from '../queries/shared';
 
 /** One route stop, as a from-route snapshot copies it. */
 export interface RouteSnapshotItem {
@@ -16,7 +16,7 @@ export function useRouteSnapshotItems(routeId: string | null): {
 	readonly isReady: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: route_items() })

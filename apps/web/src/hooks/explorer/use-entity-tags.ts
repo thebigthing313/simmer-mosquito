@@ -1,7 +1,7 @@
 import { and, coalesce, eq, inArray, useLiveQuery } from '@tanstack/react-db';
 import { tag_items } from '../../lib/collections/tag_items';
 import { tags } from '../../lib/collections/tags';
-import { activityGcTimeMs, joinedOrNull, unmatchableId } from '../queries/shared';
+import { joinedOrNull, liveQueryGcTimeMs, unmatchableId } from '../queries/shared';
 import type { Tag } from '../queries/tag-view';
 
 /**
@@ -25,7 +25,7 @@ export function useEntityTags(
 	const uniqueIds = [...new Set(entityIds)];
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: tag_items() })

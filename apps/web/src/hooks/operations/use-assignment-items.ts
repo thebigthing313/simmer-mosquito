@@ -1,6 +1,6 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { assignment_items } from '../../lib/collections/assignment_items';
-import { activityGcTimeMs, unmatchableId } from '../queries/shared';
+import { liveQueryGcTimeMs, unmatchableId } from '../queries/shared';
 /** One stop, in the vocabulary the run page speaks. */
 export interface AssignmentItemView {
 	readonly id: string;
@@ -22,7 +22,7 @@ export function useAssignmentItems(assignmentId: string | null): {
 	readonly isReady: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: assignment_items() })

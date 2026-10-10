@@ -59,7 +59,7 @@ import {
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
+import { liveQueryGcTimeMs } from '../../../hooks/queries/shared';
 import { useApplication } from '../../../hooks/queries/use-application';
 import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
 import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
@@ -97,7 +97,7 @@ function RouteComponent() {
 	// One query for the application, its product, method, unit, applicator, rig and
 	// address — the lookups this page used to do for itself. `applications` is
 	// on-demand, so this is status-gated rather than suspending; see the hook.
-	const { application, isReady, isError } = useApplication(id, { gcTime: activityGcTimeMs });
+	const { application, isReady, isError } = useApplication(id);
 
 	return (
 		<RecordDetailPage
@@ -251,7 +251,7 @@ function ApplicationBatchesCard({
 	// insecticide_batches is on-demand too; only this product's batches can be
 	// linked, so scope the subset to the applied insecticide.
 	const batchResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ batch: insecticide_batches() })

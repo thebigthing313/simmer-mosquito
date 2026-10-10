@@ -18,14 +18,14 @@ import { addressSelect, joinedOrNull, useRecordById } from './shared';
  * Takes a nullable id so a form can ask before the user has chosen a Habitat,
  * which is {@link useRecordById}'s absent case.
  */
-export function useHabitat(
-	habitatId: string | null,
-	options?: { readonly gcTime?: number },
-): { readonly habitat: Habitat | undefined; readonly isReady: boolean; readonly isError: boolean } {
+export function useHabitat(habitatId: string | null): {
+	readonly habitat: Habitat | undefined;
+	readonly isReady: boolean;
+	readonly isError: boolean;
+} {
 	const result = useRecordById({
 		collection: habitats(),
 		id: habitatId,
-		gcTime: options?.gcTime,
 		query: (query) =>
 			query
 				// `left`: a Habitat need not have a type, and an `inner` join would make

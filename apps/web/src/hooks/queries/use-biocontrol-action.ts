@@ -19,10 +19,7 @@ import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
 const releaseReads = PERFORMED_ACTIONS.releases;
 
-export function useBiocontrolAction(
-	actionId: string | null,
-	options?: { readonly gcTime?: number },
-): {
+export function useBiocontrolAction(actionId: string | null): {
 	readonly action: BiocontrolAction | undefined;
 	readonly isReady: boolean;
 	/**
@@ -35,7 +32,6 @@ export function useBiocontrolAction(
 	const result = useRecordById({
 		collection: biocontrol_actions(),
 		id: actionId,
-		gcTime: options?.gcTime,
 		query: (query) =>
 			query
 				// `left` throughout: a release need not record a technician and most

@@ -41,7 +41,7 @@ import {
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import { useSampleSpeciesMutations } from '../../../hooks/mutations/use-sample-species-mutations';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
+import { liveQueryGcTimeMs } from '../../../hooks/queries/shared';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -264,12 +264,12 @@ function IdentificationCard({
 	// The on-demand sample record — the source of truth for the disposition flags
 	// and label. Falls back to the one-shot seed until the subset is ready.
 	const recordResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query.from({ sample: samples() }).where(({ sample }) => eq(sample.id, sampleId)),
 	});
 	const speciesResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ sampleSpecies: sample_species() })

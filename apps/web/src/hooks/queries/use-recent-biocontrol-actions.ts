@@ -5,14 +5,14 @@ import { profiles } from '../../lib/collections/profiles';
 import { units } from '../../lib/collections/units';
 import { PERFORMED_ACTIONS } from './performed-action-reads';
 import type { RecentResult } from './recent-control-action-view';
-import { activityGcTimeMs, joinedOrNull } from './shared';
+import { joinedOrNull, liveQueryGcTimeMs } from './shared';
 
 const releaseReads = PERFORMED_ACTIONS.releases;
 
 /** Biocontrol releases performed on or after `sinceDate`, newest first. */
 export function useRecentBiocontrolActions(sinceDate: string): RecentResult {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ action: biocontrol_actions() })

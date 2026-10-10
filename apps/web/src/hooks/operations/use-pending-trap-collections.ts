@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, useLiveQuery } from '@tanstack/react-db';
 import { targetTypeOf } from '../../components/operations/assignments/assignment-data';
 import { collections } from '../../lib/collections/collections';
-import { activityGcTimeMs, unmatchableId } from '../queries/shared';
+import { liveQueryGcTimeMs, unmatchableId } from '../queries/shared';
 import type { AssignmentItemView } from './use-assignment-items';
 
 /** The stops' trap ids, deduped and sorted so the subset key is stable. */
@@ -38,7 +38,7 @@ export function usePendingTrapCollections(
 	const trapIds = trapIdsOf(items);
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ collection: collections() })

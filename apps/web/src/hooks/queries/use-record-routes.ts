@@ -19,7 +19,7 @@ import { and, coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { route_items } from '../../lib/collections/route_items';
 import { routes } from '../../lib/collections/routes';
 import { NATURAL_ORDER } from '../../lib/natural-order';
-import { activityGcTimeMs } from './shared';
+import { liveQueryGcTimeMs } from './shared';
 
 /** One line of "this site is stop 4 of Zone 3". */
 export interface RecordRoute {
@@ -41,7 +41,7 @@ export function useRecordRoutes(target: {
 	readonly id: string;
 }): RecordRoutesResult {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: route_items() })

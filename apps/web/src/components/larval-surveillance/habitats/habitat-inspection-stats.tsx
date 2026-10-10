@@ -16,7 +16,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Cell, Pie, PieChart } from 'recharts';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
+import { liveQueryGcTimeMs } from '../../../hooks/queries/shared';
 import { inspections } from '../../../lib/collections/inspections';
 import { formatCount } from '../../../lib/format-count';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -100,7 +100,7 @@ export function HabitatInspectionStats({ habitatId }: { readonly habitatId: stri
 	// inspections is an on-demand collection: use the status-gated useLiveQuery
 	// pattern (not useLiveSuspenseQuery) to avoid the post-unmount suspense hang.
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ inspection: inspections() })

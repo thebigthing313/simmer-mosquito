@@ -23,10 +23,7 @@ import { collectionEffectiveDate } from './collection-day';
 import type { AdultCollection } from './collection-view';
 import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
-export function useAdultCollection(
-	collectionId: string | null,
-	options?: { readonly gcTime?: number },
-): {
+export function useAdultCollection(collectionId: string | null): {
 	readonly collection: AdultCollection | undefined;
 	readonly isReady: boolean;
 	readonly isError: boolean;
@@ -35,7 +32,6 @@ export function useAdultCollection(
 	const result = useRecordById({
 		collection: collections(),
 		id: collectionId,
-		gcTime: options?.gcTime,
 		query: (query) =>
 			query
 				// `left` throughout: an ad-hoc collection names no trap, most name no

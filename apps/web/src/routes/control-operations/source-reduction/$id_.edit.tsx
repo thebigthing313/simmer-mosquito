@@ -14,7 +14,6 @@ import { useSourceReductionMutations } from '../../../hooks/mutations/use-source
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
@@ -54,11 +53,7 @@ function EditSourceReductionRoute() {
 	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
 
-	const {
-		action: sourceReduction,
-		isReady,
-		isError,
-	} = useSourceReduction(id, { gcTime: activityGcTimeMs });
+	const { action: sourceReduction, isReady, isError } = useSourceReduction(id);
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;

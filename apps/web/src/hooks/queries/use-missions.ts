@@ -16,7 +16,7 @@ import { missions } from '../../lib/collections/missions';
 import { addCalendarDays, localDayStartAsInstant } from '../../lib/local-date';
 import { useOrganizationTimeZone } from '../use-organization-time-zone';
 import type { MissionListing } from './operations-view';
-import { activityGcTimeMs } from './shared';
+import { liveQueryGcTimeMs } from './shared';
 
 /** See `use-requested-control-actions.ts` — same column type, same trap. */
 const EARLIEST_INSTANT = new Date(0);
@@ -39,7 +39,7 @@ export function useMissions(
 		to === '' ? LATEST_INSTANT : localDayStartAsInstant(addCalendarDays(to, 1), timeZone);
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ mission: missions() })

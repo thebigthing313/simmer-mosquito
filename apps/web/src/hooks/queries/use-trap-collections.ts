@@ -27,7 +27,7 @@ import { collections } from '../../lib/collections/collections';
 import { todayInTimeZone } from '../../lib/local-date';
 import { collectedSince, collectionEffectiveDate } from './collection-day';
 import type { AdultCollectionTimingMode } from './collection-view';
-import { activityGcTimeMs } from './shared';
+import { liveQueryGcTimeMs } from './shared';
 
 /** One species line under a collection. */
 export interface TrapCollectionSpecies {
@@ -72,7 +72,7 @@ export function useTrapCollections(
 			: `${Number(todayInTimeZone(timeZone).slice(0, 4)) - (seasons - 1)}-01-01`;
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ collection: collections() })

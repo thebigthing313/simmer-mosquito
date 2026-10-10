@@ -13,7 +13,6 @@ import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreac
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { OutreachAction } from '../../../hooks/queries/outreach-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
@@ -48,7 +47,7 @@ function EditOutreachActionRoute() {
 	const methods = useCatalogRoster(catalogs.outreachMethods);
 	const profiles = useProfileRoster();
 
-	const { action, isReady, isError } = useOutreachAction(id, { gcTime: activityGcTimeMs });
+	const { action, isReady, isError } = useOutreachAction(id);
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;

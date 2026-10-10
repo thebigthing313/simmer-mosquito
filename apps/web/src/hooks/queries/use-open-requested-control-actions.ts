@@ -20,14 +20,14 @@
 import { isNull, useLiveQuery } from '@tanstack/react-db';
 import { requested_control_actions } from '../../lib/collections/requested_control_actions';
 import type { OpenRequest } from './operations-view';
-import { activityGcTimeMs } from './shared';
+import { liveQueryGcTimeMs } from './shared';
 
 export function useOpenRequestedControlActions(): {
 	readonly requests: readonly OpenRequest[];
 	readonly isReady: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ request: requested_control_actions() })

@@ -17,7 +17,7 @@
 
 import { useLiveQuery } from '@tanstack/react-db';
 import { contacts } from '../../lib/collections/contacts';
-import { activityGcTimeMs } from './shared';
+import { liveQueryGcTimeMs } from './shared';
 
 /** A Contact as the directory lists one, and as its search reads one. */
 export interface ContactListing {
@@ -37,7 +37,7 @@ export function useContactDirectory(): {
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ contact: contacts() })

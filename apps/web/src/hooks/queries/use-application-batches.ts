@@ -11,7 +11,7 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { application_batches } from '../../lib/collections/application_batches';
 import type { ApplicationBatchLink } from '../mutations/use-application-mutations';
-import { activityGcTimeMs, unmatchableId } from './shared';
+import { liveQueryGcTimeMs, unmatchableId } from './shared';
 
 export interface ApplicationBatchesResult {
 	/** The link rows, oldest first. */
@@ -24,7 +24,7 @@ export interface ApplicationBatchesResult {
 
 export function useApplicationBatches(applicationId: string | null): ApplicationBatchesResult {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ entry: application_batches() })

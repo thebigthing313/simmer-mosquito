@@ -59,18 +59,25 @@ import type { CollectionOf, SyncedRow } from '../../lib/collections/registry';
 export const unmatchableId = '00000000-0000-0000-0000-000000000000';
 
 /**
- * How long an on-demand subset stays loaded after the last thing reading it unmounts.
+ * How long a live query's result stays loaded after its last reader unmounts.
+ *
+ * It is a `useLiveQuery` option, and `useRecordById` applies it for every hook
+ * built on that factory. A bare `useLiveQuery` call passes it explicitly, because
+ * a call that passes nothing gets TanStack DB's own five seconds. Over an
+ * on-demand collection the result it keeps is the subset Electric loaded for the
+ * query; over an eager one it is the query's own result, since the collection
+ * stays loaded either way.
  *
  * Thirty seconds, which covers the two cases it was written for: a user opening a
  * map card, closing it and opening it again, and an overview browsed back and forth
  * through, yesterday, then the day before, then back to yesterday. It is a query
  * option rather than a collection one, because the collection is shared. Every
- * on-demand read in the app takes this window, and each one used to write the
+ * live query in the app that sets a window takes this one, and each used to write the
  * number out for itself: 26 private copies under `routes/` (#860), then 16 more
  * across the pickers and the query hooks and a second export for map cards
  * (#1429). Import this rather than writing 30 seconds out again.
  */
-export const activityGcTimeMs = 30_000;
+export const liveQueryGcTimeMs = 30_000;
 
 /**
  * What every Dashboard queue read off Electric answers with: how many are
@@ -123,8 +130,6 @@ export function useRecordById<TRow extends SyncedRow, TContext extends Context>(
 	readonly collection: CollectionOf<TRow>;
 	readonly id: string | null;
 	readonly query: RecordQuery<TRow, TContext>;
-	/** Defaults to {@link activityGcTimeMs}. */
-	readonly gcTime?: number | undefined;
 }): {
 	readonly record: GetResult<TContext> | undefined;
 	readonly isReady: boolean;
@@ -132,7 +137,7 @@ export function useRecordById<TRow extends SyncedRow, TContext extends Context>(
 } {
 	const { collection, id } = options;
 	const result = useLiveQuery({
-		gcTime: options.gcTime ?? activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			options.query(
 				query

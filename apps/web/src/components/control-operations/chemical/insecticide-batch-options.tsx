@@ -1,7 +1,7 @@
 import type { FieldOption } from '@simmer-mosquito/ui-web/components/form';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import type { ReactNode } from 'react';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
+import { liveQueryGcTimeMs } from '../../../hooks/queries/shared';
 import { insecticide_batches } from '../../../lib/collections/insecticide_batches';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 
@@ -17,7 +17,7 @@ export function InsecticideBatchOptions({
 	readonly children: (options: readonly FieldOption[]) => ReactNode;
 }) {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ batch: insecticide_batches() })

@@ -24,14 +24,14 @@ import type { Trap } from './trap-view';
  * Takes a nullable id so a form can ask before the user has chosen a Trap, which
  * is {@link useRecordById}'s absent case.
  */
-export function useTrap(
-	trapId: string | null,
-	options?: { readonly gcTime?: number },
-): { readonly trap: Trap | undefined; readonly isReady: boolean; readonly isError: boolean } {
+export function useTrap(trapId: string | null): {
+	readonly trap: Trap | undefined;
+	readonly isReady: boolean;
+	readonly isError: boolean;
+} {
 	const result = useRecordById({
 		collection: traps(),
 		id: trapId,
-		gcTime: options?.gcTime,
 		query: (query) =>
 			query
 				// `left` throughout: an unbaited Trap has no lure and most have no
