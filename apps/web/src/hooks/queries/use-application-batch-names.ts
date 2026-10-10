@@ -40,7 +40,7 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { application_batches } from '../../lib/collections/application_batches';
 import { insecticide_batches } from '../../lib/collections/insecticide_batches';
-import { mapCardGcTimeMs, unmatchableId } from './shared';
+import { activityGcTimeMs, unmatchableId } from './shared';
 
 /**
  * Whether the joined side of a row arrived.
@@ -56,7 +56,7 @@ function hasName(name: string | undefined): name is string {
 
 export function useApplicationBatchNames(applicationId: string | null): readonly string[] {
 	const result = useLiveQuery({
-		gcTime: mapCardGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ entry: application_batches() })

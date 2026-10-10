@@ -52,33 +52,40 @@ observer's first delivery, because `ResizeObserver` reports after layout and
 before paint, so a document that has not painted yet, such as a background tab
 or a hidden pane, never hears from it.
 
-#### The control method option hooks
+#### useCatalogOptions
 
-`useApplicationMethodOptions`, `useSourceReductionMethodOptions`,
-`useBiocontrolMethodOptions` and `useOutreachMethodOptions` are one question
-asked of four tables: how was this done, and with what. Each control explorer
-reaches for the pair, the multi-select above the list and the name on every
-row, and the rows themselves come from `/map/*`, which sends ids rather than
-names.
+One question asked of every catalog on the register in
+`hooks/queries/catalog-register.ts`: what may an explorer filter by, and what
+is the name behind an id. An explorer reaches for the pair, the multi-select
+above the list and the name on every row, and the rows themselves come from
+`/map/*`, which sends ids rather than names. It replaced ten hooks, six of them
+aliases over `useNamedCatalog` and three copies of it written out again (#1430).
 
-Retired methods stay in the lists, for the reason they do in
-`useHabitatTypeOptions`: an explorer looks backwards, and a season's work done
-with a method the organization has since dropped is exactly what somebody
-filtering by it is asking for. The pickers on the forms are the surfaces that
-offer only what is current.
+Retired rows stay in the lists. An explorer looks backwards, and a season's
+work done with a method the organization has since dropped is exactly what
+somebody filtering by it is asking for. The pickers on the forms are the
+surfaces that offer only what is current.
 
-The catalogs are eager and small, so these suspend rather than drawing a
-pending state; they are loaded before an explorer can be reached.
+The catalogs are eager and small, so this suspends rather than drawing a
+pending state; they are loaded before an explorer can be reached. It sorts in
+the query rather than in the hook, because `orderBy` is part of the compiled
+pipeline and the rows arrive ordered. For the profiles catalog that drops
+`localeCompare`, which differs on accented names: Ángela sorts before Alan
+rather than between Alan and Beth. It is the same ordering the other picker
+lists use, and it is the price of a sort that happens once when a row arrives
+instead of on every render. `useDailyWorkRoster` is the profile read that pays
+for `localeCompare`, and its docblock says why.
 
-`useControlMethodNames` is built from the four hooks rather than from four more
-queries, so a page that shows both a filter and a name pays for one read of
-each catalog. Ids are uuids and so globally unique, which is what lets one map
-serve all four catalogs.
+`useControlMethodNames` is built from four calls to this hook rather than from
+four more queries, so a page that shows both a filter and a name pays for one
+read of each catalog. Ids are uuids and so globally unique, which is what lets
+one map serve all four catalogs.
 
-`useInsecticideOptions` is its own hook rather than a call to `useNamedCatalog`
-because the column is `trade_name` rather than `name`. `shorthand` is an
-organization's internal abbreviation for data entry, not a name a reader should
-have to read.
+`useInsecticideOptions` is its own hook rather than a register entry, because
+insecticides are not on the register: they order active first in one query and
+sit beside the batch reads. It reads `trade_name` and calls `indexed`, which
+this module exports for it. `shorthand` is an organization's internal
+abbreviation for data entry, not a name a reader should have to read.
 
 #### usePagedMapResource
 
@@ -157,30 +164,17 @@ that is on the page draws when the page does rather than a moment before it.
 
 #### The catalog option hooks
 
-`useCollectionMethodOptions`, `useHabitatTypeOptions`, `usePersonnelOptions`,
-`useRegionOptions`, `useSpeciesOptions` and `useTagOptions` each answer one
-filter question an explorer gets asked: how a trap catches, what kind of place
-a Habitat is, who did the work, which district, which species, which tag. Each
-labels its rows with the same lookup the filter reads.
+`useRegionOptions`, `useSpeciesOptions` and `useTagOptions` each answer a
+filter question `useCatalogOptions` cannot: which district, which species,
+which tag. None of the three is a name lookup over one table, which is why
+they are not on the catalog register. Each labels its rows with the same lookup
+the filter reads, and retired rows stay in every list for the reason they do in
+`useCatalogOptions`.
 
-Retired catalog rows stay in every list. An explorer looks backwards, and a
-season's inspections filtered by a type the organization has since stopped
-using is exactly what the person asking means. The pickers on the forms are the
-surfaces that offer only what is current.
-
-The eager catalogs suspend rather than drawing a pending state, because they
-are loaded before an explorer can be reached. `useRegionOptions` is the one
-that cannot: `regions` is on-demand, and the suspense hook hangs when a route
-unmounts over an on-demand collection, so it uses plain `useLiveQuery` and
-holds the subset for thirty seconds past unmount, because regions are picked,
-unpicked and re-picked while somebody narrows a map.
-
-`usePersonnelOptions` sorts in the query rather than in the hook, because
-`orderBy` is part of the compiled pipeline and the rows arrive ordered. That
-drops `localeCompare`, which differs on accented names: Ángela sorts before
-Alan rather than between Alan and Beth. It is the same ordering the other
-picker lists use, and it is the price of a sort that happens once when a row
-arrives instead of on every render.
+`useRegionOptions` does not suspend: `regions` is on-demand, and the suspense
+hook hangs when a route unmounts over an on-demand collection, so it uses plain
+`useLiveQuery` and holds the subset for thirty seconds past unmount, because
+regions are picked, unpicked and re-picked while somebody narrows a map.
 
 `useSpeciesOptions` reads two sets on purpose. The options are the species the
 organization has adopted, since a New Jersey program records perhaps thirty of
@@ -707,10 +701,11 @@ keep it unless the call says `retainPadding: false`. Before #1424 nothing in
 left 64, and since this hook writes again only when the inset's four numbers
 change, every later selection centred on the whole canvas, under the results
 panel. So every fit takes its padding from `framingPadding` in
-`components/map/map-inset.ts`: the canvas's current padding off `getPadding()`
-plus the fit's margin on each side, with `retainPadding: false`. A fit can
-hand it an inset in place of `getPadding()`, which `useMapExtentFit` does,
-because on a fresh map it can run before this hook has written anything.
+`components/map/map-inset.ts`: the inset this hook last asked for plus the
+fit's margin on each side, with `retainPadding: false`. A fit can hand it an
+inset of its own, which `useMapExtentFit` does, because on a fresh map it can
+run before this hook has written anything, and a map this hook has not
+written to yet falls back to `getPadding()`.
 
 Every fit and every flight in `apps/web` goes through
 `components/map/map-camera.ts`, which is where that rule is applied: `frameOnMap`
@@ -724,10 +719,26 @@ The `place` focus flies for 1100 ms, the locate button's old number rather than
 the search client's 700, because a place can be anywhere on the map and a
 reader follows a long flight better than a quick one.
 
-One race is left. A fit that starts while this hook's 300 ms padding animation
-is running stops it partway, and `getPadding()` then reads the in-between
-value, which the fit's `retainPadding: false` restores when it ends. This hook
-does not write again, because the inset's four numbers have not changed.
+The padding is animated over 300 ms, and anything that moves the camera inside
+that window stops the ease partway: a fit, a focus, a zoom button, a drag or a
+wheel zoom. A stopped ease leaves the transform where its last frame put it,
+so mapbox keeps the in-between padding, and the effect above never notices because
+the inset's four numbers have not changed. Later selections then centre in
+the wrong place, and `useMapExtentFit`'s in-view test, which reads
+`getBounds()` net of padding, judges against the wrong box (#1490).
+Two things cover it. The hook records the inset it asked for on the map
+(`requestCanvasInset` in `map-inset.ts`), and `framingPadding` builds on that
+record rather than on `getPadding()`, so a fit that starts mid-ease gets the
+right margin. And the hook listens for `moveend`: one frame later, if the map
+is not moving and its padding differs from the record, it eases back to the
+record. A move that ends with the padding right writes nothing.
+
+The frame is the part not to remove. Mapbox fires `moveend` for the stopped
+ease from inside the interrupting call's `stop()`, before that call has set
+the map moving, so `isMoving()` reads false at that point and a write there
+would stop the new move in turn. A frame later the interrupting call has
+started, or a gesture's own render frame has marked it in progress, and
+`isMoving()` answers true.
 
 #### useMapboxMap
 
@@ -1139,9 +1150,13 @@ A geometry still exactly the stop's is sent as no geometry, and the server
 copies the stop's stored shape. The copy the form holds came through
 `st_asgeojson`, which keeps nine decimal places, and a rounded copy need not
 cover the stored shape, so sending it would put the coverage acknowledgement
-to a crew that changed nothing. Subscribing to the stop's row warms the
-on-demand stream the page is about to write against, which is what keeps the
-write's txid confirmation from timing out; nothing reads the row itself.
+to a crew that changed nothing.
+
+The hook used to subscribe to the stop's row with nothing reading it, on the
+belief that a write into an unwatched on-demand collection waits out a txid
+that never arrives. `awaitConfirmation` skips the wait when nothing is
+subscribed, so the subscription turned a skipped wait into a real one, and
+#1429 deleted it with the other create-page anchors.
 
 ### forms
 
@@ -1295,7 +1310,13 @@ so a misspelled column fails `tsc`. A collection has no single column: its
 entry is `collectedSince` and `collectionEffectiveDate` from
 `hooks/queries/collection-day.ts`, which every collection read hook windows
 and reduces its rows through, and which hands the day up as `effectiveDate` so
-no page works it out (#1427). It replaced a
+no page works it out (#1427). `PERFORMED_ACTIONS` in
+`hooks/queries/performed-action-reads.ts` reads its `date` for each of the four
+performed control actions from the same register rather than naming the column
+again. A performed control action type added later takes its date column here
+and its joins there, and the heading over `useLinkedControlActions`,
+`useInspectionSamples` and `useHabitatHistory` says what that module holds. It
+replaced a
 `readActivity` on `GET /dashboard`, and two things decided that. The strip is
 what a person opens the page for, and on the server it shared one round trip
 with the untreated habitats read, which was 4.7 seconds on the production
@@ -1643,9 +1664,10 @@ again.
 #### useNewInspectionDraft
 
 The id is minted up front so the samples, crew and comment can be written
-the moment the inspection lands, and so their streams are live before the
-save fires: a write against a cold stream times out waiting for its txid
-confirmation.
+the moment the inspection lands. It subscribes to nothing. The samples and
+crew subscriptions it used to hold were only there to keep their streams
+open for the save, and `awaitConfirmation` already answers a write into an
+unwatched collection without waiting (#1429).
 
 #### useSampleGeoContext
 
@@ -1678,8 +1700,8 @@ selection, its fallback to the first visible row, the `Unassigned` assignee
 option and the status and assignee filter (#1432). The hook owns that much
 and stops there. The load call and the stops call stay at the route, because
 missions read stop views and assignments read features and counts together,
-and each route keeps its rows, its card and its filter bar, since the two
-records share no status vocabulary.
+and each page keeps its own rows, card and filter bar under
+`components/operations/`, since the two records share no status vocabulary.
 
 The selection is computed on read rather than held in an effect: a filter, a
 date change or a delete that takes the picked row out of the list leaves the
@@ -1688,6 +1710,42 @@ one is back. Status is matched over the loaded rows rather than in the query
 because both records derive it from three nullable timestamps. A filter one
 page has and the other does not, control type on Missions, goes in `matches`
 rather than in a third set the hook would have to name.
+
+#### useMissionFilterState
+
+The Missions index reads its filters off the URL through this, the way the
+date-windowed explorers read theirs through `useBiocontrolFilterState` and its
+neighbours (#1481). Before that the route built its defaults, called
+`useSearchFilters` itself and computed the default window a second time for
+the Dates chip, so the chip and the reset read two objects that agreed only by
+copy. The binding carries `defaults`, and the chip reads that.
+
+The page opens on `SCHEDULE_WINDOW`, the last week and the next two, since a
+worklist is a schedule rather than a history. The filter shape and its codecs
+sit in the hook's own module, because the route's `validateSearch` reads the
+same codec object the hook does. The status codec reads `MISSION_STATUSES`,
+which sits beside `MISSION_STATUS_LABELS` with `MissionStatus` derived from it,
+the shape #1466 gave Assignments, so the status popover narrows a selection
+against the list rather than casting it.
+
+There are three of these hooks and not one generic one because the pages open
+on different windows with different defaults. A generic record-set filter hook
+is #1419's question.
+
+#### useAssignmentFilterState
+
+The Assignments index's filters, for the reasons `useMissionFilterState`
+gives, over the same schedule window (#1481). The status codec reads
+`ASSIGNMENT_STATUSES` from `assignment-view.ts`, which #1466 put there.
+
+#### useRequestForControlFilterState
+
+The Requests for Control index's filters, for the reasons
+`useMissionFilterState` gives (#1481). This page opens on the last 90 days
+with the status on `open`, since the queue is read backwards from today to
+find work still waiting, and `open` stays out of the URL as the codec's
+fallback. The status vocabulary is a list with the type derived from it, as
+the two worklists' are.
 
 #### useMissionItemShapes
 
@@ -1746,8 +1804,7 @@ which timestamp moved. What is left is composition, the stops joined to the
 records they send a crew to, which is a page's question rather than a
 table's.
 
-`useAssignment` is also the warm-stream anchor on pages that write before
-reading. `useAssignmentItems` is unfiltered by `entityType` on purpose:
+`useAssignmentItems` is unfiltered by `entityType` on purpose:
 unlike a route, an assignment mixes traps, habitats and service requests in
 one worklist by design.
 
@@ -1761,9 +1818,7 @@ table depending on `entity_type`, so there is no column to join on.
 `usePendingTrapCollections` exists because a trap stop means one of two
 visits, set the trap or come back and empty it, and only the data says
 which. The subset is keyed on the stops' own trap ids rather than reading
-every collection, and the live query doubles as the thing that keeps the
-on-demand collections stream warm: the Collect write lands on this page, and
-a write to a cold stream times out waiting for its txid.
+every collection.
 
 `useAssigneeOptions` puts "Unassigned" first because planning drafts may
 carry nobody, and Radix Select forbids an empty-string item value, so
@@ -1879,54 +1934,86 @@ The types and pure helpers a family of hooks shared moved to a `*-view.ts`
 module beside the queries and a `*-fields.ts` module beside the mutations,
 which is the shape `hooks/queries` already used for its row views.
 
-#### The catalog roster hooks
+#### The catalog register
 
-`useHabitatTypeRoster`, `useCollectionMethodRoster`, the four control method
-rosters, `useCollectionLureRoster` and `useNotificationTypeRoster` are one
-question asked of eight tables: what may this field be set to. The explorers
-ask a narrower one through `useNamedCatalog`, which returns filter options
-and an id to name lookup and drops everything else. A form needs two things
-those drop. `isActive`, because a retired catalog row stays selectable: these
-forms are where past seasons get keyed in, and a method the organization
-dropped last year is exactly what a record from last year was worked with,
-so `lifecycleOptions` marks the row and sorts it behind everything still in
-service. `customSchema`, because a catalog row can carry extra fields the
-organization defined, and picking the method is what decides which of them
-the form renders; `collection_lures` and `notification_types` are the
-catalogs without that column, which is why the roster comes in two shapes,
-`usePlainCatalogRoster` and `useSchemaCatalogRoster`. Every catalog here is
-eager, so the reads suspend: the rows are there before a form can be
-reached.
+`catalog-register.ts` is not a hook. It holds one descriptor per Organization
+Lookup catalog: the collection, the column that holds the name, and the fields
+the records view and the roster view read beyond `id`, `name` and `isActive`.
+`useCatalogRecords`, `useCatalogRoster` and `useCatalogOptions` take a
+descriptor and write the only query each view runs, so a catalog's read side
+is declared once. Before #1430 it was about forty modules: a records hook over
+one of seven identical half hooks, an eight-line roster alias, and an options
+alias, per catalog.
 
-The generic is a helper each named hook calls once, rather than one hook
-taking a collection: a caller passing a different collection between renders
-would change which query runs under the same hook slot, and naming them
-keeps the call sites reading as what they fetch.
+Three hooks rather than one `useCatalog` returning every view, because one hook
+would open all three queries for a caller that wants one of them.
 
-#### The catalog record hooks
+A descriptor is checked where it is written. `defineCatalog` infers the row
+type from the collection, holds `nameColumn` to a string column of it, and
+types each projection as a function over that row's ref, so a column the table
+lacks fails `tsc` at the register and nowhere else. The hooks then read every
+descriptor through one erased row, which is why each casts its result to the
+type `defineCatalog` computed. A column key alone, `keyof Row`, was the other
+shape: it covers the name, but a projection carries several columns and a
+literal (`serialNumber: null` on a vehicle), which a key cannot say.
 
-The wider read behind the rosters. A roster answers "what may this field be
-set to" and returns three columns; the management pages are where the
-catalog is maintained, so they need every column the dialog edits and both
-halves of the lifecycle split, active rows and retired ones, each already in
-name order. Two queries rather than one list the page partitions:
-`is_active` is a pushed-down predicate, and the split is what the page frame
-is built around. It is also what keeps the retired half from re-rendering
-when an active row is renamed. The eight catalogs are four shapes, so there
-are four half hooks, `useCollectionMethodHalf`, `useHabitatTypeHalf`,
-`useDescribedHalf` and `useControlMethodHalf`, and eight hooks in front of
-them, each fixing its own collection for the reason the rosters record.
+A call site passes a module constant, `useCatalogRecords(catalogs.tags)`, so
+the hook slot always runs the same query. The live query takes its identity
+from the query it builds rather than from a dependency array, so a different
+descriptor in the same slot would rebuild it rather than keep the old rows.
+
+Profiles are on the register for `useCatalogOptions` alone. `useProfileRoster`,
+`useProfileNames` and `useDailyWorkRoster` stay as they are, because they are
+status-gated or sort with `localeCompare` on purpose, and their docblocks say
+why. Insecticides and formulations are off it, because they order active first
+in one query and carry many columns.
+
+Vehicles and equipment are one record shape, `ControlAssetRecord`, with
+`serialNumber: null` on a vehicle. The old code carried a `VehicleRow |
+EquipmentRow` union to the table cell and asked `isEquipmentRow(asset)` to
+decide what to render, which meant every consumer had to know both spellings.
+The tags descriptor carries no organization predicate: the shape is scoped to
+the organization server-side, so filtering by `organization_id` here re-states
+server-side authorization as a client-side filter, and a stale column spelling
+in one empties the list rather than narrowing it.
+
+`catalog-register.test.tsx` walks `catalogs` itself, so a descriptor added
+later is covered through all three hooks without a new case.
+
+#### useCatalogRoster
+
+What may this field be set to, for every catalog on the register. The explorers
+ask a narrower question through `useCatalogOptions`, which drops everything but
+the name. A form needs two things that drops. `isActive`, because a retired
+catalog row stays selectable: these forms are where past seasons get keyed in,
+and a method the organization dropped last year is exactly what a record from
+last year was worked with, so `lifecycleOptions` marks the row and sorts it
+behind everything still in service. That is also why the query applies no
+order. `customSchema`, on the descriptors whose table has the column, because a
+catalog row can carry extra fields the organization defined, and picking the
+method is what decides which of them the form renders. Every catalog here is
+eager, so the read suspends: the rows are there before a form can be reached.
+
+#### useCatalogRecords
+
+The wider read behind the roster. A roster answers "what may this field be set
+to"; the management pages are where the catalog is maintained, so they need
+every column the dialog edits and both halves of the lifecycle split, active
+rows and retired ones, each already in name order. Two queries rather than one
+list the page partitions: `is_active` is a pushed-down predicate, and the split
+is what the page frame is built around. It is also what keeps the retired half
+from re-rendering when an active row is renamed.
 
 #### The chemical roster hooks
 
-`useInsecticideRoster`, `useVehicleRoster`, `useEquipmentRoster`,
-`useFormulationRoster` and `useFormulationComponentRoster` are separate
-from the catalog rosters because these are not the same question. Those
-seven tables are all one shape, an id, a name, a lifecycle flag and a custom
-schema. These five are each their own shape: a product carries the unit it
-is measured in, a formulation carries a batch size, a component carries how
-much of what. Flattening them into one listing would mean a picker reading
-fields its catalog does not have. All five are eager, so the reads suspend.
+`useInsecticideRoster`, `useFormulationRoster` and
+`useFormulationComponentRoster` are separate from `useCatalogRoster` because
+these are not the same question. The register's tables are all one shape, an
+id, a name, a lifecycle flag and a few fields. These three are each their own
+shape: a product carries the unit it is measured in, a formulation carries a
+batch size, a component carries how much of what. Flattening them into one
+listing would mean a picker reading fields its catalog does not have. All
+three are eager, so the reads suspend.
 Field names stay camelCase, as everywhere in `hooks/queries`: the columns
 are snake_case and this is the seam that turns them over.
 
@@ -1952,19 +2039,6 @@ every component grouped by formulation, and a join would hand back one row
 per component with the recipe repeated on each. The grouping is a `Map`,
 which is the one thing a query cannot return.
 
-#### useVehicleRecords and useEquipmentRecords
-
-Two tables the organization owns that are not quite catalogs: an
-application names a vehicle and a piece of equipment, but neither carries a
-custom schema and both carry a free-form `metadata` bag instead. They
-differ from each other in two columns, the name column's spelling and a
-serial number equipment has and a vehicle does not. That difference is
-resolved in `control-asset-record-view.ts` rather than in the page. The old
-code carried a `VehicleRow | EquipmentRow` union all the way to the table
-cell and asked `isEquipmentRow(asset)` to decide what to render, which meant
-every consumer had to know both spellings. One record shape with
-`serialNumber: null` on a vehicle says the same thing once.
-
 #### useControlCatalogCounts
 
 The overview's catalog tiles used to read every row of five eager tables and
@@ -1985,6 +2059,16 @@ on a `date` column, so the bound is a plain `YYYY-MM-DD` string, no zone
 and no instant. See `use-recent-collections.ts` for the adult case, where it
 is neither.
 
+They are two files of 58 and 54 lines, and they stay two. Every join, the date
+and the measured columns already come from `PERFORMED_ACTIONS`, so what the two
+files still share is the shape of the query. One hook over both would be
+generic over the collection, and the compiler cannot relate the ref the query
+builder hands back to the `PERFORMED_ACTIONS` entry passed in beside it, so the
+call to that entry's predicates would need a cast across the two row types. A
+cast is what the module's no column map rule exists to keep out. That was
+decided in #1428 and #1498, so a duplication report naming the pair is expected
+and is not a finding to fix.
+
 #### usePeopleDirectory
 
 A Profile is who work is attributed to; a Membership is the access that
@@ -2000,19 +2084,6 @@ SIMMER, active ones first because an inactive historical Profile is the
 deepest end of the list. Each group is its own query through
 `usePersonGroup` rather than one query grouped in JavaScript, because the
 predicates and the sort differ and both push down.
-
-#### useTagCatalog
-
-`useTagOptions` is the other read and answers a different question: which
-Tags a filter may offer, in one flat list including retired ones. This is
-where the catalog is defined, so it carries the colour and the description
-the dialog edits, and it splits the lifecycle the way the page is laid out.
-Two queries through `useTagHalf` rather than one list the page partitions,
-for the reason the catalog records record. No organization predicate: the
-shape is scoped to the organization server-side, so filtering by
-`organization_id` here re-states server-side authorization as a client-side
-filter, and a stale column spelling in one empties the list rather than
-narrowing it.
 
 #### useRegistration and useRegistrationSubscriptions
 
@@ -2115,6 +2186,28 @@ subset each action table is asked for, so a join that took the predicate over
 fails there. A join also works inside a correlated `toArray` include, which is
 how a species count gets its taxon's name.
 
+The control action joins are not written in these hooks. `PERFORMED_ACTIONS`
+in `hooks/queries/performed-action-reads.ts` holds them for the four performed
+control actions, one entry per type: a join predicate for the method, for the
+product on a Chemical Application, for the unit on every type but an Outreach
+Action, and for whoever performed it, plus `measured`, which returns the
+method, performer, amount and unit columns under one set of field names. Before
+#1428 about ten read hooks wrote those joins and columns out per type; eleven
+compose them from the module now, `useLinkedControlActions` and
+`useHabitatHistory` among them. A hook keeps its own `from`, `where`, ordering
+and the field names of the view it returns. The same module exports
+`controlActionBaseSelect`, the placement and audit fields (address, inspection,
+request, mission item, coordinates, metadata and the four audit columns) that
+`useApplication`, `useSourceReduction`, `useBiocontrolAction` and
+`useOutreachAction` project the same way. It leaves out `habitatId`, because an
+Outreach Action has no habitat.
+
+The module has no column map, for the reason `performed-action-writes.ts`
+gives on the write side. Every column is a property access on a typed ref
+inside a function, never a column name in a string, so a misspelled column
+fails `tsc` in that file rather than answering `undefined`. #1498 checked it by
+renaming two columns there and reading two TS2551s.
+
 #### useInspection and useHabitatSuspense
 
 The two larval detail pages' own records, read off the synced rows with their
@@ -2194,9 +2287,9 @@ minted, which is two rows for one assignment.
 
 #### useTagPickerCatalog
 
-One list with each Tag's lifecycle and relevance on it, rather than
-`useTagCatalog`'s two lifecycle halves, because which section a Tag draws in is
-a question about both. `useLiveQuery` and not the suspense hook, so opening the
+One list with each Tag's lifecycle and relevance on it, rather than the two
+lifecycle halves `useCatalogRecords(catalogs.tags)` returns, because which
+section a Tag draws in is a question about both. `useLiveQuery` and not the suspense hook, so opening the
 dialog never suspends the header it opens from.
 
 #### useCommentCount

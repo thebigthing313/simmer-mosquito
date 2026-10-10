@@ -25,8 +25,6 @@ import type { RouteSummary } from '../../../components/route-planning/route-summ
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
 import { useAssigneeOptions } from '../../../hooks/operations/use-assignee-options';
-import { useAssignment } from '../../../hooks/operations/use-assignment';
-import { useAssignmentItems } from '../../../hooks/operations/use-assignment-items';
 import { useRouteSnapshotItems } from '../../../hooks/operations/use-route-snapshot-items';
 import { useRouteStopCounts } from '../../../hooks/queries/use-route-stop-counts';
 import { useRouteCatalog } from '../../../hooks/queries/use-routes';
@@ -52,12 +50,7 @@ function AssignmentCreateRoute() {
 
 	const timeZone = useOrganizationTimeZone();
 	const today = todayInTimeZone(timeZone);
-	// Minted up front so the streams below can be warmed against it before the
-	// write lands (a write to a cold on-demand collection waits out its txid
-	// confirmation, which reads as a frozen save).
 	const [assignmentId] = useState(() => newRecordId());
-	useAssignment(assignmentId);
-	useAssignmentItems(assignmentId);
 
 	const [mode, setMode] = useState<Mode>('blank');
 	const [values, setValues] = useState<AssignmentDetailValues>(() =>

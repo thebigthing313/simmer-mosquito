@@ -26,6 +26,25 @@ export const BLOCK: readonly PlanarPosition[] = [
 	[-88, 37],
 	[-88, 34],
 ];
+/** On {@link BLOCK}'s western edge, between its first two corners. */
+export const ON_WEST_EDGE: PlanarPosition = [-91, 35.5];
+/** {@link BLOCK} with {@link ON_WEST_EDGE} inserted as its second corner. */
+export const BLOCK_WITH_EDGE_VERTEX: readonly PlanarPosition[] = [
+	[-91, 34],
+	ON_WEST_EDGE,
+	[-91, 37],
+	[-88, 37],
+	[-88, 34],
+];
+/** Where {@link BLOCK}'s third corner is dragged to, north-east of the block. */
+export const PULLED_CORNER: PlanarPosition = [-87, 38];
+/** {@link BLOCK} with its third corner at {@link PULLED_CORNER}. */
+export const BLOCK_WITH_PULLED_CORNER: readonly PlanarPosition[] = [
+	[-91, 34],
+	[-91, 37],
+	PULLED_CORNER,
+	[-88, 34],
+];
 /** Well inside {@link BLOCK}. */
 export const POND: readonly PlanarPosition[] = [
 	[-90, 35],

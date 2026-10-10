@@ -1,8 +1,8 @@
 /**
  * The whole Tag catalog, as the tag picker lists it.
  *
- * Not `useTagCatalog`, which splits the catalog into its two lifecycle halves
- * for the management table and suspends. The picker wants one list with each
+ * Not `useCatalogRecords(catalogs.tags)`, which splits the catalog into its two
+ * lifecycle halves for the management table and suspends. The picker wants one list with each
  * Tag's lifecycle and relevance on it, because which section a Tag draws in is a
  * question about both: an inactive Tag is never offered, whatever its relevant
  * set says, and it still draws where it is assigned.

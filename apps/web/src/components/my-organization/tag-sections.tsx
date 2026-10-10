@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useTagCatalog } from '../../hooks/queries/use-tag-catalog';
+import { catalogs } from '../../hooks/queries/catalog-register';
+import { useCatalogRecords } from '../../hooks/queries/use-catalog-records';
 import { TagCreatePanel } from './tag-create-panel';
 import { TagTableSection } from './tag-table-section';
 
@@ -14,7 +15,7 @@ export function TagSections({
 }) {
 	// Both halves arrive split and in name order: `is_active` is a pushed-down
 	// predicate.
-	const { activeTags, inactiveTags } = useTagCatalog();
+	const { activeRecords, inactiveRecords } = useCatalogRecords(catalogs.tags);
 	const [editingTagId, setEditingTagId] = useState<string | null>(null);
 
 	return (
@@ -27,7 +28,7 @@ export function TagSections({
 				onCancelEdit={() => setEditingTagId(null)}
 				onEdit={setEditingTagId}
 				title="Active"
-				tags={activeTags}
+				tags={activeRecords}
 			/>
 			<TagTableSection
 				canManage={canManage}
@@ -36,7 +37,7 @@ export function TagSections({
 				onCancelEdit={() => setEditingTagId(null)}
 				onEdit={setEditingTagId}
 				title="Deactivated"
-				tags={inactiveTags}
+				tags={inactiveRecords}
 			/>
 		</div>
 	);

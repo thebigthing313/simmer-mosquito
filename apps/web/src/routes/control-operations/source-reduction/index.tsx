@@ -26,10 +26,10 @@ import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useSourceReductionFilterState } from '../../../hooks/control-operations/use-source-reduction-filter-state';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
-import { useSourceReductionMethodOptions } from '../../../hooks/explorer/use-source-reduction-method-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { formatListDate } from '../../../lib/local-date';
@@ -52,8 +52,8 @@ function SourceReductionExplorerRoute() {
 	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
 	const panel = useExplorerPanel();
 
-	const { nameById: methodNameById } = useSourceReductionMethodOptions();
-	const { nameById: personNameById } = usePersonnelOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.sourceReductionMethods);
+	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const unitById = useUnitLabels().byId;
 
 	// The server tiles + list read the same filter shape, so the map and the paged

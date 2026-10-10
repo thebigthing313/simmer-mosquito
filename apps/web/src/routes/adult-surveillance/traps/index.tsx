@@ -20,10 +20,11 @@ import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { MAP_CREATE_TARGETS, TRAP_STATUS_COLORS } from '../../../components/map';
 import { useTrapFilterState } from '../../../hooks/adult-surveillance/use-trap-filter-state';
-import { useCollectionMethodOptions } from '../../../hooks/explorer/use-collection-method-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
@@ -56,7 +57,7 @@ function TrapsExplorerRoute() {
 	const { filters: query, activeCount: activeFilterCount, clearAll, setFilters } = binding;
 	const panel = useExplorerPanel();
 
-	const { nameById: methodNameById } = useCollectionMethodOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (no selection / no search) drop out.

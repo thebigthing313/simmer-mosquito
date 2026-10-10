@@ -24,11 +24,11 @@ import { outreachSummaryGroupings } from '../../../components/public-engagement/
 import { OutreachSurfaceSwitch } from '../../../components/public-engagement/outreach/outreach-surface-switch';
 import { OutreachMapCard } from '../../../components/public-engagement/outreach-map-card';
 import { formatReach } from '../../../components/public-engagement/public-engagement-display';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { useOutreachMethodOptions } from '../../../hooks/explorer/use-outreach-method-options';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useOutreachFilterState } from '../../../hooks/public-engagement/use-outreach-filter-state';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
@@ -49,8 +49,8 @@ function OutreachExplorerRoute() {
 	const { filters: query, setFilters, reset, activeCount: activeFilterCount } = binding;
 	const panel = useExplorerPanel();
 
-	const { nameById: methodNameById } = useOutreachMethodOptions();
-	const { nameById: personNameById } = usePersonnelOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.outreachMethods);
+	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.

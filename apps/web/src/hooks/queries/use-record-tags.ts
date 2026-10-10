@@ -22,12 +22,12 @@
 import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { tag_items } from '../../lib/collections/tag_items';
 import { tags } from '../../lib/collections/tags';
-import { mapCardGcTimeMs } from './shared';
+import { activityGcTimeMs } from './shared';
 import type { AssignedTag } from './tag-view';
 
 export function useRecordTags(entityId: string): readonly AssignedTag[] {
 	const result = useLiveQuery({
-		gcTime: mapCardGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: tag_items() })

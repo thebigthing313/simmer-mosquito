@@ -67,15 +67,16 @@ import {
 	type CollectionSpeciesChanges,
 	useCollectionSpeciesMutations,
 } from '../../../hooks/mutations/use-collection-species-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { AdultCollection } from '../../../hooks/queries/collection-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { collectionPlaceLabel, trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useAdultCollection } from '../../../hooks/queries/use-adult-collection';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import {
 	type CollectionIdentification,
 	useCollectionIdentifications,
 } from '../../../hooks/queries/use-collection-identifications';
-import { useCollectionMethodRoster } from '../../../hooks/queries/use-collection-method-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useSpeciesCatalog } from '../../../hooks/queries/use-species-catalog';
 import { type AskAcknowledged, useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
@@ -151,7 +152,7 @@ function CollectionDetailContent({
 	// trap, the method name and the lure name are joined by the read seam now —
 	// three lookups against three rosters gone, and with them the chance of an id
 	// resolving to nothing because its roster had not streamed yet.
-	const methods = useCollectionMethodRoster();
+	const methods = useCatalogRoster(catalogs.collectionMethods);
 	const profiles = useProfileRoster();
 	const mutations = useCollectionMutations();
 	const [collectOpen, setCollectOpen] = useState(false);

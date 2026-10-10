@@ -2,7 +2,8 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { ControlMethodsPage } from '../../../components/control-operations/control-methods-page';
 import { useBiocontrolMethodMutations } from '../../../hooks/mutations/use-biocontrol-method-mutations';
-import { useBiocontrolMethodRecords } from '../../../hooks/queries/use-biocontrol-method-records';
+import { catalogs } from '../../../hooks/queries/catalog-register';
+import { useCatalogRecords } from '../../../hooks/queries/use-catalog-records';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 
 const BiocontrolIcon = iconRegistry.entities.biocontrolAction.icon;
@@ -14,7 +15,7 @@ export const Route = createFileRoute('/control-operations/biocontrol/methods')({
 function BiocontrolMethodsRoute() {
 	const { auth } = Route.useRouteContext();
 	const { canManage, canManageOperational } = useOrganizationWorkspace(auth.snapshot);
-	const records = useBiocontrolMethodRecords();
+	const records = useCatalogRecords(catalogs.biocontrolMethods);
 	const mutations = useBiocontrolMethodMutations();
 
 	return (

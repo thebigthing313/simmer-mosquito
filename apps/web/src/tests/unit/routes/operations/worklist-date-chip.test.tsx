@@ -52,8 +52,9 @@ vi.mock('../../../../hooks/use-organization-time-zone', () => ({
 	useOrganizationTimeZone: () => url.timeZone,
 }));
 
-vi.mock('../../../../hooks/explorer/use-personnel-options', () => ({
-	usePersonnelOptions: () => ({ options: [], nameById: new Map() }),
+vi.mock('../../../../hooks/explorer/use-catalog-options', async (original) => ({
+	...(await original<typeof import('../../../../hooks/explorer/use-catalog-options')>()),
+	useCatalogOptions: () => ({ options: [], nameById: new Map() }),
 }));
 
 vi.mock('../../../../hooks/explorer/use-control-method-names', () => ({
@@ -93,8 +94,8 @@ vi.mock('../../../../components/app-shell/outlet/map-split-page', () => ({
 	MapSplitPage: ({ children }: { readonly children?: ReactNode }) => <>{children}</>,
 }));
 
-vi.mock('../../../../components/operations/worklist-map', () => ({
-	WorklistMap: () => null,
+vi.mock('../../../../components/map/stop-sequence-map', () => ({
+	StopSequenceMap: () => null,
 }));
 
 let Missions: () => ReactNode;
