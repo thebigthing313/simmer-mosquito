@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	boundsFromCoordinates,
 	boundsFromGeoJson,
 	centroidFromGeoJson,
 	containsLngLat,
@@ -438,5 +439,55 @@ describe('geometry helpers', () => {
 				],
 			}),
 		).toBe(6);
+	});
+});
+
+describe('boundsFromCoordinates', () => {
+	it('returns null for no points', () => {
+		expect(boundsFromCoordinates([])).toBeNull();
+	});
+
+	it('returns a zero-area box for one point', () => {
+		expect(boundsFromCoordinates([{ lng: -74.5, lat: 40.2 }])).toEqual({
+			west: -74.5,
+			south: 40.2,
+			east: -74.5,
+			north: 40.2,
+		});
+	});
+
+	it('returns the box enclosing several points', () => {
+		expect(
+			boundsFromCoordinates([
+				{ lng: -74.5, lat: 40.2 },
+				{ lng: -73.9, lat: 39.8 },
+				{ lng: -74.1, lat: 40.6 },
+			]),
+		).toEqual({ west: -74.5, south: 39.8, east: -73.9, north: 40.6 });
+	});
+
+	it('leaves out a point with a NaN coordinate', () => {
+		expect(
+			boundsFromCoordinates([
+				{ lng: -74.5, lat: 40.2 },
+				{ lng: Number.NaN, lat: 41 },
+				{ lng: -73.9, lat: Number.NaN },
+				{ lng: -73.9, lat: 39.8 },
+			]),
+		).toEqual({ west: -74.5, south: 39.8, east: -73.9, north: 40.2 });
+	});
+
+	it('leaves out a point with a longitude past 180', () => {
+		expect(
+			boundsFromCoordinates([
+				{ lng: -74.5, lat: 40.2 },
+				{ lng: 181, lat: 40 },
+				{ lng: -73.9, lat: 39.8 },
+			]),
+		).toEqual({ west: -74.5, south: 39.8, east: -73.9, north: 40.2 });
+	});
+
+	it('returns null when every point is left out', () => {
+		expect(boundsFromCoordinates([{ lng: Number.POSITIVE_INFINITY, lat: 0 }])).toBeNull();
 	});
 });
