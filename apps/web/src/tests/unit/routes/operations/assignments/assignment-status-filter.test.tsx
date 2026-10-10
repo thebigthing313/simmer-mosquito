@@ -87,8 +87,8 @@ vi.mock('../../../../../components/app-shell/outlet/map-split-page', () => ({
 	MapSplitPage: ({ children }: { readonly children?: ReactNode }) => <>{children}</>,
 }));
 
-vi.mock('../../../../../components/operations/worklist-map', () => ({
-	WorklistMap: () => null,
+vi.mock('../../../../../components/map/stop-sequence-map', () => ({
+	StopSequenceMap: () => null,
 }));
 
 let Assignments: () => ReactNode;
