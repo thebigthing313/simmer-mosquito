@@ -1,5 +1,5 @@
-import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
 import { addDaysToDateString } from '../../../lib/local-date';
+import type { MapQueryValue } from '../../../lib/map-query-params';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -89,6 +89,9 @@ export const applicationRecordSet = defineRecordSet({
 	recordType: 'application',
 	paths: { map: '/control-operations/chemical', table: '/control-operations/chemical/table' },
 	codecs: applicationFilterCodecs,
+	endpoint: { path: '/map/chemical', rowsKey: 'applications' },
+	tileFilters: applicationTileFilters,
+	listParams: applicationListParams,
 	defaults: ({ today }) => applicationFilterDefaults(today),
 	counting: DATE_RANGE_COUNTING,
 	applies: {

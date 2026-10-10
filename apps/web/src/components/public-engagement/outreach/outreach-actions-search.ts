@@ -1,5 +1,5 @@
-import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
 import { addDaysToDateString } from '../../../lib/local-date';
+import type { MapQueryValue } from '../../../lib/map-query-params';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -84,6 +84,9 @@ export const outreachRecordSet = defineRecordSet({
 	recordType: 'outreachAction',
 	paths: { map: '/public-engagement/outreach', table: '/public-engagement/outreach/table' },
 	codecs: outreachFilterCodecs,
+	endpoint: { path: '/map/outreach', rowsKey: 'outreachActions' },
+	tileFilters: outreachTileFilters,
+	listParams: outreachListParams,
 	defaults: ({ today }) => outreachFilterDefaults(today),
 	counting: DATE_RANGE_COUNTING,
 	applies: { from: 'both', to: 'both', people: 'both', methods: 'both', regions: 'both' },

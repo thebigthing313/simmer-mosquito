@@ -1,10 +1,8 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-	ServiceRequestsFilterBar,
-	type ServiceRequestTableFilters,
-} from '../../../../../components/public-engagement/service-requests/service-requests-filter-bar';
+import { ServiceRequestsFilterBar } from '../../../../../components/public-engagement/service-requests/service-requests-filter-bar';
+import type { ServiceRequestFilters } from '../../../../../components/public-engagement/service-requests/service-requests-search';
 
 /**
  * The Table's Overdue control (#1246): drawn while the Organization's threshold
@@ -13,18 +11,17 @@ import {
 
 afterEach(cleanup);
 
-const DEFAULTS: ServiceRequestTableFilters = {
+const DEFAULTS: ServiceRequestFilters = {
 	status: 'all',
+	search: '',
+	tags: new Set(),
+	regions: new Set(),
 	from: '2026-01-01',
 	to: '2026-10-20',
 	overdue: false,
 };
 
-function renderBar(
-	filters: ServiceRequestTableFilters,
-	overdueAvailable: boolean,
-	activeCount: number,
-) {
+function renderBar(filters: ServiceRequestFilters, overdueAvailable: boolean, activeCount: number) {
 	const setFilters = vi.fn();
 	render(
 		<ServiceRequestsFilterBar

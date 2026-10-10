@@ -113,7 +113,10 @@ reductions`, beside five that read `titleMany` out of the register.
 `pnpm check:record-nouns` lists this hook as a register consumer.
 
 `mapQueryParams` exists because every explorer wrote the presence rule out as
-a wall of `if (x !== undefined && x.length > 0)`.
+a wall of `if (x !== undefined && x.length > 0)`. It and `MapQueryValue` live
+in `lib/map-query-params.ts` since #1588 rather than in this hook's module,
+because the record set definition and the eleven set search modules read them
+and none of those is a hook.
 
 `PAGE_SIZE` is 100 since #1244, and the server's `limit` cap moved with it. It
 is also the threshold `useExplorerSummary` reads: a surface with a summary
@@ -229,9 +232,15 @@ written. That is what took `INSPECTION_TABLE_COUNTING` and the Table's
 `regionIds: new Set()` override out: neither had anything left to suppress.
 The counting is the set's too, and the service requests one reads the
 Organization's settings, since an Overdue left on the address while the
-threshold is off narrows nothing and is not counted. The routes still read the
-cut-off itself through `useServiceRequestOverdueCutoff`, for the tile filters
-and the rows.
+threshold is off narrows nothing and is not counted.
+
+The binding carries the context it resolved in, the Organization's today and
+settings, because the set's `tileFilters` reads it. The Service Requests
+routes read the overdue cut-off off it too, for the Overdue control and every
+row, through the same `serviceRequestOverdueCutoffFor` the counting rule and
+the tile conversion call, so the count, the request and the rows cannot
+disagree about whether Overdue is on. That took out
+`useServiceRequestOverdueCutoff`, which read the settings a second time.
 
 The search box half is for a set that names a `textSearch` key, which is
 Traps, Habitats, Addresses and the Service Requests Map. Traps commits after
@@ -293,6 +302,36 @@ Nine explorer routes each ran the same four hooks in the same order and spent
 eighty lines doing it. What varies between them is the endpoint, the two keys
 its body answers under, the noun a failure reads by, and the filters.
 
+Most of that is the record set's, since #1587. A route passes `set`, its
+record set, and `binding`, the filters and context
+`useRecordSetFilters(set, 'map')` returned, and the hook reads the endpoint
+path, the rows key and the record type off the set. It calls the set's
+`tileFilters` once per render and hands the result to both the tile layer and
+the set's `listParams`, so the tiles and the page cannot read two filter sets.
+Every route used to do that by hand, with five options a route could fill
+from two different sets or with params that skipped `tileFilters`, and `tsc`
+would have taken it. What a route still passes is what the set does not hold:
+`rowKey`, the key one record arrives under; `tileset`, the tileset kind;
+`normalizeRow`, `holdRailOnSelect` and `summarize`; and `params`, what the page
+request sends beside the filters, which only Service Requests uses, for its
+rail order. Those go on after the filters and never on the tile or extent
+URL, and `bbox` still goes first.
+
+`tileset` is checked against the set's tile filter type, and the check is
+exact rather than by assignment. Every tile filter type is optional fields
+throughout, so Outreach's and Source Reduction's, which differ by one field
+name, each pass for the other, and an assignability check would let an
+Outreach set draw the Source Reduction tileset. `ExplorerTileKindFor` names the
+tilesets whose filter type is the set's exactly, and the hook suite holds a
+`@ts-expect-error` for both that pair and a pair that differs more. Inside the
+hook the layer is cast to `MapTileLayer`, because TypeScript cannot follow the
+pairing from a generic tile type into the union.
+
+`TRow` cannot be written at the call any more. `TFilters` and `TTile` are
+inferred from the set, and a call names every type argument or none. So a
+route annotates the result, `const { rows }: ExplorerResource<Row> =
+useExplorerResource({ ... })`, and `TRow` is inferred from that.
+
 Every one of them lists what the map is looking at. The rail is the map's
 list, so the box goes on the wire ahead of the surface's own filters and
 nothing is asked for until the camera has said where it is; six surfaces used
@@ -313,9 +352,9 @@ default so the other explorers keep re-paging for the record they fly to.
 The hook holds the map instance, the selection and the tile layer, since
 #1423. All eleven routes used to keep a `MapboxMap` in state whose only reader
 was this hook, keep a selection whose only readers were the tile layer and the
-card, and write out the same five-field layer around both. So a route passes
-the tileset as `tiles`, a `kind` and its `filters`, and the hook adds the
-server URL, the selected id and the click handler. What comes back is the
+card, and write out the same five-field layer around both. So the hook builds
+the layer from `tileset` and the set's tile filters, and adds the server URL,
+the selected id and the click handler. What comes back is the
 selection, `selectedId` with a setter for the rail, and `canvas`, the bundle
 `ExplorerCanvas` takes, whose `clearSelection` closes the card. A route clears
 with `setSelectedId(null)`. The map arrives through `canvas.onMapReady`,
@@ -329,7 +368,7 @@ A deep link to a selected record would be an initial value passed in, and no
 explorer has one.
 
 `canvas.layers` is the list `ExplorerCanvas` hands `MapCanvas`: the tile layer
-built from `tiles`, with the selected row on it as `selectedRecord`. That is
+built from `tileset`, with the selected row on it as `selectedRecord`. That is
 the read the selection overlay draws from on a clustered tileset (see
 `useSelectionOverlayLayer`), and every explorer passes it, so a tileset that
 starts clustering gets the overlay without its route changing.
@@ -1474,19 +1513,6 @@ render and dims it. The response's `today` is the picker's upper bound and
 the partial test, so a client whose clock disagrees with the server draws the
 server's day. `docs/today-spec.md`, "The client half".
 
-### public-engagement
-
-#### useServiceRequestOverdueCutoff
-
-The overdue cut-off is `serviceRequestOverdueCutoff` over the Organization's
-today, so the day a request becomes overdue turns over on the Organization's
-calendar rather than the browser's, and the Map and the Table, which both call
-this hook, draw overdue from one day. It replaced
-`useServiceRequestFilterDefaults`, whose defaults and today moved into
-`serviceRequestRecordSet` and `useRecordSetFilters` (#1419). The record set's
-counting rule reads the cut-off through the same `serviceRequestOverdueCutoffFor`,
-so the count and the tile filters cannot disagree about whether Overdue is on.
-
 ### adult-surveillance
 
 #### useTrapDirectory
@@ -1636,13 +1662,6 @@ station an organization ever ran is a map nobody can read. Clearing the
 search reaches both the field and the committed term, for the reason
 `useRecordSetFilters` records.
 
-#### useInspectionFilterState
-
-The inspection filter bar's shape over `useRecordSetFilters`: a plain value
-and a setter per filter, which is what the inspection components were written
-against. It takes the surface and nothing else, since the opening window and
-which keys the Table applies are in `inspectionRecordSet`.
-
 #### useSpeciesComposition and useSamplesAwaiting
 
 The two live-data reads no other domain has, once the larval overview's
@@ -1667,6 +1686,16 @@ render before it, and the last two re-running whenever the id set moved. It
 is one join now. The planner collects the join keys each side produces and
 asks the on-demand collections for exactly those rows, which is the same
 three subsets minus two round trips through React.
+
+The join over `habitats` is `left`, so a stop whose Habitat has not streamed
+still draws, and every `habitat.*` reads `undefined` until it does. Before
+#1565 that stop was titled `, `, because `concat` over three absent operands
+answers its separator, and its description read `''`, which the edit page
+offered to write over the Habitat's real one. The name now reads
+`joinedHabitatNameSelect`, so the `Habitat <8 hex>` fallback is reachable, and
+the description is `coalesce(habitat.description, null)` under the joined
+column rule: `null` while the Habitat is resolving, and `''` for a Habitat
+with none, since the column is never null.
 
 #### useHabitatRouteStopCounts
 

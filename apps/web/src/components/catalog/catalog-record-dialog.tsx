@@ -79,7 +79,7 @@ export function CatalogDialogCancel() {
 	return (
 		<DialogClose asChild>
 			<Button type="button" variant="outline">
-				<CloseIcon aria-hidden="true" data-icon="inline-start" />
+				<CloseIcon aria-hidden="true" />
 				Cancel
 			</Button>
 		</DialogClose>

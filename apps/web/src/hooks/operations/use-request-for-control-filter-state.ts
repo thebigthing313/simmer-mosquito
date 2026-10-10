@@ -3,6 +3,7 @@ import {
 	choiceParam,
 	DATE_RANGE_COUNTING,
 	dateParam,
+	type FilterBinding,
 	type FilterCodecs,
 	flagParam,
 	idSetParam,
@@ -63,23 +64,12 @@ export function requestFilterDefaults(today: string): RequestFilters {
 	};
 }
 
-/** The Requests for Control filter set on the URL, and what it resets to. */
-export interface RequestFilterBinding {
-	readonly filters: RequestFilters;
-	readonly setFilters: (patch: Partial<RequestFilters>) => void;
-	readonly reset: () => void;
-	readonly activeCount: number;
-	readonly defaults: RequestFilters;
-	/** The Organization's today, which the date window ends on. */
-	readonly today: string;
-}
-
 /**
  * The filters the Requests for Control index reads, held on the URL through
  * `requestFilterCodecs`. A window moved off the last ninety days counts as one
  * active filter, and so does a status other than `open`.
  */
-export function useRequestForControlFilterState(): RequestFilterBinding {
+export function useRequestForControlFilterState(): FilterBinding<RequestFilters> {
 	const timeZone = useOrganizationTimeZone();
 	const today = todayInTimeZone(timeZone);
 	const defaults = requestFilterDefaults(today);

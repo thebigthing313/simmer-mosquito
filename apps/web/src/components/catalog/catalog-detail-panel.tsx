@@ -92,7 +92,6 @@ export function CatalogInactiveDisclosure({
 					<ChevronIcon
 						aria-hidden="true"
 						className="transition-transform data-[open=true]:rotate-90"
-						data-icon="inline-start"
 						data-open={open}
 					/>
 					{open ? 'Hide' : 'Show'} {count} inactive

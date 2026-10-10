@@ -1,5 +1,5 @@
-import type { MapQueryValue } from '../../hooks/explorer/use-paged-map-resource';
 import { addDaysToDateString } from '../../lib/local-date';
+import type { MapQueryValue } from '../../lib/map-query-params';
 import {
 	choiceParam,
 	DATE_RANGE_COUNTING,
@@ -104,6 +104,9 @@ export const sampleRecordSet = defineRecordSet({
 	recordType: 'sample',
 	paths: { map: '/larval-surveillance/samples', table: '/larval-surveillance/samples/table' },
 	codecs: sampleFilterCodecs,
+	endpoint: { path: '/map/samples', rowsKey: 'samples' },
+	tileFilters: sampleTileFilters,
+	listParams: sampleListParams,
 	defaults: ({ today }) => sampleFilterDefaults(today),
 	counting: DATE_RANGE_COUNTING,
 	applies: {

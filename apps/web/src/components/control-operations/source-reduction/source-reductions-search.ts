@@ -1,5 +1,5 @@
-import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
 import { addDaysToDateString } from '../../../lib/local-date';
+import type { MapQueryValue } from '../../../lib/map-query-params';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -91,6 +91,9 @@ export const sourceReductionRecordSet = defineRecordSet({
 		table: '/control-operations/source-reduction/table',
 	},
 	codecs: sourceReductionFilterCodecs,
+	endpoint: { path: '/map/source-reduction', rowsKey: 'sourceReductions' },
+	tileFilters: sourceReductionTileFilters,
+	listParams: sourceReductionListParams,
 	defaults: ({ today }) => sourceReductionFilterDefaults(today),
 	counting: DATE_RANGE_COUNTING,
 	applies: { from: 'both', to: 'both', people: 'both', methods: 'both', regions: 'both' },

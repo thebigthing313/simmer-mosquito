@@ -28,9 +28,7 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
 	},
 }));
 
-const { mapQueryParams, usePagedMapResource } = await import(
-	'../../../../hooks/explorer/use-paged-map-resource'
-);
+const { usePagedMapResource } = await import('../../../../hooks/explorer/use-paged-map-resource');
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
@@ -104,36 +102,5 @@ describe('the page of a list request', () => {
 		// The render that read the smaller total is thrown away before it commits,
 		// so no committed render carries a page past the count it drew beside it.
 		expect(paged.pages.filter((frame) => frame.page > frame.pageCount - 1)).toHaveLength(0);
-	});
-});
-
-/**
- * The `/map/*` list endpoints read presence, so an absent filter has to leave its
- * param out rather than send a blank one. Every explorer used to spell that rule
- * out by hand, once per filter (#101).
- */
-describe('mapQueryParams', () => {
-	it('drops absent, empty, and empty-list values', () => {
-		expect(
-			mapQueryParams({
-				regionId: [],
-				dateFrom: undefined,
-				dateTo: '',
-				search: null,
-				status: 'active',
-			}),
-		).toEqual({ status: 'active' });
-	});
-
-	it('joins id lists the way the endpoints parse them', () => {
-		expect(mapQueryParams({ regionId: ['a', 'b', 'c'] })).toEqual({ regionId: 'a,b,c' });
-	});
-
-	// `isWet=false` is a real filter — dry inspections — not an absent one.
-	it('keeps a false flag rather than treating it as unset', () => {
-		expect(mapQueryParams({ isWet: false, positive: true })).toEqual({
-			isWet: 'false',
-			positive: 'true',
-		});
 	});
 });

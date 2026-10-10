@@ -59,6 +59,20 @@ export function countPhrase(total: number, noun: CountNoun): string {
 	return `${formatCount(total)} ${total === 1 ? noun.one : noun.many}`;
 }
 
+const STOPS: CountNoun = { one: 'stop', many: 'stops' };
+
+/**
+ * `0 stops`, `1 stop`, `14,245 stops`.
+ *
+ * A stop is a Route item, a Mission Item or an Assignment item depending on
+ * the run, and none of those is the word the screen uses, so `stop` is not a
+ * record type and `recordCount` cannot count it. Seven places wrote this fork
+ * by hand before #1521.
+ */
+export function stopCountPhrase(total: number): string {
+	return countPhrase(total, STOPS);
+}
+
 /**
  * `1 habitat`, `14,245 habitats`, `None`.
  *

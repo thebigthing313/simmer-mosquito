@@ -15,10 +15,10 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RequestControlFilters } from '../../../../../components/operations/requests-for-control/request-control-filters';
 import {
-	type RequestFilterBinding,
 	type RequestFilters,
 	requestFilterDefaults,
 } from '../../../../../hooks/operations/use-request-for-control-filter-state';
+import type { FilterBinding } from '../../../../../lib/search-filters';
 
 const TODAY = '2026-10-09';
 
@@ -27,9 +27,9 @@ afterEach(cleanup);
 function renderWith(
 	filters: Partial<RequestFilters>,
 	activeCount: number,
-): RequestFilterBinding['setFilters'] {
+): FilterBinding<RequestFilters>['setFilters'] {
 	const defaults = requestFilterDefaults(TODAY);
-	const setFilters = vi.fn<RequestFilterBinding['setFilters']>();
+	const setFilters = vi.fn<FilterBinding<RequestFilters>['setFilters']>();
 	render(
 		<RequestControlFilters
 			binding={{

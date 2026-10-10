@@ -3,12 +3,10 @@ import {
 	boundsFromCoordinates,
 	boundsFromGeoJson,
 	centroidFromGeoJson,
-	containsLngLat,
 	countGeoJsonVertices,
 	formatBoundingBox,
 	geometryContainsLngLat,
 	ownedCentroidFromGeoJson,
-	parseBoundingBox,
 	toLngLat,
 } from '../../geometry.js';
 import { type CorpusCase, corpusRegionFor, REGION_MEMBERSHIP_CORPUS } from '../../test-corpus.js';
@@ -43,25 +41,11 @@ function containsAnyCoordinate(corpusCase: CorpusCase): boolean {
 }
 
 describe('geometry helpers', () => {
-	it('parses and formats canonical bounding boxes', () => {
-		const bbox = parseBoundingBox('-75.25,40.1,-74.75,40.5');
-
-		expect(bbox).toEqual({
-			west: -75.25,
-			south: 40.1,
-			east: -74.75,
-			north: 40.5,
-		});
-		expect(bbox ? formatBoundingBox(bbox) : null).toBe('-75.25,40.1,-74.75,40.5');
+	it('formats canonical bounding boxes', () => {
+		expect(formatBoundingBox({ west: -75.25, south: 40.1, east: -74.75, north: 40.5 })).toBe(
+			'-75.25,40.1,-74.75,40.5',
+		);
 		expect(formatBoundingBox({ west: 0, south: 0, east: 10, north: 10 })).toBe('0,0,10,10');
-		expect(parseBoundingBox('-75,40,-76,41')).toBeNull();
-	});
-
-	it('checks whether a point falls inside bounds', () => {
-		const bbox = { west: -75, south: 40, east: -74, north: 41 };
-
-		expect(containsLngLat(bbox, { lng: -74.5, lat: 40.5 })).toBe(true);
-		expect(containsLngLat(bbox, { lng: -73.5, lat: 40.5 })).toBe(false);
 	});
 
 	it('checks whether a point falls inside a region boundary', () => {

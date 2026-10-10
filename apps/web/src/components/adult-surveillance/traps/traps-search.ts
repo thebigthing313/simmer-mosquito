@@ -1,4 +1,4 @@
-import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
+import type { MapQueryValue } from '../../../lib/map-query-params';
 import { choiceParam, type FilterCodecs, idSetParam, textParam } from '../../../lib/search-filters';
 import { defineRecordSet } from '../../explorer/record-set';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
@@ -62,6 +62,9 @@ export const trapRecordSet = defineRecordSet({
 	recordType: 'trap',
 	paths: { map: '/adult-surveillance/traps', table: '/adult-surveillance/traps/table' },
 	codecs: trapFilterCodecs,
+	endpoint: { path: '/map/traps', rowsKey: 'traps' },
+	tileFilters: trapTileFilters,
+	listParams: trapListParams,
 	defaults: () => TRAP_FILTER_DEFAULTS,
 	textSearch: { key: 'search', delayMs: 200 },
 	applies: { search: 'both', status: 'both', methods: 'both', regions: 'both' },

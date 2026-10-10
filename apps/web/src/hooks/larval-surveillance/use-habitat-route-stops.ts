@@ -1,4 +1,4 @@
-import { and, coalesce, concat, eq, useLiveQuery } from '@tanstack/react-db';
+import { and, coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import {
 	type RouteStopCluster,
 	type RouteStopView,
@@ -8,6 +8,7 @@ import { addresses } from '../../lib/collections/addresses';
 import { habitats } from '../../lib/collections/habitats';
 import { route_items } from '../../lib/collections/route_items';
 import type { RouteStopFeature } from '../map/use-route-layer';
+import { joinedHabitatNameSelect } from '../queries/habitat-view';
 import { activityGcTimeMs, unmatchableId } from '../queries/shared';
 
 /**
@@ -60,8 +61,13 @@ export function useHabitatRouteStops(routeId: string | null): {
 					// `undefined` here is the join still resolving, which is what
 					// `isResolving` reports below.
 					resolvedHabitatId: habitat.id,
-					name: coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
-					description: coalesce(habitat.description, ''),
+					// `null` while the Habitat has not arrived, so the id fallback below
+					// is reachable rather than a bare `, ` from `concat` over nothing.
+					name: joinedHabitatNameSelect(habitat),
+					// `null` while the Habitat has not arrived, which is not the same
+					// answer as a Habitat with no description: the column is never
+					// null, so a resolved one reads `''`.
+					description: coalesce(habitat.description, null),
 					habitatTypeId: coalesce(habitat.habitat_type_id, null),
 					lat: coalesce(habitat.lat, null),
 					lng: coalesce(habitat.lng, null),

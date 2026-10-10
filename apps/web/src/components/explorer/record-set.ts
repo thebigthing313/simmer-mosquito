@@ -1,5 +1,6 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
 import type { LinkProps } from '@tanstack/react-router';
+import type { MapQueryValue } from '../../lib/map-query-params';
 import type { RecordType } from '../../lib/record-nouns';
 import type { FilterCodecs, FilterCounting, SearchCodec } from '../../lib/search-filters';
 
@@ -60,14 +61,22 @@ export interface RecordSetLinks<TFilters> {
 	readonly applies: { readonly [Key in keyof TFilters]-?: AppliedOn };
 }
 
+/** The `/map/*` list endpoint both surfaces page through, and where its rows arrive. */
+export interface RecordSetEndpoint {
+	/** The list endpoint, e.g. `/map/biocontrol`. */
+	readonly path: `/map/${string}`;
+	/** The key the rows arrive under in the response body, e.g. `biocontrolActions`. */
+	readonly rowsKey: string;
+}
+
 /**
  * One Map/Table pair over one record type and one filter contract.
  *
- * `TFilters` is inferred from `codecs` alone, so everything else is checked
- * against it rather than widening it: a misspelled key and a missing key both
- * fail.
+ * `TFilters` is inferred from `codecs` alone and `TTile` from `tileFilters`,
+ * so everything else is checked against them rather than widening them: a
+ * misspelled key and a missing key both fail.
  */
-export interface RecordSet<TFilters> extends RecordSetLinks<TFilters> {
+export interface RecordSet<TFilters, TTile = unknown> extends RecordSetLinks<TFilters> {
 	/**
 	 * What an address with no filter params means on `surface`. A set whose two
 	 * surfaces open on different windows says so here, and it is the only place
@@ -80,13 +89,26 @@ export interface RecordSet<TFilters> extends RecordSetLinks<TFilters> {
 		| ((context: RecordSetContext) => FilterCounting<TFilters>);
 	/** The filter a search box writes, for a set that has one. */
 	readonly textSearch?: TextSearch<TFilters>;
+	readonly endpoint: RecordSetEndpoint;
+	/**
+	 * The filters as the tile layer reads them, with an unset filter absent.
+	 * The Map draws its tiles from this and both surfaces build their list
+	 * request from it, so the two cannot send different filters.
+	 *
+	 * Both conversions are properties rather than methods, because TypeScript
+	 * checks a method's parameters bivariantly and a set over one tile type
+	 * would then pass where a set over any tile is asked for (#1588).
+	 */
+	readonly tileFilters: (filters: TFilters, context: RecordSetContext) => TTile;
+	/** The tile filters as the list endpoint's query params. */
+	readonly listParams: (tile: TTile) => Readonly<Record<string, MapQueryValue>>;
 }
 
 /**
  * Declares a record set. An identity at runtime; what it adds is the
  * inference, so every other field is read against the keys `codecs` declares.
  */
-export function defineRecordSet<TFilters>(
+export function defineRecordSet<TFilters, TTile>(
 	definition: Omit<RecordSetLinks<TFilters>, 'applies'> & {
 		readonly applies: { readonly [Key in keyof NoInfer<TFilters>]-?: AppliedOn };
 		readonly defaults: (context: RecordSetContext, surface: RecordSetSurface) => NoInfer<TFilters>;
@@ -94,8 +116,11 @@ export function defineRecordSet<TFilters>(
 			| FilterCounting<NoInfer<TFilters>>
 			| ((context: RecordSetContext) => FilterCounting<NoInfer<TFilters>>);
 		readonly textSearch?: TextSearch<NoInfer<TFilters>>;
+		readonly endpoint: RecordSetEndpoint;
+		readonly tileFilters: (filters: NoInfer<TFilters>, context: RecordSetContext) => TTile;
+		readonly listParams: (tile: NoInfer<TTile>) => Readonly<Record<string, MapQueryValue>>;
 	},
-): RecordSet<TFilters> {
+): RecordSet<TFilters, TTile> {
 	return definition;
 }
 
@@ -131,9 +156,23 @@ export function surfaceCodecs<TFilters>(
 	return codecs as FilterCodecs<TFilters>;
 }
 
+/**
+ * The list request's filter params for `filters`: the tile filters as the list
+ * endpoint reads them. The Map adds its viewport's `bbox` to these and the
+ * Table adds the whole world's, so the two surfaces send one filter set under
+ * two boxes.
+ */
+export function recordSetListParams<TFilters, TTile>(
+	set: RecordSet<TFilters, TTile>,
+	filters: TFilters,
+	context: RecordSetContext,
+): Readonly<Record<string, MapQueryValue>> {
+	return set.listParams(set.tileFilters(filters, context));
+}
+
 /** The set's counting rule in `context`, or none for a set that states none. */
 export function recordSetCounting<TFilters>(
-	set: RecordSet<TFilters>,
+	set: Pick<RecordSet<TFilters>, 'counting'>,
 	context: RecordSetContext,
 ): FilterCounting<TFilters> | undefined {
 	return typeof set.counting === 'function' ? set.counting(context) : set.counting;

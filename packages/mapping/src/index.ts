@@ -30,18 +30,13 @@ export {
 	boundsFromGeoJson,
 	centroidFromGeoJson,
 	circlePolygon,
-	containsLngLat,
 	countGeoJsonVertices,
-	extendBounds,
 	formatBoundingBox,
 	formatGeometryTypeLabel,
 	geometryContainsLngLat,
 	isBoundingBox,
-	isLngLat,
 	isPointGeomType,
-	normalizeGeomType,
 	ownedCentroidFromGeoJson,
-	parseBoundingBox,
 	toLngLat,
 } from './geometry.js';
 export { isGeoJsonGeometryOfTypes } from './geometry-check.js';
@@ -87,8 +82,6 @@ export {
 	polygonAreaMeters,
 	polygonPerimeterMeters,
 	rectanglePolygon,
-	ringAreaMeters,
-	ringPerimeterMeters,
 } from './measurement.js';
 export type {
 	PlanarPath,
@@ -100,5 +93,5 @@ export type {
 	SplitPart,
 	SplitRefusal,
 } from './sketch.js';
-export { reshapePath, samePlanarPosition, sketchCrossings, splitRings } from './sketch.js';
+export { reshapePath, samePlanarPosition, splitRings } from './sketch.js';
 export { MAP_CLUSTER_UNTIL_ZOOM } from './tile-clustering.js';
