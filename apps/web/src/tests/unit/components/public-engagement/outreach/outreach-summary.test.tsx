@@ -13,13 +13,23 @@
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ExplorerSummary } from '../../../../../components/explorer/explorer-summary';
+import { DeclaredSummary } from '../../../../../components/explorer/declared-summary';
 import {
 	type OutreachFilters,
 	outreachFilterDefaults,
 } from '../../../../../components/public-engagement/outreach/outreach-actions-search';
-import { outreachSummaryGroupings } from '../../../../../components/public-engagement/outreach/outreach-summary';
+import { outreachFilterDeclarations } from '../../../../../components/public-engagement/outreach/outreach-filters';
+import { outreachSummaryFigures } from '../../../../../components/public-engagement/outreach/outreach-summary';
 import type { MapSummary } from '../../../../../hooks/explorer/use-explorer-summary';
+
+// Method and Technician each name a catalog, which the summary reads for
+// names. The ids differ, so one lookup serves both.
+vi.mock('../../../../../hooks/explorer/use-catalog-options', () => ({
+	useCatalogOptions: () => ({
+		options: [],
+		nameById: new Map([...METHOD_NAMES, ...PERSON_NAMES]),
+	}),
+}));
 
 afterEach(cleanup);
 
@@ -73,16 +83,12 @@ const DEFAULTS = outreachFilterDefaults('2026-09-28');
 
 function renderSummary(filters: Partial<OutreachFilters> = {}, summary = SUMMARY) {
 	const setFilters = vi.fn<(patch: Partial<OutreachFilters>) => void>();
-	const groupings = outreachSummaryGroupings({
-		summary,
-		filters: { ...DEFAULTS, ...filters },
-		setFilters,
-		methodNameById: METHOD_NAMES,
-		personNameById: PERSON_NAMES,
-	});
 	render(
-		<ExplorerSummary
-			groupings={groupings}
+		<DeclaredSummary
+			binding={{ filters: { ...DEFAULTS, ...filters }, setFilters }}
+			declarations={outreachFilterDeclarations}
+			figures={outreachSummaryFigures}
+			order={['methods', 'people']}
 			recordType="outreachAction"
 			state={{ data: summary, isError: false, retry: () => undefined }}
 		/>,

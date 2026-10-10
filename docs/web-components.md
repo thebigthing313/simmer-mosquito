@@ -95,10 +95,11 @@ The shared `TabStrip` in `packages/ui-web` is unchanged. Every other strip in
 the app has a fixed set of tabs, so the bound belongs to the one surface whose
 length comes from years of data.
 
-#### trapSummaryGroupings
+#### The Traps summary
 
-The Traps summary, built the way `habitatSummaryGroupings` builds the Habitats
-one (#1372). A collection method is added to `methods` and drawn top 5 and "n
+The Traps summary, built the way the Habitats one is (#1372). The route draws
+it through `DeclaredSummary` with no figures, since every grouping is a
+declared filter's, so there is no summary module. A collection method is added to `methods` and drawn top 5 and "n
 more", and Active and Inactive set `status`, drawn Active first whichever
 holds more. The map opens on `status=active`, so the server counts active
 traps only, and the first summary a reader sees draws Active alone and
@@ -111,10 +112,11 @@ the Traps Table draw the same card. The Active and Inactive labels are
 `TRAP_STATUS_LABELS` in `legend.ts`, read by the control, the chip, the map
 key, the Table and the summary.
 
-#### collectionSummaryGroupings
+#### collectionSummaryFigures
 
-The Collections summary, built the way `trapSummaryGroupings` builds the Traps
-one (#1373). Problem reported sets `problems`, Awaiting identification sets
+The Collections summary, built the way the Traps one is (#1373), with
+`collectionSummaryFigures` adding the Status figures after the declared
+groupings. Problem reported sets `problems`, Awaiting identification sets
 `awaiting`, and a collection method is added to `methods`, drawn top 5 and "n
 more". Each flag draws only its flagged side, since no filter selects the
 opposite, and a flag no collection in view carries is not drawn at all.
@@ -218,10 +220,10 @@ The page needs two floors. `update*Method` is `MANAGER` while `create*`,
 `deactivate*`, `reactivate*` and `delete*` are `ADMIN`, and gating all of it at
 `canManage` was #65: a manager who may rename a method saw no Edit control.
 
-#### biocontrolSummaryGroupings
+#### biocontrolSummaryFigures
 
-The Biocontrol Actions summary, built the way
-`sourceReductionSummaryGroupings` builds the Source Reductions one (#1376). A
+The Biocontrol Actions summary, built the way the Source Reductions one is
+(#1376), with `biocontrolSummaryFigures` adding Amount Released. A
 method is added to `methods` and a technician to `people`, each drawn top 5
 and "n more". A biocontrol action recorded with no technician is counted on
 the server and not drawn, because no filter selects "none".
@@ -242,10 +244,10 @@ The filter card and its chips moved out of the route into
 `biocontrol-filters.tsx` so the Biocontrol Actions Table could share them, and
 the row type and the name lookups into `biocontrol-row-parts.ts`.
 
-#### sourceReductionSummaryGroupings
+#### sourceReductionSummaryFigures
 
-The Source Reductions summary, built the way `applicationSummaryGroupings`
-builds the Chemical Applications one (#1375). A method is added to `methods`
+The Source Reductions summary, built the way the Chemical Applications one is
+(#1375), with `sourceReductionSummaryFigures` adding Sources Eliminated. A method is added to `methods`
 and a technician to `people`, each drawn top 5 and "n more". A source
 reduction recorded with no technician is counted on the server and not drawn,
 because no filter selects "none".
@@ -261,10 +263,10 @@ The filter card and its chips moved out of the route into
 them, and the row type and the name lookups into
 `source-reduction-row-parts.ts`.
 
-#### applicationSummaryGroupings
+#### applicationSummaryFigures
 
-The Chemical Applications summary, built the way `collectionSummaryGroupings`
-builds the Collections one (#1374). An insecticide is added to `insecticides`,
+The Chemical Applications summary, built the way the Collections one is
+(#1374), with `applicationSummaryFigures` adding Amount Applied. An insecticide is added to `insecticides`,
 an application method to `methods` and an applicator to `people`, each drawn
 top 5 and "n more". An application recorded with no method or no applicator
 is counted on the server and not drawn, because no filter selects "none".
@@ -438,8 +440,8 @@ declaration names the filter's kind, its label, an id set's option source and
 its name for an id the source does not hold, and, where the summary groups by
 it, the server's grouping key and what a null group does. `filterFields` and
 `DeclaredFilterChips` in `declared-filters.tsx` draw the controls and the
-chips from it, and `declaredSummaryGroupings` builds the summary's toggle
-groups. Before this each filter was written three or four times, a control, a
+chips from it, and `DeclaredSummary` in `declared-summary.tsx` draws the
+summary's toggle groups, which `declaredSummaryGroupings` builds. Before this each filter was written three or four times, a control, a
 chip, a summary group and the count, and only the count read the defaults, so
 five sets counted a moved date window and drew no chip for it. A chip is now
 drawn for exactly what `countActiveFilters` counts, and one parameterised
@@ -463,11 +465,24 @@ fails `tsc`. That every key is declared once is the suite's check rather than
 the compiler's.
 
 Chips draw in declaration order, controls go where the surface puts them, and
-summary groupings in the order the per-kind summary module lists them, because
+summary groupings in the order the call site hands `DeclaredSummary`, because
 the three orders already differed on most sets and changing any was out of
 scope. An option source is a closed union read through one hook per source,
 each behind a small render-prop component, since a hook chosen by a
 declaration at render time is a hook called conditionally.
+
+The summary names an id set's values through that same component, `WithOptions`
+(#1611). The server answers ids, so each grouping needs names, and every
+caller used to read the catalog itself and hand the lookup in keyed by filter,
+which `tsc` held to neither half: a lookup left out, or the profiles under
+`methods`, drew every value as `Unknown method` under chips naming the same
+ids. `DeclaredSummary` collects the sources the grouping order reads with
+`summarySources`, reads each in turn through `WithOptions`, and hands
+`declaredSummaryGroupings` the lookups keyed by source object, so a grouping
+can only be named by the source its own declaration names. The grouping logic
+stays a pure function under the component. A summary module is left only
+where the surface draws text figures no filter selects, and it now exports the
+figures alone, which `DeclaredSummary` draws after the declared groupings.
 
 `available` is a declaration's say in whether it draws at all in this
 Organization. Overdue is the one that needs it: with the Organization's
@@ -706,9 +721,10 @@ two records for one catch basin agree about nothing except where they are. The
 habitat somebody is already looking at is the one that survives, which is the
 choice a cleanup page has to make with a radio and get wrong in silence.
 
-#### habitatSummaryGroupings
+#### The Habitats summary
 
-The Habitats summary's four groupings. Status and Access draw in a fixed
+The Habitats summary's four groupings, all declared filters', which the route
+draws through `DeclaredSummary` with no summary module. Status and Access draw in a fixed
 order rather than by count, so Active is in the same place whichever side
 holds more, and a side with no habitats in view is left out, since clicking
 it would empty the panel. Untreated draws one side only, because there is no
@@ -759,10 +775,10 @@ Both surfaces draw from `inspectionFilterDeclarations` and the binding
 its own is gone, and with it the date reset the Map wrote out a second time
 and threaded through eight props to its chips (#1421).
 
-#### inspectionSummaryGroupings
+#### The Inspections summary
 
-The Inspections summary's five groupings, built the way
-`habitatSummaryGroupings` builds the Habitats ones. Water draws Wet before Dry
+The Inspections summary's five groupings, built the way the Habitats ones are,
+through `DeclaredSummary` with no summary module. Water draws Wet before Dry
 whichever holds more, and the density bands draw in the scale's order, the
 order the Density filter and the map key list them in, rather than by count.
 A dry inspection has no density, so the bands are followed by "Not recorded"
@@ -818,10 +834,10 @@ beside the row it was edited from, and `ColorPicker` in `packages/ui-web`
 holds the custom hex beside the selection it was typed over, keeping the
 typed text when the selection is cleared, which is what its effect did.
 
-#### sampleSummaryGroupings
+#### sampleSummaryFigures
 
-The Samples summary's groupings, built the way `habitatSummaryGroupings`
-builds the Habitats ones, plus one figure (#1370). Status draws in the order
+The Samples summary's groupings, built the way the Habitats ones are, plus
+one figure from `sampleSummaryFigures` (#1370). Status draws in the order
 the Status filter lists it rather than by count, and a click replaces the
 status there, since the filter holds one.
 

@@ -11,10 +11,16 @@
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ExplorerSummary } from '../../../../../components/explorer/explorer-summary';
-import { sampleSummaryGroupings } from '../../../../../components/larval-surveillance/samples/sample-summary';
+import { DeclaredSummary } from '../../../../../components/explorer/declared-summary';
+import { sampleFilterDeclarations } from '../../../../../components/larval-surveillance/samples/sample-filters';
+import { sampleSummaryFigures } from '../../../../../components/larval-surveillance/samples/sample-summary';
 import type { SampleFilters } from '../../../../../components/larval-surveillance/samples-search';
 import type { MapSummary } from '../../../../../hooks/explorer/use-explorer-summary';
+
+// The Species declaration names its source, which the summary reads for names.
+vi.mock('../../../../../hooks/explorer/use-species-options', () => ({
+	useSpeciesOptions: () => ({ options: [], nameById: SPECIES_NAMES }),
+}));
 
 afterEach(cleanup);
 
@@ -66,15 +72,12 @@ const DEFAULTS: SampleFilters = {
 
 function renderSummary(filters: Partial<SampleFilters> = {}, summary = SUMMARY) {
 	const setFilters = vi.fn<(patch: Partial<SampleFilters>) => void>();
-	const groupings = sampleSummaryGroupings({
-		summary,
-		filters: { ...DEFAULTS, ...filters },
-		setFilters,
-		speciesNameById: SPECIES_NAMES,
-	});
 	render(
-		<ExplorerSummary
-			groupings={groupings}
+		<DeclaredSummary
+			binding={{ filters: { ...DEFAULTS, ...filters }, setFilters }}
+			declarations={sampleFilterDeclarations}
+			figures={sampleSummaryFigures}
+			order={['status', 'species', 'nonMosquito']}
 			recordType="sample"
 			state={{ data: summary, isError: false, retry: () => undefined }}
 		/>,

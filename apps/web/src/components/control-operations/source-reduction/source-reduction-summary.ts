@@ -1,36 +1,16 @@
 import type { MapSummary } from '../../../hooks/explorer/use-explorer-summary';
 import type { SummaryGroup, SummaryGrouping } from '../../explorer/explorer-summary';
-import { declaredSummaryGroupings } from '../../explorer/filter-declarations';
 import { formatAmount } from '../control-display';
-import { sourceReductionFilterDeclarations } from './source-reduction-filters';
-import type { SourceReductionFilters } from './source-reductions-search';
 
 /**
- * The Source Reductions summary's two groupings and its sources eliminated, out
- * of what `/map/source-reduction/summary` answers.
- *
- * Method and Technician are the declared filters' toggle groups, a source
- * reduction with no technician left out since no filter selects it. Sources
- * eliminated are drawn as text, one line per unit.
+ * The Source Reductions summary's sources eliminated, out of the breakdown
+ * `/map/source-reduction/summary` answers, drawn as text one line per unit
+ * after the declared Method and Technician groupings.
  */
-export function sourceReductionSummaryGroupings({
-	summary,
-	filters,
-	setFilters,
-	methodNameById,
-	personNameById,
-	unitById,
-}: {
-	readonly summary: MapSummary;
-	readonly filters: SourceReductionFilters;
-	readonly setFilters: (patch: Partial<SourceReductionFilters>) => void;
-	readonly methodNameById: ReadonlyMap<string, string>;
-	readonly personNameById: ReadonlyMap<string, string>;
-	readonly unitById: ReadonlyMap<
-		string,
-		{ readonly unitName: string; readonly abbreviation: string }
-	>;
-}): readonly SummaryGrouping[] {
+export function sourceReductionSummaryFigures(
+	summary: MapSummary,
+	unitById: ReadonlyMap<string, { readonly unitName: string; readonly abbreviation: string }>,
+): readonly SummaryGrouping[] {
 	const eliminated: SummaryGroup[] = (summary.breakdowns?.sourcesEliminated ?? []).flatMap(
 		({ by, count, sum }) => {
 			const { unitId } = by;
@@ -49,13 +29,5 @@ export function sourceReductionSummaryGroupings({
 		},
 	);
 
-	return [
-		...declaredSummaryGroupings(sourceReductionFilterDeclarations, ['methods', 'people'], {
-			summary,
-			filters,
-			setFilters,
-			names: { methods: methodNameById, people: personNameById },
-		}),
-		{ key: 'eliminated', title: 'Sources Eliminated', groups: eliminated },
-	];
+	return [{ key: 'eliminated', title: 'Sources Eliminated', groups: eliminated }];
 }

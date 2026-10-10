@@ -11,13 +11,18 @@
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { trapSummaryGroupings } from '../../../../../components/adult-surveillance/traps/trap-summary';
+import { trapFilterDeclarations } from '../../../../../components/adult-surveillance/traps/trap-filters';
 import {
 	TRAP_FILTER_DEFAULTS,
 	type TrapFilters,
 } from '../../../../../components/adult-surveillance/traps/traps-search';
-import { ExplorerSummary } from '../../../../../components/explorer/explorer-summary';
+import { DeclaredSummary } from '../../../../../components/explorer/declared-summary';
 import type { MapSummary } from '../../../../../hooks/explorer/use-explorer-summary';
+
+// The Method declaration names its catalog, which the summary reads for names.
+vi.mock('../../../../../hooks/explorer/use-catalog-options', () => ({
+	useCatalogOptions: () => ({ options: [], nameById: METHOD_NAMES }),
+}));
 
 afterEach(cleanup);
 
@@ -53,15 +58,11 @@ const SUMMARY: MapSummary = {
 
 function renderSummary(filters: Partial<TrapFilters> = {}, summary = SUMMARY) {
 	const setFilters = vi.fn<(patch: Partial<TrapFilters>) => void>();
-	const groupings = trapSummaryGroupings({
-		summary,
-		filters: { ...TRAP_FILTER_DEFAULTS, status: 'all', ...filters },
-		setFilters,
-		methodNameById: METHOD_NAMES,
-	});
 	render(
-		<ExplorerSummary
-			groupings={groupings}
+		<DeclaredSummary
+			binding={{ filters: { ...TRAP_FILTER_DEFAULTS, status: 'all', ...filters }, setFilters }}
+			declarations={trapFilterDeclarations}
+			order={['methods', 'status']}
 			recordType="trap"
 			state={{ data: summary, isError: false, retry: () => undefined }}
 		/>,

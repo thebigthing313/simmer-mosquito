@@ -12,7 +12,7 @@ import {
 	insecticideName,
 	normalizeApplication,
 } from '../../../components/control-operations/chemical/application-row-parts';
-import { applicationSummaryGroupings } from '../../../components/control-operations/chemical/application-summary';
+import { applicationSummaryFigures } from '../../../components/control-operations/chemical/application-summary';
 import {
 	applicationFilterCodecs,
 	applicationRecordSet,
@@ -20,8 +20,8 @@ import {
 import { formatAmount } from '../../../components/control-operations/control-display';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
+import { DeclaredSummary } from '../../../components/explorer/declared-summary';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
-import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
@@ -49,12 +49,11 @@ function ApplicationsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
 	const binding = useRecordSetFilters(applicationRecordSet, 'map');
-	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
+	const { reset: clearAll, activeCount: activeFilterCount } = binding;
 	const panel = useExplorerPanel();
 
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.applicationMethods);
 	const { nameById: insecticideNameById } = useInsecticideOptions();
-	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const unitById = useUnitLabels().byId;
 
 	const routeSearch = Route.useSearch();
@@ -108,23 +107,14 @@ function ApplicationsExplorerRoute() {
 				// Over 100 in view the rows would not fit on one page, so the panel
 				// says what is in view instead (#1374).
 				summary: summary.isShown ? (
-					<ExplorerSummary
+					<DeclaredSummary
+						binding={binding}
 						chips={
 							<DeclaredFilterChips binding={binding} declarations={applicationFilterDeclarations} />
 						}
-						groupings={
-							summary.data === null
-								? []
-								: applicationSummaryGroupings({
-										summary: summary.data,
-										filters: query,
-										setFilters,
-										insecticideNameById,
-										methodNameById,
-										personNameById,
-										unitById,
-									})
-						}
+						declarations={applicationFilterDeclarations}
+						figures={(data) => applicationSummaryFigures(data, { insecticideNameById, unitById })}
+						order={['insecticides', 'methods', 'people']}
 						recordType="application"
 						state={summary}
 					/>

@@ -45,7 +45,7 @@ import { ToggleFilter } from './toggle-filter';
  * `FilterBinding`, and then declares no text filter and no `available`, since
  * both read a half it does not have; "Clear all" is its `reset`.
  */
-type DeclaredFilterBinding<TFilters> = FilterBinding<TFilters> &
+export type DeclaredFilterBinding<TFilters> = FilterBinding<TFilters> &
 	Partial<TextSearchBinding> & { readonly context?: RecordSetContext };
 
 /** One control per declared filter, by name, or null where the filter is not available. */
@@ -432,8 +432,12 @@ interface OptionSet {
 
 type OptionsChildren = (options: OptionSet) => ReactNode;
 
-/** Reads `source` through the one hook that serves it and hands the options to `children`. */
-function WithOptions({
+/**
+ * Reads `source` through the one hook that serves it and hands the options to
+ * `children`. The controls, the chips and `DeclaredSummary` all name an id
+ * through this.
+ */
+export function WithOptions({
 	source,
 	children,
 }: {

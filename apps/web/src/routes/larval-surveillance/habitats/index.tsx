@@ -3,15 +3,14 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
+import { DeclaredSummary } from '../../../components/explorer/declared-summary';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
-import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import {
 	HabitatFilterFields,
 	habitatFilterDeclarations,
 } from '../../../components/larval-surveillance/habitats/habitat-filters';
 import { HabitatMapCard } from '../../../components/larval-surveillance/habitats/habitat-map-card';
-import { habitatSummaryGroupings } from '../../../components/larval-surveillance/habitats/habitat-summary';
 import {
 	habitatFilterCodecs,
 	habitatRecordSet,
@@ -63,7 +62,7 @@ interface HabitatListRow {
 
 function HabitatsExplorerRoute() {
 	const binding = useRecordSetFilters(habitatRecordSet, 'map');
-	const { filters: query, activeCount: activeFilterCount, clearAll, setFilters } = binding;
+	const { filters: query, activeCount: activeFilterCount, clearAll } = binding;
 	const panel = useExplorerPanel();
 
 	const { nameById: typeNameById } = useCatalogOptions(catalogs.habitatTypes);
@@ -129,20 +128,13 @@ function HabitatsExplorerRoute() {
 				// Over 100 in view the rows would not fit on one page, so the panel
 				// says what is in view instead (#1244).
 				summary: summary.isShown ? (
-					<ExplorerSummary
+					<DeclaredSummary
+						binding={binding}
 						chips={
 							<DeclaredFilterChips binding={binding} declarations={habitatFilterDeclarations} />
 						}
-						groupings={
-							summary.data === null
-								? []
-								: habitatSummaryGroupings({
-										summary: summary.data,
-										filters: query,
-										setFilters,
-										typeNameById,
-									})
-						}
+						declarations={habitatFilterDeclarations}
+						order={['typeIds', 'status', 'access', 'untreated']}
 						recordType="habitat"
 						state={summary}
 					/>
