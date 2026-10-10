@@ -52,8 +52,8 @@ export interface AdultCollection {
 	readonly trapName: string | null;
 	readonly trapCode: string | null;
 	readonly methodId: string;
-	/** Never null — a collection must name a method. See `Trap.methodName`. */
-	readonly methodName: string;
+	/** `null` only when the method is not in the client. See `Trap.methodName`. */
+	readonly methodName: string | null;
 	readonly lureId: string | null;
 	readonly lureName: string | null;
 	readonly addressId: string | null;

@@ -2,12 +2,12 @@
  * The address filters, drawn the same way on the Address Book Map and the
  * Addresses Table: the search box, the Region popover, and the chips for
  * whatever is set. It returns the blocks bare, so each surface puts them in
- * its own frame. Takes the binding from `useAddressFilterState`.
+ * its own frame. Takes the binding from `useRecordSetFilters`.
  */
 
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
+import type { RecordSetFilterBinding } from '../../../hooks/explorer/use-record-set-filters';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
-import type { AddressFilterBinding } from '../../../hooks/gis/use-address-filter-state';
 import {
 	ActiveFilterBar,
 	FilterChip,
@@ -15,12 +15,13 @@ import {
 	MultiSelectFilter,
 	toggle,
 } from '../../explorer';
+import type { AddressFilters } from './addresses-search';
 
 export function AddressFilterFields({
 	binding,
 	wide = false,
 }: {
-	readonly binding: AddressFilterBinding;
+	readonly binding: RecordSetFilterBinding<AddressFilters>;
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
@@ -57,7 +58,11 @@ export function AddressFilterFields({
  * draws these under its controls, and the Address Book summary draws them
  * above its figures.
  */
-export function AddressFilterChips({ binding }: { readonly binding: AddressFilterBinding }) {
+export function AddressFilterChips({
+	binding,
+}: {
+	readonly binding: RecordSetFilterBinding<AddressFilters>;
+}) {
 	const { nameById: regionNameById } = useRegionOptions();
 	const { filters, setFilters, clearSearch, clearAll } = binding;
 	return (

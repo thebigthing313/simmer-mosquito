@@ -1,5 +1,6 @@
 import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
 import { type FilterCodecs, idSetParam, textParam } from '../../../lib/search-filters';
+import { defineRecordSet } from '../../explorer/record-set';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
 import type { AddressTileFilters } from '../../map';
 
@@ -39,16 +40,16 @@ export function addressListParams(filters: AddressTileFilters): Record<string, M
 }
 
 /**
- * The params a move between the Map and the Table carries. That is every
- * filter, since both surfaces read the same list endpoint and apply each one.
+ * The Addresses Map and Table. Both read `/map/addresses` and apply every filter.
  */
-export function sharedAddressSearch(search: Record<string, unknown>): Record<string, unknown> {
-	const carried: Record<string, unknown> = {};
-	for (const key of Object.keys(addressFilterCodecs)) {
-		const value = search[key];
-		if (value !== undefined) {
-			carried[key] = value;
-		}
-	}
-	return carried;
-}
+export const addressRecordSet = defineRecordSet({
+	recordType: 'address',
+	paths: { map: '/gis/addresses', table: '/gis/addresses/table' },
+	codecs: addressFilterCodecs,
+	endpoint: { path: '/map/addresses', rowsKey: 'addresses' },
+	tileFilters: addressTileFilters,
+	listParams: addressListParams,
+	defaults: () => ADDRESS_FILTER_DEFAULTS,
+	textSearch: { key: 'search' },
+	applies: { search: 'both', regions: 'both' },
+});

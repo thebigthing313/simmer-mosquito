@@ -9,7 +9,7 @@
  * navigation unmount over an on-demand collection, and `inspections` is one.
  */
 
-import { caseWhen, eq, isNull, useLiveQuery } from '@tanstack/react-db';
+import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
 import { inspections } from '../../lib/collections/inspections';
@@ -55,11 +55,7 @@ export function useLarvalActivityForDate(date: string): {
 					id: inspection.id,
 					inspectionDate: inspection.inspection_date,
 					inspectedByProfileId: inspection.inspected_by_profile_id,
-					inspectedByName: caseWhen(
-						isNull(inspection.inspected_by_profile_id),
-						null,
-						inspector.display_name,
-					),
+					inspectedByName: coalesce(inspector.display_name, null),
 					isWet: inspection.is_wet,
 					density: inspection.density,
 					larvaeCount: inspection.larvae_count,
@@ -69,10 +65,7 @@ export function useLarvalActivityForDate(date: string): {
 					// arriving, and `habitat-view.ts` says what that reads as (#998).
 					habitatName: joinedHabitatNameSelect(habitat),
 					habitatTypeId: inspection.habitat_type_id,
-					// Guarded on the inspection's own column, which turns the join miss
-					// from `undefined` into the `null` the rest of this row speaks in. The
-					// catalog is eager, so here a miss only ever means no type is named.
-					typeName: caseWhen(isNull(inspection.habitat_type_id), null, type.name),
+					typeName: coalesce(type.name, null),
 
 					latitude: inspection.lat,
 					longitude: inspection.lng,

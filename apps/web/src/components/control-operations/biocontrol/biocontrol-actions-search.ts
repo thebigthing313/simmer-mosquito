@@ -1,6 +1,13 @@
 import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
 import { addDaysToDateString } from '../../../lib/local-date';
-import { dateParam, type FilterCodecs, flagParam, idSetParam } from '../../../lib/search-filters';
+import {
+	DATE_RANGE_COUNTING,
+	dateParam,
+	type FilterCodecs,
+	flagParam,
+	idSetParam,
+} from '../../../lib/search-filters';
+import { defineRecordSet } from '../../explorer/record-set';
 import { whenAny, whenOn, whenText } from '../../explorer/tile-filter-params';
 import type { BiocontrolTileFilters } from '../../map';
 
@@ -80,16 +87,23 @@ export function biocontrolListParams(
 }
 
 /**
- * The params a move between the Map and the Table carries. That is every
- * filter, since both surfaces read the same list endpoint and apply each one.
+ * The Biocontrol Actions Map and Table. Both read `/map/biocontrol` and apply every filter.
  */
-export function sharedBiocontrolSearch(search: Record<string, unknown>): Record<string, unknown> {
-	const carried: Record<string, unknown> = {};
-	for (const key of Object.keys(biocontrolFilterCodecs)) {
-		const value = search[key];
-		if (value !== undefined) {
-			carried[key] = value;
-		}
-	}
-	return carried;
-}
+export const biocontrolRecordSet = defineRecordSet({
+	recordType: 'biocontrolAction',
+	paths: { map: '/control-operations/biocontrol', table: '/control-operations/biocontrol/table' },
+	codecs: biocontrolFilterCodecs,
+	endpoint: { path: '/map/biocontrol', rowsKey: 'biocontrolActions' },
+	tileFilters: biocontrolTileFilters,
+	listParams: biocontrolListParams,
+	defaults: ({ today }) => biocontrolFilterDefaults(today),
+	counting: DATE_RANGE_COUNTING,
+	applies: {
+		from: 'both',
+		to: 'both',
+		people: 'both',
+		methods: 'both',
+		habitat: 'both',
+		regions: 'both',
+	},
+});

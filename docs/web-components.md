@@ -326,6 +326,56 @@ It imports `MapCanvas` through the `components/map` barrel rather than from
 `map-canvas.tsx`. Every route suite replaces `MapCanvas` with a stand-in by
 mocking the barrel, and a direct import would draw a real Mapbox map in jsdom.
 
+#### RecordSetSwitch and defineRecordSet
+
+Eleven record types have a Map and a Table over one filter contract, and each
+pair used to write its own switch module, with two literal paths and a label,
+and its own `shared*Search` function picking the params to carry (#1419). A
+record set is one `defineRecordSet` call beside the kind's codecs now, and the
+switch reads it.
+
+**A surface holds only the filter keys it applies.** `applies` names, for every
+filter key, whether both surfaces apply it or only one, and `carriedSearch`
+drops a key on the way to a surface that does not apply it. There is no key
+that is carried and not applied. Two opposite policies used to stand for the
+same situation: the Inspections switch carried Region to a Table with no Region
+control and left it unapplied there, so a reader could go Map to Table and
+back and keep the selection, while the Service Requests switch dropped Search,
+Tags and Region because a filter the Table neither shows nor clears is one
+that either sits unapplied or narrows the rows invisibly. The maintainer
+settled on the second in #1419, so Inspections now loses Region on the way to its Table, the way
+Service Requests always lost its three. The surface itself holds to the same
+rule: `surfaceCodecs` hands it a codec that reads and writes nothing for each
+key it does not apply, so its `validateSearch` drops a hand-typed one and
+`useRecordSetFilters` resolves and counts it as its default.
+
+The definition also holds what the filter state reads: `defaults(context,
+surface)`, the counting rule, and the `textSearch` key for a set with a search
+box. `useRecordSetFilters` in `docs/web-hooks.md` says what each is for.
+
+And it holds the request. `endpoint` names the `/map/*` list endpoint and the
+key its rows arrive under, `tileFilters` turns the filters into what the tile
+layer reads, and `listParams` turns those into the list endpoint's query
+params. The Map draws its tiles from `tileFilters` and pages its rail through
+`listParams`, and the Table pages through the same two, so the surfaces send
+one filter set under two boxes and cannot drift apart key by key. Both used
+to call the kind's two functions by name, which agreed only because nobody
+had changed one side. `tileFilters` takes the binding's context as well as
+the filters, because the Service Requests cut-off for Overdue is a day off
+the Organization's today and its threshold setting, and with the context on
+the binding the routes read the cut-off from it rather than through a hook of
+their own.
+
+The paths are typed as `LinkProps['to']`, which is the router's own answer, so
+a path the generated route tree does not hold fails `tsc` in the definition.
+That is what used to force each switch to write its `Link`s with literal
+paths. The label is the register's `many` with its first letter raised, plus
+`view`, which is what all eleven spelled by hand.
+
+`carriedSearch` takes the source surface's validated search, so a filter at its
+default is already off it, and an order or a page is not a filter key and is
+never carried.
+
 #### ExplorerSummary
 
 What an explorer rail draws in place of its rows over 100 in view (#1244).
@@ -365,6 +415,35 @@ reads, over `WHOLE_WORLD_BBOX`, with `usePagedMapResource` and
 holds one page of 100. Each table has one fixed order, the endpoint's, and no
 column sorts. Service Requests is the one table with a control over it,
 newest or oldest first, under the `order` param the Map's rail already sent.
+
+`RecordSetTablePage` draws all eleven (#1419). They were eleven copies of one
+page, the header with the switch, the filter panel, `RecordTableUnavailable`,
+`RecordTableEmpty`, the table and the pager, and two of them differed on 40
+lines that were all names. Each `table.tsx` is still a file route, since
+`createFileRoute` needs a literal path in its own module, so what is left in
+one is the route declaration, the Table's binding, and the page with the
+kind's filter controls, table and empty-state copy. Every Table validates its
+search through `surfaceCodecs(set, 'table')`, so a filter the Table does not
+apply leaves its address. The route calls `useRecordSetFilters` itself rather
+than the page calling it, because two Tables draw their controls from the
+binding in a shape of their own: Inspections hands the bar
+`inspectionFilterBinding`'s adapter, and Service Requests reads the overdue
+cut-off off the binding's context once for both the Overdue control and every
+row. The page frames the controls itself, so a filter bar draws the controls
+and not the panel around them.
+
+The Habitats and Samples tables read the Map's endpoint rather than their
+collection, which is the case every other table inherited. A collection lets
+Postgres filter or sort only by a column of its own table. Three of the
+habitat filters are not columns: Tags are rows in `entity_tags`, Region is
+ADR 0015's spatial membership, and Untreated is the server's rule over
+inspections and control actions. The Dashboard links to the Map with
+Untreated set, so a Table that dropped it would list habitats the link says
+are gone. A Sample's own row holds almost nothing a reader filters by: its
+date is its inspection's, its status is whether any `sample_species` row
+exists, and what was identified in it is those rows. Reading the endpoint
+gets every filter, the Map's order and a total, at the cost of the column
+sort.
 
 The Inspections and Service Requests tables were the last two to move, in
 #1403. Each ran a TanStack DB live query over an on-demand collection,
@@ -566,19 +645,19 @@ Each dialog names its own intent rather than calling `habitatUpdatePlan`, which
 reads a whole form against the row it started from; these change one field and
 know which. The server refuses an intent whatever either side says.
 
-#### Inspection filters and the surface switch
+#### Inspection filters
 
 The map opens on the last 30 days and the table on every inspection, and that
 is the surfaces rather than an oversight: a season of inspections is a solid
 block of dots over the same streets, while the table shows 100 rows a page
-whatever the reach. `regions` stays in the table's filter set uncounted so a link that
-came from the map keeps its region selection through a trip to the table and
-back. The endpoint takes `regionId` and the table sends none, because it has no
-control that shows or clears a region. The sidebar cannot carry `search`, so the map/table pair carries its own
-control, and both paths are literals because `tsc` checks a `to` and `search`
-pair only where the path is one. The switch carries the shared filter keys, and
-it takes the validated search so a filter at its default stays off the address
-bar and each surface keeps its own opening window.
+whatever the reach. `inspectionRecordSet` states both windows, and which
+filters the table applies, under `RecordSetSwitch and defineRecordSet` above.
+
+`inspectionFilterBinding` is the inspection filter bar's shape over
+`useRecordSetFilters`: a plain value and a setter per filter, which is what
+the inspection components were written against. It is a function of the
+generic binding rather than a hook, so the Table route can hand the bar the
+adapter and `RecordSetTablePage` the binding it adapts.
 
 #### inspectionSummaryGroupings
 

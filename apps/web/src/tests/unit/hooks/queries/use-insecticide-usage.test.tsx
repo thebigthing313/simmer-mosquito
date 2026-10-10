@@ -8,7 +8,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useInsecticideUsage } from '../../../../hooks/queries/use-insecticide-usage';
 import { installMemoryCollections } from '../../lib/collections/memory-collections';
-import { DAY, GONE_PRODUCT, readList, seedUnresolvedActions } from './unresolved-performed-actions';
+import { readList } from './read-harness';
+import { DAY, GONE_PRODUCT, seedUnresolvedActions } from './unresolved-performed-actions';
 
 beforeEach(() => {
 	installMemoryCollections();

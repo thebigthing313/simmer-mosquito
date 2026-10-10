@@ -4,18 +4,16 @@ import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import {
 	HabitatFilterChips,
 	HabitatFilterFields,
 } from '../../../components/larval-surveillance/habitats/habitat-filters';
 import { HabitatMapCard } from '../../../components/larval-surveillance/habitats/habitat-map-card';
 import { habitatSummaryGroupings } from '../../../components/larval-surveillance/habitats/habitat-summary';
-import { HabitatSurfaceSwitch } from '../../../components/larval-surveillance/habitats/habitat-surface-switch';
 import {
 	habitatFilterCodecs,
-	habitatListParams,
-	habitatTileFilters,
-	sharedHabitatSearch,
+	habitatRecordSet,
 } from '../../../components/larval-surveillance/habitats/habitats-search';
 import { habitatLegend } from '../../../components/larval-surveillance/habitats/legend';
 import { HABITAT_STATUS_COLORS, MAP_CREATE_TARGETS } from '../../../components/map';
@@ -23,7 +21,7 @@ import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { useHabitatFilterState } from '../../../hooks/larval-surveillance/use-habitat-filter-state';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { Tag } from '../../../hooks/queries/tag-view';
@@ -35,8 +33,6 @@ export const Route = createFileRoute('/larval-surveillance/habitats/')({
 	component: HabitatsExplorerRoute,
 	validateSearch: searchValidator(habitatFilterCodecs),
 });
-
-const PATH = '/map/habitats';
 
 const NO_TAGS: readonly Tag[] = [];
 
@@ -62,18 +58,16 @@ interface HabitatListRow {
 }
 
 function HabitatsExplorerRoute() {
-	const binding = useHabitatFilterState();
+	const binding = useRecordSetFilters(habitatRecordSet, 'map');
 	const { filters: query, activeCount: activeFilterCount, clearAll, setFilters } = binding;
 	const panel = useExplorerPanel();
 
 	const { nameById: typeNameById } = useCatalogOptions(catalogs.habitatTypes);
 
-	const filters = habitatTileFilters(query);
+	const filters = habitatRecordSet.tileFilters(query, binding.context);
 	const [clustered] = useMapClustering();
 	const legend = habitatLegend(query.status, query.access, clustered);
-	// What a move to the Table takes with it: every filter, since the Table
-	// applies each one.
-	const carried = sharedHabitatSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const {
 		rows,
@@ -87,11 +81,11 @@ function HabitatsExplorerRoute() {
 		selectedId,
 		setSelectedId,
 	} = useExplorerResource<HabitatListRow>({
-		path: PATH,
-		rowsKey: 'habitats',
+		path: habitatRecordSet.endpoint.path,
+		rowsKey: habitatRecordSet.endpoint.rowsKey,
 		rowKey: 'habitat',
 		recordType: 'habitat',
-		params: habitatListParams(filters),
+		params: habitatRecordSet.listParams(filters),
 		tiles: { kind: 'habitats', filters },
 		summarize: true,
 	});
@@ -102,7 +96,9 @@ function HabitatsExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
-			actions={<HabitatSurfaceSwitch compact current="map" search={carried} />}
+			actions={
+				<RecordSetSwitch compact current="map" search={routeSearch} set={habitatRecordSet} />
+			}
 			activeFilterCount={activeFilterCount}
 			filters={<HabitatFilterFields binding={binding} />}
 			heading={{

@@ -7,22 +7,20 @@ import {
 	TrapFilterFields,
 } from '../../../components/adult-surveillance/traps/trap-filters';
 import { trapSummaryGroupings } from '../../../components/adult-surveillance/traps/trap-summary';
-import { TrapSurfaceSwitch } from '../../../components/adult-surveillance/traps/trap-surface-switch';
 import {
-	sharedTrapSearch,
 	trapFilterCodecs,
-	trapListParams,
-	trapTileFilters,
+	trapRecordSet,
 } from '../../../components/adult-surveillance/traps/traps-search';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS, TRAP_STATUS_COLORS } from '../../../components/map';
-import { useTrapFilterState } from '../../../hooks/adult-surveillance/use-trap-filter-state';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
@@ -47,13 +45,12 @@ export const Route = createFileRoute('/adult-surveillance/traps/')({
 	validateSearch: searchValidator(trapFilterCodecs),
 });
 
-const PATH = '/map/traps';
 const TrapEntityIcon = iconRegistry.entities.trap.icon;
 
 function TrapsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a trap
 	// both land on the list the operator had narrowed to.
-	const binding = useTrapFilterState();
+	const binding = useRecordSetFilters(trapRecordSet, 'map');
 	const { filters: query, activeCount: activeFilterCount, clearAll, setFilters } = binding;
 	const panel = useExplorerPanel();
 
@@ -61,10 +58,8 @@ function TrapsExplorerRoute() {
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (no selection / no search) drop out.
-	const filters = trapTileFilters(query);
-	// What a move to the Table takes with it: every filter, since the Table
-	// applies each one.
-	const carried = sharedTrapSearch(Route.useSearch());
+	const filters = trapRecordSet.tileFilters(query, binding.context);
+	const routeSearch = Route.useSearch();
 	const [clustered] = useMapClustering();
 	const legend = trapLegend(query.status, clustered);
 	const {
@@ -79,18 +74,18 @@ function TrapsExplorerRoute() {
 		selectedId,
 		setSelectedId,
 	} = useExplorerResource<TrapRow>({
-		path: PATH,
-		rowsKey: 'traps',
+		path: trapRecordSet.endpoint.path,
+		rowsKey: trapRecordSet.endpoint.rowsKey,
 		rowKey: 'trap',
 		recordType: 'trap',
-		params: trapListParams(filters),
+		params: trapRecordSet.listParams(filters),
 		tiles: { kind: 'traps', filters },
 		summarize: true,
 	});
 
 	return (
 		<ExplorerMapPage
-			actions={<TrapSurfaceSwitch compact current="map" search={carried} />}
+			actions={<RecordSetSwitch compact current="map" search={routeSearch} set={trapRecordSet} />}
 			activeFilterCount={activeFilterCount}
 			filters={<TrapFilterFields binding={binding} />}
 			heading={{

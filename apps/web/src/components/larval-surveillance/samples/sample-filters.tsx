@@ -3,7 +3,7 @@
  * Table: the date window, Status, the species, region and non-mosquito
  * filters, and the chips for whatever is set, which the Samples summary also
  * draws. It returns the blocks bare, so each surface puts them in its own
- * frame. Takes the binding from `useSampleFilterState`.
+ * frame. Takes the binding from `useRecordSetFilters`.
  */
 
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -26,7 +26,7 @@ import { useState } from 'react';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useSpeciesOptions } from '../../../hooks/explorer/use-species-options';
-import type { SampleFilterBinding } from '../../../hooks/larval-surveillance/use-sample-filter-state';
+import type { FilterBinding } from '../../../lib/search-filters';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
@@ -39,7 +39,7 @@ import {
 	toggle,
 } from '../../explorer';
 import { SAMPLE_STATUS_COLORS } from '../../map';
-import type { SampleStatusValue } from '../samples-search';
+import type { SampleFilters, SampleStatusValue } from '../samples-search';
 import { SAMPLE_STATUS_ORDER, sampleStatusLabel } from './legend';
 
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
@@ -48,7 +48,7 @@ export function SampleFilterFields({
 	binding,
 	wide = false,
 }: {
-	readonly binding: SampleFilterBinding;
+	readonly binding: FilterBinding<SampleFilters>;
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
@@ -102,7 +102,7 @@ export function SampleFilterFields({
  * draws these under its controls, and the Samples summary draws them above its
  * groupings.
  */
-export function SampleFilterChips({ binding }: { readonly binding: SampleFilterBinding }) {
+export function SampleFilterChips({ binding }: { readonly binding: FilterBinding<SampleFilters> }) {
 	const { filters, setFilters, reset, defaults } = binding;
 	const { nameById } = useSpeciesOptions();
 	const regions = useRegionOptions();

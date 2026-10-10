@@ -44,6 +44,7 @@ import { useRouteItemMutations } from '../../../../hooks/mutations/use-route-ite
 import { useRouteMutations } from '../../../../hooks/mutations/use-route-mutations';
 import { type TrapListing, useActiveTraps } from '../../../../hooks/queries/use-active-traps';
 import { useStopOrder } from '../../../../hooks/stop-order/use-stop-order';
+import { stopCountPhrase } from '../../../../lib/format-count';
 import { errorMessageForSave } from '../../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../../lib/write-surfaces';
 
@@ -285,7 +286,7 @@ function RouteHeader({
 					placeholder="Route name"
 				/>
 			</div>
-			<p className="text-muted-foreground text-xs">{stopCountLabel(itemCount)}</p>
+			<p className="text-muted-foreground text-xs">{stopCountPhrase(itemCount)}</p>
 		</div>
 	);
 }
@@ -406,8 +407,4 @@ function StopEditor({
 			))}
 		</ol>
 	);
-}
-
-function stopCountLabel(count: number): string {
-	return count === 1 ? '1 stop' : `${count} stops`;
 }

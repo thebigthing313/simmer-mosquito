@@ -184,10 +184,10 @@ function DayStepper({
 	return (
 		<div className="flex items-center gap-1">
 			<Button
-				aria-label="Previous Day"
+				aria-label="Previous day"
 				onClick={() => onChange(dailyWorkStep(value, -1, today))}
 				size="icon-sm"
-				title="Previous Day"
+				title="Previous day"
 				variant="ghost"
 			>
 				<ChevronLeftIcon aria-hidden="true" />
@@ -207,11 +207,11 @@ function DayStepper({
 				value={parseLocalDate(value)}
 			/>
 			<Button
-				aria-label="Next Day"
+				aria-label="Next day"
 				disabled={isToday}
 				onClick={() => onChange(dailyWorkStep(value, 1, today))}
 				size="icon-sm"
-				title="Next Day"
+				title="Next day"
 				variant="ghost"
 			>
 				<ChevronRightIcon aria-hidden="true" />

@@ -35,12 +35,11 @@ export interface Trap {
 	/**
 	 * What the Collection Method is called, joined rather than looked up.
 	 *
-	 * Never null: a Trap must name a method, so there is no "unassigned" state to
-	 * distinguish. `Unknown method` stands in only for the instant before the eager
-	 * catalog has streamed — which in practice is never, since a trap surface
-	 * cannot render before the shape it lives in has.
+	 * A Trap must name a method, so there is no "unassigned" state to
+	 * distinguish: `null` here only ever means the method is not in the client,
+	 * and the surface draws `Unknown method` for it.
 	 */
-	readonly methodName: string;
+	readonly methodName: string | null;
 	readonly lureId: string | null;
 	/**
 	 * What the Collection Lure is called — `null` when the Trap runs unbaited,

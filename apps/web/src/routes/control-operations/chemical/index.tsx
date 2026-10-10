@@ -13,23 +13,21 @@ import {
 	normalizeApplication,
 } from '../../../components/control-operations/chemical/application-row-parts';
 import { applicationSummaryGroupings } from '../../../components/control-operations/chemical/application-summary';
-import { ApplicationSurfaceSwitch } from '../../../components/control-operations/chemical/application-surface-switch';
 import {
 	applicationFilterCodecs,
-	applicationListParams,
-	applicationTileFilters,
-	sharedApplicationSearch,
+	applicationRecordSet,
 } from '../../../components/control-operations/chemical/applications-search';
 import { formatAmount } from '../../../components/control-operations/control-display';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
-import { useApplicationFilterState } from '../../../hooks/control-operations/use-application-filter-state';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { useInsecticideOptions } from '../../../hooks/explorer/use-insecticide-options';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { formatListDate } from '../../../lib/local-date';
@@ -43,12 +41,10 @@ export const Route = createFileRoute('/control-operations/chemical/')({
 	validateSearch: searchValidator(applicationFilterCodecs),
 });
 
-const PATH = '/map/chemical';
-
 function ApplicationsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
-	const binding = useApplicationFilterState();
+	const binding = useRecordSetFilters(applicationRecordSet, 'map');
 	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
 	const panel = useExplorerPanel();
 
@@ -59,10 +55,8 @@ function ApplicationsExplorerRoute() {
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
-	const filters = applicationTileFilters(query);
-	// What a move to the Table takes with it: every filter, since the Table
-	// applies each one.
-	const carried = sharedApplicationSearch(Route.useSearch());
+	const filters = applicationRecordSet.tileFilters(query, binding.context);
+	const routeSearch = Route.useSearch();
 	const {
 		rows,
 		total,
@@ -75,11 +69,11 @@ function ApplicationsExplorerRoute() {
 		selectedId,
 		setSelectedId,
 	} = useExplorerResource<ApplicationListRow>({
-		path: PATH,
-		rowsKey: 'applications',
+		path: applicationRecordSet.endpoint.path,
+		rowsKey: applicationRecordSet.endpoint.rowsKey,
 		rowKey: 'application',
 		recordType: 'application',
-		params: applicationListParams(filters),
+		params: applicationRecordSet.listParams(filters),
 		tiles: { kind: 'chemical', filters },
 		normalizeRow: normalizeApplication,
 		summarize: true,
@@ -87,7 +81,9 @@ function ApplicationsExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
-			actions={<ApplicationSurfaceSwitch compact current="map" search={carried} />}
+			actions={
+				<RecordSetSwitch compact current="map" search={routeSearch} set={applicationRecordSet} />
+			}
 			activeFilterCount={activeFilterCount}
 			filters={<ApplicationFilterFields binding={binding} />}
 			heading={{

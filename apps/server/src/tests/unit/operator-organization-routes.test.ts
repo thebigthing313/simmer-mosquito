@@ -6,6 +6,9 @@
  * organization with no SIMMER row behind it (#1524). Every case here asserts
  * the WorkOS half was never reached, through a stub that records the call
  * rather than a client that could make one (ADR 0017).
+ *
+ * A field sent as the wrong type is refused the same way, rather than read as
+ * absent and stored as `null` (#1549).
  */
 
 import type { AuthUser } from '@simmer-mosquito/auth';
@@ -86,6 +89,153 @@ describe('POST /admin/organizations', () => {
 		expect(body.reason).toContain(reason);
 		expect(auth.createOrganization).not.toHaveBeenCalled();
 		expect(dbMock.upsertOperatorOrganization).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['mailingCountry', 123],
+		['billingContactEmail', 123],
+		['billingMode', 123],
+		['slug', {}],
+		['billingContactName', true],
+		['subscriptionNotes', ['notes']],
+		['mainContactEmail', 0],
+		['mailingPostalCode', 8701],
+	])('refuses %s sent as %j rather than storing it as absent', async (field, value) => {
+		const auth = createFakeAuth();
+		const response = await postOrganization(auth, { name: 'County Mosquito', [field]: value });
+
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as { error: string; reason: string };
+		expect(body.error).toBe('invalid_payload');
+		expect(body.reason).toBe(`${field} must be text.`);
+		expect(auth.createOrganization).not.toHaveBeenCalled();
+		expect(dbMock.upsertOperatorOrganization).not.toHaveBeenCalled();
+	});
+
+	it('refuses a name that is not text as not text, rather than as missing', async () => {
+		const auth = createFakeAuth();
+		const response = await postOrganization(auth, { name: 123 });
+
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as { error: string; reason: string };
+		expect(body).toEqual({ error: 'invalid_payload', reason: 'name must be text.' });
+		expect(auth.createOrganization).not.toHaveBeenCalled();
+	});
+
+	it('still refuses a blank name as required', async () => {
+		const auth = createFakeAuth();
+		const response = await postOrganization(auth, { name: '  ' });
+
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as { reason: string };
+		expect(body.reason).toBe('name is required.');
+		expect(auth.createOrganization).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['yes'],
+		[1],
+		['true'],
+		[{}],
+	])('refuses linkRequesterAsOwner sent as %j', async (value) => {
+		const auth = createFakeAuth();
+		const response = await postOrganization(auth, {
+			name: 'County Mosquito',
+			linkRequesterAsOwner: value,
+		});
+
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as { error: string; reason: string };
+		expect(body).toEqual({
+			error: 'invalid_payload',
+			reason: 'linkRequesterAsOwner must be true or false.',
+		});
+		expect(auth.createOrganization).not.toHaveBeenCalled();
+		expect(dbMock.upsertOperatorOrganization).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['false', { linkRequesterAsOwner: false }],
+		['null', { linkRequesterAsOwner: null }],
+		['absent', {}],
+	])('creates with linkRequesterAsOwner %s', async (_label, flag) => {
+		const auth = createFakeAuth();
+		const response = await postOrganization(auth, { name: 'County Mosquito', ...flag });
+
+		expect(response.status).toBe(201);
+		expect(auth.createOrganization).toHaveBeenCalledWith({ name: 'County Mosquito' });
+	});
+
+	it('stores null for every optional field sent as null', async () => {
+		const auth = createFakeAuth();
+		const response = await postOrganization(auth, {
+			name: 'County Mosquito',
+			slug: null,
+			billingMode: null,
+			billingContactName: null,
+			billingContactEmail: null,
+			subscriptionNotes: null,
+			mainContactEmail: null,
+			phoneNumber: null,
+			mailingCountry: null,
+			mailingAddressLine1: null,
+			mailingAddressLine2: null,
+			mailingLocality: null,
+			mailingRegion: null,
+			mailingPostalCode: null,
+		});
+
+		expect(response.status).toBe(201);
+		expect(dbMock.upsertOperatorOrganization).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				slug: null,
+				billingMode: 'manual_invoice',
+				billingContactName: null,
+				billingContactEmail: null,
+				subscriptionNotes: null,
+				contact: {
+					mainContactEmail: null,
+					phoneNumber: null,
+					mailingCountry: null,
+					mailingAddressLine1: null,
+					mailingAddressLine2: null,
+					mailingLocality: null,
+					mailingRegion: null,
+					mailingPostalCode: null,
+				},
+			}),
+		);
+	});
+
+	it('creates from the body the admin create form sends', async () => {
+		const auth = createFakeAuth();
+		const response = await postOrganization(auth, {
+			name: 'County Mosquito',
+			subscriptionStatus: 'trial',
+			billingContactName: '',
+			billingContactEmail: '',
+			subscriptionNotes: '',
+			mainContactEmail: 'ops@example.org',
+			phoneNumber: '',
+			mailingCountry: 'US',
+			mailingAddressLine1: '1 Main St',
+			mailingAddressLine2: '',
+			mailingLocality: 'Trenton',
+			mailingRegion: 'NJ',
+			mailingPostalCode: '08601',
+			linkRequesterAsOwner: true,
+		});
+
+		expect(response.status).toBe(201);
+		expect(auth.createOrganization).toHaveBeenCalledWith({ name: 'County Mosquito' });
+		expect(dbMock.upsertOperatorOrganization).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				billingContactName: null,
+				contact: expect.objectContaining({ mailingLocality: 'Trenton', phoneNumber: null }),
+			}),
+		);
 	});
 
 	it('stores a lower-case state code and country upper-cased', async () => {

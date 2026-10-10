@@ -8,19 +8,11 @@
 import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
-import type { FilterCounting } from '../../lib/search-filters';
+import type { RecordSetFilterBinding } from '../../hooks/explorer/use-record-set-filters';
 import { ActiveFilterBar, DateRangeChip, FilterChip, type FilterOption, toggle } from '../explorer';
 import { densityLabel } from '../larval-display';
 import { INSPECTION_DENSITY_COLORS } from '../map';
 import type { InspectionFilters, WaterFilterValue } from './inspections-search';
-
-/**
- * How much of the record a surface opens on when the address names no dates.
- * The map opens on the last 30 days, because a season of inspections is a
- * solid block of dots; the table shows 50 rows whatever the reach, so it opens
- * on all of them.
- */
-export type InspectionOpeningWindow = 'last-30-days' | 'all-time';
 
 /** The Water control's segments, which are also what its chip reads by. */
 export const WETNESS_OPTIONS: readonly {
@@ -31,16 +23,6 @@ export const WETNESS_OPTIONS: readonly {
 	{ value: 'wet', label: 'Wet' },
 	{ value: 'dry', label: 'Dry' },
 ];
-
-/**
- * How the table counts what is set. `regions` is on the URL and no control on
- * the table writes it, so it is counted nowhere and drawn as no chip, but it
- * stays in the filter set so a link from the map keeps its region selection.
- */
-export const INSPECTION_TABLE_COUNTING: FilterCounting<InspectionFilters> = {
-	groups: [['from', 'to']],
-	uncounted: ['regions'],
-};
 
 /** What the reader has narrowed the inspections to. */
 export interface InspectionFilterState {
@@ -76,7 +58,7 @@ export interface InspectionCatalogs {
 export interface InspectionFilterBinding {
 	readonly activeCount: number;
 	readonly defaults: InspectionFilters;
-	/** Drop every filter param, back to {@link useInspectionFilterDefaults}. */
+	/** Drop every filter param, back to the surface's defaults. */
 	readonly reset: () => void;
 	readonly set: InspectionFilterSetters;
 	/** The raw patch function, for the date range control's two bounds. */
@@ -84,6 +66,45 @@ export interface InspectionFilterBinding {
 	readonly state: InspectionFilterState;
 	/** Today in the Organization's zone, which bounds the date pickers. */
 	readonly today: string;
+}
+
+/**
+ * The inspection filters one surface reads, as a plain value and a setter per
+ * filter: the inspection filter bar's shape over the set's generic binding.
+ */
+export function inspectionFilterBinding({
+	filters,
+	setFilters,
+	reset,
+	activeCount,
+	defaults,
+	today,
+}: RecordSetFilterBinding<InspectionFilters>): InspectionFilterBinding {
+	return {
+		activeCount,
+		defaults,
+		reset,
+		setFilters,
+		today,
+		state: {
+			dateFrom: filters.from,
+			dateTo: filters.to,
+			densities: filters.density,
+			inspectorIds: filters.inspectors,
+			positiveOnly: filters.positive,
+			regionIds: filters.regions,
+			typeIds: filters.types,
+			wetness: filters.water,
+		},
+		set: {
+			setDensities: (next) => setFilters({ density: next }),
+			setInspectorIds: (next) => setFilters({ inspectors: next }),
+			setPositiveOnly: (next) => setFilters({ positive: next }),
+			setRegionIds: (next) => setFilters({ regions: next }),
+			setTypeIds: (next) => setFilters({ types: next }),
+			setWetness: (next) => setFilters({ water: next }),
+		},
+	};
 }
 
 /**

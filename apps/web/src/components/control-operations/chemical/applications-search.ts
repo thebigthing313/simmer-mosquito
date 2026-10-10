@@ -1,6 +1,12 @@
 import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
 import { addDaysToDateString } from '../../../lib/local-date';
-import { dateParam, type FilterCodecs, idSetParam } from '../../../lib/search-filters';
+import {
+	DATE_RANGE_COUNTING,
+	dateParam,
+	type FilterCodecs,
+	idSetParam,
+} from '../../../lib/search-filters';
+import { defineRecordSet } from '../../explorer/record-set';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
 import type { ChemicalTileFilters } from '../../map';
 
@@ -77,16 +83,23 @@ export function applicationListParams(filters: ChemicalTileFilters): Record<stri
 }
 
 /**
- * The params a move between the Map and the Table carries. That is every
- * filter, since both surfaces read the same list endpoint and apply each one.
+ * The Chemical Applications Map and Table. Both read `/map/chemical` and apply every filter.
  */
-export function sharedApplicationSearch(search: Record<string, unknown>): Record<string, unknown> {
-	const carried: Record<string, unknown> = {};
-	for (const key of Object.keys(applicationFilterCodecs)) {
-		const value = search[key];
-		if (value !== undefined) {
-			carried[key] = value;
-		}
-	}
-	return carried;
-}
+export const applicationRecordSet = defineRecordSet({
+	recordType: 'application',
+	paths: { map: '/control-operations/chemical', table: '/control-operations/chemical/table' },
+	codecs: applicationFilterCodecs,
+	endpoint: { path: '/map/chemical', rowsKey: 'applications' },
+	tileFilters: applicationTileFilters,
+	listParams: applicationListParams,
+	defaults: ({ today }) => applicationFilterDefaults(today),
+	counting: DATE_RANGE_COUNTING,
+	applies: {
+		from: 'both',
+		to: 'both',
+		insecticides: 'both',
+		people: 'both',
+		methods: 'both',
+		regions: 'both',
+	},
+});

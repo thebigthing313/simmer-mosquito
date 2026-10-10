@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { SampleMapCard } from '../../../components/larval-surveillance/sample-map-card';
 import { sampleLegend } from '../../../components/larval-surveillance/samples/legend';
 import {
@@ -16,18 +17,15 @@ import {
 	sampleSwatch,
 } from '../../../components/larval-surveillance/samples/sample-row-parts';
 import { sampleSummaryGroupings } from '../../../components/larval-surveillance/samples/sample-summary';
-import { SampleSurfaceSwitch } from '../../../components/larval-surveillance/samples/sample-surface-switch';
 import {
 	sampleFilterCodecs,
-	sampleListParams,
-	sampleTileFilters,
-	sharedSampleSearch,
+	sampleRecordSet,
 } from '../../../components/larval-surveillance/samples-search';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { useSpeciesOptions } from '../../../hooks/explorer/use-species-options';
-import { useSampleFilterState } from '../../../hooks/larval-surveillance/use-sample-filter-state';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -44,21 +42,17 @@ export const Route = createFileRoute('/larval-surveillance/samples/')({
 /** How many species result chips a narrow list row shows before collapsing to "+N". */
 const RESULT_CHIP_LIMIT = 1;
 
-const PATH = '/map/samples';
-
 function SamplesExplorerRoute() {
 	// The filter state lives in the URL, so a deep link, a shared link, and Back
 	// out of a record all land on the same view.
-	const binding = useSampleFilterState();
+	const binding = useRecordSetFilters(sampleRecordSet, 'map');
 	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
 	const panel = useExplorerPanel();
 
 	const { nameById } = useSpeciesOptions();
 
-	const filters = sampleTileFilters(query);
-	// What a move to the Table takes with it: every filter, since the Table
-	// applies each one.
-	const carried = sharedSampleSearch(Route.useSearch());
+	const filters = sampleRecordSet.tileFilters(query, binding.context);
+	const routeSearch = Route.useSearch();
 
 	const {
 		rows,
@@ -72,11 +66,11 @@ function SamplesExplorerRoute() {
 		selectedId,
 		setSelectedId,
 	} = useExplorerResource<SampleListRow>({
-		path: PATH,
-		rowsKey: 'samples',
+		path: sampleRecordSet.endpoint.path,
+		rowsKey: sampleRecordSet.endpoint.rowsKey,
 		rowKey: 'sample',
 		recordType: 'sample',
-		params: sampleListParams(filters),
+		params: sampleRecordSet.listParams(filters),
 		tiles: { kind: 'samples', filters },
 		summarize: true,
 	});
@@ -86,7 +80,7 @@ function SamplesExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
-			actions={<SampleSurfaceSwitch compact current="map" search={carried} />}
+			actions={<RecordSetSwitch compact current="map" search={routeSearch} set={sampleRecordSet} />}
 			activeFilterCount={activeFilterCount}
 			filters={<SampleFilterFields binding={binding} />}
 			heading={{

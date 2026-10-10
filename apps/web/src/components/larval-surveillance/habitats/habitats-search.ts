@@ -6,6 +6,7 @@ import {
 	idSetParam,
 	textParam,
 } from '../../../lib/search-filters';
+import { defineRecordSet } from '../../explorer/record-set';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
 import type { HabitatTileFilters } from '../../map';
 import type { AccessFilter, HabitatStatusFilter } from './legend';
@@ -83,16 +84,24 @@ export function habitatListParams(filters: HabitatTileFilters): Record<string, M
 }
 
 /**
- * The params a move between the Map and the Table carries. That is every
- * filter, since both surfaces read the same list endpoint and apply each one.
+ * The Habitats Map and Table. Both read `/map/habitats` and apply every filter.
  */
-export function sharedHabitatSearch(search: Record<string, unknown>): Record<string, unknown> {
-	const carried: Record<string, unknown> = {};
-	for (const key of Object.keys(habitatFilterCodecs)) {
-		const value = search[key];
-		if (value !== undefined) {
-			carried[key] = value;
-		}
-	}
-	return carried;
-}
+export const habitatRecordSet = defineRecordSet({
+	recordType: 'habitat',
+	paths: { map: '/larval-surveillance/habitats', table: '/larval-surveillance/habitats/table' },
+	codecs: habitatFilterCodecs,
+	endpoint: { path: '/map/habitats', rowsKey: 'habitats' },
+	tileFilters: habitatTileFilters,
+	listParams: habitatListParams,
+	defaults: () => HABITAT_FILTER_DEFAULTS,
+	textSearch: { key: 'search' },
+	applies: {
+		search: 'both',
+		status: 'both',
+		access: 'both',
+		typeIds: 'both',
+		tagIds: 'both',
+		regions: 'both',
+		untreated: 'both',
+	},
+});

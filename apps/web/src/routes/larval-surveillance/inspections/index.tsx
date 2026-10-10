@@ -14,28 +14,24 @@ import {
 } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { densityLabel, hasAnyLifeStage } from '../../../components/larval-display';
 import {
 	DensityFilter,
 	InspectionFilterChips,
 	type InspectionFilterSetters,
 	type InspectionFilterState,
+	inspectionFilterBinding,
 	WETNESS_OPTIONS,
 } from '../../../components/larval-surveillance/inspection-filters';
-import {
-	INSPECTIONS_PATH,
-	type InspectionListing,
-	inspectionQueryParams,
-	inspectionTileFilters,
-} from '../../../components/larval-surveillance/inspection-listing';
+import type { InspectionListing } from '../../../components/larval-surveillance/inspection-listing';
 import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
-import { InspectionSurfaceSwitch } from '../../../components/larval-surveillance/inspection-surface-switch';
 import { inspectionSummaryGroupings } from '../../../components/larval-surveillance/inspections/inspection-summary';
 import { inspectionLegend } from '../../../components/larval-surveillance/inspections/legend';
 import {
 	type InspectionFilters as InspectionSearchFilters,
 	inspectionFilterCodecs,
-	sharedInspectionSearch,
+	inspectionRecordSet,
 } from '../../../components/larval-surveillance/inspections-search';
 import {
 	INSPECTION_DENSITY_COLORS,
@@ -46,16 +42,16 @@ import { type RecordBadgeFacts, recordBadges } from '../../../components/record/
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import {
 	type InspectionFilterOptions,
 	useInspectionFilterOptions,
 } from '../../../hooks/larval-surveillance/use-inspection-filter-options';
-import { useInspectionFilterState } from '../../../hooks/larval-surveillance/use-inspection-filter-state';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
-import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
+import { searchValidator } from '../../../lib/search-filters';
 
 const InspectionEntityIcon = iconRegistry.entities.inspection.icon;
 
@@ -79,6 +75,7 @@ function inspectionsHeading(total: number, isLoading: boolean) {
 }
 
 function InspectionsExplorerRoute() {
+	const binding = useRecordSetFilters(inspectionRecordSet, 'map');
 	const {
 		activeCount: activeFilterCount,
 		defaults,
@@ -87,17 +84,15 @@ function InspectionsExplorerRoute() {
 		setFilters,
 		state,
 		today,
-	} = useInspectionFilterState(DATE_RANGE_COUNTING, 'last-30-days');
+	} = inspectionFilterBinding(binding);
 	const { dateFrom, dateTo, densities, wetness } = state;
 
 	const panel = useExplorerPanel();
 
-	// What a move to the Table takes with it: the params already on the address
-	// bar, which on this surface are only the shared filter contract.
-	const carried = sharedInspectionSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const filterOptions = useInspectionFilterOptions();
-	const filters = inspectionTileFilters(state);
+	const filters = inspectionRecordSet.tileFilters(binding.filters, binding.context);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 	const {
 		rows,
@@ -111,11 +106,11 @@ function InspectionsExplorerRoute() {
 		selectedId,
 		setSelectedId,
 	} = useExplorerResource<InspectionListing>({
-		path: INSPECTIONS_PATH,
-		rowsKey: 'inspections',
+		path: inspectionRecordSet.endpoint.path,
+		rowsKey: inspectionRecordSet.endpoint.rowsKey,
 		rowKey: 'inspection',
 		recordType: 'inspection',
-		params: inspectionQueryParams(filters),
+		params: inspectionRecordSet.listParams(filters),
 		tiles: { kind: 'inspections', filters },
 		summarize: true,
 	});
@@ -127,7 +122,9 @@ function InspectionsExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
-			actions={<InspectionSurfaceSwitch compact current="map" search={carried} />}
+			actions={
+				<RecordSetSwitch compact current="map" search={routeSearch} set={inspectionRecordSet} />
+			}
 			activeFilterCount={activeFilterCount}
 			filters={
 				<InspectionFilters
