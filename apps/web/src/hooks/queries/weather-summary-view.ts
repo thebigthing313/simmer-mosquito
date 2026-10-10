@@ -1,6 +1,3 @@
-/** How long a station's summaries stay warm after the detail page unmounts. */
-export const summariesGcTimeMs = 30_000;
-
 /**
  * Bounds that admit every reading, for the caller that wants them all.
  *

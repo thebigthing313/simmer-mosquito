@@ -4,14 +4,12 @@ import { ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useDeferredValue } from 'react';
 import { useSearchPicker } from '../../hooks/pickers/use-search-picker';
 import { useSelectedRowLabel } from '../../hooks/pickers/use-selected-row-label';
+import { activityGcTimeMs } from '../../hooks/queries/shared';
 import { contacts } from '../../lib/collections/contacts';
 import { OptionRow, PickerFallback, PickerFrame } from './entity-picker';
 
 // Contacts sync on demand, so the results come from a live subset query (an `ilike`
 // across the identity fields) rather than a client-side filter over an eager set.
-// Rendering this picker also keeps the contacts stream warm for a nearby write.
-
-const searchGcTimeMs = 30_000;
 
 /**
  * What the picker hands back.
@@ -75,7 +73,7 @@ function ContactResults({
 	const normalized = search.trim();
 	const pattern = `%${normalized}%`;
 	const { data, isReady, isError } = useLiveQuery({
-		gcTime: searchGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) => {
 			// No organization predicate: the shape is scoped to the organization
 			// server-side, so re-stating it here is redundant — and a stale column

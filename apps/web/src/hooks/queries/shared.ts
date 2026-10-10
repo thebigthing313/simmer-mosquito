@@ -57,24 +57,16 @@ import type { CollectionOf, SyncedRow } from '../../lib/collections/registry';
 export const unmatchableId = '00000000-0000-0000-0000-000000000000';
 
 /**
- * How long a subset survives after the last thing watching it unmounts.
+ * How long an on-demand subset stays loaded after the last thing reading it unmounts.
  *
- * Thirty seconds, which covers a user opening a map card, closing it, and opening
- * it again — the case this exists for. It is a query option rather than a
- * collection one: the collection is shared, and how long one surface's subset
- * stays warm is that surface's business.
- */
-export const mapCardGcTimeMs = 30_000;
-
-/**
- * How long an on-demand subset stays warm after the last thing watching it unmounts.
- *
- * The overview panels are browsed back and forth through — yesterday, then the day
- * before, then back to yesterday — so the day just left is worth keeping for the
- * moment it takes to return to it. Every route reading an on-demand shape wants that
- * same window, and each one used to write the number out for itself: 26 private
- * copies under `routes/`, 5 of them dead (#860). Import this rather than writing 30
- * seconds out again.
+ * Thirty seconds, which covers the two cases it was written for: a user opening a
+ * map card, closing it and opening it again, and an overview browsed back and forth
+ * through, yesterday, then the day before, then back to yesterday. It is a query
+ * option rather than a collection one, because the collection is shared. Every
+ * on-demand read in the app takes this window, and each one used to write the
+ * number out for itself: 26 private copies under `routes/` (#860), then 16 more
+ * across the pickers and the query hooks and a second export for map cards
+ * (#1429). Import this rather than writing 30 seconds out again.
  */
 export const activityGcTimeMs = 30_000;
 
@@ -129,7 +121,7 @@ export function useRecordById<TRow extends SyncedRow, TContext extends Context>(
 	readonly collection: CollectionOf<TRow>;
 	readonly id: string | null;
 	readonly query: RecordQuery<TRow, TContext>;
-	/** Defaults to {@link mapCardGcTimeMs}, the window a map card is reopened inside. */
+	/** Defaults to {@link activityGcTimeMs}. */
 	readonly gcTime?: number | undefined;
 }): {
 	readonly record: GetResult<TContext> | undefined;
@@ -138,7 +130,7 @@ export function useRecordById<TRow extends SyncedRow, TContext extends Context>(
 } {
 	const { collection, id } = options;
 	const result = useLiveQuery({
-		gcTime: options.gcTime ?? mapCardGcTimeMs,
+		gcTime: options.gcTime ?? activityGcTimeMs,
 		query: (query) =>
 			options.query(
 				query

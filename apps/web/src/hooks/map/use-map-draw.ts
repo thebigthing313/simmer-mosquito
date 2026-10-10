@@ -15,7 +15,7 @@ import {
 	next,
 } from '../../components/map/draw-machine';
 import type { DrawGeometry } from '../../components/map/draw-parts';
-import { fitMapToGeometry } from '../../components/map/fit-map-to-geometry';
+import { frameOnMap } from '../../components/map/map-camera';
 import { useDrawEditEvents } from './use-draw-edit-events';
 import { useDrawMapEvents } from './use-draw-map-events';
 import { useGeoJsonSource } from './use-geojson-source';
@@ -144,7 +144,7 @@ export function useMapDraw({
 				return;
 			case 'frame':
 				if (isMapLive(map)) {
-					fitMapToGeometry(map, effect.part);
+					frameOnMap(map, effect.part, { purpose: 'record', animate: true });
 				}
 				return;
 		}

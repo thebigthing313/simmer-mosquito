@@ -695,6 +695,23 @@ plus the fit's margin on each side, with `retainPadding: false`. A fit can
 hand it an inset in place of `getPadding()`, which `useMapExtentFit` does,
 because on a fresh map it can run before this hook has written anything.
 
+Every fit and every flight in `apps/web` goes through
+`components/map/map-camera.ts`, which is where that rule is applied: `frameOnMap`
+frames a box or a geometry and `focusOnMap` flies to a point, and each reads
+its margin, zoom cap, point zoom and duration off one table keyed by purpose.
+Ten fits and six flights used to pick their own numbers, so one record framed
+differently on a form, a detail card and an explorer card, and three fits had
+no answer for a box with no area (#1424). Outside that module only the zoom
+buttons, the north reset and this hook call `easeTo`, `flyTo` or `fitBounds`.
+The `place` focus flies for 1100 ms, the locate button's old number rather than
+the search client's 700, because a place can be anywhere on the map and a
+reader follows a long flight better than a quick one.
+
+One race is left. A fit that starts while this hook's 300 ms padding animation
+is running stops it partway, and `getPadding()` then reads the in-between
+value, which the fit's `retainPadding: false` restores when it ends. This hook
+does not write again, because the inset's four numbers have not changed.
+
 #### useMapboxMap
 
 Keeping creation, load state, resize and basemap switching behind one
@@ -748,7 +765,7 @@ the cluster carries and selects nothing, so a record already selected stays
 selected. The fit stops at `MAP_CLUSTER_UNTIL_ZOOM`, the zoom the tiles stop
 clustering at: any closer would land on a plain tile showing the same records.
 A box with no size, every point on one spot, has nothing to fit, so that case
-eases to its centre at the same zoom (`fitMapToCluster` in `cluster-fit.ts`).
+eases to its centre at the same zoom (the `cluster` purpose of `frameOnMap`).
 
 The hook takes the clustering setting as `draw.cluster` rather than reading it
 itself, so a suite can mount a tileset in either state without touching the
@@ -1105,9 +1122,13 @@ A geometry still exactly the stop's is sent as no geometry, and the server
 copies the stop's stored shape. The copy the form holds came through
 `st_asgeojson`, which keeps nine decimal places, and a rounded copy need not
 cover the stored shape, so sending it would put the coverage acknowledgement
-to a crew that changed nothing. Subscribing to the stop's row warms the
-on-demand stream the page is about to write against, which is what keeps the
-write's txid confirmation from timing out; nothing reads the row itself.
+to a crew that changed nothing.
+
+The hook used to subscribe to the stop's row with nothing reading it, on the
+belief that a write into an unwatched on-demand collection waits out a txid
+that never arrives. `awaitConfirmation` skips the wait when nothing is
+subscribed, so the subscription turned a skipped wait into a real one, and
+#1429 deleted it with the other create-page anchors.
 
 ### forms
 
@@ -1609,9 +1630,10 @@ again.
 #### useNewInspectionDraft
 
 The id is minted up front so the samples, crew and comment can be written
-the moment the inspection lands, and so their streams are live before the
-save fires: a write against a cold stream times out waiting for its txid
-confirmation.
+the moment the inspection lands. It subscribes to nothing. The samples and
+crew subscriptions it used to hold were only there to keep their streams
+open for the save, and `awaitConfirmation` already answers a write into an
+unwatched collection without waiting (#1429).
 
 #### useSampleGeoContext
 
@@ -1712,8 +1734,7 @@ which timestamp moved. What is left is composition, the stops joined to the
 records they send a crew to, which is a page's question rather than a
 table's.
 
-`useAssignment` is also the warm-stream anchor on pages that write before
-reading. `useAssignmentItems` is unfiltered by `entityType` on purpose:
+`useAssignmentItems` is unfiltered by `entityType` on purpose:
 unlike a route, an assignment mixes traps, habitats and service requests in
 one worklist by design.
 
@@ -1727,9 +1748,7 @@ table depending on `entity_type`, so there is no column to join on.
 `usePendingTrapCollections` exists because a trap stop means one of two
 visits, set the trap or come back and empty it, and only the data says
 which. The subset is keyed on the stops' own trap ids rather than reading
-every collection, and the live query doubles as the thing that keeps the
-on-demand collections stream warm: the Collect write lands on this page, and
-a write to a cold stream times out waiting for its txid.
+every collection.
 
 `useAssigneeOptions` puts "Unassigned" first because planning drafts may
 carry nobody, and Radix Select forbids an empty-string item value, so

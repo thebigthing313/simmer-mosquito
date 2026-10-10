@@ -1,8 +1,9 @@
 import type { Map as MapboxMap, MapMouseEvent, VectorTileSource } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
-import { fitMapToCluster, resolveTileClick } from '../../components/map/cluster-fit';
+import { resolveTileClick } from '../../components/map/cluster-fit';
 import { selectionOverlayLayerId } from '../../components/map/geometry-tiles';
 import { registerHoverLayers } from '../../components/map/hover-cursor';
+import { frameOnMap } from '../../components/map/map-camera';
 import {
 	type MapTileLayer,
 	tileLayerBinding,
@@ -93,7 +94,7 @@ export function useTileLayer(
 			const current = layerRef.current;
 			const click = resolveTileClick(feature, overlayLayerId, current?.selectedId ?? null);
 			if (click.kind === 'cluster') {
-				fitMapToCluster(activeMap, click.bounds);
+				frameOnMap(activeMap, click.bounds, { purpose: 'cluster', animate: true });
 				return;
 			}
 			current?.onSelectFeature?.(click.id);

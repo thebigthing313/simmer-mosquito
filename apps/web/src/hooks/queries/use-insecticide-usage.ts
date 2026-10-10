@@ -12,10 +12,13 @@
  * The product name is still joined, so the caller sorts by a name it was handed.
  */
 
-import { coalesce, eq, gte, useLiveQuery } from '@tanstack/react-db';
+import { coalesce, gte, useLiveQuery } from '@tanstack/react-db';
 import { applications } from '../../lib/collections/applications';
 import { insecticides } from '../../lib/collections/insecticides';
+import { PERFORMED_ACTIONS } from './performed-action-reads';
 import { activityGcTimeMs } from './shared';
+
+const applicationReads = PERFORMED_ACTIONS.applications;
 
 /** One product's total over the window, per unit it was measured in. */
 export interface InsecticideUsage {
@@ -35,18 +38,21 @@ export function useInsecticideUsage(sinceDate: string): {
 		query: (query) =>
 			query
 				.from({ application: applications() })
-				.where(({ application }) => gte(application.application_date, sinceDate))
+				.where(({ application }) => gte(applicationReads.date(application), sinceDate))
 				.join(
 					{ product: insecticides() },
-					({ application, product }) => eq(application.insecticide_id, product.id),
+					({ application, product }) => applicationReads.joinProduct(application, product),
 					'left',
 				)
-				.select(({ application, product }) => ({
-					insecticideId: application.insecticide_id,
-					name: coalesce(product.trade_name, 'Unknown insecticide'),
-					amountApplied: application.amount_applied,
-					unitId: application.application_unit_id,
-				})),
+				.select(({ application, product }) => {
+					const measured = applicationReads.measured(application);
+					return {
+						insecticideId: measured.productId,
+						name: coalesce(product.trade_name, 'Unknown insecticide'),
+						amountApplied: measured.amount,
+						unitId: measured.unitId,
+					};
+				}),
 	});
 
 	const rows = result.data;
