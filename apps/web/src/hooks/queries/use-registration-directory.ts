@@ -14,6 +14,7 @@
 
 import { useLiveQuery } from '@tanstack/react-db';
 import { notification_registrations } from '../../lib/collections/notification_registrations';
+import { liveQueryGcTimeMs } from './shared';
 
 /** A registration as the explorer reads one: where it is, and what it covers. */
 export interface RegistrationListing {
@@ -47,6 +48,7 @@ export function useRegistrationDirectory(): {
 				isNoSpray: registration.is_no_spray,
 				isActive: registration.is_active,
 			})),
+		gcTime: liveQueryGcTimeMs,
 	});
 
 	return { registrations: result.data, isReady: result.isReady };

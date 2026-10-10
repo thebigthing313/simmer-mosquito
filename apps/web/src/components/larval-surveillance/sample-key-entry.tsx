@@ -10,6 +10,7 @@ import {
 	type SampleSpeciesFields,
 	useSampleSpeciesMutations,
 } from '../../hooks/mutations/use-sample-species-mutations';
+import { liveQueryGcTimeMs } from '../../hooks/queries/shared';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { useSpeciesKeyBindings } from '../../hooks/use-species-key-bindings';
 import { sample_species } from '../../lib/collections/sample_species';
@@ -54,6 +55,7 @@ export function SampleKeyEntryDialog({
 					identifiedByProfileId: sampleSpecies.identified_by_profile_id,
 					identifiedAt: sampleSpecies.identified_at,
 				})),
+		gcTime: liveQueryGcTimeMs,
 	});
 	const rows = (result.data ?? []) as readonly KeyEntryRow[];
 
