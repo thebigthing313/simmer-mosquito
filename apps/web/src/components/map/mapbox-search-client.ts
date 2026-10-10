@@ -1,5 +1,5 @@
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { framingPadding } from './map-inset';
+import { focusOnMap, frameOnMap } from './map-camera';
 import { getMapboxToken } from './map-styles';
 
 /**
@@ -96,21 +96,11 @@ export async function retrievePlace(options: {
 export function moveMapToResult(map: MapboxMap, result: MapboxResolvedResult): void {
 	if (result.bbox !== null) {
 		const [west, south, east, north] = result.bbox;
-		map.fitBounds(
-			[
-				[west, south],
-				[east, north],
-			],
-			{ ...framingPadding(map, 72), duration: 700, maxZoom: 16 },
-		);
+		frameOnMap(map, { west, south, east, north }, { purpose: 'collection', animate: true });
 		return;
 	}
-	map.flyTo({
-		center: result.center,
-		zoom: Math.max(map.getZoom(), 14),
-		duration: 700,
-		// Not `essential`: under reduced motion Mapbox jumps instead of flying.
-	});
+	const [lng, lat] = result.center;
+	focusOnMap(map, { lng, lat }, { purpose: 'place' });
 }
 
 function toSearchResult(suggestion: MapboxSuggestion): MapboxSearchResult {

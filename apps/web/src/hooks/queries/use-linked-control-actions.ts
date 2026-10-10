@@ -49,7 +49,15 @@ import { requested_control_actions } from '../../lib/collections/requested_contr
 import { source_reduction_methods } from '../../lib/collections/source_reduction_methods';
 import { source_reductions } from '../../lib/collections/source_reductions';
 import { units } from '../../lib/collections/units';
+import { PERFORMED_ACTIONS } from './performed-action-reads';
 import { activityGcTimeMs } from './shared';
+
+const {
+	applications: applicationReads,
+	sourceReductions: reductionReads,
+	releases: releaseReads,
+	outreachActions: outreachReads,
+} = PERFORMED_ACTIONS;
 
 interface LinkedActionBase {
 	readonly id: string;
@@ -112,28 +120,31 @@ export function useLinkedControlActions(inspectionId: string): {
 				.where(({ application }) => eq(application.inspection_id, inspectionId))
 				.join(
 					{ insecticide: insecticides() },
-					({ application, insecticide }) => eq(application.insecticide_id, insecticide.id),
+					({ application, insecticide }) => applicationReads.joinProduct(application, insecticide),
 					'left',
 				)
 				.join(
 					{ unit: units() },
-					({ application, unit }) => eq(application.application_unit_id, unit.id),
+					({ application, unit }) => applicationReads.joinUnit(application, unit),
 					'left',
 				)
 				.join(
 					{ actor: profiles() },
-					({ application, actor }) => eq(application.applicator_profile_id, actor.id),
+					({ application, actor }) => applicationReads.joinPerformer(application, actor),
 					'left',
 				)
-				.select(({ application, insecticide, unit, actor }) => ({
-					id: application.id,
-					date: application.application_date,
-					actorProfileId: application.applicator_profile_id,
-					actorName: coalesce(actor.display_name, null),
-					insecticideName: coalesce(insecticide.trade_name, null),
-					amount: application.amount_applied,
-					unitAbbreviation: coalesce(unit.abbreviation, null),
-				})),
+				.select(({ application, insecticide, unit, actor }) => {
+					const measured = applicationReads.measured(application);
+					return {
+						id: application.id,
+						date: applicationReads.date(application),
+						actorProfileId: measured.performerProfileId,
+						actorName: coalesce(actor.display_name, null),
+						insecticideName: coalesce(insecticide.trade_name, null),
+						amount: measured.amount,
+						unitAbbreviation: coalesce(unit.abbreviation, null),
+					};
+				}),
 	});
 
 	const sourceReductionResult = useLiveQuery({
@@ -144,29 +155,31 @@ export function useLinkedControlActions(inspectionId: string): {
 				.where(({ sourceReduction }) => eq(sourceReduction.inspection_id, inspectionId))
 				.join(
 					{ method: source_reduction_methods() },
-					({ sourceReduction, method }) =>
-						eq(sourceReduction.source_reduction_method_id, method.id),
+					({ sourceReduction, method }) => reductionReads.joinMethod(sourceReduction, method),
 					'left',
 				)
 				.join(
 					{ unit: units() },
-					({ sourceReduction, unit }) => eq(sourceReduction.sources_eliminated_unit_id, unit.id),
+					({ sourceReduction, unit }) => reductionReads.joinUnit(sourceReduction, unit),
 					'left',
 				)
 				.join(
 					{ actor: profiles() },
-					({ sourceReduction, actor }) => eq(sourceReduction.technician_profile_id, actor.id),
+					({ sourceReduction, actor }) => reductionReads.joinPerformer(sourceReduction, actor),
 					'left',
 				)
-				.select(({ sourceReduction, method, unit, actor }) => ({
-					id: sourceReduction.id,
-					date: sourceReduction.source_reduction_date,
-					actorProfileId: sourceReduction.technician_profile_id,
-					actorName: coalesce(actor.display_name, null),
-					methodName: coalesce(method.name, null),
-					amount: sourceReduction.sources_eliminated_amount,
-					unitAbbreviation: coalesce(unit.abbreviation, null),
-				})),
+				.select(({ sourceReduction, method, unit, actor }) => {
+					const measured = reductionReads.measured(sourceReduction);
+					return {
+						id: sourceReduction.id,
+						date: reductionReads.date(sourceReduction),
+						actorProfileId: measured.performerProfileId,
+						actorName: coalesce(actor.display_name, null),
+						methodName: coalesce(method.name, null),
+						amount: measured.amount,
+						unitAbbreviation: coalesce(unit.abbreviation, null),
+					};
+				}),
 	});
 
 	const outreachResult = useLiveQuery({
@@ -177,22 +190,25 @@ export function useLinkedControlActions(inspectionId: string): {
 				.where(({ outreachAction }) => eq(outreachAction.inspection_id, inspectionId))
 				.join(
 					{ method: outreach_methods() },
-					({ outreachAction, method }) => eq(outreachAction.outreach_method_id, method.id),
+					({ outreachAction, method }) => outreachReads.joinMethod(outreachAction, method),
 					'left',
 				)
 				.join(
 					{ actor: profiles() },
-					({ outreachAction, actor }) => eq(outreachAction.technician_profile_id, actor.id),
+					({ outreachAction, actor }) => outreachReads.joinPerformer(outreachAction, actor),
 					'left',
 				)
-				.select(({ outreachAction, method, actor }) => ({
-					id: outreachAction.id,
-					date: outreachAction.outreach_date,
-					actorProfileId: outreachAction.technician_profile_id,
-					actorName: coalesce(actor.display_name, null),
-					methodName: coalesce(method.name, null),
-					reach: outreachAction.reach,
-				})),
+				.select(({ outreachAction, method, actor }) => {
+					const measured = outreachReads.measured(outreachAction);
+					return {
+						id: outreachAction.id,
+						date: outreachReads.date(outreachAction),
+						actorProfileId: measured.performerProfileId,
+						actorName: coalesce(actor.display_name, null),
+						methodName: coalesce(method.name, null),
+						reach: measured.amount,
+					};
+				}),
 	});
 
 	const biocontrolResult = useLiveQuery({
@@ -203,28 +219,31 @@ export function useLinkedControlActions(inspectionId: string): {
 				.where(({ biocontrolAction }) => eq(biocontrolAction.inspection_id, inspectionId))
 				.join(
 					{ method: biocontrol_methods() },
-					({ biocontrolAction, method }) => eq(biocontrolAction.biocontrol_method_id, method.id),
+					({ biocontrolAction, method }) => releaseReads.joinMethod(biocontrolAction, method),
 					'left',
 				)
 				.join(
 					{ unit: units() },
-					({ biocontrolAction, unit }) => eq(biocontrolAction.release_unit_id, unit.id),
+					({ biocontrolAction, unit }) => releaseReads.joinUnit(biocontrolAction, unit),
 					'left',
 				)
 				.join(
 					{ actor: profiles() },
-					({ biocontrolAction, actor }) => eq(biocontrolAction.technician_profile_id, actor.id),
+					({ biocontrolAction, actor }) => releaseReads.joinPerformer(biocontrolAction, actor),
 					'left',
 				)
-				.select(({ biocontrolAction, method, unit, actor }) => ({
-					id: biocontrolAction.id,
-					date: biocontrolAction.biocontrol_date,
-					actorProfileId: biocontrolAction.technician_profile_id,
-					actorName: coalesce(actor.display_name, null),
-					methodName: coalesce(method.name, null),
-					amount: biocontrolAction.amount_released,
-					unitAbbreviation: coalesce(unit.abbreviation, null),
-				})),
+				.select(({ biocontrolAction, method, unit, actor }) => {
+					const measured = releaseReads.measured(biocontrolAction);
+					return {
+						id: biocontrolAction.id,
+						date: releaseReads.date(biocontrolAction),
+						actorProfileId: measured.performerProfileId,
+						actorName: coalesce(actor.display_name, null),
+						methodName: coalesce(method.name, null),
+						amount: measured.amount,
+						unitAbbreviation: coalesce(unit.abbreviation, null),
+					};
+				}),
 	});
 
 	const requestedResult = useLiveQuery({

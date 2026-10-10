@@ -80,15 +80,16 @@ export function organizationDetailsFormValues(
 
 /**
  * What the details sheet typed, as the write takes it: trimmed, with an
- * emptied input as `null`. Every other rule about these values is the
- * domain's.
+ * emptied input as `null`. Throws on an empty Organization name or Timezone
+ * and on a Main contact that is not an email address; an empty Main contact
+ * is no contact. Every other rule about these values is the domain's.
  */
 export function organizationDetailsFieldsFrom(
 	values: OrganizationDetailsFormValues,
 ): OrganizationDetailsFields {
 	return {
 		name: requiredTextValue(values.name, 'Organization name'),
-		mainContactEmail: nullableTextValue(values.mainContactEmail),
+		mainContactEmail: emailValue(values.mainContactEmail),
 		phoneNumber: nullableTextValue(values.phoneNumber),
 		mailingAddressLine1: nullableTextValue(values.mailingAddressLine1),
 		mailingAddressLine2: nullableTextValue(values.mailingAddressLine2),
@@ -190,13 +191,12 @@ function nullableTextValue(value: string): string | null {
 	return text.length === 0 ? null : text;
 }
 
-export function validateEmail({ value }: { readonly value: string }): string | undefined {
-	const text = value.trim();
-	if (text.length === 0 || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
-		return undefined;
+function emailValue(value: string): string | null {
+	const text = nullableTextValue(value);
+	if (text !== null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
+		throw new Error('Main contact must be a valid email address.');
 	}
-
-	return 'Main contact must be a valid email address.';
+	return text;
 }
 
 /**

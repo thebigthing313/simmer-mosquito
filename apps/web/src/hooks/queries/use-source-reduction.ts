@@ -14,7 +14,10 @@ import { source_reduction_methods } from '../../lib/collections/source_reduction
 import { source_reductions } from '../../lib/collections/source_reductions';
 import { units } from '../../lib/collections/units';
 import type { SourceReduction } from './control-action-view';
+import { controlActionBaseSelect, PERFORMED_ACTIONS } from './performed-action-reads';
 import { addressSelect, useRecordById } from './shared';
+
+const reductionReads = PERFORMED_ACTIONS.sourceReductions;
 
 export function useSourceReduction(
 	actionId: string | null,
@@ -39,17 +42,17 @@ export function useSourceReduction(
 				// most name no address.
 				.join(
 					{ method: source_reduction_methods() },
-					({ record: action, method }) => eq(action.source_reduction_method_id, method.id),
+					({ record: action, method }) => reductionReads.joinMethod(action, method),
 					'left',
 				)
 				.join(
 					{ unit: units() },
-					({ record: action, unit }) => eq(action.sources_eliminated_unit_id, unit.id),
+					({ record: action, unit }) => reductionReads.joinUnit(action, unit),
 					'left',
 				)
 				.join(
 					{ technician: profiles() },
-					({ record: action, technician }) => eq(action.technician_profile_id, technician.id),
+					({ record: action, technician }) => reductionReads.joinPerformer(action, technician),
 					'left',
 				)
 				.join(
@@ -57,39 +60,29 @@ export function useSourceReduction(
 					({ record: action, address }) => eq(action.address_id, address.id),
 					'left',
 				)
-				.select(({ record: action, method, unit, technician, address }) => ({
-					id: action.id,
-					address: addressSelect(address),
-					actionDate: action.source_reduction_date,
+				.select(({ record: action, method, unit, technician, address }) => {
+					const measured = reductionReads.measured(action);
+					return {
+						id: action.id,
+						address: addressSelect(address),
+						actionDate: reductionReads.date(action),
 
-					methodId: action.source_reduction_method_id,
-					methodName: coalesce(method.name, 'Unknown method'),
-					technicianProfileId: action.technician_profile_id,
-					technicianName: caseWhen(
-						isNull(action.technician_profile_id),
-						null,
-						technician.display_name,
-					),
+						methodId: measured.methodId,
+						methodName: coalesce(method.name, 'Unknown method'),
+						technicianProfileId: measured.performerProfileId,
+						technicianName: caseWhen(
+							isNull(measured.performerProfileId),
+							null,
+							technician.display_name,
+						),
 
-					sourcesEliminated: action.sources_eliminated_amount,
-					unitId: action.sources_eliminated_unit_id,
-					unitAbbreviation: coalesce(unit.abbreviation, null),
-
-					addressId: action.address_id,
-					habitatId: action.habitat_id,
-					inspectionId: action.inspection_id,
-					requestedControlActionId: action.requested_control_action_id,
-					missionItemId: action.mission_item_id,
-
-					latitude: action.lat,
-					longitude: action.lng,
-					geometryKind: action.geom_type,
-					metadata: action.metadata,
-					createdAt: action.created_at,
-					updatedAt: action.updated_at,
-					createdByProfileId: action.created_by_profile_id,
-					updatedByProfileId: action.updated_by_profile_id,
-				})),
+						sourcesEliminated: measured.amount,
+						unitId: measured.unitId,
+						unitAbbreviation: coalesce(unit.abbreviation, null),
+						habitatId: action.habitat_id,
+						...controlActionBaseSelect(action),
+					};
+				}),
 	});
 
 	return { action: result.record, isReady: result.isReady, isError: result.isError };

@@ -66,7 +66,10 @@ import { source_reduction_methods } from '../../lib/collections/source_reduction
 import { source_reductions } from '../../lib/collections/source_reductions';
 import { species as speciesCatalog } from '../../lib/collections/species';
 import { units } from '../../lib/collections/units';
+import { PERFORMED_ACTIONS } from './performed-action-reads';
 import { activityGcTimeMs } from './shared';
+
+const { applications: applicationReads, sourceReductions: reductionReads } = PERFORMED_ACTIONS;
 
 /** One species count under a sample. */
 export interface HabitatHistorySpecies {
@@ -259,38 +262,41 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 				.where(({ application }) => eq(application.habitat_id, habitatId))
 				.join(
 					{ applicator: profiles() },
-					({ application, applicator }) => eq(application.applicator_profile_id, applicator.id),
+					({ application, applicator }) => applicationReads.joinPerformer(application, applicator),
 					'left',
 				)
 				.join(
 					{ insecticide: insecticides() },
-					({ application, insecticide }) => eq(application.insecticide_id, insecticide.id),
+					({ application, insecticide }) => applicationReads.joinProduct(application, insecticide),
 					'left',
 				)
 				.join(
 					{ method: application_methods() },
-					({ application, method }) => eq(application.application_method_id, method.id),
+					({ application, method }) => applicationReads.joinMethod(application, method),
 					'left',
 				)
 				.join(
 					{ unit: units() },
-					({ application, unit }) => eq(application.application_unit_id, unit.id),
+					({ application, unit }) => applicationReads.joinUnit(application, unit),
 					'left',
 				)
-				.orderBy(({ application }) => application.application_date, 'desc')
-				.select(({ application, applicator, insecticide, method, unit }) => ({
-					id: application.id,
-					applicationDate: application.application_date,
-					applicatorProfileId: application.applicator_profile_id,
-					applicatorName: coalesce(applicator.display_name, null),
-					insecticideId: application.insecticide_id,
-					insecticideName: coalesce(insecticide.trade_name, null),
-					applicationMethodId: application.application_method_id,
-					applicationMethodName: coalesce(method.name, null),
-					amountApplied: application.amount_applied,
-					applicationUnitId: application.application_unit_id,
-					unitAbbreviation: coalesce(unit.abbreviation, null),
-				})),
+				.orderBy(({ application }) => applicationReads.date(application), 'desc')
+				.select(({ application, applicator, insecticide, method, unit }) => {
+					const measured = applicationReads.measured(application);
+					return {
+						id: application.id,
+						applicationDate: applicationReads.date(application),
+						applicatorProfileId: measured.performerProfileId,
+						applicatorName: coalesce(applicator.display_name, null),
+						insecticideId: measured.productId,
+						insecticideName: coalesce(insecticide.trade_name, null),
+						applicationMethodId: measured.methodId,
+						applicationMethodName: coalesce(method.name, null),
+						amountApplied: measured.amount,
+						applicationUnitId: measured.unitId,
+						unitAbbreviation: coalesce(unit.abbreviation, null),
+					};
+				}),
 	});
 
 	const sourceReductionResult = useLiveQuery({
@@ -301,31 +307,34 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 				.where(({ reduction }) => eq(reduction.habitat_id, habitatId))
 				.join(
 					{ technician: profiles() },
-					({ reduction, technician }) => eq(reduction.technician_profile_id, technician.id),
+					({ reduction, technician }) => reductionReads.joinPerformer(reduction, technician),
 					'left',
 				)
 				.join(
 					{ method: source_reduction_methods() },
-					({ reduction, method }) => eq(reduction.source_reduction_method_id, method.id),
+					({ reduction, method }) => reductionReads.joinMethod(reduction, method),
 					'left',
 				)
 				.join(
 					{ unit: units() },
-					({ reduction, unit }) => eq(reduction.sources_eliminated_unit_id, unit.id),
+					({ reduction, unit }) => reductionReads.joinUnit(reduction, unit),
 					'left',
 				)
-				.orderBy(({ reduction }) => reduction.source_reduction_date, 'desc')
-				.select(({ reduction, technician, method, unit }) => ({
-					id: reduction.id,
-					sourceReductionDate: reduction.source_reduction_date,
-					technicianProfileId: reduction.technician_profile_id,
-					technicianName: coalesce(technician.display_name, null),
-					sourceReductionMethodId: reduction.source_reduction_method_id,
-					sourceReductionMethodName: coalesce(method.name, null),
-					sourcesEliminatedAmount: reduction.sources_eliminated_amount,
-					sourcesEliminatedUnitId: reduction.sources_eliminated_unit_id,
-					unitAbbreviation: coalesce(unit.abbreviation, null),
-				})),
+				.orderBy(({ reduction }) => reductionReads.date(reduction), 'desc')
+				.select(({ reduction, technician, method, unit }) => {
+					const measured = reductionReads.measured(reduction);
+					return {
+						id: reduction.id,
+						sourceReductionDate: reductionReads.date(reduction),
+						technicianProfileId: measured.performerProfileId,
+						technicianName: coalesce(technician.display_name, null),
+						sourceReductionMethodId: measured.methodId,
+						sourceReductionMethodName: coalesce(method.name, null),
+						sourcesEliminatedAmount: measured.amount,
+						sourcesEliminatedUnitId: measured.unitId,
+						unitAbbreviation: coalesce(unit.abbreviation, null),
+					};
+				}),
 	});
 
 	const requestResult = useLiveQuery({
