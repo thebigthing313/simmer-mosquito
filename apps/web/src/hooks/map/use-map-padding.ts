@@ -1,12 +1,11 @@
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
 import {
-	canvasPadding,
 	insetPadding,
 	type MapInset,
 	NO_MAP_INSET,
 	requestCanvasInset,
-	requestedCanvasInset,
+	strayedCanvasInset,
 } from '../../components/map/map-inset';
 import { isMapLive } from './use-mapbox-map';
 
@@ -58,17 +57,16 @@ export function useMapPadding(map: MapboxMap | null, isLoaded: boolean, inset: M
 		let frame: number | null = null;
 		const settle = () => {
 			frame = null;
-			const requested = requestedCanvasInset(map);
-			if (!isMapLive(map) || map.isMoving() || requested === undefined) {
+			if (!isMapLive(map) || map.isMoving()) {
 				return;
 			}
-			if (paddingKey(canvasPadding(map)) === paddingKey(requested)) {
+			const requested = strayedCanvasInset(map);
+			if (requested === undefined) {
 				return;
 			}
 			map.easeTo({ padding: { ...requested }, duration: PADDING_DURATION_MS });
 		};
-		// A frame later, because the `moveend` for a stopped ease fires inside the
-		// call that stopped it, before that call has set the map moving.
+		// A frame later; `docs/web-hooks.md` says why.
 		const onMoveEnd = () => {
 			if (frame === null) {
 				frame = requestAnimationFrame(settle);

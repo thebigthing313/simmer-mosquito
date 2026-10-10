@@ -710,8 +710,8 @@ reader follows a long flight better than a quick one.
 
 The padding is animated over 300 ms, and anything that moves the camera inside
 that window stops the ease partway: a fit, a focus, a zoom button, a drag or a
-wheel zoom. `easeTo` interpolates padding on a copy of the transform, so
-mapbox keeps the in-between value, and the effect above never notices because
+wheel zoom. A stopped ease leaves the transform where its last frame put it,
+so mapbox keeps the in-between padding, and the effect above never notices because
 the inset's four numbers have not changed. Later selections then centre in
 the wrong place, and `useMapExtentFit`'s in-view test, which reads
 `getBounds()` net of padding, judges against the wrong box (#1490).
