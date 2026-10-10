@@ -39,7 +39,10 @@ import {
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import {
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
 import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
@@ -49,11 +52,10 @@ import type { ContactSummary } from '../../../hooks/queries/contact-view';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { useRequestParties } from '../../../hooks/queries/use-request-parties';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
-import { type RecordType, recordNoun } from '../../../lib/record-nouns';
+import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
-const RECORD_TYPE: RecordType = 'serviceRequest';
 const ORDER_DEFAULTS: ServiceRequestRailSearch = { order: 'newest' };
 const EMPTY_TAGS: readonly Tag[] = [];
 
@@ -108,7 +110,6 @@ function ServiceRequestsExplorerRoute() {
 	// the map and the rail stay in lockstep. The rail used to filter and page the
 	// whole Organization's requests out of the sync collection and draw them as a
 	// GeoJSON overlay, 1,180 rows in the prod clone over three years (#963).
-	const filters = serviceRequestRecordSet.tileFilters(query, context);
 	const {
 		rows,
 		total,
@@ -120,16 +121,12 @@ function ServiceRequestsExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
-	} = useExplorerResource<ServiceRequestListing>({
-		path: serviceRequestRecordSet.endpoint.path,
-		rowsKey: serviceRequestRecordSet.endpoint.rowsKey,
+	}: ExplorerResource<ServiceRequestListing> = useExplorerResource({
+		set: serviceRequestRecordSet,
+		binding: { filters: query, context },
+		tileset: 'service-requests',
 		rowKey: 'serviceRequest',
-		recordType: RECORD_TYPE,
-		params: {
-			...serviceRequestRecordSet.listParams(filters),
-			...serviceRequestOrderParams(railOrder.order),
-		},
-		tiles: { kind: 'service-requests', filters },
+		params: serviceRequestOrderParams(railOrder.order),
 		// A pick moves the map to the record and leaves the list as it was, so
 		// the reader working down the queue does not lose their place.
 		holdRailOnSelect: true,

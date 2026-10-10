@@ -22,7 +22,10 @@ import {
 } from '../../../components/gis/addresses/addresses-search';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import {
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
 import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { searchValidator } from '../../../lib/search-filters';
 
@@ -40,12 +43,11 @@ function AddressesExplorerRoute() {
 	const { activeCount: activeFilterCount, clearAll } = binding;
 	const panel = useExplorerPanel();
 
+	const routeSearch = Route.useSearch();
 	// The tiles and the page read one filter shape off one server predicate, so
 	// the map and the rail stay in lockstep. The rail used to filter and page the
 	// whole address book out of the sync collection beside a map drawing one
 	// viewport, so the two showed different sets (#962).
-	const filters = addressRecordSet.tileFilters(binding.filters, binding.context);
-	const routeSearch = Route.useSearch();
 	const {
 		rows,
 		total,
@@ -57,13 +59,11 @@ function AddressesExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
-	} = useExplorerResource<AddressListing>({
-		path: addressRecordSet.endpoint.path,
-		rowsKey: addressRecordSet.endpoint.rowsKey,
+	}: ExplorerResource<AddressListing> = useExplorerResource({
+		set: addressRecordSet,
+		binding,
+		tileset: 'addresses',
 		rowKey: 'address',
-		recordType: 'address',
-		params: addressRecordSet.listParams(filters),
-		tiles: { kind: 'addresses', filters },
 		summarize: true,
 	});
 

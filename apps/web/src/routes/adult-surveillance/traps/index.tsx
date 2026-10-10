@@ -19,7 +19,10 @@ import { RecordSetSwitch } from '../../../components/explorer/record-set-switch'
 import { MAP_CREATE_TARGETS, TRAP_STATUS_COLORS } from '../../../components/map';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import {
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
 import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { catalogs } from '../../../hooks/queries/catalog-register';
@@ -56,9 +59,6 @@ function TrapsExplorerRoute() {
 
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
 
-	// The server tiles + list read the same filter shape, so the map and the paged
-	// rail stay in lockstep. Omitted keys (no selection / no search) drop out.
-	const filters = trapRecordSet.tileFilters(query, binding.context);
 	const routeSearch = Route.useSearch();
 	const [clustered] = useMapClustering();
 	const legend = trapLegend(query.status, clustered);
@@ -73,13 +73,11 @@ function TrapsExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
-	} = useExplorerResource<TrapRow>({
-		path: trapRecordSet.endpoint.path,
-		rowsKey: trapRecordSet.endpoint.rowsKey,
+	}: ExplorerResource<TrapRow> = useExplorerResource({
+		set: trapRecordSet,
+		binding,
+		tileset: 'traps',
 		rowKey: 'trap',
-		recordType: 'trap',
-		params: trapRecordSet.listParams(filters),
-		tiles: { kind: 'traps', filters },
 		summarize: true,
 	});
 

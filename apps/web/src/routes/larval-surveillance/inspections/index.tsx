@@ -41,7 +41,10 @@ import {
 import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import {
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
 import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import {
 	type InspectionFilterOptions,
@@ -92,7 +95,6 @@ function InspectionsExplorerRoute() {
 	const routeSearch = Route.useSearch();
 
 	const filterOptions = useInspectionFilterOptions();
-	const filters = inspectionRecordSet.tileFilters(binding.filters, binding.context);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 	const {
 		rows,
@@ -105,13 +107,11 @@ function InspectionsExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
-	} = useExplorerResource<InspectionListing>({
-		path: inspectionRecordSet.endpoint.path,
-		rowsKey: inspectionRecordSet.endpoint.rowsKey,
+	}: ExplorerResource<InspectionListing> = useExplorerResource({
+		set: inspectionRecordSet,
+		binding,
+		tileset: 'inspections',
 		rowKey: 'inspection',
-		recordType: 'inspection',
-		params: inspectionRecordSet.listParams(filters),
-		tiles: { kind: 'inspections', filters },
 		summarize: true,
 	});
 	const [clustered] = useMapClustering();
