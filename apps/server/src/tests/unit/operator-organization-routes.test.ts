@@ -12,6 +12,7 @@
  */
 
 import type { AuthUser } from '@simmer-mosquito/auth';
+import { ORGANIZATION_CONTACT_DETAIL_KEYS } from '@simmer-mosquito/domain';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -29,6 +30,9 @@ const dbMock = vi.hoisted(() => ({
 }));
 
 vi.mock('@simmer-mosquito/db', () => dbMock);
+
+/** Every contact detail the domain names, each `null`. */
+const NO_CONTACT = Object.fromEntries(ORGANIZATION_CONTACT_DETAIL_KEYS.map((key) => [key, null]));
 
 const operatorUser: AuthUser = {
 	workosUserId: 'workos_user_operator',
@@ -200,16 +204,7 @@ describe('POST /admin/organizations', () => {
 				billingContactName: null,
 				billingContactEmail: null,
 				subscriptionNotes: null,
-				contact: {
-					mainContactEmail: null,
-					phoneNumber: null,
-					mailingCountry: null,
-					mailingAddressLine1: null,
-					mailingAddressLine2: null,
-					mailingLocality: null,
-					mailingRegion: null,
-					mailingPostalCode: null,
-				},
+				contact: NO_CONTACT,
 			}),
 		);
 	});
@@ -268,16 +263,7 @@ describe('POST /admin/organizations', () => {
 		expect(response.status).toBe(201);
 		expect(auth.createOrganization).toHaveBeenCalledWith({ name: 'County Mosquito' });
 		const body = (await response.json()) as { contact: Record<string, unknown> };
-		expect(body.contact).toEqual({
-			mainContactEmail: null,
-			phoneNumber: null,
-			mailingCountry: null,
-			mailingAddressLine1: null,
-			mailingAddressLine2: null,
-			mailingLocality: null,
-			mailingRegion: null,
-			mailingPostalCode: null,
-		});
+		expect(body.contact).toEqual(NO_CONTACT);
 		expect(dbMock.upsertOperatorOrganization).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.objectContaining({ billingContactEmail: null }),

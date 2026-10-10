@@ -21,6 +21,7 @@ import {
 	inviteCommand,
 	normalizeOrganizationBillingContact,
 	normalizeOrganizationContactDetails,
+	ORGANIZATION_CONTACT_DETAIL_KEYS,
 	reinviteCommand,
 	updateOrganizationDetailsCommand,
 	updateProfileCommand,
@@ -190,6 +191,16 @@ describe('normalizeOrganizationContactDetails', () => {
 		expect(
 			normalizeOrganizationContactDetails({ phoneNumber: '  ', mailingRegion: ' nj ' }),
 		).toEqual({ details: { phoneNumber: null, mailingRegion: 'NJ' }, issues: [] });
+	});
+
+	it('reads every detail the exported key list names', () => {
+		const blank = Object.fromEntries(ORGANIZATION_CONTACT_DETAIL_KEYS.map((key) => [key, ' ']));
+
+		const { details } = normalizeOrganizationContactDetails(blank);
+
+		expect(Object.keys(details)).toEqual(ORGANIZATION_CONTACT_DETAIL_KEYS);
+		// An empty list would pass the line above with nothing read.
+		expect(ORGANIZATION_CONTACT_DETAIL_KEYS).toContain('mainContactEmail');
 	});
 
 	it('returns every refusal as an issue rather than throwing', () => {
