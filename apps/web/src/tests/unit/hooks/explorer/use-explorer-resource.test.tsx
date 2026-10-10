@@ -576,6 +576,13 @@ describe('useExplorerResource: the map and the selection it holds', () => {
 		expect(result.current.canvas.selectedRecordId).toBeNull();
 		expect(fake.cameraCalls).toHaveLength(1);
 	});
+
+	it('returns one clear, on the canvas bundle', () => {
+		const { result } = renderBare();
+
+		expect(result.current).not.toHaveProperty('clearSelection');
+		expect(result.current.canvas.clearSelection).toBeTypeOf('function');
+	});
 });
 
 describe('useExplorerResource: the selected record', () => {
