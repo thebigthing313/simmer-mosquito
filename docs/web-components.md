@@ -662,9 +662,9 @@ the same in both states and the state is on `aria-pressed`, which is
 
 #### StopSequenceMap
 
-One component draws every ordered run of stops, Routes, Missions and
-Assignments, because `RouteMap` and `WorklistMap` were the same map with two
-noun spellings and two bounds folds (#1491). The Route surfaces lost nothing
+One component draws the stops of a Route, a Mission and an Assignment.
+`RouteMap` and `WorklistMap` were the same map with two noun spellings and
+two bounds folds, so #1491 kept one. The Route surfaces lost nothing
 in the merge: their stops carry no shape, so the shape-aware fold frames them
 on the same box the point fold did, and the noun comes out of the register as
 `route` either way.
