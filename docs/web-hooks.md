@@ -2161,8 +2161,8 @@ minted, which is two rows for one assignment.
 #### useTagPickerCatalog
 
 One list with each Tag's lifecycle and relevance on it, rather than the two
-lifecycle halves `useCatalogRecords(catalogs.tags)` returns, because which section a Tag draws in is
-a question about both. `useLiveQuery` and not the suspense hook, so opening the
+lifecycle halves `useCatalogRecords(catalogs.tags)` returns, because which
+section a Tag draws in is a question about both. `useLiveQuery` and not the suspense hook, so opening the
 dialog never suspends the header it opens from.
 
 #### useCommentCount

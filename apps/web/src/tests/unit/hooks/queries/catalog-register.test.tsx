@@ -48,6 +48,7 @@ describe.each(Object.entries(catalogs))('the %s catalog', (_key, catalog) => {
 			'Culvert',
 		]);
 		expect(result.current.inactiveRecords.map((record) => record.name)).toEqual(['Basin', 'Ditch']);
+		expect(result.current.activeRecords.every((record) => record.isActive)).toBe(true);
 		expect(result.current.inactiveRecords.every((record) => !record.isActive)).toBe(true);
 	});
 
