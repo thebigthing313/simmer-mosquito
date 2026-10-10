@@ -1,8 +1,5 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useState } from 'react';
-import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { formatAmount } from '../../../components/control-operations/control-display';
 import {
@@ -25,13 +22,14 @@ import {
 } from '../../../components/control-operations/source-reduction/source-reductions-search';
 import { SourceReductionMapCard } from '../../../components/control-operations/source-reduction-map-card';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
-import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
+import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useSourceReductionFilterState } from '../../../hooks/control-operations/use-source-reduction-filter-state';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
-import { useSourceReductionMethodOptions } from '../../../hooks/explorer/use-source-reduction-method-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { formatListDate } from '../../../lib/local-date';
@@ -52,12 +50,10 @@ function SourceReductionExplorerRoute() {
 	// both land on the list the operator had narrowed to.
 	const binding = useSourceReductionFilterState();
 	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
-	const { nameById: methodNameById } = useSourceReductionMethodOptions();
-	const { nameById: personNameById } = usePersonnelOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.sourceReductionMethods);
+	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const unitById = useUnitLabels().byId;
 
 	// The server tiles + list read the same filter shape, so the map and the paged
@@ -66,31 +62,30 @@ function SourceReductionExplorerRoute() {
 	// What a move to the Table takes with it: every filter, since the Table
 	// applies each one.
 	const carried = sharedSourceReductionSearch(Route.useSearch());
-	const layer: MapTileLayer = {
-		kind: 'source-reduction',
-		serverUrl: getServerUrl(),
-		filters,
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		empty,
+		summary,
+		canvas,
 		selectedId,
-		onSelectFeature: setSelectedId,
-	};
-	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
-		useExplorerResource<SourceReductionListRow>({
-			path: PATH,
-			rowsKey: 'sourceReductions',
-			rowKey: 'sourceReduction',
-			recordType: 'sourceReduction',
-			params: sourceReductionListParams(filters),
-			layer,
-			map,
-			selectedId,
-			summarize: true,
-		});
+		setSelectedId,
+	} = useExplorerResource<SourceReductionListRow>({
+		path: PATH,
+		rowsKey: 'sourceReductions',
+		rowKey: 'sourceReduction',
+		recordType: 'sourceReduction',
+		params: sourceReductionListParams(filters),
+		tiles: { kind: 'source-reduction', filters },
+		summarize: true,
+	});
 
 	// `habitats` syncs on demand, so resolve only the referenced ids as a bounded
 	// live subset rather than reading the whole collection eagerly.
 	const habitatNameById = useHabitatNames(linkedHabitatIds(rows));
-
-	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 
 	return (
 		<ExplorerMapPage
@@ -109,25 +104,12 @@ function SourceReductionExplorerRoute() {
 			}}
 			onResetFilters={clearAll}
 			map={
-				<>
-					<MapCanvas
-						inset={panel.inset}
-						searchWidth={panel.width}
-						contextMenu={{ create: [MAP_CREATE_TARGETS.sourceReduction] }}
-						controls={{ measure: true, readout: true }}
-						fitToData
-						rememberCamera
-						layers={layers}
-						onMapReady={handleMapReady}
-					/>
-					{selected === null ? null : (
-						<SourceReductionMapCard
-							id={selected.id}
-							inset={panel.inset}
-							onClose={() => setSelectedId(null)}
-						/>
-					)}
-				</>
+				<ExplorerCanvas
+					canvas={canvas}
+					card={(props) => <SourceReductionMapCard {...props} />}
+					contextMenu={{ create: [MAP_CREATE_TARGETS.sourceReduction] }}
+					panel={panel}
+				/>
 			}
 			panel={panel}
 			results={{

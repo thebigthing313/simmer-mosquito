@@ -32,8 +32,9 @@ import { useActivityLookups } from '../../hooks/activity/use-activity-lookups';
 import { useActivitySelection } from '../../hooks/activity/use-activity-selection';
 import { useDayActivity } from '../../hooks/activity/use-day-activity';
 import { useDailyWorkDay } from '../../hooks/daily-work/use-daily-work-day';
+import { useCatalogOptions } from '../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../hooks/explorer/use-explorer-panel';
-import { usePersonnelOptions } from '../../hooks/explorer/use-personnel-options';
+import { catalogs } from '../../hooks/queries/catalog-register';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { formatLocalDate, parseLocalDate, todayInTimeZone } from '../../lib/local-date';
 import { searchValidator } from '../../lib/search-filters';
@@ -66,7 +67,7 @@ export const Route = createFileRoute('/daily-work/$profileId')({
  */
 function DailyWorkRoute() {
 	const { profileId } = Route.useParams();
-	const personnel = usePersonnelOptions();
+	const personnel = useCatalogOptions(catalogs.profiles);
 	const name = isProfileId(profileId) ? personnel.nameById.get(profileId) : undefined;
 
 	return name === undefined ? (

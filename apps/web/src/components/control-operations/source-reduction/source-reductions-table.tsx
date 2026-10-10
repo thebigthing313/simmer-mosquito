@@ -10,8 +10,8 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
-import { useSourceReductionMethodOptions } from '../../../hooks/explorer/use-source-reduction-method-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { formatListDate } from '../../../lib/local-date';
@@ -33,8 +33,8 @@ export function SourceReductionsTable({
 }: {
 	readonly rows: readonly SourceReductionListRow[];
 }) {
-	const { nameById: methodNameById } = useSourceReductionMethodOptions();
-	const { nameById: personNameById } = usePersonnelOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.sourceReductionMethods);
+	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const unitById = useUnitLabels().byId;
 	// `habitats` syncs on demand, so resolve only the referenced ids.
 	const habitatNameById = useHabitatNames(linkedHabitatIds(rows));

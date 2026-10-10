@@ -26,11 +26,12 @@ import {
 	RecordDetailPage,
 } from '../../../components/record';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useSourceReduction } from '../../../hooks/queries/use-source-reduction';
-import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-source-reduction-method-roster';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-location-context';
 import {
@@ -85,13 +86,13 @@ function SourceReductionDetailContent({
 }) {
 	// The method roster is still read, but only for the custom-field schema the
 	// chosen method declares — the method's *name* arrives joined.
-	const methods = useSourceReductionMethodRoster();
+	const methods = useCatalogRoster(catalogs.sourceReductionMethods);
 	const { remove } = useSourceReductionMutations();
 	// habitats is on-demand; resolve just the linked habitat's name as a subset.
 	const habitatIds = sourceReduction.habitatId === null ? [] : [sourceReduction.habitatId];
 	const habitatNameById = useHabitatNames(habitatIds);
 
-	const methodName = sourceReduction.methodName;
+	const methodName = sourceReduction.methodName ?? 'Unknown method';
 	const amountLabel = formatMeasure(
 		sourceReduction.sourcesEliminated,
 		sourceReduction.unitAbbreviation,

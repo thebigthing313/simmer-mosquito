@@ -1,8 +1,5 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useState } from 'react';
-import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
@@ -15,6 +12,7 @@ import {
 	ToggleFilter,
 	toggle,
 } from '../../../components/explorer';
+import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { densityLabel, hasAnyLifeStage } from '../../../components/larval-display';
 import {
@@ -43,9 +41,6 @@ import {
 	INSPECTION_DENSITY_COLORS,
 	INSPECTION_DRY_COLOR,
 	MAP_CREATE_TARGETS,
-	MapCanvas,
-	type MapLegendEntry,
-	type MapTileLayer,
 } from '../../../components/map';
 import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
@@ -95,8 +90,6 @@ function InspectionsExplorerRoute() {
 	} = useInspectionFilterState(DATE_RANGE_COUNTING, 'last-30-days');
 	const { dateFrom, dateTo, densities, wetness } = state;
 
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
 	// What a move to the Table takes with it: the params already on the address
@@ -106,26 +99,26 @@ function InspectionsExplorerRoute() {
 	const filterOptions = useInspectionFilterOptions();
 	const filters = inspectionTileFilters(state);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
-	const layer: MapTileLayer = {
-		kind: 'inspections',
-		serverUrl: getServerUrl(),
-		filters,
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		empty,
+		summary,
+		canvas,
 		selectedId,
-		onSelectFeature: setSelectedId,
-	};
-	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
-		useExplorerResource<InspectionListing>({
-			path: INSPECTIONS_PATH,
-			rowsKey: 'inspections',
-			rowKey: 'inspection',
-			recordType: 'inspection',
-			params: inspectionQueryParams(filters),
-			layer,
-			map,
-			selectedId,
-			summarize: true,
-		});
-	const handleMapReady = (instance: MapboxMap) => setMap(instance);
+		setSelectedId,
+	} = useExplorerResource<InspectionListing>({
+		path: INSPECTIONS_PATH,
+		rowsKey: 'inspections',
+		rowKey: 'inspection',
+		recordType: 'inspection',
+		params: inspectionQueryParams(filters),
+		tiles: { kind: 'inspections', filters },
+		summarize: true,
+	});
 	const [clustered] = useMapClustering();
 	const legend = inspectionLegend(wetness, densities, clustered);
 
@@ -151,13 +144,12 @@ function InspectionsExplorerRoute() {
 			onResetFilters={clearAll}
 			heading={inspectionsHeading(total, isLoading)}
 			map={
-				<InspectionMap
-					layers={layers}
+				<ExplorerCanvas
+					canvas={canvas}
+					card={(props) => <InspectionMapCard {...props} />}
+					contextMenu={{ create: [MAP_CREATE_TARGETS.inspection, MAP_CREATE_TARGETS.habitat] }}
 					legend={legend}
-					onSelect={setSelectedId}
-					onMapReady={handleMapReady}
 					panel={panel}
-					selected={selected}
 				/>
 			}
 			panel={panel}
@@ -220,42 +212,6 @@ interface InspectionFilterProps {
 	readonly options: InspectionFilterOptions;
 	readonly set: InspectionFilterSetters;
 	readonly state: InspectionFilterState;
-}
-
-/** The map, and the card for whichever inspection is selected. */
-function InspectionMap({
-	layers,
-	legend,
-	onSelect,
-	onMapReady,
-	panel,
-	selected,
-}: {
-	readonly layers: readonly MapTileLayer[];
-	readonly legend: readonly MapLegendEntry[] | undefined;
-	readonly onSelect: (id: string | null) => void;
-	readonly onMapReady: (map: MapboxMap) => void;
-	readonly panel: ReturnType<typeof useExplorerPanel>;
-	readonly selected: InspectionListing | null;
-}) {
-	return (
-		<>
-			<MapCanvas
-				contextMenu={{ create: [MAP_CREATE_TARGETS.inspection, MAP_CREATE_TARGETS.habitat] }}
-				controls={{ measure: true, readout: true }}
-				fitToData
-				rememberCamera
-				inset={panel.inset}
-				layers={layers}
-				{...(legend === undefined ? {} : { legend })}
-				onMapReady={onMapReady}
-				searchWidth={panel.width}
-			/>
-			{selected === null ? null : (
-				<InspectionMapCard id={selected.id} inset={panel.inset} onClose={() => onSelect(null)} />
-			)}
-		</>
-	);
 }
 
 /**

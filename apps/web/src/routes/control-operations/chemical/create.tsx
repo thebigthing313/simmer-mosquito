@@ -16,18 +16,17 @@ import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type {
 	FormulationComponentListing,
 	FormulationListing,
 } from '../../../hooks/queries/chemical-roster-view';
-import { useApplicationMethodRoster } from '../../../hooks/queries/use-application-method-roster';
-import { useEquipmentRoster } from '../../../hooks/queries/use-equipment-roster';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useFormulationComponentRoster } from '../../../hooks/queries/use-formulation-component-roster';
 import { useFormulationRoster } from '../../../hooks/queries/use-formulation-roster';
 import { useInsecticideRoster } from '../../../hooks/queries/use-insecticide-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
-import { useVehicleRoster } from '../../../hooks/queries/use-vehicle-roster';
 import { useMissionStopExecution } from '../../../hooks/use-mission-stop-execution';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
@@ -64,14 +63,14 @@ function CreateApplicationRoute() {
 	const navigate = useNavigate();
 	const timeZone = useOrganizationTimeZone();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const methods = useApplicationMethodRoster();
+	const methods = useCatalogRoster(catalogs.applicationMethods);
 	const insecticides = useInsecticideRoster();
 	const formulations = useFormulationRoster();
 	const formulationComponents = useFormulationComponentRoster();
 	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
-	const vehicles = useVehicleRoster();
-	const equipment = useEquipmentRoster();
+	const vehicles = useCatalogRoster(catalogs.vehicles);
+	const equipment = useCatalogRoster(catalogs.equipment);
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;

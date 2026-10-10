@@ -17,8 +17,8 @@ export interface WorklistIndexFilters {
  *
  * Takes the loaded rows, how to read a row's status and assignee, the status
  * and assignee sets, an optional `matches` for a filter the page has and the
- * other does not, and the people from `usePersonnelOptions`. Returns the rows
- * that pass, the selected row id (the one picked while it is still visible,
+ * other does not, and the people from `useCatalogOptions(catalogs.profiles)`.
+ * Returns the rows that pass, the selected row id (the one picked while it is still visible,
  * else the first visible row, else null) and that row, the selected stop and
  * the highlighted stop with their setters, `handleSelect`, the assignee
  * options with `Unassigned` first, and the label an assignee chip reads.

@@ -18,12 +18,13 @@ import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import {
 	type AdditionalPersonnelLink,
 	useAdditionalPersonnel,
 } from '../../../hooks/queries/use-additional-personnel';
-import { useHabitatTypeRoster } from '../../../hooks/queries/use-habitat-type-roster';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import {
 	type InspectionRecord,
 	useInspectionRecord,
@@ -52,7 +53,7 @@ function EditInspectionRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const { organization, settings } = useOrganizationWorkspace(auth.snapshot);
-	const habitatTypes = useHabitatTypeRoster();
+	const habitatTypes = useCatalogRoster(catalogs.habitatTypes);
 	const profiles = useProfileRoster();
 
 	// inspections is an on-demand collection, so this reads live status through
