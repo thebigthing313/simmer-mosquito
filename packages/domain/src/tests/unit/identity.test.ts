@@ -252,7 +252,7 @@ describe('normalizeOrganizationBillingContact', () => {
 		]);
 	});
 
-	it('refuses an address that is not one in the words the Main contact uses', () => {
+	it("refuses an address that is not one with the message the Main contact's email gets", () => {
 		expect(normalizeOrganizationBillingContact({ billingContactEmail: 'billing' }).issues).toEqual([
 			{
 				path: 'billingContactEmail',

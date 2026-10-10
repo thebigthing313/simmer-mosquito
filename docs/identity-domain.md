@@ -162,8 +162,8 @@ the same rules. Both read them from `normalizeOrganizationContactDetails` in
 contact's email check, and the create route refuses before it calls WorkOS
 (#1524). The billing contact is a create field the details command does not
 carry, so its rules sit beside those in `normalizeOrganizationBillingContact`:
-the name at 200 characters, the email at 320 and refused in the Main contact's
-words (#1550).
+the name at 200 characters, and the email at 320 and refused with the message
+the Main contact's email gets (#1550).
 
 The reason is that SIMMER does not expect an organization outside the US. A
 mosquito control district is a US institution, and the assumption is already

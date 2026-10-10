@@ -246,12 +246,7 @@ export function normalizeOrganizationContactDetails(input: OrganizationContactDe
 	readonly issues: readonly DomainValidationIssue[];
 } {
 	const issues = createIssues();
-	const details: { [K in OrganizationContactDetailKey]?: string | null } = {};
-	for (const key of NULLABLE_DETAIL_KEYS) {
-		if (input[key] !== undefined) {
-			details[key] = normalizeNullableText(input[key], key, issues, NULLABLE_DETAIL_LIMITS[key]);
-		}
-	}
+	const details = normalizeLimitedText(input, NULLABLE_DETAIL_LIMITS, issues);
 	for (const { key, isAllowed, message } of CODED_DETAILS) {
 		const value = details[key];
 		// Absent leaves the column alone and `null` clears it. An organization that
@@ -292,10 +287,6 @@ export type OrganizationBillingContact = {
 	readonly [K in OrganizationBillingContactKey]?: string | null;
 };
 
-const BILLING_CONTACT_KEYS = Object.keys(
-	BILLING_CONTACT_LIMITS,
-) as readonly OrganizationBillingContactKey[];
-
 /**
  * The billing contact fields that arrived, normalized and checked against their
  * rules.
@@ -311,14 +302,28 @@ export function normalizeOrganizationBillingContact(input: OrganizationBillingCo
 	readonly issues: readonly DomainValidationIssue[];
 } {
 	const issues = createIssues();
-	const contact: { [K in OrganizationBillingContactKey]?: string | null } = {};
-	for (const key of BILLING_CONTACT_KEYS) {
-		if (input[key] !== undefined) {
-			contact[key] = normalizeNullableText(input[key], key, issues, BILLING_CONTACT_LIMITS[key]);
-		}
-	}
+	const contact = normalizeLimitedText(input, BILLING_CONTACT_LIMITS, issues);
 	checkEmailAddress(contact.billingContactEmail, 'billingContactEmail', issues);
 	return { contact, issues };
+}
+
+/**
+ * Each key of `limits` that arrived in `input`, trimmed and held to its limit.
+ *
+ * A key left out stays out, and blank text comes back as `null`.
+ */
+function normalizeLimitedText<K extends string>(
+	input: { readonly [P in K]?: string | null },
+	limits: Readonly<Record<K, number>>,
+	issues: DomainValidationIssue[],
+): { [P in K]?: string | null } {
+	const normalized: { [P in K]?: string | null } = {};
+	for (const key of Object.keys(limits) as K[]) {
+		if (input[key] !== undefined) {
+			normalized[key] = normalizeNullableText(input[key], key, issues, limits[key]);
+		}
+	}
+	return normalized;
 }
 
 /**

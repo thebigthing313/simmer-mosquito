@@ -278,7 +278,7 @@ const NO_CONTACT: CreateOrganizationPayload['contact'] = {
  *
  * Both are held to the domain's rules rather than written again here, so a
  * create cannot store what an edit would refuse, and the billing email is
- * refused in the Main contact's words. The billing contact is a second call
+ * refused with the message the Main contact's email gets. The billing contact is a second call
  * because the details builder does not carry it. Refusing at this point is what
  * keeps WorkOS from being asked first for a row the insert would reject.
  */
