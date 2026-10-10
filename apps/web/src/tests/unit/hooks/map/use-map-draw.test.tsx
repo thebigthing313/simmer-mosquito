@@ -1,11 +1,19 @@
 // @vitest-environment jsdom
 import type { OwnedGeometryKind } from '@simmer-mosquito/domain';
+import { closeRing } from '@simmer-mosquito/mapping';
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { act, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DrawGeometry } from '../../../../hooks/map/use-map-draw';
 import { useMapDraw } from '../../../../hooks/map/use-map-draw';
+import {
+	BLOCK,
+	BULGED_BLOCK,
+	FIRST_SQUARE,
+	OUTSIDE_SKETCH,
+	POND,
+} from '../../components/map/draw-fixtures';
 import type { FakeMap } from '../../components/map/fake-map';
 import {
 	cleanupRenderedHooks,
@@ -83,44 +91,6 @@ function mountControlled(
 }
 
 type ControlledHarness = ReturnType<typeof mountControlled>;
-
-const FIRST_SQUARE = [
-	[-90, 35],
-	[-90, 36],
-	[-89, 36],
-] as const;
-/** A four-corner area with room inside it, so a hole has somewhere to go. */
-const BLOCK = [
-	[-91, 34],
-	[-91, 37],
-	[-88, 37],
-	[-88, 34],
-] as const;
-/** Well inside {@link BLOCK}. */
-const POND = [
-	[-90, 35],
-	[-90, 36],
-	[-89, 36],
-	[-89, 35],
-] as const;
-/** A line crossing {@link BLOCK}'s northern edge twice, drawn north of it. */
-const OUTSIDE_SKETCH = [
-	[-90.5, 36],
-	[-90.5, 38],
-	[-89.5, 38],
-	[-89.5, 36],
-] as const;
-/** {@link BLOCK} with {@link OUTSIDE_SKETCH} taken into its northern edge. */
-const BULGED_BLOCK = [
-	[-90.5, 37],
-	[-90.5, 38],
-	[-89.5, 38],
-	[-89.5, 37],
-	[-88, 37],
-	[-88, 34],
-	[-91, 34],
-	[-91, 37],
-] as const;
 
 /** Open the first piece, start a reshape, and trace `line` over the map. */
 function sketchOver(
@@ -231,10 +201,6 @@ const OPEN_DRAFTS = [
 	},
 ];
 
-function closed(ring: readonly (readonly [number, number])[]): (readonly [number, number])[] {
-	return [...ring, ring[0] as readonly [number, number]];
-}
-
 /** Roles carried by the features the draft source is holding, in order. */
 function roles(fake: FakeMap): (string | undefined)[] {
 	return fake
@@ -336,7 +302,7 @@ describe('useMapDraw', () => {
 		expect(result.current.draw.isDrawing).toBe(false);
 		expect(result.current.value).toEqual({
 			type: 'Polygon',
-			coordinates: [closed(FIRST_SQUARE)],
+			coordinates: [closeRing(FIRST_SQUARE)],
 		});
 	});
 
@@ -356,7 +322,7 @@ describe('useMapDraw', () => {
 		expect(result.current.draw.isDrawing).toBe(false);
 		expect(result.current.value).toEqual({
 			type: 'Polygon',
-			coordinates: [closed(FIRST_SQUARE)],
+			coordinates: [closeRing(FIRST_SQUARE)],
 		});
 	});
 
@@ -881,7 +847,7 @@ describe('useMapDraw', () => {
 		});
 		expect(result.current.value).toEqual({
 			type: 'Polygon',
-			coordinates: [closed(BULGED_BLOCK)],
+			coordinates: [closeRing(BULGED_BLOCK)],
 		});
 	});
 

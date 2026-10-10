@@ -39,14 +39,18 @@ import type { CollectionDates } from './collection-view';
  *
  * `collectedAt` arrives as a `Date` off the synced table and as an ISO string
  * off `/map/collections`, whose `CollectionListRow` no read hook shapes.
+ *
+ * An empty string in either column is read as absent, the same as null, so
+ * the result is never `''`: an empty `collectedAt` falls through to
+ * `collectionDate`, and an empty `collectionDate` with no instant is pending.
  */
 export function collectionEffectiveDate(
 	collection: CollectionDates,
 	timeZone: string,
 ): string | null {
 	const { collectedAt, collectionDate } = collection;
-	if (collectedAt === null) {
-		return collectionDate === null ? null : collectionDate.slice(0, 10);
+	if (collectedAt === null || collectedAt === '') {
+		return collectionDate === null || collectionDate === '' ? null : collectionDate.slice(0, 10);
 	}
 	const instant = collectedAt instanceof Date ? collectedAt : new Date(collectedAt);
 	if (!Number.isNaN(instant.getTime())) {

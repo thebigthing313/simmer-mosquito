@@ -38,14 +38,11 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 }));
 vi.mock('../../../../components/map', () => ({ MapCanvas: () => <div data-testid="map" /> }));
 vi.mock('../../../../components/pickers/address-picker', () => ({ AddressPicker: () => null }));
-vi.mock('../../../../components/control-operations/control-pickers', () => ({
-	HabitatPicker: () => null,
-}));
 vi.mock('../../../../hooks/use-organization-time-zone', () => ({
 	useOrganizationTimeZone: () => 'America/New_York',
 }));
-vi.mock('../../../../hooks/larval-surveillance/use-habitat-label', () => ({
-	useHabitatLabel: () => '',
+vi.mock('../../../../hooks/queries/use-habitat-names', () => ({
+	useHabitatNames: () => new Map(),
 }));
 vi.mock('../../../../hooks/queries/use-habitat-search', () => ({
 	useHabitatSearch: () => ({ matches: [], isReady: true, isError: false }),
@@ -70,7 +67,7 @@ function describedError(control: HTMLElement): string | null {
 }
 
 describe('a save refused over a field an app control draws', () => {
-	it('says a habitat inspection has no habitat, under the habitat pick', async () => {
+	it('marks the habitat pick required and says a habitat inspection has none, under it', async () => {
 		const onSave = vi.fn(async () => undefined);
 		render(
 			<InspectionFormPage
@@ -90,9 +87,15 @@ describe('a save refused over a field an app control draws', () => {
 			/>,
 		);
 
+		expect(
+			screen.getByText(
+				(_, element) => element?.tagName === 'SPAN' && element.textContent === 'Habitat*',
+			),
+		).toBeDefined();
+
 		fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-		const pick = await screen.findByRole('searchbox', { name: 'Search habitats' });
+		const pick = await screen.findByRole('searchbox', { name: 'Habitat' });
 		await vi.waitFor(() => expect(pick.getAttribute('aria-invalid')).toBe('true'));
 		expect(describedError(pick)).toMatch(/^Habitat /);
 		expect(onSave).not.toHaveBeenCalled();
