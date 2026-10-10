@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useHabitat } from '../../../../hooks/queries/use-habitat';
 import { habitats } from '../../../../lib/collections/habitats';
 import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
-import { readRecord } from './unresolved-performed-actions';
+import { readRecord } from './read-harness';
 
 const GONE_TYPE = '66666666-6666-4666-8666-666666666666';
 

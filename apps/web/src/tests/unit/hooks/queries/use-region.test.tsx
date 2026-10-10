@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useRegion } from '../../../../hooks/queries/use-region';
 import { regions } from '../../../../lib/collections/regions';
 import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
-import { readRecord } from './unresolved-performed-actions';
+import { readRecord } from './read-harness';
 
 const GONE_FOLDER = '33333333-3333-4333-8333-333333333333';
 

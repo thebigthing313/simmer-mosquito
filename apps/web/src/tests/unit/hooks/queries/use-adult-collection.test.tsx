@@ -8,8 +8,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useAdultCollection } from '../../../../hooks/queries/use-adult-collection';
 import { installMemoryCollections } from '../../lib/collections/memory-collections';
+import { readRecord } from './read-harness';
 import { seedUnresolvedAdultRows, UNRESOLVED_METHOD_AND_LURE } from './unresolved-adult-rows';
-import { readRecord } from './unresolved-performed-actions';
 
 beforeEach(() => {
 	installMemoryCollections();

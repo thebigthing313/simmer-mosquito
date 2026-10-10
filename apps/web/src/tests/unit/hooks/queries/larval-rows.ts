@@ -13,6 +13,8 @@
  * habitat row and a missing column look the same.
  */
 
+import { GONE_PROFILE } from './unresolved-performed-actions';
+
 /** An inspection at the Alder catch basin, made by Rosa Lam on 12 August. */
 export function inspection(
 	id: string,
@@ -92,8 +94,7 @@ export function sample(
  */
 export const UNSTREAMED_HABITAT_ID = '1a2b3c4d-0000-4000-8000-000000000001';
 
-/** A Profile and a Habitat Type an inspection names and no collection holds. */
-const GONE_PROFILE_ID = '22222222-2222-4222-8222-222222222222';
+/** A Habitat Type an inspection names and no collection holds. */
 const GONE_TYPE_ID = '66666666-6666-4666-8666-666666666666';
 
 /**
@@ -102,13 +103,13 @@ const GONE_TYPE_ID = '66666666-6666-4666-8666-666666666666';
  * good, since the Profile shape streams live rows only (#1535).
  */
 export const UNRESOLVED_INSPECTOR_AND_TYPE = {
-	inspected_by_profile_id: GONE_PROFILE_ID,
+	inspected_by_profile_id: GONE_PROFILE,
 	habitat_type_id: GONE_TYPE_ID,
 } as const;
 
 /** What a row read off {@link UNRESOLVED_INSPECTOR_AND_TYPE} says: each id, and `null` beside it. */
 export const UNRESOLVED_INSPECTOR_AND_TYPE_NAMES = {
-	inspectedByProfileId: GONE_PROFILE_ID,
+	inspectedByProfileId: GONE_PROFILE,
 	inspectedByName: null,
 	habitatTypeId: GONE_TYPE_ID,
 	typeName: null,

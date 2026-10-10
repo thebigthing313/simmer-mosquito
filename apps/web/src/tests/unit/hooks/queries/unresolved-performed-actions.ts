@@ -11,13 +11,11 @@
  * built here once rather than in each of them.
  */
 
-import { expect } from 'vitest';
 import { applications } from '../../../../lib/collections/applications';
 import { biocontrol_actions } from '../../../../lib/collections/biocontrol_actions';
 import { outreach_actions } from '../../../../lib/collections/outreach_actions';
 import { source_reductions } from '../../../../lib/collections/source_reductions';
 import { seedRows } from '../../lib/collections/memory-collections';
-import { renderRead } from './read-harness';
 
 /** Ids the rows name and no collection holds. */
 export const GONE_PROFILE = '22222222-2222-4222-8222-222222222222';
@@ -85,26 +83,6 @@ export function seedUnresolvedActions(): void {
 			created_at: CREATED_AT,
 		},
 	]);
-}
-
-/** Wait for a single-record hook to resolve, then hand back the record. */
-export async function readRecord<TRecord>(
-	hook: () => { readonly isReady: boolean; readonly record: TRecord | undefined },
-): Promise<TRecord> {
-	const { result } = await renderRead(hook);
-	await expect.poll(() => result.current.isReady).toBe(true);
-	const record = result.current.record;
-	if (record === undefined) throw new Error('the record did not come back');
-	return record;
-}
-
-/** Wait for a list hook to hold rows, then hand them back. */
-export async function readList<TRow>(
-	hook: () => { readonly isReady: boolean; readonly rows: readonly TRow[] },
-): Promise<readonly TRow[]> {
-	const { result } = await renderRead(hook);
-	await expect.poll(() => result.current.isReady && result.current.rows.length > 0).toBe(true);
-	return result.current.rows;
 }
 
 /** What a technician-performed action's names read when neither join matched. */

@@ -57,7 +57,11 @@ export interface OverThresholdCollection {
 	readonly address: LinkedAddress;
 	readonly latitude: number;
 	readonly longitude: number;
-	/** `null` only when the method is not in the client, since the id is never `null`. */
+	/**
+	 * `null` only when the method is not in the client, which this list never
+	 * holds: a collection is on it through its method's threshold, so the
+	 * method row is always there. Typed the way the other adult reads type it.
+	 */
 	readonly methodName: string | null;
 	/** The threshold it met or beat. Never null: a method without one is out. */
 	readonly actionThreshold: number;

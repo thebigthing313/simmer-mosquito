@@ -14,7 +14,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useComments } from '../../../../hooks/queries/use-comments';
 import { comments } from '../../../../lib/collections/comments';
 import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
-import { GONE_PROFILE, readList } from './unresolved-performed-actions';
+import { readList } from './read-harness';
+import { GONE_PROFILE } from './unresolved-performed-actions';
 
 const EDITOR = '33333333-3333-4333-8333-333333333333';
 
