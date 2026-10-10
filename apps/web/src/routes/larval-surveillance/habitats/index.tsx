@@ -13,9 +13,7 @@ import { HabitatMapCard } from '../../../components/larval-surveillance/habitats
 import { habitatSummaryGroupings } from '../../../components/larval-surveillance/habitats/habitat-summary';
 import {
 	habitatFilterCodecs,
-	habitatListParams,
 	habitatRecordSet,
-	habitatTileFilters,
 } from '../../../components/larval-surveillance/habitats/habitats-search';
 import { habitatLegend } from '../../../components/larval-surveillance/habitats/legend';
 import { HABITAT_STATUS_COLORS, MAP_CREATE_TARGETS } from '../../../components/map';
@@ -35,8 +33,6 @@ export const Route = createFileRoute('/larval-surveillance/habitats/')({
 	component: HabitatsExplorerRoute,
 	validateSearch: searchValidator(habitatFilterCodecs),
 });
-
-const PATH = '/map/habitats';
 
 const NO_TAGS: readonly Tag[] = [];
 
@@ -68,7 +64,7 @@ function HabitatsExplorerRoute() {
 
 	const { nameById: typeNameById } = useCatalogOptions(catalogs.habitatTypes);
 
-	const filters = habitatTileFilters(query);
+	const filters = habitatRecordSet.tileFilters(query, binding.context);
 	const [clustered] = useMapClustering();
 	const legend = habitatLegend(query.status, query.access, clustered);
 	const routeSearch = Route.useSearch();
@@ -85,11 +81,11 @@ function HabitatsExplorerRoute() {
 		selectedId,
 		setSelectedId,
 	} = useExplorerResource<HabitatListRow>({
-		path: PATH,
-		rowsKey: 'habitats',
+		path: habitatRecordSet.endpoint.path,
+		rowsKey: habitatRecordSet.endpoint.rowsKey,
 		rowKey: 'habitat',
 		recordType: 'habitat',
-		params: habitatListParams(filters),
+		params: habitatRecordSet.listParams(filters),
 		tiles: { kind: 'habitats', filters },
 		summarize: true,
 	});

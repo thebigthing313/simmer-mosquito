@@ -90,6 +90,9 @@ export const habitatRecordSet = defineRecordSet({
 	recordType: 'habitat',
 	paths: { map: '/larval-surveillance/habitats', table: '/larval-surveillance/habitats/table' },
 	codecs: habitatFilterCodecs,
+	endpoint: { path: '/map/habitats', rowsKey: 'habitats' },
+	tileFilters: habitatTileFilters,
+	listParams: habitatListParams,
 	defaults: () => HABITAT_FILTER_DEFAULTS,
 	textSearch: { key: 'search' },
 	applies: {

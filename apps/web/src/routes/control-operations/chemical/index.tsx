@@ -15,9 +15,7 @@ import {
 import { applicationSummaryGroupings } from '../../../components/control-operations/chemical/application-summary';
 import {
 	applicationFilterCodecs,
-	applicationListParams,
 	applicationRecordSet,
-	applicationTileFilters,
 } from '../../../components/control-operations/chemical/applications-search';
 import { formatAmount } from '../../../components/control-operations/control-display';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
@@ -43,8 +41,6 @@ export const Route = createFileRoute('/control-operations/chemical/')({
 	validateSearch: searchValidator(applicationFilterCodecs),
 });
 
-const PATH = '/map/chemical';
-
 function ApplicationsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
@@ -59,7 +55,7 @@ function ApplicationsExplorerRoute() {
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
-	const filters = applicationTileFilters(query);
+	const filters = applicationRecordSet.tileFilters(query, binding.context);
 	const routeSearch = Route.useSearch();
 	const {
 		rows,
@@ -73,11 +69,11 @@ function ApplicationsExplorerRoute() {
 		selectedId,
 		setSelectedId,
 	} = useExplorerResource<ApplicationListRow>({
-		path: PATH,
-		rowsKey: 'applications',
+		path: applicationRecordSet.endpoint.path,
+		rowsKey: applicationRecordSet.endpoint.rowsKey,
 		rowKey: 'application',
 		recordType: 'application',
-		params: applicationListParams(filters),
+		params: applicationRecordSet.listParams(filters),
 		tiles: { kind: 'chemical', filters },
 		normalizeRow: normalizeApplication,
 		summarize: true,

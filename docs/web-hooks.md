@@ -229,9 +229,15 @@ written. That is what took `INSPECTION_TABLE_COUNTING` and the Table's
 `regionIds: new Set()` override out: neither had anything left to suppress.
 The counting is the set's too, and the service requests one reads the
 Organization's settings, since an Overdue left on the address while the
-threshold is off narrows nothing and is not counted. The routes still read the
-cut-off itself through `useServiceRequestOverdueCutoff`, for the tile filters
-and the rows.
+threshold is off narrows nothing and is not counted.
+
+The binding carries the context it resolved in, the Organization's today and
+settings, because the set's `tileFilters` reads it. The Service Requests
+routes read the overdue cut-off off it too, for the Overdue control and every
+row, through the same `serviceRequestOverdueCutoffFor` the counting rule and
+the tile conversion call, so the count, the request and the rows cannot
+disagree about whether Overdue is on. That took out
+`useServiceRequestOverdueCutoff`, which read the settings a second time.
 
 The search box half is for a set that names a `textSearch` key, which is
 Traps, Habitats, Addresses and the Service Requests Map. Traps commits after
@@ -1474,19 +1480,6 @@ render and dims it. The response's `today` is the picker's upper bound and
 the partial test, so a client whose clock disagrees with the server draws the
 server's day. `docs/today-spec.md`, "The client half".
 
-### public-engagement
-
-#### useServiceRequestOverdueCutoff
-
-The overdue cut-off is `serviceRequestOverdueCutoff` over the Organization's
-today, so the day a request becomes overdue turns over on the Organization's
-calendar rather than the browser's, and the Map and the Table, which both call
-this hook, draw overdue from one day. It replaced
-`useServiceRequestFilterDefaults`, whose defaults and today moved into
-`serviceRequestRecordSet` and `useRecordSetFilters` (#1419). The record set's
-counting rule reads the cut-off through the same `serviceRequestOverdueCutoffFor`,
-so the count and the tile filters cannot disagree about whether Overdue is on.
-
 ### adult-surveillance
 
 #### useTrapDirectory
@@ -1635,13 +1628,6 @@ reportable, so it is history rather than work, and a map that opens on every
 station an organization ever ran is a map nobody can read. Clearing the
 search reaches both the field and the committed term, for the reason
 `useRecordSetFilters` records.
-
-#### useInspectionFilterState
-
-The inspection filter bar's shape over `useRecordSetFilters`: a plain value
-and a setter per filter, which is what the inspection components were written
-against. It takes the surface and nothing else, since the opening window and
-which keys the Table applies are in `inspectionRecordSet`.
 
 #### useSpeciesComposition and useSamplesAwaiting
 

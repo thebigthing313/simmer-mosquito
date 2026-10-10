@@ -8,9 +8,7 @@ import { RecordSetSwitch } from '../../../components/explorer/record-set-switch'
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import {
 	outreachFilterCodecs,
-	outreachListParams,
 	outreachRecordSet,
-	outreachTileFilters,
 } from '../../../components/public-engagement/outreach/outreach-actions-search';
 import {
 	OutreachFilterChips,
@@ -40,8 +38,6 @@ export const Route = createFileRoute('/public-engagement/outreach/')({
 	validateSearch: searchValidator(outreachFilterCodecs),
 });
 
-const PATH = '/map/outreach';
-
 function OutreachExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
@@ -54,7 +50,7 @@ function OutreachExplorerRoute() {
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
-	const filters = outreachTileFilters(query);
+	const filters = outreachRecordSet.tileFilters(query, binding.context);
 	const routeSearch = Route.useSearch();
 	const {
 		rows,
@@ -68,11 +64,11 @@ function OutreachExplorerRoute() {
 		selectedId,
 		setSelectedId,
 	} = useExplorerResource<OutreachListRow>({
-		path: PATH,
-		rowsKey: 'outreachActions',
+		path: outreachRecordSet.endpoint.path,
+		rowsKey: outreachRecordSet.endpoint.rowsKey,
 		rowKey: 'outreachAction',
 		recordType: 'outreachAction',
-		params: outreachListParams(filters),
+		params: outreachRecordSet.listParams(filters),
 		tiles: { kind: 'outreach', filters },
 		summarize: true,
 	});

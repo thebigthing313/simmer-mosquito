@@ -14,12 +14,6 @@ import {
 	type ServiceRequestRailOrder,
 } from './service-requests-search';
 
-/** The four filters the Table shares with the Map, read through the Map's codecs. */
-export type ServiceRequestTableFilters = Pick<
-	ServiceRequestFilters,
-	'status' | 'from' | 'to' | 'overdue'
->;
-
 const STATUS_OPTIONS: readonly {
 	readonly value: ServiceRequestStatusFilter;
 	readonly label: string;
@@ -48,18 +42,18 @@ export function ServiceRequestsFilterBar({
 	today,
 }: {
 	readonly activeCount: number;
-	readonly defaults: ServiceRequestTableFilters;
-	readonly filters: ServiceRequestTableFilters;
+	readonly defaults: ServiceRequestFilters;
+	readonly filters: ServiceRequestFilters;
 	readonly onClearAll: () => void;
 	readonly onOrderChange: (order: ServiceRequestRailOrder) => void;
 	readonly order: ServiceRequestRailOrder;
 	readonly overdueAvailable: boolean;
-	readonly setFilters: (patch: Partial<ServiceRequestTableFilters>) => void;
+	readonly setFilters: (patch: Partial<ServiceRequestFilters>) => void;
 	readonly today: string;
 }) {
 	const dateRange = useDateRangeFilters({ from: filters.from, to: filters.to, today, setFilters });
 	return (
-		<div className="grid gap-4 rounded-md border border-border/50 bg-muted/20 p-4">
+		<>
 			<div className="grid gap-4 lg:grid-cols-2">
 				<DateRangeFilter {...dateRange} />
 				<div className="grid content-start gap-3">
@@ -95,7 +89,7 @@ export function ServiceRequestsFilterBar({
 					setFilters={setFilters}
 				/>
 			)}
-		</div>
+		</>
 	);
 }
 
@@ -107,11 +101,11 @@ function TableFilterChips({
 	overdueAvailable,
 	setFilters,
 }: {
-	readonly defaults: ServiceRequestTableFilters;
-	readonly filters: ServiceRequestTableFilters;
+	readonly defaults: ServiceRequestFilters;
+	readonly filters: ServiceRequestFilters;
 	readonly onClearAll: () => void;
 	readonly overdueAvailable: boolean;
-	readonly setFilters: (patch: Partial<ServiceRequestTableFilters>) => void;
+	readonly setFilters: (patch: Partial<ServiceRequestFilters>) => void;
 }) {
 	return (
 		<ActiveFilterBar onClearAll={onClearAll}>

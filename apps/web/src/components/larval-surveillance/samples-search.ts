@@ -104,6 +104,9 @@ export const sampleRecordSet = defineRecordSet({
 	recordType: 'sample',
 	paths: { map: '/larval-surveillance/samples', table: '/larval-surveillance/samples/table' },
 	codecs: sampleFilterCodecs,
+	endpoint: { path: '/map/samples', rowsKey: 'samples' },
+	tileFilters: sampleTileFilters,
+	listParams: sampleListParams,
 	defaults: ({ today }) => sampleFilterDefaults(today),
 	counting: DATE_RANGE_COUNTING,
 	applies: {

@@ -1,5 +1,6 @@
 import {
 	type RecordSet,
+	type RecordSetContext,
 	type RecordSetSurface,
 	recordSetCounting,
 	surfaceApplies,
@@ -22,8 +23,12 @@ export interface TextSearchBinding {
 	readonly clearAll: () => void;
 }
 
-/** A record set's filters on one surface, with its search box beside them. */
-export type RecordSetFilterBinding<TFilters> = FilterBinding<TFilters> & TextSearchBinding;
+/**
+ * A record set's filters on one surface, with its search box beside them, and
+ * the context they were resolved in, which the set's tile conversion reads.
+ */
+export type RecordSetFilterBinding<TFilters> = FilterBinding<TFilters> &
+	TextSearchBinding & { readonly context: RecordSetContext };
 
 /**
  * The filters one surface of a record set reads and writes, held on the URL
@@ -35,13 +40,13 @@ export type RecordSetFilterBinding<TFilters> = FilterBinding<TFilters> & TextSea
  * surface that does not apply it, gets a box that commits nothing, and
  * `clearAll` is then `reset`.
  */
-export function useRecordSetFilters<TFilters extends object>(
-	set: RecordSet<TFilters>,
+export function useRecordSetFilters<TFilters extends object, TTile>(
+	set: RecordSet<TFilters, TTile>,
 	surface: RecordSetSurface,
 ): RecordSetFilterBinding<TFilters> {
 	const settings = useOrganizationSettings();
 	const today = todayInTimeZone(settings.timezone);
-	const context = { today, settings };
+	const context: RecordSetContext = { today, settings };
 	const defaults = set.defaults(context, surface);
 	const { filters, setFilters, reset, activeCount } = useSearchFilters(
 		defaults,
@@ -88,5 +93,6 @@ export function useRecordSetFilters<TFilters extends object>(
 		setSearchInput,
 		clearSearch,
 		clearAll,
+		context,
 	};
 }
