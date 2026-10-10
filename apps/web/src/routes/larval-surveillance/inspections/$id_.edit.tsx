@@ -192,12 +192,17 @@ function EditInspectionLoader({
 
 		// The rest reference the inspection and cannot fail a save that already
 		// landed, so each is reported rather than thrown (see attachLinksBestEffort).
-		await attachLinksBestEffort('the additional personnel', () =>
-			setPersonnel({
-				target: { type: 'inspection', id: inspection.id },
-				existing: existingPersonnel,
-				profileIds: values.additionalPersonnelIds,
-			}),
+		// The crew can lose rows here as well as gain them, so a miss is a change
+		// to retry from this form. The samples are only ever new.
+		await attachLinksBestEffort(
+			'the additional personnel',
+			() =>
+				setPersonnel({
+					target: { type: 'inspection', id: inspection.id },
+					existing: existingPersonnel,
+					profileIds: values.additionalPersonnelIds,
+				}),
+			{ write: 'change', recordType: 'inspection' },
 		);
 
 		if (values.samples.length > 0) {
