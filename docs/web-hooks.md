@@ -1613,7 +1613,7 @@ again.
 #### useNewInspectionDraft
 
 The id is minted up front so the samples, crew and comment can be written
-the moment the inspection lands. It subscribes to nothing: the samples and
+the moment the inspection lands. It subscribes to nothing. The samples and
 crew subscriptions it used to hold were only there to keep their streams
 open for the save, and `awaitConfirmation` already answers a write into an
 unwatched collection without waiting (#1429).

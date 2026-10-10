@@ -75,9 +75,9 @@ function CreateTrapRoute() {
 		// than a failure. Leaving here on the way past would abandon the page
 		// before the question could be asked, and read as a save that worked.
 		//
-		// The id comes back from the write rather than being minted here, because
-		// the reason `newRecordId` gives for minting up front does not apply:
-		// nothing on this page writes a child row against the new trap.
+		// The id comes back from the write rather than being minted here. Nothing
+		// on this page writes a child row against the new trap, which is the
+		// reason `newRecordId` gives for minting up front.
 		await run(async (acknowledgements) => {
 			const trapId = await mutations.create(
 				trapFieldsFrom(values),
