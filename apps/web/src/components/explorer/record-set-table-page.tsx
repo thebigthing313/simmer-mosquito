@@ -9,13 +9,9 @@
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import type { RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { ReactNode } from 'react';
-import {
-	type MapQueryValue,
-	mapQueryParams,
-	usePagedMapResource,
-	WHOLE_WORLD_BBOX,
-} from '../../hooks/explorer/use-paged-map-resource';
+import { usePagedMapResource, WHOLE_WORLD_BBOX } from '../../hooks/explorer/use-paged-map-resource';
 import type { RecordSetFilterBinding } from '../../hooks/explorer/use-record-set-filters';
+import { type MapQueryValue, mapQueryParams } from '../../lib/map-query-params';
 import { recordNoun } from '../../lib/record-nouns';
 import { OutletSimpleLayout } from '../app-shell';
 import { ExplorerPagination } from '../explorer-pagination';

@@ -9,6 +9,10 @@
  * draw the contact icon beside an empty span for it (#1501). The icon is
  * replaced with one that carries a test id, because the row has no text of its
  * own to find it by.
+ *
+ * Its title, when the application's Insecticide is not in the client. The card
+ * used to read `Unknown product` there while every other surface read
+ * `Unknown insecticide` for the same record (#1537).
  */
 
 import { cleanup, render, screen } from '@testing-library/react';
@@ -104,5 +108,13 @@ describe('ApplicationMapCard', () => {
 		render(<ApplicationMapCard id="a1" onClose={() => undefined} />);
 
 		expect(screen.queryByTestId('applicator-icon')).toBeNull();
+	});
+
+	it('titles itself Unknown insecticide when the Insecticide is not in the client', () => {
+		read.application = application({ productName: null });
+
+		render(<ApplicationMapCard id="a1" onClose={() => undefined} />);
+
+		expect(screen.getByText('Unknown insecticide')).toBeTruthy();
 	});
 });

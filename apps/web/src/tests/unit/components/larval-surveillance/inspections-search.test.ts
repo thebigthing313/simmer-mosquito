@@ -4,7 +4,7 @@ import {
 	inspectionListParams,
 	inspectionTileFilters,
 } from '../../../../components/larval-surveillance/inspections-search';
-import { mapQueryParams } from '../../../../hooks/explorer/use-paged-map-resource';
+import { mapQueryParams } from '../../../../lib/map-query-params';
 
 const OPEN: InspectionFilters = {
 	from: '',

@@ -113,7 +113,10 @@ reductions`, beside five that read `titleMany` out of the register.
 `pnpm check:record-nouns` lists this hook as a register consumer.
 
 `mapQueryParams` exists because every explorer wrote the presence rule out as
-a wall of `if (x !== undefined && x.length > 0)`.
+a wall of `if (x !== undefined && x.length > 0)`. It and `MapQueryValue` live
+in `lib/map-query-params.ts` since #1588 rather than in this hook's module,
+because the record set definition and the eleven set search modules read them
+and none of those is a hook.
 
 `PAGE_SIZE` is 100 since #1244, and the server's `limit` cap moved with it. It
 is also the threshold `useExplorerSummary` reads: a surface with a summary
