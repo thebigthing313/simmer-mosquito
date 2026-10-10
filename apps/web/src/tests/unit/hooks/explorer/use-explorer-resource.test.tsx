@@ -1430,7 +1430,7 @@ describe('useExplorerResource: what the record set decides', () => {
 	});
 
 	it("refuses a tileset whose filters are not the set's", () => {
-		// Type-level: `useMisnamedTilesets` is never run, and `tsc` reads it.
+		// A type-level case. `useMisnamedTilesets` is never run, and `tsc` reads it.
 		expect(useMisnamedTilesets).toBeTypeOf('function');
 	});
 });

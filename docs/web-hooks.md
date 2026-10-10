@@ -327,7 +327,7 @@ tilesets whose filter type is the set's exactly, and the hook suite holds a
 hook the layer is cast to `MapTileLayer`, because TypeScript cannot follow the
 pairing from a generic tile type into the union.
 
-`TRow` cannot be written at the call any more: `TFilters` and `TTile` are
+`TRow` cannot be written at the call any more. `TFilters` and `TTile` are
 inferred from the set, and a call names every type argument or none. So a
 route annotates the result, `const { rows }: ExplorerResource<Row> =
 useExplorerResource({ ... })`, and `TRow` is inferred from that.

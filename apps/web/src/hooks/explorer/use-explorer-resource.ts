@@ -110,10 +110,8 @@ const NO_PARAMS: Readonly<Record<string, MapQueryValue>> = {};
  * computed once here and feed both the tile layer and the page request. The
  * viewport goes on the wire ahead of the surface's own filters, and nothing is
  * asked for until the map has one. `empty` reads the layer's extent, which the
- * map fetches to frame the same filters, so it costs no extra request.
- *
- * `TRow` is read off the result's type annotation: `TFilters` and `TTile` are
- * read off the set, and a call cannot name one type argument and infer the rest.
+ * map fetches to frame the same filters, so it costs no extra request. `TRow`
+ * is read off the type annotation on the result.
  */
 export function useExplorerResource<TRow extends ExplorerRowShape, TFilters, TTile>({
 	set,
