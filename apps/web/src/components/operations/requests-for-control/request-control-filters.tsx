@@ -14,12 +14,12 @@ import type { FilterBinding } from '../../../lib/search-filters';
 import { FilterGrid } from '../../explorer';
 import { DeclaredFilterChips, filterFields } from '../../explorer/declared-filters';
 import { defineFilterDeclarations, TECHNICIAN_FILTER } from '../../explorer/filter-declarations';
-import { CONTROL_TYPE_FILTER } from '../operations-filters';
+import { CONTROL_TYPE_FILTER, PROFILE_UNKNOWN } from '../operations-filters';
 
 /**
  * The Requests for Control filters, in the order their chips draw. Requested by
- * reads the profiles catalog the way a record set's Technician filter does, so
- * a profile the catalog does not hold is named the same on both.
+ * reads the profiles catalog the way a record set's Technician filter does,
+ * and names a profile the catalog does not hold the way the worklists do.
  */
 const requestControlFilterDeclarations = defineFilterDeclarations({ codecs: requestFilterCodecs }, [
 	{
@@ -40,7 +40,7 @@ const requestControlFilterDeclarations = defineFilterDeclarations({ codecs: requ
 		label: 'Requested by',
 		empty: 'No profiles',
 		options: TECHNICIAN_FILTER.options,
-		unknown: TECHNICIAN_FILTER.unknown,
+		unknown: PROFILE_UNKNOWN,
 	},
 	{ kind: 'flag', key: 'unassigned', label: 'Not yet assigned' },
 ]);
