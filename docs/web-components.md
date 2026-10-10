@@ -1573,6 +1573,43 @@ empty section drops out, and when both drop out one line says nothing matches.
 
 `docs/tag-relevance-spec.md` is the rest.
 
+### stop-order
+
+#### StopCardFrame
+
+The card around one stop on a list that sits beside a map. Four rows draw
+through it: `EditStopRow` on the habitat Route edit page, `MissionStopRow` on
+the Mission detail page, and `PlanStopRow` and `RunStopRow` on the two
+Assignment pages. Each used to write the same `<li>`, the same hover handlers,
+the same full-card select button and the same `pointer-events-none` body, and
+each took the selection as four loose props (#1578).
+
+The select button sits under the body rather than wrapping it, because the
+body holds links, menus and inline editors, and a button may not contain
+another interactive element. So the body ignores the pointer and anything in
+it a person should reach opts back in with `pointer-events-auto`. A child that
+forgets the class draws but cannot be clicked, and that is the first thing to
+check when a new control in a stop card does nothing.
+
+The four values that describe the stop against the map travel as one
+`StopFocus`. A row reads none of them; it hands the object to the frame, which
+is what kept `EditStopRow` at 14 props once the frame took them over. The
+label stays the caller's because the rows name a stop two ways: the habitat
+Route says `Show {name} on the map`, and the Mission and Assignment rows say
+`Show stop {ordinal} on the map`.
+
+The Trap Route edit page and the habitat Route detail page do not use it. The
+first has no map selection, so its stops stay plain `<li>` cards, and the
+second selects through a button that is the whole row rather than a layer
+under it.
+
+#### StopReorderControls
+
+Takes the stop's `index` and the list's `count` and works out the ends itself.
+Every caller used to derive `isFirst` and `isLast` from those same two numbers
+and pass both in, on all four pages that reorder stops, and a caller that got one wrong would leave
+a move button live at the end of the list (#1578).
+
 ## packages/ui-web
 
 Shared parts both apps draw. These live outside `components/ui`, which the
