@@ -11,12 +11,12 @@
  * card that draws its own pending UI.
  */
 
-import { coalesce, eq } from '@tanstack/react-db';
+import { eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { contacts } from '../../lib/collections/contacts';
 import { service_requests } from '../../lib/collections/service_requests';
 import type { ServiceRequest } from './service-request-view';
-import { addressSelect, useRecordById } from './shared';
+import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
 export function useServiceRequest(
 	requestId: string | null,
@@ -58,7 +58,7 @@ export function useServiceRequest(
 					contactId: request.contact_id,
 					addressId: request.address_id,
 					receivedByProfileId: request.received_by_profile_id,
-					closedAt: coalesce(request.closed_at, null),
+					closedAt: joinedOrNull(request.closed_at),
 					closedByProfileId: request.closed_by_profile_id,
 
 					latitude: request.lat,

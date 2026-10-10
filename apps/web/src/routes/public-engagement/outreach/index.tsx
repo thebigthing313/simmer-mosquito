@@ -67,8 +67,6 @@ function OutreachExplorerRoute() {
 	}: ExplorerResource<OutreachListRow> = useExplorerResource({
 		set: outreachRecordSet,
 		binding,
-		tileset: 'outreach',
-		rowKey: 'outreachAction',
 		summarize: true,
 	});
 

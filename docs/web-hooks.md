@@ -310,22 +310,27 @@ path, the rows key and the record type off the set. It calls the set's
 the set's `listParams`, so the tiles and the page cannot read two filter sets.
 Every route used to do that by hand, with five options a route could fill
 from two different sets or with params that skipped `tileFilters`, and `tsc`
-would have taken it. What a route still passes is what the set does not hold:
-`rowKey`, the key one record arrives under; `tileset`, the tileset kind;
-`normalizeRow`, `holdRailOnSelect` and `summarize`; and `params`, what the page
-request sends beside the filters, which only Service Requests uses, for its
-rail order. Those go on after the filters and never on the tile or extent
-URL, and `bbox` still goes first.
+would have taken it. Since #1595 the set also names the tileset its Map
+draws, `tileset`, and its endpoint names the key one record arrives under from
+`GET {path}/:id`, `rowKey`, which `useSelectedMapRecord` reads for a selected
+record that is not on the page. Both were route options, written as literals
+beside the set in all eleven routes, and `rowKey` was a free `string` that
+could name another record type's key. What a route still passes is what the
+set does not decide: `normalizeRow`, `holdRailOnSelect` and `summarize`, and
+`params`, what the page request sends beside the filters, which only Service
+Requests uses, for its rail order. Those go on after the filters and never on
+the tile or extent URL, and `bbox` still goes first.
 
-`tileset` is checked against the set's tile filter type, and the check is
-exact rather than by assignment. Every tile filter type is optional fields
-throughout, so Outreach's and Source Reduction's, which differ by one field
-name, each pass for the other, and an assignability check would let an
-Outreach set draw the Source Reduction tileset. `ExplorerTileKindFor` names the
-tilesets whose filter type is the set's exactly, and the hook suite holds a
-`@ts-expect-error` for both that pair and a pair that differs more. Inside the
-hook the layer is cast to `MapTileLayer`, because TypeScript cannot follow the
-pairing from a generic tile type into the union.
+`defineRecordSet` checks the tileset against the set's tile filter type, and
+the check is exact rather than by assignment. Every tile filter type is
+optional fields throughout, so Outreach's and Source Reduction's, which differ
+by one field name, each pass for the other, and an assignability check would
+let an Outreach set draw the Source Reduction tileset. `RecordSetTileset` in
+`components/explorer/record-set.ts` names the tilesets whose filter type is the
+set's exactly, and the record set suite holds a `@ts-expect-error` for both
+that pair and a pair that differs more. Inside the hook the layer is cast to
+`MapTileLayer`, because TypeScript cannot follow the pairing from a generic
+tile type into the union. The Table reads neither field.
 
 `TRow` cannot be written at the call any more. `TFilters` and `TTile` are
 inferred from the set, and a call names every type argument or none. So a
@@ -353,7 +358,7 @@ The hook holds the map instance, the selection and the tile layer, since
 #1423. All eleven routes used to keep a `MapboxMap` in state whose only reader
 was this hook, keep a selection whose only readers were the tile layer and the
 card, and write out the same five-field layer around both. So the hook builds
-the layer from `tileset` and the set's tile filters, and adds the server URL,
+the layer from the set's tileset and tile filters, and adds the server URL,
 the selected id and the click handler. What comes back is the
 selection, `selectedId` with a setter for the rail, and `canvas`, the bundle
 `ExplorerCanvas` takes, whose `clearSelection` closes the card. A route clears
@@ -368,7 +373,7 @@ A deep link to a selected record would be an initial value passed in, and no
 explorer has one.
 
 `canvas.layers` is the list `ExplorerCanvas` hands `MapCanvas`: the tile layer
-built from `tileset`, with the selected row on it as `selectedRecord`. That is
+built from the set's tileset, with the selected row on it as `selectedRecord`. That is
 the read the selection overlay draws from on a clustered tileset (see
 `useSelectionOverlayLayer`), and every explorer passes it, so a tileset that
 starts clustering gets the overlay without its route changing.
@@ -1703,10 +1708,10 @@ has a `null` description and a resolved one a string. The two fields used to
 be independent, read off the description and the joined Habitat's id, so they
 agreed on every row while the type allowed either without the other, and a
 reader narrowing on `isResolving` still had to write `?? ''`. The select is
-raw because `coalesce(habitat.description, null)` is typed `string` while it
-answers `null`, so the type said nothing about the resolving case. The raw
-column is `string | undefined`, `undefined` exactly when the join is
-unmatched, and `stopResolution` takes no `null`, so a nullable
+raw rather than `joinedOrNull(habitat.description)` because `stopResolution`
+reads the join's presence off the column. The raw column is
+`string | undefined`, `undefined` exactly when the join is unmatched, and
+`stopResolution` takes no `null`, so a nullable
 `habitats.description` would fail `tsc` there rather than read every Habitat
 with no description as resolving.
 
@@ -2278,7 +2283,11 @@ renaming two columns there and reading two TS2551s.
 
 Every hook that reads a performed control action returns each joined name,
 the performer, the method and the insecticide, as
-`coalesce(joined.name, null)`. The name is `null` both when nothing was
+`joinedOrNull(joined.name)` from `queries/shared.ts`, which evaluates as
+`coalesce(joined.name, null)`. The bare `coalesce` is not enough, because its
+return type drops the nullable brand a `left` join puts on the ref, so a
+column that is non-null in its row schema is typed without `| null` while an
+unmatched join answers `null` (#1599). The name is `null` both when nothing was
 recorded and when the record is not in the client, which is permanent for a
 deleted Profile because the Profile shape streams live rows only. So the
 surface reads the id beside the name to tell the two apart and draws its own
@@ -2294,7 +2303,7 @@ literal label: the inspector and habitat type on an inspection, the type on a
 habitat, the method and lure on a trap and a collection, the request on a
 mission stop, the folder on a region, the vehicle and equipment on a Chemical
 Application and the author and editor on a comment all read as
-`coalesce(joined.column, null)`. The six adult surveillance reads that baked
+`joinedOrNull(joined.column)`. The six adult surveillance reads that baked
 in `Unknown method` and the comment read that baked in `Unknown` return `null`
 now, and the card, row or thread draws the same words itself. The Inspection
 map card is the case that showed: it read only the name, so an inspection

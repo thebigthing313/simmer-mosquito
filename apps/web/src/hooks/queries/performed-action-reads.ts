@@ -13,7 +13,7 @@
  * `gcTime`, which joins it makes, and the field names of the view it returns.
  * What it takes from here is the column each of those reads.
  *
- * A joined name is projected as `coalesce(joined.name, null)`: the name when the
+ * A joined name is projected as `joinedOrNull(joined.name)`: the name when the
  * join matched and `null` otherwise, never the `undefined` an unmatched `left`
  * join yields and never a stand-in label. The id beside it tells "none recorded"
  * from "not in the client", and the surface draws its own words for each

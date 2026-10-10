@@ -18,7 +18,7 @@
  * the trap directory, where "still out" is a bucket worth showing.
  */
 
-import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { collections } from '../../lib/collections/collections';
@@ -27,7 +27,7 @@ import { traps } from '../../lib/collections/traps';
 import type { LinkedAddress } from './address-view';
 import { collectedSince, collectionEffectiveDate } from './collection-day';
 import { compareByCollectionDateDesc } from './collection-view';
-import { activityGcTimeMs, addressSelect } from './shared';
+import { activityGcTimeMs, addressSelect, joinedOrNull } from './shared';
 
 /** One collection as the overview lists it. */
 export interface ActivityCollection {
@@ -95,10 +95,10 @@ export function useRecentCollections(
 					id: collection.id,
 					address: addressSelect(address),
 					trapId: collection.trap_id,
-					trapName: coalesce(trap.trap_name, null),
-					trapCode: coalesce(trap.trap_code, null),
+					trapName: joinedOrNull(trap.trap_name),
+					trapCode: joinedOrNull(trap.trap_code),
 					methodId: collection.collection_method_id,
-					methodName: coalesce(method.name, null),
+					methodName: joinedOrNull(method.name),
 					addressId: collection.address_id,
 					latitude: collection.lat,
 					longitude: collection.lng,
@@ -106,7 +106,7 @@ export function useRecentCollections(
 					collectionDate: collection.collection_date,
 					collectionTimingMode: collection.collection_timing_mode,
 					collectedByProfileId: collection.collected_by_profile_id,
-					collectedByName: coalesce(collector.display_name, null),
+					collectedByName: joinedOrNull(collector.display_name),
 					hasProblem: collection.has_problem,
 					isZeroResult: collection.is_zero_result,
 					hasBycatch: collection.has_bycatch,

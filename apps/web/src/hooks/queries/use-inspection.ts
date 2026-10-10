@@ -27,7 +27,7 @@
  * same collection, is one subset.
  */
 
-import { coalesce, eq } from '@tanstack/react-db';
+import { eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
@@ -35,7 +35,7 @@ import { inspections } from '../../lib/collections/inspections';
 import { profiles } from '../../lib/collections/profiles';
 import { joinedHabitatNameSelect } from './habitat-view';
 import type { InspectionCard } from './larval-activity-view';
-import { addressSelect, useRecordById } from './shared';
+import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
 export function useInspection(inspectionId: string): {
 	readonly inspection: InspectionCard | undefined;
@@ -76,7 +76,7 @@ export function useInspection(inspectionId: string): {
 					id: inspection.id,
 					inspectionDate: inspection.inspection_date,
 					inspectedByProfileId: inspection.inspected_by_profile_id,
-					inspectedByName: coalesce(inspector.display_name, null),
+					inspectedByName: joinedOrNull(inspector.display_name),
 					isWet: inspection.is_wet,
 					dipCount: inspection.dip_count,
 					density: inspection.density,
@@ -87,7 +87,7 @@ export function useInspection(inspectionId: string): {
 					// arriving, and `habitat-view.ts` says what that reads as (#998).
 					habitatName: joinedHabitatNameSelect(habitat),
 					habitatTypeId: inspection.habitat_type_id,
-					typeName: coalesce(type.name, null),
+					typeName: joinedOrNull(type.name),
 
 					latitude: inspection.lat,
 					longitude: inspection.lng,

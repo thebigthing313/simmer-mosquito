@@ -2,7 +2,7 @@ import { and, coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { route_items } from '../../lib/collections/route_items';
 import { traps } from '../../lib/collections/traps';
 import type { RouteStopFeature } from '../map/use-route-layer';
-import { activityGcTimeMs, unmatchableId } from '../queries/shared';
+import { activityGcTimeMs, joinedOrNull, unmatchableId } from '../queries/shared';
 import { trapDisplayName } from '../queries/trap-view';
 
 /** One resolved trap route stop: a route item joined to its trap, in route order. */
@@ -59,11 +59,11 @@ export function useTrapRouteStops(routeId: string | null): {
 					// `undefined` here is the join still resolving, which is what
 					// `isResolving` reports below.
 					resolvedTrapId: trap.id,
-					trapName: coalesce(trap.trap_name, null),
-					trapCode: coalesce(trap.trap_code, null),
+					trapName: joinedOrNull(trap.trap_name),
+					trapCode: joinedOrNull(trap.trap_code),
 					isActive: coalesce(trap.is_active, true),
-					lat: coalesce(trap.lat, null),
-					lng: coalesce(trap.lng, null),
+					lat: joinedOrNull(trap.lat),
+					lng: joinedOrNull(trap.lng),
 				})),
 	});
 

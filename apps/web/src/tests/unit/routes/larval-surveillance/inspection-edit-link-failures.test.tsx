@@ -217,7 +217,7 @@ describe('inspection edit, when a link write fails after the save', () => {
 		addSample.mockImplementation(() => Promise.reject(new Error('Refused.')));
 		await saveWith({ samples: [{ id: 'c0000000-0000-4000-8000-000000000001', label: 'A' }] });
 		expect(toastError).toHaveBeenCalledWith('Saved, but the samples could not be attached.', {
-			description: 'Refused. Add them from the record.',
+			description: 'Refused. Edit the inspection to add them.',
 		});
 		expect(navigate).toHaveBeenCalledWith(INSPECTION_PAGE);
 	});
