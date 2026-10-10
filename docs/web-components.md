@@ -276,6 +276,11 @@ read, because habitats sync on demand. Without it the field drew its
 placeholder over a value that was set, and the operator picked the habitat they
 had just come from.
 
+`includeRetired` is the one difference between its callers. A control action
+or a request is new work, and offering a retired habitat invites recording
+against it, so those forms leave it off. The inspection form passes it, because
+an inspection is how a retired habitat gets looked at again (#1468).
+
 ### daily-work
 
 #### legend
@@ -569,9 +574,11 @@ out over a busy month.
 #### InspectionFormPage
 
 `inspectedByProfileId` is seeded with the acting profile because "Default to
-me" said only that a default existed. The habitat picker passes
-`includeRetired`, because an inspection is also how a retired site gets looked
-at again; the control pickers exclude.
+me" said only that a default existed. The habitat field is the
+control-operations `HabitatPicker` with `includeRetired` and `required`, and
+the reason for the first is under that component. The form drew a picker of its
+own until #1468, which held its picked label in its own state and so kept the
+previous habitat's name over a value moved from outside.
 
 Conditions opens with neither Wet nor Dry pressed on a new inspection. The
 form used to open on Wet, so an inspection saved by somebody who never looked
@@ -684,6 +691,42 @@ distinguishes a write that landed from one that was refused (#219).
 The branch lives outside the call site's try block because the React Compiler
 bails on a whole component when a try block holds a branching expression
 (#856). The same rule names the toast copy in `MissionNotificationsCard`.
+
+#### SettingsSheet
+
+Every My Organization settings section edits in this frame, and the frame
+holds the one answer to a failed save. The People sheets are not settings
+sections and keep their own. A value the conversion cannot read
+stays in the open sheet as the form's error alert, which is `role="alert"`;
+a valid save closes the sheet and starts the write, and a write the server
+refuses afterwards arrives as a toast through `watchWrite`. Before #1431 the
+sheets split on this. The label-keyed sheet that drew adult surveillance, batch
+tracking and the service request context awaited the write and held the sheet
+open with the refusal inline, while the organization details, unit defaults
+and larval sheets converted first, closed, and toasted. Three sheets of four
+already did the second, and once the client checks a value by the rule the domain
+does, a server refusal is the rare case, so that is the one the frame keeps.
+
+The body is the caller's, handed the form, rather than a field list the frame
+reads. Organization details carries field validators of its own, unit defaults
+draws one select per unit type and the larval sheet lays its density bands out
+in fieldsets, and none of those is a list of inputs keyed by name.
+
+#### SettingsSectionSheet
+
+A section that is a list of inputs over its settings is a `SettingsSection`
+descriptor in `settings-sections.tsx`, drawn here. Each field is named by a key
+of the section's values and its label is display text only. The sheet it
+replaced named every input by its label, and three callers read `FormData`
+back by those strings, so renaming a label broke a save with nothing to say
+so, and the generic sheet compared against `'Collection timing'` twice to
+decide whether to draw the timing guide. The guide is now the adult section's
+`preview`, and the frame names no setting.
+
+A descriptor splits `convert` from `save` on purpose. The frame has to know a
+value is bad before it closes, and an `async` save that both converts and
+writes would hand a conversion error back as a rejection indistinguishable
+from a refused write. `convert` is synchronous and throws; `save` only writes.
 
 #### ReinviteControl
 
@@ -1009,11 +1052,10 @@ not respond.
 #### PickerFrame
 
 It takes the bound field's `state.meta.errors` and draws them under the input,
-and every picker built on it, `DateControl` and the inspection's own
-`HabitatPicker` pass them through. `domainValidator` files a missing pick or a
-cleared date on the field it names, and `FormErrorAlert` leaves field errors to
-the field, so a control that drops them refuses the save with nothing on
-screen. Until #871 that was a habitat inspection with no habitat, a trap
+and every picker built on it and `DateControl` pass them through.
+`domainValidator` files a missing pick or a cleared date on the field it
+names, and `FormErrorAlert` leaves field errors to the field, so a control that
+drops them refuses the save with nothing on screen. Until #871 that was a habitat inspection with no habitat, a trap
 collection with no trap and every required date, and the inspection's
 `habitatError` fallback for the first could never run, because `onSubmit` only
 runs once the validator has passed. A control the app draws inside a
@@ -1025,6 +1067,10 @@ from `useSearchPicker`, and none holds that state itself. Seven pickers used to
 answer "what does the closed field say" seven ways, and the answers went stale
 when the list arrived late or `value` moved from outside (#1434). The rule is
 under that hook in `docs/web-hooks.md`.
+
+`required` draws the required mark after the label. The inspection's habitat
+field passes it, since its label carried the mark before it moved onto this
+frame (#1468).
 
 ### public-engagement
 

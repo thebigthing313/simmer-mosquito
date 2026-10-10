@@ -170,10 +170,6 @@ function TrapTargetPicker({
 }
 
 /**
- * Open service requests, searched in memory over the open requests already
- * streaming. No organization is passed: the shape is scoped server-side.
- */
-/**
  * The first eight open requests the search matches, each with the label the
  * row draws. A request is searched by its address and by its details.
  */
@@ -211,6 +207,10 @@ function requestLabel(
 	return addressById.get(request.addressId) ?? `Request ${request.id.slice(0, 8)}`;
 }
 
+/**
+ * Open service requests, searched in memory over the open requests already
+ * streaming. No organization is passed: the shape is scoped server-side.
+ */
 function ServiceRequestPicker({
 	value,
 	onSelect,

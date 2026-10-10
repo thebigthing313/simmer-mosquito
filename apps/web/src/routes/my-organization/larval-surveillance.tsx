@@ -20,10 +20,8 @@ function MyOrganizationLarvalSurveillanceRoute() {
 				editAction={
 					<LarvalSettingsDrawer canManage={workspace.canManage} settings={workspace.settings} />
 				}
-				fields={[]}
 				id="larval"
 				meta="Inspection entry policy and habitat classification"
-				setupItems={[]}
 				title="Larval Surveillance"
 			>
 				<LarvalSurveillanceSettings
