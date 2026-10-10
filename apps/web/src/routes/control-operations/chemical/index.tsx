@@ -101,7 +101,7 @@ function ApplicationsExplorerRoute() {
 			map={
 				<ExplorerCanvas
 					canvas={canvas}
-					card={(card) => <ApplicationMapCard {...card} />}
+					card={(props) => <ApplicationMapCard {...props} />}
 					contextMenu={{ create: [MAP_CREATE_TARGETS.chemical] }}
 					panel={panel}
 				/>

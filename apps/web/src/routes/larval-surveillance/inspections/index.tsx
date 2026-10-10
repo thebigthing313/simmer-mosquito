@@ -146,7 +146,7 @@ function InspectionsExplorerRoute() {
 			map={
 				<ExplorerCanvas
 					canvas={canvas}
-					card={(card) => <InspectionMapCard {...card} />}
+					card={(props) => <InspectionMapCard {...props} />}
 					contextMenu={{ create: [MAP_CREATE_TARGETS.inspection, MAP_CREATE_TARGETS.habitat] }}
 					legend={legend}
 					panel={panel}

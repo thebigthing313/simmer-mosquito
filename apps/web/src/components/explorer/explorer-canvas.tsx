@@ -16,7 +16,7 @@ import type { MapContextMenuConfig } from '../map/map-context-menu';
 import type { MapInset } from '../map/map-inset';
 
 /** What every explorer's map card takes. */
-export interface ExplorerCardProps {
+interface ExplorerCardProps {
 	readonly id: string;
 	readonly inset: MapInset;
 	readonly onClose: () => void;

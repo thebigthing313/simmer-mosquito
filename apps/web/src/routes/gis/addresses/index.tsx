@@ -93,7 +93,7 @@ function AddressesExplorerRoute() {
 			map={
 				<ExplorerCanvas
 					canvas={canvas}
-					card={(card) => <AddressMapCard {...card} />}
+					card={(props) => <AddressMapCard {...props} />}
 					contextMenu={{ create: [MAP_CREATE_TARGETS.address] }}
 					panel={panel}
 				/>

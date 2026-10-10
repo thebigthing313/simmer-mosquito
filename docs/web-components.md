@@ -313,8 +313,14 @@ card draws, so those are the three props a route passes beside the hook's
 
 The card is a function of the selected id, the panel's inset and the close
 handler, and a route spreads that object into its card. A card takes no map
-and moves no camera: the hook's flight is the only one a selection makes, and
+and moves no camera. The hook's flight is the only one a selection makes, and
 a card that has better coordinates than the row is a reason to fix the row.
+
+Service Requests had its own canvas component, `ServiceRequestsMapCanvas`,
+moved out of the route in #1382 because the clustering setting its legend reads
+was the route's fourteenth hook, and fallow scores a component's hook count
+into its cognitive complexity. The route reads that setting again now, which
+the two `useState` calls the hook took over leave room for.
 
 It imports `MapCanvas` through the `components/map` barrel rather than from
 `map-canvas.tsx`. Every route suite replaces `MapCanvas` with a stand-in by
@@ -1205,16 +1211,6 @@ groupings the way `SampleFilterChips` is drawn on Samples. The summary itself
 is `ServiceRequestSummaryPanel` rather than an inline `ExplorerSummary`, because
 the two ternaries it needs took the route component over `fallow:health`'s
 cognitive complexity threshold.
-
-#### The Service Requests Map's canvas
-
-The Service Requests Map's `MapCanvas` moved out of the route in #1382 for the
-same threshold, into `ServiceRequestsMapCanvas`. Clustering on this map put
-the shared clustering setting in the legend, and fallow scores a component's
-hook count into its cognitive complexity, so the route's fourteenth hook took
-it to 16, one over. #1423 replaced that component with `ExplorerCanvas` and
-read the setting in the route again, which the two `useState` calls the hook
-took over leave room for.
 
 ### record
 

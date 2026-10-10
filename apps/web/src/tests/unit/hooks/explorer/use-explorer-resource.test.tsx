@@ -448,8 +448,8 @@ describe('useExplorerResource: the map and the selection it holds', () => {
 	/*
 	 * Since #1423 the hook holds the map the canvas reports, the selection and
 	 * the tile layer, so no route keeps a map in state only to hand it back.
-	 * These cases drive the hook the way `ExplorerCanvas` and the rail do: the
-	 * canvas calls `onMapReady`, a row or a drawn record calls the setter.
+	 * These cases drive the hook the way `ExplorerCanvas` and the rail do. The
+	 * canvas calls `onMapReady`, and a row or a drawn record calls the setter.
 	 */
 	function renderBare(holdRailOnSelect = false) {
 		return renderHook(

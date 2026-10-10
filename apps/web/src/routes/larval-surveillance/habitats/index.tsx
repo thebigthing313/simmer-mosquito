@@ -115,7 +115,9 @@ function HabitatsExplorerRoute() {
 			map={
 				<ExplorerCanvas
 					canvas={canvas}
-					card={(card) => <HabitatMapCard detailTo="/larval-surveillance/habitats/$id" {...card} />}
+					card={(props) => (
+						<HabitatMapCard detailTo="/larval-surveillance/habitats/$id" {...props} />
+					)}
 					contextMenu={{ create: [MAP_CREATE_TARGETS.habitat, MAP_CREATE_TARGETS.inspection] }}
 					legend={legend}
 					panel={panel}

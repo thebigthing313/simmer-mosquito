@@ -99,7 +99,7 @@ function SamplesExplorerRoute() {
 			map={
 				<ExplorerCanvas
 					canvas={canvas}
-					card={(card) => <SampleMapCard {...card} />}
+					card={(props) => <SampleMapCard {...props} />}
 					contextMenu={{ create: [MAP_CREATE_TARGETS.inspection] }}
 					legend={legend}
 					panel={panel}

@@ -104,7 +104,7 @@ function CollectionsExplorerRoute() {
 			map={
 				<ExplorerCanvas
 					canvas={canvas}
-					card={(card) => <CollectionMapCard {...card} />}
+					card={(props) => <CollectionMapCard {...props} />}
 					contextMenu={{ create: [MAP_CREATE_TARGETS.collection, MAP_CREATE_TARGETS.trap] }}
 					legend={legend}
 					panel={panel}

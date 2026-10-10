@@ -199,7 +199,7 @@ function ServiceRequestsExplorerRoute() {
 			map={
 				<ExplorerCanvas
 					canvas={canvas}
-					card={(card) => <ServiceRequestMapCard {...card} />}
+					card={(props) => <ServiceRequestMapCard {...props} />}
 					contextMenu={{
 						create: [MAP_CREATE_TARGETS.serviceRequest, MAP_CREATE_TARGETS.outreach],
 					}}

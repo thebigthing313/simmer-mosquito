@@ -80,8 +80,11 @@ export interface ExplorerCanvasBinding {
 	readonly clearSelection: () => void;
 }
 
-export interface ExplorerSelection {
-	/** What the rail and the map have picked, before the record has been read. */
+interface ExplorerSelection {
+	/**
+	 * What the rail or the map picked. `canvas.selectedRecordId` is the same id
+	 * once the record has been read, which is when the card mounts.
+	 */
 	readonly selectedId: string | null;
 	/** Pick a record, or pass null to clear. A map click on empty ground passes null. */
 	readonly setSelectedId: (id: string | null) => void;

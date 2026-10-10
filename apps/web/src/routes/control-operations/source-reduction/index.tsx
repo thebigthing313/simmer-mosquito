@@ -106,7 +106,7 @@ function SourceReductionExplorerRoute() {
 			map={
 				<ExplorerCanvas
 					canvas={canvas}
-					card={(card) => <SourceReductionMapCard {...card} />}
+					card={(props) => <SourceReductionMapCard {...props} />}
 					contextMenu={{ create: [MAP_CREATE_TARGETS.sourceReduction] }}
 					panel={panel}
 				/>

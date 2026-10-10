@@ -95,7 +95,7 @@ function OutreachExplorerRoute() {
 			map={
 				<ExplorerCanvas
 					canvas={canvas}
-					card={(card) => <OutreachMapCard {...card} />}
+					card={(props) => <OutreachMapCard {...props} />}
 					contextMenu={{
 						create: [MAP_CREATE_TARGETS.outreach, MAP_CREATE_TARGETS.serviceRequest],
 					}}

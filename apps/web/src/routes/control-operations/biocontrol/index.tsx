@@ -110,7 +110,7 @@ function BiocontrolExplorerRoute() {
 			map={
 				<ExplorerCanvas
 					canvas={canvas}
-					card={(card) => <BiocontrolMapCard {...card} />}
+					card={(props) => <BiocontrolMapCard {...props} />}
 					contextMenu={{ create: [MAP_CREATE_TARGETS.biocontrol] }}
 					panel={panel}
 				/>

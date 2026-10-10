@@ -107,7 +107,7 @@ function TrapsExplorerRoute() {
 			map={
 				<ExplorerCanvas
 					canvas={canvas}
-					card={(card) => <TrapMapCard {...card} />}
+					card={(props) => <TrapMapCard {...props} />}
 					contextMenu={{ create: [MAP_CREATE_TARGETS.trap] }}
 					legend={legend}
 					panel={panel}
