@@ -2,6 +2,7 @@ import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { OutletSimpleLayout } from '../../../components/app-shell';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
 	SERVICE_REQUESTS_PATH,
@@ -9,7 +10,6 @@ import {
 	serviceRequestPageParams,
 	serviceRequestTileFilters,
 } from '../../../components/public-engagement/service-requests/service-request-listing';
-import { ServiceRequestSurfaceSwitch } from '../../../components/public-engagement/service-requests/service-request-surface-switch';
 import {
 	ServiceRequestsFilterBar,
 	type ServiceRequestTableFilters,
@@ -19,7 +19,7 @@ import {
 	type ServiceRequestRailSearch,
 	serviceRequestFilterCodecs,
 	serviceRequestRailOrderCodecs,
-	sharedServiceRequestSearch,
+	serviceRequestRecordSet,
 } from '../../../components/public-engagement/service-requests/service-requests-search';
 import { ServiceRequestsTable } from '../../../components/public-engagement/service-requests/service-requests-table';
 import { RecordTableEmpty } from '../../../components/record/record-table-empty';
@@ -89,7 +89,7 @@ function ServiceRequestsTableRoute() {
 	);
 
 	// The switch to the Map carries the shared filters and leaves the order behind.
-	const carried = sharedServiceRequestSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const params = mapQueryParams({
 		bbox: WHOLE_WORLD_BBOX,
@@ -111,7 +111,9 @@ function ServiceRequestsTableRoute() {
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
-				actions={<ServiceRequestSurfaceSwitch current="table" search={carried} />}
+				actions={
+					<RecordSetSwitch current="table" search={routeSearch} set={serviceRequestRecordSet} />
+				}
 				icon={RequestIcon}
 				title={recordNoun('serviceRequest').titleMany}
 			/>

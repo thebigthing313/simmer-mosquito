@@ -6,13 +6,13 @@ import {
 	BIOCONTROL_WINDOW_DAYS,
 	biocontrolFilterCodecs,
 	biocontrolListParams,
+	biocontrolRecordSet,
 	biocontrolTileFilters,
-	sharedBiocontrolSearch,
 } from '../../../components/control-operations/biocontrol/biocontrol-actions-search';
 import { BiocontrolActionsTable } from '../../../components/control-operations/biocontrol/biocontrol-actions-table';
 import { BiocontrolFilterFields } from '../../../components/control-operations/biocontrol/biocontrol-filters';
 import type { BiocontrolListRow } from '../../../components/control-operations/biocontrol/biocontrol-row-parts';
-import { BiocontrolSurfaceSwitch } from '../../../components/control-operations/biocontrol/biocontrol-surface-switch';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { RecordTableEmpty } from '../../../components/record/record-table-empty';
 import { RecordTableUnavailable } from '../../../components/record/record-table-unavailable';
@@ -41,7 +41,7 @@ const BiocontrolIcon = iconRegistry.entities.biocontrolAction.icon;
 function BiocontrolActionsTableRoute() {
 	const binding = useBiocontrolFilterState();
 	const { filters, activeCount, reset } = binding;
-	const carried = sharedBiocontrolSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const params = mapQueryParams({
 		bbox: WHOLE_WORLD_BBOX,
@@ -58,7 +58,7 @@ function BiocontrolActionsTableRoute() {
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
-				actions={<BiocontrolSurfaceSwitch current="table" search={carried} />}
+				actions={<RecordSetSwitch current="table" search={routeSearch} set={biocontrolRecordSet} />}
 				description="Biocontrol actions in the date window, newest first."
 				icon={BiocontrolIcon}
 				title={recordNoun('biocontrolAction').titleMany}

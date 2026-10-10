@@ -2,14 +2,14 @@ import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { OutletSimpleLayout } from '../../../components/app-shell';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { HabitatFilterFields } from '../../../components/larval-surveillance/habitats/habitat-filters';
-import { HabitatSurfaceSwitch } from '../../../components/larval-surveillance/habitats/habitat-surface-switch';
 import {
 	habitatFilterCodecs,
 	habitatListParams,
+	habitatRecordSet,
 	habitatTileFilters,
-	sharedHabitatSearch,
 } from '../../../components/larval-surveillance/habitats/habitats-search';
 import {
 	HabitatsTable,
@@ -55,7 +55,7 @@ const HabitatIcon = iconRegistry.entities.habitat.icon;
 function HabitatsTableRoute() {
 	const binding = useHabitatFilterState();
 	const { filters, activeCount, clearAll } = binding;
-	const carried = sharedHabitatSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const params = mapQueryParams({
 		bbox: WHOLE_WORLD_BBOX,
@@ -72,7 +72,7 @@ function HabitatsTableRoute() {
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
-				actions={<HabitatSurfaceSwitch current="table" search={carried} />}
+				actions={<RecordSetSwitch current="table" search={routeSearch} set={habitatRecordSet} />}
 				description="Every habitat on record, by name."
 				icon={HabitatIcon}
 				title={recordNoun('habitat').titleMany}

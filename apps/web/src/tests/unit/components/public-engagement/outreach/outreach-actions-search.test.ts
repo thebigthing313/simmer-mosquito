@@ -3,7 +3,6 @@ import {
 	outreachFilterDefaults,
 	outreachListParams,
 	outreachTileFilters,
-	sharedOutreachSearch,
 } from '../../../../../components/public-engagement/outreach/outreach-actions-search';
 import { mapQueryParams } from '../../../../../hooks/explorer/use-paged-map-resource';
 
@@ -40,27 +39,6 @@ describe('the outreach actions list request', () => {
 			regionId: 'region-1',
 			dateFrom: '2026-09-01',
 			dateTo: '2026-09-28',
-		});
-	});
-});
-
-describe('what the Map/Table switch carries', () => {
-	it('keeps every filter param and drops what is not one', () => {
-		expect(
-			sharedOutreachSearch({
-				from: '2026-09-01',
-				to: '2026-09-28',
-				methods: ['method-1'],
-				people: ['person-1'],
-				regions: ['region-1'],
-				page: 3,
-			}),
-		).toEqual({
-			from: '2026-09-01',
-			to: '2026-09-28',
-			methods: ['method-1'],
-			people: ['person-1'],
-			regions: ['region-1'],
 		});
 	});
 });
