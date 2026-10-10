@@ -113,6 +113,11 @@ function invalidInputProps(invalid: boolean, errorId: string) {
 	return invalid ? { 'aria-describedby': errorId, 'aria-invalid': true as const } : {};
 }
 
+/**
+ * One picker result: the name, with the secondary text on a second line when
+ * that text is not blank. Takes the two strings, whether the row is the picked
+ * one, and what a click does.
+ */
 export function OptionRow({
 	primary,
 	secondary,
@@ -132,7 +137,7 @@ export function OptionRow({
 		>
 			<span className="min-w-0 flex-1">
 				<span className="block truncate font-medium">{primary}</span>
-				{secondary === undefined || secondary === null || secondary.length === 0 ? null : (
+				{(secondary ?? '').trim().length === 0 ? null : (
 					<span className="block truncate text-muted-foreground text-xs">{secondary}</span>
 				)}
 			</span>
