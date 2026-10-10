@@ -98,7 +98,7 @@ export function useApplication(
 
 							insecticideId: measured.productId,
 							// `insecticide_id` is not nullable, so there is no absent case to
-							// carry — only the join not having resolved yet.
+							// carry, only the join not having resolved yet.
 							productName: coalesce(product.trade_name, 'Unknown product'),
 							methodId: measured.methodId,
 							// Guarded on the application's own column, so an application with no
