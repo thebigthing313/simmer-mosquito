@@ -270,8 +270,8 @@ card, and write out the same five-field layer around both. So a route passes
 the tileset as `tiles`, a `kind` and its `filters`, and the hook adds the
 server URL, the selected id and the click handler. What comes back is the
 selection, `selectedId` with a setter for the rail, and `canvas`, the bundle
-`ExplorerCanvas` takes, which carries the one clear, the card's close. A route
-clears with `setSelectedId(null)`. The map arrives through `canvas.onMapReady`,
+`ExplorerCanvas` takes, whose `clearSelection` closes the card. A route clears
+with `setSelectedId(null)`. The map arrives through `canvas.onMapReady`,
 which is `MapCanvas`'s own callback, so nothing changed about how a canvas
 reports its map, and the page still waits for it. Selection state is held here
 and not on the canvas because the rail sets it too, and the selected row the

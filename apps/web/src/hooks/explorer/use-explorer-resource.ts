@@ -77,6 +77,7 @@ export interface ExplorerCanvasBinding {
 	readonly onMapReady: (map: MapboxMap) => void;
 	/** The record the card is for, or null when nothing is selected. */
 	readonly selectedRecordId: string | null;
+	/** The card's close. A route clears with `setSelectedId(null)`. */
 	readonly clearSelection: () => void;
 }
 
