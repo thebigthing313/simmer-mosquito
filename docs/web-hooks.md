@@ -269,9 +269,26 @@ is the copy the rail gave before it could tell.
 `holdRailOnSelect` is the switch for `useFlyToSelection`'s `holdRail`, off by
 default so the other explorers keep re-paging for the record they fly to.
 
-`layers` is the list the route hands its `MapCanvas`: the tile layer it passed
-in, with the selected row on it as `selectedRecord`. That is the read the
-selection overlay draws from on a clustered tileset (see
+The hook holds the map instance, the selection and the tile layer, since
+#1423. All eleven routes used to keep a `MapboxMap` in state whose only reader
+was this hook, keep a selection whose only readers were the tile layer and the
+card, and write out the same five-field layer around both. So a route passes
+the tileset as `tiles`, a `kind` and its `filters`, and the hook adds the
+server URL, the selected id and the click handler. What comes back is the
+selection, `selectedId` with a setter and a clear for the rail, and `canvas`,
+the bundle `ExplorerCanvas` takes. The map arrives through `canvas.onMapReady`,
+which is `MapCanvas`'s own callback, so nothing changed about how a canvas
+reports its map, and the page still waits for it. Selection state is held here
+and not on the canvas because the rail sets it too, and the selected row the
+flight reads comes from this hook's page.
+
+The selection starts empty on every route, so the setter is all a route needs.
+A deep link to a selected record would be an initial value passed in, and no
+explorer has one.
+
+`canvas.layers` is the list `ExplorerCanvas` hands `MapCanvas`: the tile layer
+built from `tiles`, with the selected row on it as `selectedRecord`. That is
+the read the selection overlay draws from on a clustered tileset (see
 `useSelectionOverlayLayer`), and every explorer passes it, so a tileset that
 starts clustering gets the overlay without its route changing.
 

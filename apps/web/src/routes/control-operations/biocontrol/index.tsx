@@ -1,8 +1,5 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useState } from 'react';
-import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	biocontrolFilterCodecs,
@@ -28,8 +25,9 @@ import {
 	formatAmount,
 } from '../../../components/control-operations/control-display';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
-import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
+import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
 import { useBiocontrolFilterState } from '../../../hooks/control-operations/use-biocontrol-filter-state';
 import { useBiocontrolMethodOptions } from '../../../hooks/explorer/use-biocontrol-method-options';
@@ -56,8 +54,6 @@ function BiocontrolExplorerRoute() {
 	// both land on the list the operator had narrowed to.
 	const binding = useBiocontrolFilterState();
 	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
 	const { nameById: methodNameById } = useBiocontrolMethodOptions();
@@ -70,31 +66,30 @@ function BiocontrolExplorerRoute() {
 	// What a move to the Table takes with it: every filter, since the Table
 	// applies each one.
 	const carried = sharedBiocontrolSearch(Route.useSearch());
-	const layer: MapTileLayer = {
-		kind: 'biocontrol',
-		serverUrl: getServerUrl(),
-		filters,
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		empty,
+		summary,
+		canvas,
 		selectedId,
-		onSelectFeature: setSelectedId,
-	};
-	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
-		useExplorerResource<BiocontrolListRow>({
-			path: PATH,
-			rowsKey: 'biocontrolActions',
-			rowKey: 'biocontrolAction',
-			recordType: 'biocontrolAction',
-			params: biocontrolListParams(filters),
-			layer,
-			map,
-			selectedId,
-			summarize: true,
-		});
+		setSelectedId,
+	} = useExplorerResource<BiocontrolListRow>({
+		path: PATH,
+		rowsKey: 'biocontrolActions',
+		rowKey: 'biocontrolAction',
+		recordType: 'biocontrolAction',
+		params: biocontrolListParams(filters),
+		tiles: { kind: 'biocontrol', filters },
+		summarize: true,
+	});
 
 	// `habitats` syncs on demand, so resolve only the referenced ids as a bounded
 	// live subset rather than reading the whole collection eagerly.
 	const habitatNameById = useHabitatNames(linkedHabitatIds(rows));
-
-	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 
 	return (
 		<ExplorerMapPage
@@ -113,25 +108,12 @@ function BiocontrolExplorerRoute() {
 			}}
 			onResetFilters={clearAll}
 			map={
-				<>
-					<MapCanvas
-						inset={panel.inset}
-						searchWidth={panel.width}
-						contextMenu={{ create: [MAP_CREATE_TARGETS.biocontrol] }}
-						layers={layers}
-						controls={{ measure: true, readout: true }}
-						fitToData
-						rememberCamera
-						onMapReady={handleMapReady}
-					/>
-					{selected === null ? null : (
-						<BiocontrolMapCard
-							id={selected.id}
-							inset={panel.inset}
-							onClose={() => setSelectedId(null)}
-						/>
-					)}
-				</>
+				<ExplorerCanvas
+					canvas={canvas}
+					card={(card) => <BiocontrolMapCard {...card} />}
+					contextMenu={{ create: [MAP_CREATE_TARGETS.biocontrol] }}
+					panel={panel}
+				/>
 			}
 			panel={panel}
 			results={{

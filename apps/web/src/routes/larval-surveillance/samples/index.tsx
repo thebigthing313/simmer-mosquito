@@ -1,9 +1,7 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useState } from 'react';
-import { getServerUrl } from '../../../auth';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { SampleMapCard } from '../../../components/larval-surveillance/sample-map-card';
 import { sampleLegend } from '../../../components/larval-surveillance/samples/legend';
@@ -25,7 +23,7 @@ import {
 	sampleTileFilters,
 	sharedSampleSearch,
 } from '../../../components/larval-surveillance/samples-search';
-import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
+import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { useSpeciesOptions } from '../../../hooks/explorer/use-species-options';
@@ -53,8 +51,6 @@ function SamplesExplorerRoute() {
 	// out of a record all land on the same view.
 	const binding = useSampleFilterState();
 	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
 	const { nameById } = useSpeciesOptions();
@@ -64,27 +60,26 @@ function SamplesExplorerRoute() {
 	// applies each one.
 	const carried = sharedSampleSearch(Route.useSearch());
 
-	const layer: MapTileLayer = {
-		kind: 'samples',
-		serverUrl: getServerUrl(),
-		filters,
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		empty,
+		summary,
+		canvas,
 		selectedId,
-		onSelectFeature: setSelectedId,
-	};
-	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
-		useExplorerResource<SampleListRow>({
-			path: PATH,
-			rowsKey: 'samples',
-			rowKey: 'sample',
-			recordType: 'sample',
-			params: sampleListParams(filters),
-			layer,
-			map,
-			selectedId,
-			summarize: true,
-		});
-
-	const handleMapReady = (instance: MapboxMap) => setMap(instance);
+		setSelectedId,
+	} = useExplorerResource<SampleListRow>({
+		path: PATH,
+		rowsKey: 'samples',
+		rowKey: 'sample',
+		recordType: 'sample',
+		params: sampleListParams(filters),
+		tiles: { kind: 'samples', filters },
+		summarize: true,
+	});
 
 	const [clustered] = useMapClustering();
 	const legend = sampleLegend(query.status, clustered);
@@ -102,26 +97,13 @@ function SamplesExplorerRoute() {
 			}}
 			onResetFilters={clearAll}
 			map={
-				<>
-					<MapCanvas
-						inset={panel.inset}
-						searchWidth={panel.width}
-						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection] }}
-						controls={{ measure: true, readout: true }}
-						fitToData
-						rememberCamera
-						layers={layers}
-						legend={legend}
-						onMapReady={handleMapReady}
-					/>
-					{selected === null ? null : (
-						<SampleMapCard
-							id={selected.id}
-							inset={panel.inset}
-							onClose={() => setSelectedId(null)}
-						/>
-					)}
-				</>
+				<ExplorerCanvas
+					canvas={canvas}
+					card={(card) => <SampleMapCard {...card} />}
+					contextMenu={{ create: [MAP_CREATE_TARGETS.inspection] }}
+					legend={legend}
+					panel={panel}
+				/>
 			}
 			panel={panel}
 			results={{

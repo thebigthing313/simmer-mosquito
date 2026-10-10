@@ -1,4 +1,6 @@
 import type { Map as MapboxMap } from 'mapbox-gl';
+import { useState } from 'react';
+import { getServerUrl } from '../../auth';
 import type {
 	ExplorerEmptiness,
 	ExplorerEmptyReason,
@@ -27,7 +29,7 @@ export interface ExplorerRowShape {
 	readonly lng: number | null;
 }
 
-export interface ExplorerResource<TRow> extends PagedMapResource<TRow> {
+export interface ExplorerResource<TRow> extends PagedMapResource<TRow>, ExplorerSelection {
 	/** The record the map selection points at, on this page or fetched by id. */
 	readonly selected: TRow | null;
 	/**
@@ -41,21 +43,61 @@ export interface ExplorerResource<TRow> extends PagedMapResource<TRow> {
 	 * surface that asked for one with `summarize`.
 	 */
 	readonly summary: ExplorerSummaryState;
+	/** What the surface hands `ExplorerCanvas`. */
+	readonly canvas: ExplorerCanvasBinding;
+}
+
+/**
+ * The tileset an explorer draws and the filters it draws under. The hook adds
+ * the server URL and the selection, which no route has a second answer for.
+ * Regions is not an explorer and is left out, since its layer also carries the
+ * ticked set.
+ */
+export type ExplorerTiles = {
+	[TKind in ExplorerTileKind]: Pick<
+		Extract<MapTileLayer, { readonly kind: TKind }>,
+		'kind' | 'filters'
+	>;
+}[ExplorerTileKind];
+
+type ExplorerTileKind = Exclude<MapTileLayer['kind'], 'regions'>;
+
+/**
+ * What `ExplorerCanvas` needs off the hook: the layers to draw, the callback
+ * the canvas hands its map to, and the card's record with the way to shut it.
+ */
+export interface ExplorerCanvasBinding {
 	/**
-	 * The `layers` list for the surface's `MapCanvas`: the tile layer it passed
-	 * in, carrying the selected record, so a clustered tileset draws the record
-	 * over the cluster that holds it. See `tileLayerSelectionOverlay`.
+	 * The `layers` list for `MapCanvas`: the surface's tile layer, carrying the
+	 * selected record, so a clustered tileset draws the record over the cluster
+	 * that holds it. See `tileLayerSelectionOverlay`.
 	 */
 	readonly layers: readonly MapTileLayer[];
+	/** `MapCanvas`'s `onMapReady`. Nothing is asked for until it has been called. */
+	readonly onMapReady: (map: MapboxMap) => void;
+	/** The record the card is for, or null when nothing is selected. */
+	readonly selectedRecordId: string | null;
+	readonly clearSelection: () => void;
+}
+
+export interface ExplorerSelection {
+	/** What the rail and the map have picked, before the record has been read. */
+	readonly selectedId: string | null;
+	/** Pick a record, or pass null to clear. A map click on empty ground passes null. */
+	readonly setSelectedId: (id: string | null) => void;
+	readonly clearSelection: () => void;
 }
 
 /**
  * One page of a `/map/*` list endpoint, the record the map has selected, and
  * the camera move that follows it.
  *
- * The viewport goes on the wire ahead of the surface's own filters, and nothing
- * is asked for until the map has one. `empty` reads the layer's extent, which
- * the map fetches to frame the same filters, so it costs no extra request.
+ * The hook holds the map the canvas reports, the selection and the tile layer,
+ * so a route hands it a tileset and filters and renders `ExplorerCanvas` with
+ * what comes back. The viewport goes on the wire ahead of the surface's own
+ * filters, and nothing is asked for until the map has one. `empty` reads the
+ * layer's extent, which the map fetches to frame the same filters, so it costs
+ * no extra request.
  */
 export function useExplorerResource<TRow extends ExplorerRowShape>({
 	path,
@@ -63,9 +105,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	rowKey,
 	recordType,
 	params,
-	layer,
-	map,
-	selectedId,
+	tiles,
 	normalizeRow,
 	holdRailOnSelect = false,
 	summarize = false,
@@ -81,13 +121,12 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	/** The surface's own filters, before the empties are dropped. */
 	readonly params: Readonly<Record<string, MapQueryValue>>;
 	/**
-	 * The tile layer the map draws for this surface, the same entry `MapCanvas`
-	 * frames under `fitToData`. Its extent URL is what the empty state reads,
-	 * and the two share one query, so the surface still sends one extent request.
+	 * The tileset and filters the map draws for this surface. The layer built
+	 * from them is the entry `MapCanvas` frames under `fitToData`, its extent URL
+	 * is what the empty state reads, and the two share one query, so the surface
+	 * still sends one extent request.
 	 */
-	readonly layer: MapTileLayer;
-	readonly map: MapboxMap | null;
-	readonly selectedId: string | null;
+	readonly tiles: ExplorerTiles;
 	/** Defaults a row's newer fields, where a deployed server may not send them. */
 	readonly normalizeRow?: (row: TRow) => TRow;
 	/**
@@ -101,6 +140,16 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	 */
 	readonly summarize?: boolean;
 }): ExplorerResource<TRow> {
+	// Held here rather than by the route, which only ever handed it back.
+	const [map, setMap] = useState<MapboxMap | null>(null);
+	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const clearSelection = () => setSelectedId(null);
+	const layer: MapTileLayer = {
+		...tiles,
+		serverUrl: getServerUrl(),
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
 	const bbox = useMapBoundsParam(map);
 	// Spread rather than passed, because the workspace is on
 	// `exactOptionalPropertyTypes` and an explicit `undefined` is not an absent key.
@@ -127,6 +176,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 		selectedId,
 		...shaping,
 	});
+	// The one camera move a selection makes. A card does not fly as well (#1423).
 	useFlyToSelection(map, selected, holdRailOnSelect);
 	const summary = useExplorerSummary({
 		path,
@@ -143,6 +193,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	// map reports a viewport, and a disabled query is not `isLoading`, so a cold
 	// map used to read as a settled, empty page for as long as it took to load.
 	const isLoading = bbox === null || paged.isLoading || (extentUrl !== null && !extent.isSettled);
+	const layers: readonly MapTileLayer[] = [{ ...layer, selectedRecord: selected }];
 	const empty: ExplorerEmptiness = {
 		recordType,
 		reason: isLoading ? 'loading' : emptyReason(extentUrl, extent),
@@ -156,7 +207,15 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 		selected,
 		empty,
 		summary,
-		layers: [{ ...layer, selectedRecord: selected }],
+		selectedId,
+		setSelectedId,
+		clearSelection,
+		canvas: {
+			layers,
+			onMapReady: setMap,
+			selectedRecordId: selected === null ? null : selected.id,
+			clearSelection,
+		},
 	};
 }
 

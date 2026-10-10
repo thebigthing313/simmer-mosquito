@@ -301,6 +301,25 @@ is one timer, and there is no refresh control for the same reason.
 
 ### explorer
 
+#### ExplorerCanvas
+
+The map half of every explorer built on `useExplorerResource`. All eleven
+routes wrote the same `MapCanvas` props, the measure and readout controls,
+`fitToData`, `rememberCamera`, and the panel's inset and search width, and the
+same conditional card under it; Service Requests wrote them inside a component
+of its own (#1423). What still varies is the create menu, the key, and which
+card draws, so those are the three props a route passes beside the hook's
+`canvas` bundle and the panel.
+
+The card is a function of the selected id, the panel's inset and the close
+handler, and a route spreads that object into its card. A card takes no map
+and moves no camera: the hook's flight is the only one a selection makes, and
+a card that has better coordinates than the row is a reason to fix the row.
+
+It imports `MapCanvas` through the `components/map` barrel rather than from
+`map-canvas.tsx`. Every route suite replaces `MapCanvas` with a stand-in by
+mocking the barrel, and a direct import would draw a real Mapbox map in jsdom.
+
 #### ExplorerSummary
 
 What an explorer rail draws in place of its rows over 100 in view (#1244).
@@ -1187,13 +1206,15 @@ is `ServiceRequestSummaryPanel` rather than an inline `ExplorerSummary`, because
 the two ternaries it needs took the route component over `fallow:health`'s
 cognitive complexity threshold.
 
-#### ServiceRequestsMapCanvas
+#### The Service Requests Map's canvas
 
 The Service Requests Map's `MapCanvas` moved out of the route in #1382 for the
-same threshold. Clustering on this map put the shared clustering setting in the
-legend, and fallow scores a component's hook count into its cognitive
-complexity, so the route's fourteenth hook took it to 16, one over. The canvas
-reads the setting itself now, beside the legend it decides.
+same threshold, into `ServiceRequestsMapCanvas`. Clustering on this map put
+the shared clustering setting in the legend, and fallow scores a component's
+hook count into its cognitive complexity, so the route's fourteenth hook took
+it to 16, one over. #1423 replaced that component with `ExplorerCanvas` and
+read the setting in the route again, which the two `useState` calls the hook
+took over leave room for.
 
 ### record
 
