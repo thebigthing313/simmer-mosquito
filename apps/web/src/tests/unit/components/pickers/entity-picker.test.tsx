@@ -26,11 +26,6 @@ describe('a picker result row', () => {
 	it.each([
 		['spaces', '   '],
 		['a newline', '\n'],
-	])('draws no second line when the secondary text is %s', (_label, secondary) => {
-		expect(linesOf(secondary)).toEqual(['Habitat 12']);
-	});
-
-	it.each([
 		['empty', ''],
 		['null', null],
 		['left out', undefined],
