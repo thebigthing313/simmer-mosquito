@@ -8,7 +8,7 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { type RecordType, recordNoun } from '../../lib/record-nouns';
-import { carriedSearch, type RecordSet, type RecordSetSurface } from './record-set';
+import { carriedSearch, type RecordSetLinks, type RecordSetSurface } from './record-set';
 import { SurfaceSwitch, surfaceSwitchItem } from './surface-switch';
 
 const MapIcon = iconRegistry.generic.map.icon;
@@ -31,7 +31,7 @@ export function RecordSetSwitch({
 	readonly current: RecordSetSurface;
 	/** The current surface's validated search. */
 	readonly search: Record<string, unknown>;
-	readonly set: RecordSet<unknown>;
+	readonly set: RecordSetLinks<unknown>;
 }) {
 	const isMap = current === 'map';
 	return (

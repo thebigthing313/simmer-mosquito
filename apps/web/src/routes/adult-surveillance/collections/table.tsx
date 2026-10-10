@@ -16,12 +16,12 @@ import { RecordSetSwitch } from '../../../components/explorer/record-set-switch'
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { RecordTableEmpty } from '../../../components/record/record-table-empty';
 import { RecordTableUnavailable } from '../../../components/record/record-table-unavailable';
-import { useCollectionFilterState } from '../../../hooks/adult-surveillance/use-collection-filter-state';
 import {
 	mapQueryParams,
 	usePagedMapResource,
 	WHOLE_WORLD_BBOX,
 } from '../../../hooks/explorer/use-paged-map-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
@@ -38,7 +38,7 @@ const CollectionIcon = iconRegistry.entities.collection.icon;
  * a box around the whole world, so the two surfaces list one set.
  */
 function CollectionsTableRoute() {
-	const binding = useCollectionFilterState();
+	const binding = useRecordSetFilters(collectionRecordSet, 'table');
 	const { filters, activeCount, reset } = binding;
 	const routeSearch = Route.useSearch();
 

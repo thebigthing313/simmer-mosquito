@@ -3,14 +3,14 @@
  * and Table: the date window, the Method, Technician and Region popovers, and
  * the chips for whatever is set. It returns the blocks bare, so each surface
  * puts them in its own frame. Takes the binding from
- * `useSourceReductionFilterState`.
+ * `useRecordSetFilters`.
  */
 
-import type { SourceReductionFilterBinding } from '../../../hooks/control-operations/use-source-reduction-filter-state';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { catalogs } from '../../../hooks/queries/catalog-register';
+import type { FilterBinding } from '../../../lib/search-filters';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
@@ -21,12 +21,13 @@ import {
 	MultiSelectFilter,
 	toggle,
 } from '../../explorer';
+import type { SourceReductionFilters } from './source-reductions-search';
 
 export function SourceReductionFilterFields({
 	binding,
 	wide = false,
 }: {
-	readonly binding: SourceReductionFilterBinding;
+	readonly binding: FilterBinding<SourceReductionFilters>;
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
@@ -82,7 +83,7 @@ export function SourceReductionFilterFields({
 export function SourceReductionFilterChips({
 	binding,
 }: {
-	readonly binding: SourceReductionFilterBinding;
+	readonly binding: FilterBinding<SourceReductionFilters>;
 }) {
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.sourceReductionMethods);
 	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);

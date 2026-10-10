@@ -1,3 +1,4 @@
+import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
 import { collectionRecordSet } from '../../../../components/adult-surveillance/collections/collections-search';
 import { trapRecordSet } from '../../../../components/adult-surveillance/traps/traps-search';
@@ -7,8 +8,11 @@ import { sourceReductionRecordSet } from '../../../../components/control-operati
 import {
 	carriedSearch,
 	defineRecordSet,
-	type RecordSet,
+	type RecordSetContext,
+	type RecordSetLinks,
 	type RecordSetSurface,
+	recordSetCounting,
+	surfaceCodecs,
 } from '../../../../components/explorer/record-set';
 import { addressRecordSet } from '../../../../components/gis/addresses/addresses-search';
 import { habitatRecordSet } from '../../../../components/larval-surveillance/habitats/habitats-search';
@@ -16,13 +20,14 @@ import { inspectionRecordSet } from '../../../../components/larval-surveillance/
 import { sampleRecordSet } from '../../../../components/larval-surveillance/samples-search';
 import { outreachRecordSet } from '../../../../components/public-engagement/outreach/outreach-actions-search';
 import { serviceRequestRecordSet } from '../../../../components/public-engagement/service-requests/service-requests-search';
+import { countActiveFilters, searchValidator } from '../../../../lib/search-filters';
 
 /**
  * Every Map/Table pair, with the filter keys its Table does not apply spelled
  * out here rather than read off the definition, so a definition that starts
  * carrying one of them fails this suite instead of agreeing with itself.
  */
-const SETS: readonly (readonly [string, RecordSet<unknown>, readonly string[]])[] = [
+const SETS: readonly (readonly [string, RecordSetLinks<unknown>, readonly string[]])[] = [
 	['habitats', habitatRecordSet, []],
 	['inspections', inspectionRecordSet, ['regions']],
 	['samples', sampleRecordSet, []],
@@ -37,7 +42,7 @@ const SETS: readonly (readonly [string, RecordSet<unknown>, readonly string[]])[
 ];
 
 /** A search holding every filter key and two params that are not filters. */
-function everyParam(set: RecordSet<unknown>): Record<string, unknown> {
+function everyParam(set: RecordSetLinks<unknown>): Record<string, unknown> {
 	const search: Record<string, unknown> = { page: 3, order: 'oldest' };
 	for (const key of Object.keys(set.codecs as object)) {
 		search[key] = `${key}-value`;
@@ -45,7 +50,7 @@ function everyParam(set: RecordSet<unknown>): Record<string, unknown> {
 	return search;
 }
 
-function keysAppliedOn(set: RecordSet<unknown>, surface: RecordSetSurface): string[] {
+function keysAppliedOn(set: RecordSetLinks<unknown>, surface: RecordSetSurface): string[] {
 	return Object.entries(set.applies as Record<string, string>)
 		.filter(([, appliedOn]) => appliedOn === 'both' || appliedOn === surface)
 		.map(([key]) => key)
@@ -88,6 +93,26 @@ describe.each(SETS)('the %s record set', (_name, set, tableDrops) => {
 		}
 	});
 
+	it.each([
+		'map',
+		'table',
+	] as const)('reads on the %s exactly the keys it applies, and nothing for the rest', (surface) => {
+		const codecs = surfaceCodecs(set, surface) as Record<
+			string,
+			{ readonly decode: (raw: unknown) => unknown }
+		>;
+		const own = set.codecs as Record<string, unknown>;
+		const applied = keysAppliedOn(set, surface);
+
+		for (const key of filterKeys) {
+			if (applied.includes(key)) {
+				expect(codecs[key]).toBe(own[key]);
+			} else {
+				expect(codecs[key]?.decode(['anything'])).toBeUndefined();
+			}
+		}
+	});
+
 	it('carries nothing for a filter left at its default', () => {
 		const search = everyParam(set);
 		for (const key of filterKeys) {
@@ -111,6 +136,60 @@ describe('switching Inspections from the Map to the Table', () => {
 	});
 });
 
+/** What a set's defaults read, on `today` with the overdue threshold as given. */
+function contextOn(today: string, serviceRequestOverdueDays: number | 'off'): RecordSetContext {
+	const { settings } = resolveOrganizationSettings({
+		publicEngagement: { serviceRequestOverdueDays },
+	});
+	return { today, settings };
+}
+
+describe('the Inspections opening window', () => {
+	const context = contextOn('2026-10-09', 'off');
+
+	it('opens the Map on the last 30 days, today included', () => {
+		expect(inspectionRecordSet.defaults(context, 'map')).toMatchObject({
+			from: '2026-09-10',
+			to: '2026-10-09',
+		});
+	});
+
+	it('opens the Table on all time', () => {
+		expect(inspectionRecordSet.defaults(context, 'table')).toMatchObject({ from: '', to: '' });
+	});
+});
+
+describe('the Inspections Table address', () => {
+	it('drops a Region a hand-typed address carries and keeps the rest', () => {
+		const validate = searchValidator(surfaceCodecs(inspectionRecordSet, 'table'));
+
+		expect(validate({ from: '2026-08-01', water: 'wet', regions: ['region-1'] })).toEqual({
+			from: '2026-08-01',
+			water: 'wet',
+		});
+	});
+});
+
+describe('the service requests count', () => {
+	function countWithOverdue(serviceRequestOverdueDays: number | 'off'): number {
+		const context = contextOn('2026-10-09', serviceRequestOverdueDays);
+		const defaults = serviceRequestRecordSet.defaults(context, 'map');
+		return countActiveFilters(
+			defaults,
+			{ ...defaults, overdue: true },
+			recordSetCounting(serviceRequestRecordSet, context),
+		);
+	}
+
+	it('counts Overdue while the Organization has a threshold', () => {
+		expect(countWithOverdue(14)).toBe(1);
+	});
+
+	it('does not count an Overdue left on the address while the threshold is off', () => {
+		expect(countWithOverdue('off')).toBe(0);
+	});
+});
+
 describe('a record set definition', () => {
 	it('refuses a path that is not in the route tree', () => {
 		const set = defineRecordSet({
@@ -118,6 +197,7 @@ describe('a record set definition', () => {
 			// @ts-expect-error: no route is mounted at this path.
 			paths: { map: '/gis/addresses', table: '/gis/adresses/table' },
 			codecs: addressRecordSet.codecs,
+			defaults: addressRecordSet.defaults,
 			applies: { search: 'both', regions: 'both' },
 		});
 
@@ -129,10 +209,25 @@ describe('a record set definition', () => {
 			recordType: 'address',
 			paths: addressRecordSet.paths,
 			codecs: addressRecordSet.codecs,
+			defaults: addressRecordSet.defaults,
 			// @ts-expect-error: `region` is not one of the filter keys.
 			applies: { search: 'both', region: 'both' },
 		});
 
 		expect(Object.keys(set.applies)).toEqual(['search', 'region']);
+	});
+
+	it('refuses a search box over a key that is not a text filter', () => {
+		const set = defineRecordSet({
+			recordType: 'address',
+			paths: addressRecordSet.paths,
+			codecs: addressRecordSet.codecs,
+			defaults: addressRecordSet.defaults,
+			applies: { search: 'both', regions: 'both' },
+			// @ts-expect-error: `regions` is a selection, not a text filter.
+			textSearch: { key: 'regions' },
+		});
+
+		expect(set.textSearch?.key).toBe('regions');
 	});
 });

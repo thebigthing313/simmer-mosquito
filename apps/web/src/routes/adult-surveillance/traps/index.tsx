@@ -19,10 +19,10 @@ import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS, TRAP_STATUS_COLORS } from '../../../components/map';
-import { useTrapFilterState } from '../../../hooks/adult-surveillance/use-trap-filter-state';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
@@ -53,7 +53,7 @@ const TrapEntityIcon = iconRegistry.entities.trap.icon;
 function TrapsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a trap
 	// both land on the list the operator had narrowed to.
-	const binding = useTrapFilterState();
+	const binding = useRecordSetFilters(trapRecordSet, 'map');
 	const { filters: query, activeCount: activeFilterCount, clearAll, setFilters } = binding;
 	const panel = useExplorerPanel();
 

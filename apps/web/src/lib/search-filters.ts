@@ -20,6 +20,17 @@ export interface SearchFilters<TFilters> {
 }
 
 /**
+ * A filter set as a surface's controls and chips read it: the URL binding,
+ * what it resets to, and the Organization's today, which a date window ends
+ * on and the date pickers are bounded by. A chip reads `defaults` to decide
+ * whether a filter is set and what removing it writes back.
+ */
+export interface FilterBinding<TFilters> extends SearchFilters<TFilters> {
+	readonly defaults: TFilters;
+	readonly today: string;
+}
+
+/**
  * The two counting rules a surface cannot state by listing its filters.
  *
  * Everything else is derived: a filter at its default counts nothing, a

@@ -344,7 +344,14 @@ back and keep the selection, while the Service Requests switch dropped Search,
 Tags and Region because a filter the Table neither shows nor clears is one
 that either sits unapplied or narrows the rows invisibly. The maintainer
 settled on the second in #1419, so Inspections now loses Region on the way to its Table, the way
-Service Requests always lost its three.
+Service Requests always lost its three. The surface itself holds to the same
+rule: `surfaceCodecs` hands it a codec that reads and writes nothing for each
+key it does not apply, so its `validateSearch` drops a hand-typed one and
+`useRecordSetFilters` resolves and counts it as its default.
+
+The definition also holds what the filter state reads: `defaults(context,
+surface)`, the counting rule, and the `textSearch` key for a set with a search
+box. `useRecordSetFilters` in `docs/web-hooks.md` says what each is for.
 
 The paths are typed as `LinkProps['to']`, which is the router's own answer, so
 a path the generated route tree does not hold fails `tsc` in the definition.
@@ -601,10 +608,8 @@ know which. The server refuses an intent whatever either side says.
 The map opens on the last 30 days and the table on every inspection, and that
 is the surfaces rather than an oversight: a season of inspections is a solid
 block of dots over the same streets, while the table shows 100 rows a page
-whatever the reach. The endpoint takes `regionId` and the table sends none,
-because it has no control that shows or clears a region, and the switch from
-the map leaves `regions` behind for the same reason. `RecordSetSwitch` above
-carries the rule.
+whatever the reach. `inspectionRecordSet` states both windows, and which
+filters the table applies, under `RecordSetSwitch and defineRecordSet` above.
 
 #### inspectionSummaryGroupings
 

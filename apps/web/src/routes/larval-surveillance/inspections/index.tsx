@@ -55,7 +55,7 @@ import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
-import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
+import { searchValidator } from '../../../lib/search-filters';
 
 const InspectionEntityIcon = iconRegistry.entities.inspection.icon;
 
@@ -87,7 +87,7 @@ function InspectionsExplorerRoute() {
 		setFilters,
 		state,
 		today,
-	} = useInspectionFilterState(DATE_RANGE_COUNTING, 'last-30-days');
+	} = useInspectionFilterState('map');
 	const { dateFrom, dateTo, densities, wetness } = state;
 
 	const panel = useExplorerPanel();

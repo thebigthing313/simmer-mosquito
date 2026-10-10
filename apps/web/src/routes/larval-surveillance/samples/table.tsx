@@ -21,7 +21,7 @@ import {
 	usePagedMapResource,
 	WHOLE_WORLD_BBOX,
 } from '../../../hooks/explorer/use-paged-map-resource';
-import { useSampleFilterState } from '../../../hooks/larval-surveillance/use-sample-filter-state';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
@@ -51,7 +51,7 @@ const SampleIcon = iconRegistry.entities.sample.icon;
  * out, and every filter the Map has applies here too.
  */
 function SamplesTableRoute() {
-	const binding = useSampleFilterState();
+	const binding = useRecordSetFilters(sampleRecordSet, 'table');
 	const { filters, activeCount, reset } = binding;
 	const routeSearch = Route.useSearch();
 

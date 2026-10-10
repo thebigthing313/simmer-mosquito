@@ -2,9 +2,9 @@ import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { OutletSimpleLayout } from '../../../components/app-shell';
+import { surfaceCodecs } from '../../../components/explorer/record-set';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { INSPECTION_TABLE_COUNTING } from '../../../components/larval-surveillance/inspection-filters';
 import {
 	INSPECTIONS_PATH,
 	type InspectionListing,
@@ -12,10 +12,7 @@ import {
 	inspectionTileFilters,
 } from '../../../components/larval-surveillance/inspection-listing';
 import { InspectionsFilterBar } from '../../../components/larval-surveillance/inspections-filter-bar';
-import {
-	inspectionFilterCodecs,
-	inspectionRecordSet,
-} from '../../../components/larval-surveillance/inspections-search';
+import { inspectionRecordSet } from '../../../components/larval-surveillance/inspections-search';
 import { InspectionsTable } from '../../../components/larval-surveillance/inspections-table';
 import { RecordTableEmpty } from '../../../components/record/record-table-empty';
 import { RecordTableUnavailable } from '../../../components/record/record-table-unavailable';
@@ -30,15 +27,13 @@ import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
 /**
- * The explorer's filter set, validated through the explorer's codecs.
- *
- * `searchValidator` keeps what its codecs name and drops the rest, so the
- * filters have to be here or a link from the map would arrive with them stripped
- * before the page read them.
+ * The filters the Table applies, validated through the record set's codecs as
+ * the Table reads them. `searchValidator` keeps what its codecs name and drops
+ * the rest, so a Region on a hand-typed address does not survive here.
  */
 export const Route = createFileRoute('/larval-surveillance/inspections/table')({
 	component: InspectionsTableRoute,
-	validateSearch: searchValidator(inspectionFilterCodecs),
+	validateSearch: searchValidator(surfaceCodecs(inspectionRecordSet, 'table')),
 });
 
 const InspectionIcon = iconRegistry.entities.inspection.icon;
@@ -61,18 +56,18 @@ const InspectionIcon = iconRegistry.entities.inspection.icon;
  * The bar above the rows reads and writes the params the explorer reads and
  * writes, through the same codecs, so a link built on one surface opens the same
  * set on the other. Six of the explorer's seven filters are here. Region is not,
- * and `inspectionRecordSet` leaves it behind on the way here.
+ * and `inspectionRecordSet` leaves it behind on the way here. The Table opens
+ * on all time where the Map opens on the last 30 days, which the record set's
+ * defaults say.
  */
 function InspectionsTableRoute() {
-	// `all-time` is where the two surfaces part: this page says it holds every
-	// inspection, so an address with no dates on it opens on every inspection.
-	const binding = useInspectionFilterState(INSPECTION_TABLE_COUNTING, 'all-time');
+	const binding = useInspectionFilterState('table');
 	const catalogs = useInspectionCatalogs();
 	const routeSearch = Route.useSearch();
 
 	const params = mapQueryParams({
 		bbox: WHOLE_WORLD_BBOX,
-		...inspectionQueryParams(inspectionTileFilters({ ...binding.state, regionIds: new Set() })),
+		...inspectionQueryParams(inspectionTileFilters(binding.state)),
 	});
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
 		usePagedMapResource<InspectionListing>({

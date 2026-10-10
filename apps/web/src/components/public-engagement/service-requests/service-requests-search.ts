@@ -1,13 +1,16 @@
+import { serviceRequestOverdueCutoff } from '@simmer-mosquito/domain';
 import { startOfYear } from '../../../lib/date-presets';
 import {
 	choiceParam,
+	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
+	type FilterCounting,
 	flagParam,
 	idSetParam,
 	textParam,
 } from '../../../lib/search-filters';
-import { defineRecordSet } from '../../explorer/record-set';
+import { defineRecordSet, type RecordSetContext } from '../../explorer/record-set';
 import type { ServiceRequestStatusFilter } from './legend';
 
 // The service requests explorer's URL filter contract, outside the route module
@@ -49,16 +52,26 @@ export const serviceRequestFilterCodecs: FilterCodecs<ServiceRequestFilters> = {
 };
 
 /**
- * How many filters a surface says are set, from the count of params on its
- * address. An Overdue left on the address while the Organization's threshold
- * is off narrows nothing, so it is not counted either.
+ * The first request date that is not overdue under the Organization's
+ * threshold, or `null` while the threshold is off. Overdue turns over on the
+ * Organization's calendar rather than the browser's.
  */
-export function countedServiceRequestFilters(
-	addressCount: number,
-	overdue: boolean,
-	overdueAvailable: boolean,
-): number {
-	return overdue && !overdueAvailable ? addressCount - 1 : addressCount;
+export function serviceRequestOverdueCutoffFor({
+	today,
+	settings,
+}: RecordSetContext): string | null {
+	return serviceRequestOverdueCutoff(settings.publicEngagement.serviceRequestOverdueDays, today);
+}
+
+/**
+ * How a service request surface counts what is set. An Overdue left on the
+ * address while the Organization's threshold is off narrows nothing, so it is
+ * not counted.
+ */
+function serviceRequestCounting(context: RecordSetContext): FilterCounting<ServiceRequestFilters> {
+	return serviceRequestOverdueCutoffFor(context) === null
+		? { ...DATE_RANGE_COUNTING, uncounted: ['overdue'] }
+		: DATE_RANGE_COUNTING;
 }
 
 /** The order the Map's rail and the Table page in. */
@@ -116,6 +129,9 @@ export const serviceRequestRecordSet = defineRecordSet({
 		table: '/public-engagement/service-requests/table',
 	},
 	codecs: serviceRequestFilterCodecs,
+	defaults: ({ today }) => serviceRequestFilterDefaults(today),
+	counting: serviceRequestCounting,
+	textSearch: { key: 'search' },
 	applies: {
 		status: 'both',
 		search: 'map',

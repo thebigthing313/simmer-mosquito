@@ -2,6 +2,7 @@ import type { MapQueryValue } from '../../hooks/explorer/use-paged-map-resource'
 import { addDaysToDateString } from '../../lib/local-date';
 import {
 	choiceParam,
+	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
 	flagParam,
@@ -103,6 +104,8 @@ export const sampleRecordSet = defineRecordSet({
 	recordType: 'sample',
 	paths: { map: '/larval-surveillance/samples', table: '/larval-surveillance/samples/table' },
 	codecs: sampleFilterCodecs,
+	defaults: ({ today }) => sampleFilterDefaults(today),
+	counting: DATE_RANGE_COUNTING,
 	applies: {
 		from: 'both',
 		to: 'both',
