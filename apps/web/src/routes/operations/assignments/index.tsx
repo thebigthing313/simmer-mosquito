@@ -47,7 +47,6 @@ function AssignmentsIndexRoute() {
 		setHighlightId,
 		handleSelect,
 		assigneeOptions,
-		assigneeLabel,
 	} = useWorklistIndex({
 		rows: assignments,
 		statusOf: assignmentStatus,
@@ -112,11 +111,7 @@ function AssignmentsIndexRoute() {
 						</WriteOnly>
 					</div>
 
-					<AssignmentFilterBar
-						assigneeLabel={assigneeLabel}
-						assigneeOptions={assigneeOptions}
-						binding={binding}
-					/>
+					<AssignmentFilterBar assigneeOptions={assigneeOptions} binding={binding} />
 				</div>
 
 				<AssignmentResults

@@ -464,6 +464,23 @@ it uncounted to match. A Tag chip on Service Requests is drawn for every id
 the address holds, an unknown one included, where the old chip row drew only
 Tags the catalog knew and so could undercount what the panel reported.
 
+Three filter cards declare their filters the same way without being record
+sets: `MissionFilterBar`, `AssignmentFilterBar` and `RequestControlFilters`
+(#1610). So what the declarations are written against is the codecs alone,
+`FilterSet`, which a record set satisfies by being one, and the binding the
+controls and chips read is a plain `FilterBinding` with the record set's
+search box half and `context` optional. A page passing the plain binding
+declares no `text` filter and no `available`, since both read a half it does
+not have, and the drawing code throws rather than guess if one does. "Clear
+all" is the binding's `reset` there. An id set whose options the page builds
+at render time, such as the assignees over the worklist rows it loaded, takes
+`suppliedSource(options)`, and the declarations are then built per render
+rather than once at module scope. A `choiceSet` with no `field` draws a
+`MultiSelectFilter` that writes the values in option order, which is what the
+Missions and Assignments Status popovers did by hand. Control type is an
+`idSet` over fixed options rather than a `choiceSet`, because the codec holds
+any code, and an id set's chips keep the order the types were picked in.
+
 `ExplorerMapPage` takes it through `summary` on the row results rather than as
 a third results shape. The caller still hands over its rows, because the page
 request that counted them is the one that fetched them, and swapping the
@@ -1145,13 +1162,14 @@ exactly Stops and Comments.
 
 The Missions filters, moved out of the index route with the rest of what that
 route declared (#1481). It takes the binding from `useMissionFilterState` and
-computes the date window's controls itself, on the schedule presets. The chip
-bar draws while `activeCount` is above zero, which counts a window moved off
-the default as one filter (#1453), and the Dates chip writes
+the assignee options from `useWorklistIndex`, and draws its controls and chips
+from filter declarations (#1610), with the date window on the schedule
+presets. The chip bar draws while `activeCount` is above zero, which counts a
+window moved off the default as one filter (#1453), and the Dates chip writes
 `binding.defaults` back rather than a range the route computed a second time.
 It stays apart from `AssignmentFilterBar` because the two records share no
-status vocabulary and only Missions filters on control type. One chip bar
-drawn from a filter declaration is #1421.
+status vocabulary and only Missions filters on control type. Control type is
+declared once in `operations-filters.ts` and shared with Requests for Control.
 
 #### AssignmentFilterBar
 
@@ -1202,12 +1220,14 @@ hand the card the defaults object it had built for `useSearchFilters`, which
 was the same object by construction only while both lived in one function;
 the binding makes it one value.
 
-#### RequestControlChips
-
-The chips under `RequestControlFilters`, private to its module (#1481). The
-Dates chip resets to `binding.defaults`. The status chip is the only one whose
-default is not empty, so removing it writes `open` back rather than clearing
-the field.
+Its controls and chips come from filter declarations (#1610), which replaced
+a private `RequestControlChips`. Status is a `choice` whose default is `open`,
+so its chip draws for `All` and `Resolved` and removing it writes `open` back.
+Requested by reads the profiles catalog through `TECHNICIAN_FILTER`'s source
+and unknown name, so a profile the catalog does not hold reads Unknown person
+here as it does on every record set. It read Unknown profile before. The
+Status chip draws ahead of the Dates chip, which is the order the hand-written
+row had.
 
 #### RequestRow
 

@@ -20,8 +20,8 @@ export interface WorklistIndexFilters {
  * other does not, and the people from `useCatalogOptions(catalogs.profiles)`.
  * Returns the rows that pass, the selected row id (the one picked while it is still visible,
  * else the first visible row, else null) and that row, the selected stop and
- * the highlighted stop with their setters, `handleSelect`, the assignee
- * options with `Unassigned` first, and the label an assignee chip reads.
+ * the highlighted stop with their setters, `handleSelect`, and the assignee
+ * options with `Unassigned` first.
  */
 export function useWorklistIndex<Row extends { readonly id: string }>({
 	rows,
@@ -38,7 +38,6 @@ export function useWorklistIndex<Row extends { readonly id: string }>({
 	readonly matches?: (row: Row) => boolean;
 	readonly personnel: {
 		readonly options: readonly FilterOption[];
-		readonly nameById: ReadonlyMap<string, string>;
 	};
 }) {
 	const [pickedId, setPickedId] = useState<string | null>(null);
@@ -68,9 +67,6 @@ export function useWorklistIndex<Row extends { readonly id: string }>({
 		...personnel.options,
 	];
 
-	const assigneeLabel = (id: string): string =>
-		id === UNASSIGNED ? UNASSIGNED_LABEL : (personnel.nameById.get(id) ?? 'Unknown profile');
-
 	return {
 		visible,
 		selectedId: selected?.id ?? null,
@@ -81,6 +77,5 @@ export function useWorklistIndex<Row extends { readonly id: string }>({
 		setHighlightId,
 		handleSelect,
 		assigneeOptions,
-		assigneeLabel,
 	};
 }

@@ -1,26 +1,28 @@
 /**
- * A record set's filter controls and chips, drawn from its declarations in
+ * A set's filter controls and chips, drawn from its declarations in
  * `filter-declarations.ts`. `filterFields` hands back one control per filter
  * for the surface to lay out, and `DeclaredFilterChips` draws one chip per
  * filter that is set, each one clearing its own, under "Clear all". Both take
- * the binding from `useRecordSetFilters`.
+ * the binding from `useRecordSetFilters`, or a page's plain `FilterBinding`.
  */
 
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import type { ReactElement, ReactNode } from 'react';
-import { useCatalogOptions } from '../../hooks/explorer/use-catalog-options';
+import { indexed, useCatalogOptions } from '../../hooks/explorer/use-catalog-options';
 import { useDateRangeFilters } from '../../hooks/explorer/use-date-range-filters';
 import { useInsecticideOptions } from '../../hooks/explorer/use-insecticide-options';
-import type { RecordSetFilterBinding } from '../../hooks/explorer/use-record-set-filters';
+import type { TextSearchBinding } from '../../hooks/explorer/use-record-set-filters';
 import { useRegionOptions } from '../../hooks/explorer/use-region-options';
 import { useSpeciesOptions } from '../../hooks/explorer/use-species-options';
 import { useTagOptions } from '../../hooks/explorer/use-tag-options';
 import type { CatalogDescriptor } from '../../hooks/queries/catalog-register';
+import type { FilterBinding } from '../../lib/search-filters';
 import { DateRangeFilter } from '../date-range-filter';
 import { ActiveFilterBar, type DateRange, DateRangeChip, FilterChip } from './filter-chips';
 import {
 	type ChoiceDeclaration,
 	type ChoiceSetDeclaration,
+	type DateRangeDeclaration,
 	type FilterDeclarations,
 	type FilterName,
 	type FlagDeclaration,
@@ -33,8 +35,18 @@ import {
 	type TextDeclaration,
 } from './filter-declarations';
 import { type FilterOption, MultiSelectFilter, toggle } from './multi-select-filter';
+import type { RecordSetContext } from './record-set';
 import { SegmentedFilter } from './segmented-filter';
 import { ToggleFilter } from './toggle-filter';
+
+/**
+ * What the controls and chips read off a binding. A record set's binding from
+ * `useRecordSetFilters` carries all of it. A page with no record set hands its
+ * `FilterBinding`, and then declares no text filter and no `available`, since
+ * both read a half it does not have; "Clear all" is its `reset`.
+ */
+type DeclaredFilterBinding<TFilters> = FilterBinding<TFilters> &
+	Partial<TextSearchBinding> & { readonly context?: RecordSetContext };
 
 /** One control per declared filter, by name, or null where the filter is not available. */
 export type FilterFields<TFilters> = Readonly<Record<FilterName<TFilters>, ReactElement | null>>;
@@ -46,7 +58,7 @@ export type FilterFields<TFilters> = Readonly<Record<FilterName<TFilters>, React
  */
 export function filterFields<TFilters>(
 	declarations: FilterDeclarations<TFilters>,
-	binding: RecordSetFilterBinding<TFilters>,
+	binding: DeclaredFilterBinding<TFilters>,
 ): FilterFields<TFilters> {
 	const fields: Partial<Record<FilterName<TFilters>, ReactElement | null>> = {};
 	for (const declaration of declarations.list) {
@@ -71,14 +83,14 @@ export function DeclaredFilterChips<TFilters>({
 	binding,
 	declarations,
 }: {
-	readonly binding: RecordSetFilterBinding<TFilters>;
+	readonly binding: DeclaredFilterBinding<TFilters>;
 	readonly declarations: FilterDeclarations<TFilters>;
 }) {
 	if (binding.activeCount === 0) {
 		return null;
 	}
 	return (
-		<ActiveFilterBar onClearAll={binding.clearAll}>
+		<ActiveFilterBar onClearAll={binding.clearAll ?? binding.reset}>
 			{declarations.list.map((declaration) =>
 				isAvailable(declaration, binding.context) ? (
 					<DeclaredChips
@@ -93,9 +105,9 @@ export function DeclaredFilterChips<TFilters>({
 }
 
 /** A binding as the per-kind parts read it, with its keys loosened to strings. */
-type LooseBinding = RecordSetFilterBinding<Readonly<Record<string, unknown>>>;
+type LooseBinding = DeclaredFilterBinding<Readonly<Record<string, unknown>>>;
 
-function loosen<TFilters>(binding: RecordSetFilterBinding<TFilters>): LooseBinding {
+function loosen<TFilters>(binding: DeclaredFilterBinding<TFilters>): LooseBinding {
 	return binding as unknown as LooseBinding;
 }
 
@@ -108,7 +120,7 @@ function DeclaredField({
 }) {
 	switch (declaration.kind) {
 		case 'dateRange':
-			return <DateRangeField binding={loose} />;
+			return <DateRangeField binding={loose} declaration={declaration} />;
 		case 'text':
 			return <TextField binding={loose} declaration={declaration} />;
 		case 'flag':
@@ -153,13 +165,20 @@ function DeclaredChips({
 
 // --- date range and search ----------------------------------------------------
 
-function DateRangeField({ binding }: { readonly binding: LooseBinding }) {
+function DateRangeField({
+	binding,
+	declaration,
+}: {
+	readonly binding: LooseBinding;
+	readonly declaration: DateRangeDeclaration;
+}) {
 	const { filters, today, setFilters } = binding;
 	const dateRange = useDateRangeFilters({
 		from: filters.from as string,
 		to: filters.to as string,
 		today,
 		setFilters: (patch) => setFilters({ ...patch }),
+		direction: declaration.direction ?? 'history',
 	});
 	return <DateRangeFilter {...dateRange} />;
 }
@@ -171,15 +190,30 @@ function TextField({
 	readonly binding: LooseBinding;
 	readonly declaration: TextDeclaration<string>;
 }) {
+	const { searchInput, setSearchInput, clearSearch } = searchHalf(binding);
 	return (
 		<SearchInput
 			label={declaration.label}
-			onChange={(event) => binding.setSearchInput(event.target.value)}
-			onClear={binding.clearSearch}
+			onChange={(event) => setSearchInput(event.target.value)}
+			onClear={clearSearch}
 			placeholder={declaration.placeholder}
-			value={binding.searchInput}
+			value={searchInput}
 		/>
 	);
+}
+
+/** The search box half, which a text filter cannot be drawn without. */
+function searchHalf(binding: LooseBinding): TextSearchBinding {
+	const { searchInput, setSearchInput, clearSearch, clearAll } = binding;
+	if (
+		searchInput === undefined ||
+		setSearchInput === undefined ||
+		clearSearch === undefined ||
+		clearAll === undefined
+	) {
+		throw new Error('A text filter needs a record set binding, which carries the search box.');
+	}
+	return { searchInput, setSearchInput, clearSearch, clearAll };
 }
 
 /** The committed term, not what the box shows while it types ahead. */
@@ -192,7 +226,7 @@ function TextChip({
 }) {
 	const term = binding.filters[declaration.key] as string;
 	return term.trim().length === 0 ? null : (
-		<FilterChip label={`Search: ${term}`} onRemove={binding.clearSearch} />
+		<FilterChip label={`Search: ${term}`} onRemove={searchHalf(binding).clearSearch} />
 	);
 }
 
@@ -281,11 +315,23 @@ function ChoiceSetField({
 	readonly binding: LooseBinding;
 	readonly declaration: ChoiceSetDeclaration<string, string>;
 }) {
-	const { key, field: Field } = declaration;
+	const { key, label, options } = declaration;
+	const selected = binding.filters[key] as ReadonlySet<string>;
+	if (declaration.field !== undefined) {
+		const Field = declaration.field;
+		return <Field onChange={(next) => binding.setFilters({ [key]: next })} selected={selected} />;
+	}
 	return (
-		<Field
-			onChange={(next) => binding.setFilters({ [key]: next })}
-			selected={binding.filters[key] as ReadonlySet<string>}
+		<MultiSelectFilter
+			empty={declaration.empty}
+			label={label}
+			onChange={(next) =>
+				binding.setFilters({
+					[key]: new Set(options.map(({ value }) => value).filter((value) => next.has(value))),
+				})
+			}
+			options={options.map(({ value, label: name }) => ({ id: value, label: name }))}
+			selected={selected}
 		/>
 	);
 }
@@ -405,6 +451,8 @@ function WithOptions({
 			return <SpeciesOptions>{children}</SpeciesOptions>;
 		case 'insecticides':
 			return <InsecticideOptions>{children}</InsecticideOptions>;
+		case 'supplied':
+			return children(indexed(source.options));
 	}
 }
 
