@@ -46,17 +46,36 @@ export function insetPadding(
 }
 
 /**
+ * The inset each map's canvas last asked for, written by `useMapPadding`.
+ *
+ * Per map rather than per component, because a frame holds the map and not the
+ * canvas. A weak map, so a removed map takes its entry with it.
+ */
+const requestedInsets = new WeakMap<MapboxMap, MapInset>();
+
+/** Record the inset the canvas has asked this map to hold. Only `useMapPadding` calls it. */
+export function requestCanvasInset(map: MapboxMap, inset: MapInset): void {
+	requestedInsets.set(map, inset);
+}
+
+/** The inset the canvas last asked this map to hold, or undefined before it asked. */
+export function requestedCanvasInset(map: MapboxMap): MapInset | undefined {
+	return requestedInsets.get(map);
+}
+
+/**
  * The padding options for a camera call that frames something: the inset plus
  * the call's own margin on every side, with `retainPadding: false`.
  *
- * The inset is the one the canvas holds, read off `getPadding()`, unless the
- * caller hands one over. `useMapPadding`'s heading in `docs/web-hooks.md` says
- * why every fit goes through this.
+ * The inset is the one the canvas asked for, unless the caller hands one over.
+ * A map whose canvas has asked for nothing yet falls back to `getPadding()`.
+ * `useMapPadding`'s heading in `docs/web-hooks.md` says why every fit goes
+ * through this, and why `getPadding()` is not the first answer.
  */
 export function framingPadding(
 	map: MapboxMap,
 	margin: number,
-	inset: MapInset = canvasPadding(map),
+	inset: MapInset = requestedCanvasInset(map) ?? canvasPadding(map),
 ): {
 	readonly padding: ReturnType<typeof insetPadding>;
 	readonly retainPadding: false;
@@ -65,7 +84,7 @@ export function framingPadding(
 }
 
 /** The padding the map holds. Mapbox types every side optional and fills all four. */
-function canvasPadding(map: MapboxMap): MapInset {
+export function canvasPadding(map: MapboxMap): MapInset {
 	const { top = 0, right = 0, bottom = 0, left = 0 } = map.getPadding();
 	return { top, right, bottom, left };
 }

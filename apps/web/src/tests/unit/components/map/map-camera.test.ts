@@ -8,6 +8,7 @@ import {
 	focusOnMap,
 	frameOnMap,
 } from '../../../../components/map/map-camera';
+import { requestCanvasInset } from '../../../../components/map/map-inset';
 import { cleanupRenderedHooks, createFakeMap } from './fake-map';
 
 afterEach(() => {
@@ -167,6 +168,24 @@ describe('frameOnMap', () => {
 			expect.objectContaining({ padding: around(56, sheet), retainPadding: false }),
 		]);
 		expect(fake.map.getPadding()).toEqual(PANEL);
+	});
+
+	// A fit that starts while the canvas's padding ease is running reads an
+	// in-between value off getPadding, so the margin is built on the inset the
+	// canvas asked for instead (#1490).
+	it('builds on the inset the canvas asked for, not a padding left partway', () => {
+		const fake = mapUnderPanel();
+		requestCanvasInset(fake.map, PANEL);
+		fake.strandPadding({ top: 0, right: 0, bottom: 0, left: 230 });
+		const sheet = { top: 0, right: 0, bottom: 222, left: 0 };
+
+		frameOnMap(fake.map, BOX, { purpose: 'collection', animate: true });
+		frameOnMap(fake.map, BOX, { purpose: 'collection', animate: true, inset: sheet });
+
+		expect(fake.cameraCalls.slice(-2)).toEqual([
+			expect.objectContaining({ padding: around(56), retainPadding: false }),
+			expect.objectContaining({ padding: around(56, sheet), retainPadding: false }),
+		]);
 	});
 
 	it('moves nothing for a target with no finite bounds', () => {
