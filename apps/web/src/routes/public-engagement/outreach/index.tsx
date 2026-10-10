@@ -27,7 +27,7 @@ import { formatReach } from '../../../components/public-engagement/public-engage
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { useOutreachFilterState } from '../../../hooks/public-engagement/use-outreach-filter-state';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -45,7 +45,7 @@ const PATH = '/map/outreach';
 function OutreachExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
-	const binding = useOutreachFilterState();
+	const binding = useRecordSetFilters(outreachRecordSet, 'map');
 	const { filters: query, setFilters, reset, activeCount: activeFilterCount } = binding;
 	const panel = useExplorerPanel();
 

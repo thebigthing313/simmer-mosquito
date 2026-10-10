@@ -33,9 +33,9 @@ export const SERVICE_REQUESTS_PATH = '/map/service-requests';
 
 /**
  * What the reader has narrowed by, as the tile layer wants it. The Table has no
- * search, Tags or Regions control, so it passes only the four it has.
+ * search, Tags or Regions control, so those three reach here at their defaults.
  *
- * `overdueCutoff` is the Organization's, from `useServiceRequestFilterDefaults`,
+ * `overdueCutoff` is the Organization's, from `useServiceRequestOverdueCutoff`,
  * and `null` while its threshold is off: Overdue then narrows nothing, whatever
  * the address says.
  */

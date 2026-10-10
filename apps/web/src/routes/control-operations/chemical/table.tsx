@@ -19,12 +19,12 @@ import { RecordSetSwitch } from '../../../components/explorer/record-set-switch'
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { RecordTableEmpty } from '../../../components/record/record-table-empty';
 import { RecordTableUnavailable } from '../../../components/record/record-table-unavailable';
-import { useApplicationFilterState } from '../../../hooks/control-operations/use-application-filter-state';
 import {
 	mapQueryParams,
 	usePagedMapResource,
 	WHOLE_WORLD_BBOX,
 } from '../../../hooks/explorer/use-paged-map-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
@@ -42,7 +42,7 @@ const ApplicationIcon = iconRegistry.entities.application.icon;
  * two surfaces list one set.
  */
 function ApplicationsTableRoute() {
-	const binding = useApplicationFilterState();
+	const binding = useRecordSetFilters(applicationRecordSet, 'table');
 	const { filters, activeCount, reset } = binding;
 	const routeSearch = Route.useSearch();
 

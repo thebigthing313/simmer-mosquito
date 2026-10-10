@@ -2,6 +2,7 @@ import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { OutletSimpleLayout } from '../../../components/app-shell';
+import { surfaceCodecs } from '../../../components/explorer/record-set';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -10,14 +11,9 @@ import {
 	serviceRequestPageParams,
 	serviceRequestTileFilters,
 } from '../../../components/public-engagement/service-requests/service-request-listing';
+import { ServiceRequestsFilterBar } from '../../../components/public-engagement/service-requests/service-requests-filter-bar';
 import {
-	ServiceRequestsFilterBar,
-	type ServiceRequestTableFilters,
-} from '../../../components/public-engagement/service-requests/service-requests-filter-bar';
-import {
-	countedServiceRequestFilters,
 	type ServiceRequestRailSearch,
-	serviceRequestFilterCodecs,
 	serviceRequestRailOrderCodecs,
 	serviceRequestRecordSet,
 } from '../../../components/public-engagement/service-requests/service-requests-search';
@@ -29,29 +25,22 @@ import {
 	usePagedMapResource,
 	WHOLE_WORLD_BBOX,
 } from '../../../hooks/explorer/use-paged-map-resource';
-import { useServiceRequestFilterDefaults } from '../../../hooks/public-engagement/use-service-request-filter-defaults';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
+import { useServiceRequestOverdueCutoff } from '../../../hooks/public-engagement/use-service-request-overdue-cutoff';
 import { useProfileNames } from '../../../hooks/queries/use-profile-names';
 import { useRequestParties } from '../../../hooks/queries/use-request-parties';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { recordNoun } from '../../../lib/record-nouns';
-import {
-	DATE_RANGE_COUNTING,
-	type FilterCodecs,
-	searchValidator,
-} from '../../../lib/search-filters';
+import { searchValidator } from '../../../lib/search-filters';
 
 const ORDER_DEFAULTS: ServiceRequestRailSearch = { order: 'newest' };
 
-const FILTER_CODECS: FilterCodecs<ServiceRequestTableFilters> = {
-	status: serviceRequestFilterCodecs.status,
-	from: serviceRequestFilterCodecs.from,
-	to: serviceRequestFilterCodecs.to,
-	overdue: serviceRequestFilterCodecs.overdue,
-};
-
 export const Route = createFileRoute('/public-engagement/service-requests/table')({
 	component: ServiceRequestsTableRoute,
-	validateSearch: searchValidator({ ...FILTER_CODECS, ...serviceRequestRailOrderCodecs }),
+	validateSearch: searchValidator({
+		...surfaceCodecs(serviceRequestRecordSet, 'table'),
+		...serviceRequestRailOrderCodecs,
+	}),
 });
 
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
@@ -68,21 +57,16 @@ const RequestIcon = iconRegistry.entities.serviceRequest.icon;
  * `docs/web-components.md` says why there are no column sorts and no Load more.
  */
 function ServiceRequestsTableRoute() {
-	const { defaults: mapDefaults, today, overdueCutoff } = useServiceRequestFilterDefaults();
+	const overdueCutoff = useServiceRequestOverdueCutoff();
 	const overdueAvailable = overdueCutoff !== null;
-	const defaults: ServiceRequestTableFilters = {
-		status: mapDefaults.status,
-		from: mapDefaults.from,
-		to: mapDefaults.to,
-		overdue: mapDefaults.overdue,
-	};
 	const {
 		filters: query,
 		setFilters,
 		reset,
-		activeCount: urlFilterCount,
-	} = useSearchFilters(defaults, FILTER_CODECS, DATE_RANGE_COUNTING);
-	const activeCount = countedServiceRequestFilters(urlFilterCount, query.overdue, overdueAvailable);
+		activeCount,
+		defaults,
+		today,
+	} = useRecordSetFilters(serviceRequestRecordSet, 'table');
 	const { filters: order, setFilters: setOrder } = useSearchFilters(
 		ORDER_DEFAULTS,
 		serviceRequestRailOrderCodecs,

@@ -6,8 +6,11 @@ import {
 	type CollectionFilters,
 	collectionFilterDefaults,
 } from '../../../../../components/adult-surveillance/collections/collections-search';
-import type { CollectionFilterBinding } from '../../../../../hooks/adult-surveillance/use-collection-filter-state';
-import { countActiveFilters, DATE_RANGE_COUNTING } from '../../../../../lib/search-filters';
+import {
+	countActiveFilters,
+	DATE_RANGE_COUNTING,
+	type FilterBinding,
+} from '../../../../../lib/search-filters';
 
 // The option lists are catalog reads; the chips only need a name for each id.
 vi.mock('../../../../../hooks/explorer/use-catalog-options', () => ({
@@ -28,7 +31,7 @@ const DEFAULTS = collectionFilterDefaults(TODAY);
 function renderFields(patch: Partial<CollectionFilters>) {
 	const filters = { ...DEFAULTS, ...patch };
 	const setFilters = vi.fn();
-	const binding: CollectionFilterBinding = {
+	const binding: FilterBinding<CollectionFilters> = {
 		filters,
 		setFilters,
 		reset: vi.fn(),

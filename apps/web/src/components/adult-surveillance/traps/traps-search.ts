@@ -62,5 +62,7 @@ export const trapRecordSet = defineRecordSet({
 	recordType: 'trap',
 	paths: { map: '/adult-surveillance/traps', table: '/adult-surveillance/traps/table' },
 	codecs: trapFilterCodecs,
+	defaults: () => TRAP_FILTER_DEFAULTS,
+	textSearch: { key: 'search', delayMs: 200 },
 	applies: { search: 'both', status: 'both', methods: 'both', regions: 'both' },
 });

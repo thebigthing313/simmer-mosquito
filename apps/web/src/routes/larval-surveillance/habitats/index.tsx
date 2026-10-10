@@ -23,7 +23,7 @@ import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { useHabitatFilterState } from '../../../hooks/larval-surveillance/use-habitat-filter-state';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { Tag } from '../../../hooks/queries/tag-view';
@@ -62,7 +62,7 @@ interface HabitatListRow {
 }
 
 function HabitatsExplorerRoute() {
-	const binding = useHabitatFilterState();
+	const binding = useRecordSetFilters(habitatRecordSet, 'map');
 	const { filters: query, activeCount: activeFilterCount, clearAll, setFilters } = binding;
 	const panel = useExplorerPanel();
 

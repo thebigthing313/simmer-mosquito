@@ -21,7 +21,7 @@ import {
 	usePagedMapResource,
 	WHOLE_WORLD_BBOX,
 } from '../../../hooks/explorer/use-paged-map-resource';
-import { useOutreachFilterState } from '../../../hooks/public-engagement/use-outreach-filter-state';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
@@ -39,7 +39,7 @@ const OutreachIcon = iconRegistry.entities.outreachAction.icon;
  * surfaces list one set.
  */
 function OutreachActionsTableRoute() {
-	const binding = useOutreachFilterState();
+	const binding = useRecordSetFilters(outreachRecordSet, 'table');
 	const { filters, activeCount, reset } = binding;
 	const routeSearch = Route.useSearch();
 

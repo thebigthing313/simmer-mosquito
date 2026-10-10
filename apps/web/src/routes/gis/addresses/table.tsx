@@ -20,7 +20,7 @@ import {
 	usePagedMapResource,
 	WHOLE_WORLD_BBOX,
 } from '../../../hooks/explorer/use-paged-map-resource';
-import { useAddressFilterState } from '../../../hooks/gis/use-address-filter-state';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
@@ -37,7 +37,7 @@ const AddressIcon = iconRegistry.actions.searchCheck.icon;
  * box around the whole world, so the two surfaces list one set.
  */
 function AddressesTableRoute() {
-	const binding = useAddressFilterState();
+	const binding = useRecordSetFilters(addressRecordSet, 'table');
 	const { filters, activeCount, clearAll } = binding;
 	const routeSearch = Route.useSearch();
 

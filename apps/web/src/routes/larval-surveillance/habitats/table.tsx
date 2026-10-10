@@ -22,7 +22,7 @@ import {
 	usePagedMapResource,
 	WHOLE_WORLD_BBOX,
 } from '../../../hooks/explorer/use-paged-map-resource';
-import { useHabitatFilterState } from '../../../hooks/larval-surveillance/use-habitat-filter-state';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
@@ -53,7 +53,7 @@ const HabitatIcon = iconRegistry.entities.habitat.icon;
  * filter for the same reason.
  */
 function HabitatsTableRoute() {
-	const binding = useHabitatFilterState();
+	const binding = useRecordSetFilters(habitatRecordSet, 'table');
 	const { filters, activeCount, clearAll } = binding;
 	const routeSearch = Route.useSearch();
 

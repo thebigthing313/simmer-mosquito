@@ -25,7 +25,7 @@ import {
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { useAddressFilterState } from '../../../hooks/gis/use-address-filter-state';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { searchValidator } from '../../../lib/search-filters';
 
 export const Route = createFileRoute('/gis/addresses/')({
@@ -39,7 +39,7 @@ const PATH = '/map/addresses';
 function AddressesExplorerRoute() {
 	// The filters live in the URL, so a shared link and Back out of an address
 	// both land on the list the operator had narrowed to.
-	const binding = useAddressFilterState();
+	const binding = useRecordSetFilters(addressRecordSet, 'map');
 	const { activeCount: activeFilterCount, clearAll } = binding;
 	const panel = useExplorerPanel();
 

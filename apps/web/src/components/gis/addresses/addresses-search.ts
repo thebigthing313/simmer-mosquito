@@ -46,5 +46,7 @@ export const addressRecordSet = defineRecordSet({
 	recordType: 'address',
 	paths: { map: '/gis/addresses', table: '/gis/addresses/table' },
 	codecs: addressFilterCodecs,
+	defaults: () => ADDRESS_FILTER_DEFAULTS,
+	textSearch: { key: 'search' },
 	applies: { search: 'both', regions: 'both' },
 });
