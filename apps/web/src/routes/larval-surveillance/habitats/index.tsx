@@ -26,12 +26,13 @@ import {
 	MapCanvas,
 	type MapTileLayer,
 } from '../../../components/map';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { useHabitatTypeOptions } from '../../../hooks/explorer/use-habitat-type-options';
 import { useHabitatFilterState } from '../../../hooks/larval-surveillance/use-habitat-filter-state';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { habitatName, habitatTypeName } from '../../../lib/habitat-name';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -74,7 +75,7 @@ function HabitatsExplorerRoute() {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
-	const { nameById: typeNameById } = useHabitatTypeOptions();
+	const { nameById: typeNameById } = useCatalogOptions(catalogs.habitatTypes);
 
 	const filters = habitatTileFilters(query);
 	const [clustered] = useMapClustering();

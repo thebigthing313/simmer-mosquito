@@ -20,21 +20,18 @@ import {
 import {
 	ACROSS_BLOCK,
 	BLOCK,
+	BLOCK_WITH_EDGE_VERTEX,
 	BULGED_BLOCK,
 	ESCAPING_POND,
+	FIRST_SQUARE,
+	ON_WEST_EDGE,
 	OUTSIDE_SKETCH,
 	POND,
 	SECOND_SQUARE,
 } from './draw-fixtures';
 
-const COMMITTED: DrawGeometry = { type: 'Polygon', coordinates: [[...BLOCK, [-91, 34]]] };
+const COMMITTED: DrawGeometry = { type: 'Polygon', coordinates: [closeRing(BLOCK)] };
 const CONTEXT: DrawContext = { value: COMMITTED, geometryKind: 'habitat' };
-
-const TRIANGLE: readonly PlanarPosition[] = [
-	[-90, 35],
-	[-90, 36],
-	[-89, 36],
-];
 
 /**
  * An area draft three corners in, with every transient set: the cursor trailing,
@@ -43,7 +40,7 @@ const TRIANGLE: readonly PlanarPosition[] = [
  */
 const OPEN_DRAFT: DrawState = {
 	mode: { kind: 'draw', type: 'Polygon', target: { kind: 'replace' } },
-	vertices: TRIANGLE,
+	vertices: FIRST_SQUARE,
 	highlighted: 1,
 	cursor: [-89.5, 35.5],
 	drag: { vertex: { ring: 0, vertex: 0 }, position: [-89.9, 35.1] },
@@ -57,7 +54,7 @@ const PENDING_POINT: DrawState = {
 	drag: null,
 };
 
-const DRAW_TRIANGLE: DrawGeometry = { type: 'Polygon', coordinates: [[...TRIANGLE, [-90, 35]]] };
+const DRAW_TRIANGLE: DrawGeometry = { type: 'Polygon', coordinates: [closeRing(FIRST_SQUARE)] };
 
 /** What each exit opens on, read from the brief rather than from the machine. */
 const EXITS: readonly {
@@ -449,7 +446,11 @@ describe('next, driven the way a form drives it', () => {
 		});
 
 		it('collects vertices for a polygon and finishes into a closed ring', () => {
-			const placed = drive(begin(), { type: 'start', drawType: 'Polygon' }, ...clicks(TRIANGLE));
+			const placed = drive(
+				begin(),
+				{ type: 'start', drawType: 'Polygon' },
+				...clicks(FIRST_SQUARE),
+			);
 
 			expect(view(placed).vertexCount).toBe(3);
 			expect(view(placed).canFinish).toBe(true);
@@ -488,7 +489,7 @@ describe('next, driven the way a form drives it', () => {
 	describe('parts', () => {
 		it('keeps a committed shape on the map while another piece is drawn', () => {
 			const run = drive(
-				drawPolygon(begin(), TRIANGLE),
+				drawPolygon(begin(), FIRST_SQUARE),
 				{ type: 'startPart' },
 				...clicks(SECOND_SQUARE),
 			);
@@ -506,7 +507,7 @@ describe('next, driven the way a form drives it', () => {
 		});
 
 		it('promotes to a multi shape on the second piece and demotes on losing it', () => {
-			const first = drawPolygon(begin(), TRIANGLE);
+			const first = drawPolygon(begin(), FIRST_SQUARE);
 			expect(first.value?.type).toBe('Polygon');
 
 			const adding = drive(first, { type: 'startPart' });
@@ -522,7 +523,7 @@ describe('next, driven the way a form drives it', () => {
 		});
 
 		it('leaves nothing behind when the last piece goes', () => {
-			const run = drive(drawPolygon(begin(), TRIANGLE), { type: 'removePart', partIndex: 0 });
+			const run = drive(drawPolygon(begin(), FIRST_SQUARE), { type: 'removePart', partIndex: 0 });
 
 			expect(run.value).toBeNull();
 			expect(drawParts(run.value)).toEqual([]);
@@ -548,7 +549,7 @@ describe('next, driven the way a form drives it', () => {
 		// "Redraw geometry" means the whole shape at any piece count, which is what
 		// puts the piece list directly above the button that does it.
 		it('takes every piece when the draw is a redraw', () => {
-			const run = drive(drawTwo(begin(), TRIANGLE, SECOND_SQUARE), {
+			const run = drive(drawTwo(begin(), FIRST_SQUARE, SECOND_SQUARE), {
 				type: 'start',
 				drawType: 'Polygon',
 			});
@@ -561,7 +562,7 @@ describe('next, driven the way a form drives it', () => {
 		// cannot get back, so it pops inside the piece being drawn and stops at zero.
 		it('undoes inside the piece being drawn and never into a finished one', () => {
 			const run = drive(
-				drawPolygon(begin(), TRIANGLE),
+				drawPolygon(begin(), FIRST_SQUARE),
 				{ type: 'startPart' },
 				{ type: 'click', position: [-80, 35] },
 				UNDO,
@@ -573,7 +574,7 @@ describe('next, driven the way a form drives it', () => {
 		});
 
 		it('picks out the highlighted piece for the map to paint', () => {
-			const run = drive(drawTwo(begin(), TRIANGLE, SECOND_SQUARE), {
+			const run = drive(drawTwo(begin(), FIRST_SQUARE, SECOND_SQUARE), {
 				type: 'highlightPart',
 				partIndex: 1,
 			});
@@ -619,12 +620,12 @@ describe('next, driven the way a form drives it', () => {
 		},
 		{
 			name: 'a continuation of a piece that is not there',
-			from: () => drawPolygon(begin(), TRIANGLE),
+			from: () => drawPolygon(begin(), FIRST_SQUARE),
 			event: { type: 'continuePart', partIndex: 4 },
 		},
 		{
 			name: 'an edit of a piece that is not there',
-			from: () => drawPolygon(begin(), TRIANGLE),
+			from: () => drawPolygon(begin(), FIRST_SQUARE),
 			event: { type: 'editPart', partIndex: 4 },
 			draft: 'editedPart',
 		},
@@ -697,14 +698,17 @@ describe('next, driven the way a form drives it', () => {
 		});
 
 		it('cuts into the piece the row names, not the first one', () => {
-			const opened = drive(drawTwo(begin(), TRIANGLE, BLOCK), { type: 'startHole', partIndex: 1 });
+			const opened = drive(drawTwo(begin(), FIRST_SQUARE, BLOCK), {
+				type: 'startHole',
+				partIndex: 1,
+			});
 			expect(view(opened).holeDraft?.partNumber).toBe(2);
 
 			const run = drive(opened, ...clicks(POND), FINISH);
 
 			expect(run.value).toEqual({
 				type: 'MultiPolygon',
-				coordinates: [[closeRing(TRIANGLE)], [closeRing(BLOCK), closeRing(POND)]],
+				coordinates: [[closeRing(FIRST_SQUARE)], [closeRing(BLOCK), closeRing(POND)]],
 			});
 		});
 
@@ -723,14 +727,17 @@ describe('next, driven the way a form drives it', () => {
 
 	describe('a continuation', () => {
 		it('adds to a finished area and keeps the vertices it already had', () => {
-			const opened = drive(drawPolygon(begin(), TRIANGLE), { type: 'continuePart', partIndex: 0 });
+			const opened = drive(drawPolygon(begin(), FIRST_SQUARE), {
+				type: 'continuePart',
+				partIndex: 0,
+			});
 			expect(view(opened).vertexCount).toBe(3);
 
 			const run = drive(opened, { type: 'click', position: [-89, 35] }, FINISH);
 
 			expect(run.value).toEqual({
 				type: 'Polygon',
-				coordinates: [closeRing([...TRIANGLE, [-89, 35]])],
+				coordinates: [closeRing([...FIRST_SQUARE, [-89, 35]])],
 			});
 		});
 
@@ -761,7 +768,7 @@ describe('next, driven the way a form drives it', () => {
 		// A ring adopted from a file or a region is only closed if whoever wrote it
 		// closed it, and slicing one that is not would lose a corner.
 		it('keeps every corner of an unclosed ring it continues', () => {
-			const run = drive(begin({ type: 'Polygon', coordinates: [[...TRIANGLE]] }), {
+			const run = drive(begin({ type: 'Polygon', coordinates: [[...FIRST_SQUARE]] }), {
 				type: 'continuePart',
 				partIndex: 0,
 			});
@@ -794,7 +801,7 @@ describe('next, driven the way a form drives it', () => {
 		});
 
 		it('leaves the other pieces alone while one is continued', () => {
-			const opened = drive(drawTwo(begin(), TRIANGLE, SECOND_SQUARE), {
+			const opened = drive(drawTwo(begin(), FIRST_SQUARE, SECOND_SQUARE), {
 				type: 'continuePart',
 				partIndex: 1,
 			});
@@ -804,14 +811,14 @@ describe('next, driven the way a form drives it', () => {
 
 			expect(run.value).toEqual({
 				type: 'MultiPolygon',
-				coordinates: [[closeRing(TRIANGLE)], [closeRing([...SECOND_SQUARE, [-79, 35]])]],
+				coordinates: [[closeRing(FIRST_SQUARE)], [closeRing([...SECOND_SQUARE, [-79, 35]])]],
 			});
 		});
 
 		// The piece being continued is the draft, so drawing it twice would put a
 		// finished outline under a growing one.
 		it('draws the piece being continued once, as the draft', () => {
-			const run = drive(drawTwo(begin(), TRIANGLE, SECOND_SQUARE), {
+			const run = drive(drawTwo(begin(), FIRST_SQUARE, SECOND_SQUARE), {
 				type: 'continuePart',
 				partIndex: 0,
 			});
@@ -822,7 +829,10 @@ describe('next, driven the way a form drives it', () => {
 		// Undo pops what the continuation added and stops there. Eating into the
 		// piece's own vertices would take back work the user never asked to undo.
 		it('undoes only the vertices a continuation added', () => {
-			const opened = drive(drawPolygon(begin(), TRIANGLE), { type: 'continuePart', partIndex: 0 });
+			const opened = drive(drawPolygon(begin(), FIRST_SQUARE), {
+				type: 'continuePart',
+				partIndex: 0,
+			});
 			expect(view(opened).canUndo).toBe(false);
 			const placed = drive(opened, { type: 'click', position: [-89, 35] });
 			expect(view(placed).canUndo).toBe(true);
@@ -902,7 +912,7 @@ describe('next, driven the way a form drives it', () => {
 			name: 'a continuation',
 			open: () =>
 				drive(
-					drawPolygon(begin(), TRIANGLE),
+					drawPolygon(begin(), FIRST_SQUARE),
 					{ type: 'continuePart', partIndex: 0 },
 					{ type: 'click', position: [-89, 35] },
 				),
@@ -944,7 +954,7 @@ describe('next, driven the way a form drives it', () => {
 	describe('an edit', () => {
 		it('moves a vertex of a finished piece and commits it where it was dropped', () => {
 			const run = drive(
-				drawPolygon(begin(), TRIANGLE),
+				drawPolygon(begin(), FIRST_SQUARE),
 				{ type: 'editPart', partIndex: 0 },
 				{ type: 'moveVertex', vertex: { ring: 0, vertex: 2 }, position: [-88, 36] },
 				FINISH,
@@ -966,7 +976,7 @@ describe('next, driven the way a form drives it', () => {
 		// leave the same corners wound into a different shape.
 		it('inserts a vertex into the edge it was aimed at', () => {
 			const inserted = drive(
-				drawPolygon(begin(), TRIANGLE),
+				drawPolygon(begin(), FIRST_SQUARE),
 				{ type: 'editPart', partIndex: 0 },
 				{ type: 'insertVertex', edge: { ring: 0, vertex: 0 }, position: [-90, 35.5] },
 			);
@@ -989,7 +999,7 @@ describe('next, driven the way a form drives it', () => {
 
 		it('lets a ring go below three corners and refuses the finish until one is back', () => {
 			const deleted = drive(
-				drawPolygon(begin(), TRIANGLE),
+				drawPolygon(begin(), FIRST_SQUARE),
 				{ type: 'editPart', partIndex: 0 },
 				{ type: 'deleteVertex', vertex: { ring: 0, vertex: 2 } },
 			);
@@ -1011,7 +1021,7 @@ describe('next, driven the way a form drives it', () => {
 		// two is where Delete stops. Removing a ring whole is Remove's job.
 		it('keeps the two vertices an edge needs', () => {
 			const run = drive(
-				drawPolygon(begin(), TRIANGLE),
+				drawPolygon(begin(), FIRST_SQUARE),
 				{ type: 'editPart', partIndex: 0 },
 				{ type: 'deleteVertex', vertex: { ring: 0, vertex: 2 } },
 				{ type: 'deleteVertex', vertex: { ring: 0, vertex: 1 } },
@@ -1063,7 +1073,7 @@ describe('next, driven the way a form drives it', () => {
 		});
 
 		it('leaves the other pieces alone and keeps the edited one at its index', () => {
-			const opened = drive(drawTwo(begin(), TRIANGLE, SECOND_SQUARE), {
+			const opened = drive(drawTwo(begin(), FIRST_SQUARE, SECOND_SQUARE), {
 				type: 'editPart',
 				partIndex: 0,
 			});
@@ -1099,7 +1109,7 @@ describe('next, driven the way a form drives it', () => {
 		// The piece being edited is the draft, so drawing it twice would put a
 		// finished outline under a changing one.
 		it('draws the piece being edited once, as the draft', () => {
-			const run = drive(drawTwo(begin(), TRIANGLE, SECOND_SQUARE), {
+			const run = drive(drawTwo(begin(), FIRST_SQUARE, SECOND_SQUARE), {
 				type: 'editPart',
 				partIndex: 0,
 			});
@@ -1125,7 +1135,7 @@ describe('next, driven the way a form drives it', () => {
 		// Undo takes back gestures and stops at the piece as it was opened. Eating
 		// into it would take back work the user never asked to undo.
 		it('undoes only the gestures an edit made', () => {
-			const opened = drive(drawPolygon(begin(), TRIANGLE), { type: 'editPart', partIndex: 0 });
+			const opened = drive(drawPolygon(begin(), FIRST_SQUARE), { type: 'editPart', partIndex: 0 });
 			expect(view(opened).canUndo).toBe(false);
 
 			const moved = drive(
@@ -1143,7 +1153,7 @@ describe('next, driven the way a form drives it', () => {
 
 		it('picks the vertex Delete acts on and drops the pick with it', () => {
 			const picked = drive(
-				drawPolygon(begin(), TRIANGLE),
+				drawPolygon(begin(), FIRST_SQUARE),
 				{ type: 'editPart', partIndex: 0 },
 				{ type: 'selectVertex', vertex: { ring: 0, vertex: 1 } },
 			);
@@ -1154,12 +1164,74 @@ describe('next, driven the way a form drives it', () => {
 			expect(view(run).vertexCount).toBe(2);
 		});
 
+		// What a map click reads off the vertex and edge layers, in the order
+		// `editClick` takes it: a vertex wins, an edge inserts, and nothing clears.
+		it('picks the vertex a click landed on and leaves the rings alone', () => {
+			const run = drive(
+				begin(COMMITTED),
+				{ type: 'editPart', partIndex: 0 },
+				{ type: 'editClick', position: [-88, 37], vertex: { ring: 0, vertex: 2 }, overEdge: false },
+			);
+
+			expect(view(run).editedPart?.selected).toEqual({ ring: 0, vertex: 2 });
+			expect(view(run).vertexCount).toBe(BLOCK.length);
+			expect(view(run).canUndo).toBe(false);
+		});
+
+		it('inserts a vertex on the edge a click landed on and picks the new one', () => {
+			const run = drive(
+				begin(COMMITTED),
+				{ type: 'editPart', partIndex: 0 },
+				{ type: 'editClick', position: ON_WEST_EDGE, vertex: null, overEdge: true },
+			);
+
+			expect(view(run).editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
+			expect(drive(run, FINISH).value).toEqual({
+				type: 'Polygon',
+				coordinates: [closeRing(BLOCK_WITH_EDGE_VERTEX)],
+			});
+		});
+
+		// The vertex layer draws over the edge it ends, so a click on a corner is
+		// on the edge as well. Inserting there would stack a second corner on it.
+		it('picks the vertex and inserts nothing when a click is on a vertex and an edge', () => {
+			const run = drive(
+				begin(COMMITTED),
+				{ type: 'editPart', partIndex: 0 },
+				{ type: 'editClick', position: [-91, 37], vertex: { ring: 0, vertex: 1 }, overEdge: true },
+			);
+
+			expect(view(run).editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
+			expect(view(run).vertexCount).toBe(BLOCK.length);
+			expect(view(run).canUndo).toBe(false);
+		});
+
+		it('drops the pick on a click over nothing', () => {
+			const picked = drive(
+				begin(COMMITTED),
+				{ type: 'editPart', partIndex: 0 },
+				{ type: 'selectVertex', vertex: { ring: 0, vertex: 1 } },
+			);
+			expect(view(picked).editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
+
+			const run = drive(picked, {
+				type: 'editClick',
+				position: [-89.5, 35.5],
+				vertex: null,
+				overEdge: false,
+			});
+
+			expect(view(run).editedPart?.selected).toBeNull();
+			expect(view(run).vertexCount).toBe(BLOCK.length);
+			expect(view(run).canUndo).toBe(false);
+		});
+
 		// Three corners on one line are three corners and no area. #495 refused it
 		// with nothing to call it; the reshape vocabulary gave the refusal a name, so
 		// the message under the button and the red on the map are one answer.
 		it('names an edit that leaves the outline enclosing nothing', () => {
 			const run = drive(
-				drawPolygon(begin(), TRIANGLE),
+				drawPolygon(begin(), FIRST_SQUARE),
 				{ type: 'editPart', partIndex: 0 },
 				{ type: 'moveVertex', vertex: { ring: 0, vertex: 2 }, position: [-90, 37] },
 			);
@@ -1297,14 +1369,17 @@ describe('next, driven the way a form drives it', () => {
 		});
 
 		it('leaves the other pieces alone and keeps the reshaped one at its index', () => {
-			const opened = drive(drawTwo(begin(), TRIANGLE, BLOCK), { type: 'editPart', partIndex: 1 });
+			const opened = drive(drawTwo(begin(), FIRST_SQUARE, BLOCK), {
+				type: 'editPart',
+				partIndex: 1,
+			});
 			expect(view(opened).editedPart?.partNumber).toBe(2);
 
 			const run = finishReshape(drive(opened, { type: 'startReshape' }, ...traces(OUTSIDE_SKETCH)));
 
 			expect(run.value).toEqual({
 				type: 'MultiPolygon',
-				coordinates: [[closeRing(TRIANGLE)], [closeRing(BULGED_BLOCK)]],
+				coordinates: [[closeRing(FIRST_SQUARE)], [closeRing(BULGED_BLOCK)]],
 			});
 		});
 

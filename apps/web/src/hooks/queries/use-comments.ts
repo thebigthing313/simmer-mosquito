@@ -16,16 +16,13 @@ import { type CommentTargetType, toDbEntityType } from '@simmer-mosquito/domain'
 import { and, caseWhen, coalesce, eq, isNull, useLiveQuery } from '@tanstack/react-db';
 import { comments } from '../../lib/collections/comments';
 import { profiles } from '../../lib/collections/profiles';
+import { activityGcTimeMs } from './shared';
 
 /** The record a thread is attached to. */
 export interface CommentTarget {
 	readonly type: CommentTargetType;
 	readonly id: string;
 }
-
-// `comments` is on-demand (ADR 0009 / docs/sync.md); keep the record's subset
-// warm briefly after unmount so revisiting it reuses the thread.
-const commentsGcTimeMs = 30_000;
 
 /** One comment, in the vocabulary the thread speaks. */
 export interface RecordComment {
@@ -60,7 +57,7 @@ export function useComments(target: CommentTarget): CommentsResult {
 	const entityType = toDbEntityType(target.type);
 
 	const result = useLiveQuery({
-		gcTime: commentsGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ comment: comments() })

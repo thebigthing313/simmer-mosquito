@@ -1,7 +1,7 @@
 import { and, eq, gte, lte, useLiveQuery } from '@tanstack/react-db';
 import { weather_summaries } from '../../lib/collections/weather_summaries';
-import { unmatchableId } from './shared';
-import { summariesGcTimeMs, type WeatherSummariesRead } from './weather-summary-view';
+import { activityGcTimeMs, unmatchableId } from './shared';
+import type { WeatherSummariesRead } from './weather-summary-view';
 /** One station's readings inside a date window, newest first, gated on the on-demand subset being ready. */
 export function useStationSummaries(
 	stationId: string | null,
@@ -11,7 +11,7 @@ export function useStationSummaries(
 	const { from, to } = window;
 
 	const result = useLiveQuery({
-		gcTime: summariesGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ summary: weather_summaries() })

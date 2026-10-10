@@ -9,7 +9,7 @@ import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import { useTagMutations } from '../../hooks/mutations/use-tag-mutations';
-import type { TagRecord } from '../../hooks/queries/use-tag-catalog';
+import type { TagRecord } from '../../hooks/queries/catalog-record-view';
 import { errorMessageForSave } from '../../lib/save-error';
 import { TAG_RELEVANCE_OPTIONS } from '../../lib/tag-relevance';
 import { CatalogDeleteDialog } from '../catalog';

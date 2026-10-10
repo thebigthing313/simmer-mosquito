@@ -71,6 +71,10 @@ export function createFakeMap() {
 	// a suite gives the map a different viewport without replacing `unproject`.
 	const origin = { lng: 0, lat: 0 };
 	const filterCalls: string[] = [];
+	// What a rendered-feature query over each layer answers, for a suite that
+	// wants the map to report something under the pointer. Empty until a suite
+	// calls `showFeatures`, so every query answers `[]` the way it always has.
+	const rendered = new Map<string, readonly unknown[]>();
 	let removed = false;
 	let doubleClickZoomEnabled = true;
 	// The map's viewport padding, kept the way mapbox keeps it: a camera call
@@ -200,7 +204,10 @@ export function createFakeMap() {
 			assertLive();
 			record('fitBounds', options, { bounds });
 		},
-		queryRenderedFeatures: vi.fn(() => [] as unknown[]),
+		queryRenderedFeatures: vi.fn(
+			(_geometry?: unknown, options?: { readonly layers?: readonly string[] }): unknown[] =>
+				(options?.layers ?? [...rendered.keys()]).flatMap((layerId) => rendered.get(layerId) ?? []),
+		),
 		doubleClickZoom: {
 			isEnabled: () => doubleClickZoomEnabled,
 			enable() {
@@ -261,6 +268,38 @@ export function createFakeMap() {
 		},
 		move(lng: number, lat: number) {
 			this.emit('mousemove', { lngLat: { lng, lat }, point: { x: 0, y: 0 } });
+		},
+		/**
+		 * Say what a rendered-feature query over `layerId` answers from now on,
+		 * whatever box it asks over, since every pointer event here is at one
+		 * pixel. An empty list takes the layer's answer back to nothing. A
+		 * `mockReturnValue` on `queryRenderedFeatures` still wins over this.
+		 */
+		showFeatures(layerId: string, features: readonly unknown[]) {
+			rendered.set(layerId, features);
+		},
+		/**
+		 * A button pressed on the map at a position. Answers whether a listener
+		 * default-prevented it, which is how a gesture is claimed from Mapbox's
+		 * own drag-to-pan.
+		 */
+		press(lng: number, lat: number): { readonly defaultPrevented: boolean } {
+			let defaultPrevented = false;
+			this.emit('mousedown', {
+				lngLat: { lng, lat },
+				point: { x: 0, y: 0 },
+				preventDefault: () => {
+					defaultPrevented = true;
+				},
+			});
+			return { defaultPrevented };
+		},
+		/**
+		 * The button let go, on `window` rather than on the map, because that is
+		 * where a release off the canvas still arrives.
+		 */
+		releaseButton() {
+			window.dispatchEvent(new MouseEvent('mouseup'));
 		},
 		/**
 		 * Put the canvas's top-left corner somewhere else and fire `moveend`, the

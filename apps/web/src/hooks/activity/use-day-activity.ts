@@ -49,6 +49,7 @@ import { source_reductions } from '../../lib/collections/source_reductions';
 import { tag_items } from '../../lib/collections/tag_items';
 import { traps } from '../../lib/collections/traps';
 import { addCalendarDays, localDayStartAsInstant } from '../../lib/local-date';
+import { ACTIVITY_DATES } from '../queries/activity-dates';
 import { collectedOn } from '../queries/collection-day';
 import { activityGcTimeMs } from '../queries/shared';
 
@@ -105,7 +106,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 		query: (query) =>
 			query
 				.from({ r: inspections() })
-				.where(({ r }) => eq(r.inspection_date, day))
+				.where(({ r }) => eq(ACTIVITY_DATES.inspections.column(r), day))
 				.join({ h: habitats() }, ({ r, h }) => eq(r.habitat_id, h.id), 'left')
 				.join({ ad: addresses() }, ({ r, ad }) => eq(r.address_id, ad.id), 'left')
 				.select(({ r, h, ad }) => ({
@@ -189,7 +190,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 		query: (query) =>
 			query
 				.from({ r: applications() })
-				.where(({ r }) => eq(r.application_date, day))
+				.where(({ r }) => eq(ACTIVITY_DATES.applications.column(r), day))
 				.join({ h: habitats() }, ({ r, h }) => eq(r.habitat_id, h.id), 'left')
 				.join({ ad: addresses() }, ({ r, ad }) => eq(r.address_id, ad.id), 'left')
 				.select(({ r, h, ad }) => ({
@@ -214,7 +215,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 		query: (query) =>
 			query
 				.from({ r: source_reductions() })
-				.where(({ r }) => eq(r.source_reduction_date, day))
+				.where(({ r }) => eq(ACTIVITY_DATES.sourceReductions.column(r), day))
 				.join({ h: habitats() }, ({ r, h }) => eq(r.habitat_id, h.id), 'left')
 				.join({ ad: addresses() }, ({ r, ad }) => eq(r.address_id, ad.id), 'left')
 				.select(({ r, h, ad }) => ({
@@ -238,7 +239,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 		query: (query) =>
 			query
 				.from({ r: biocontrol_actions() })
-				.where(({ r }) => eq(r.biocontrol_date, day))
+				.where(({ r }) => eq(ACTIVITY_DATES.releases.column(r), day))
 				.join({ h: habitats() }, ({ r, h }) => eq(r.habitat_id, h.id), 'left')
 				.join({ ad: addresses() }, ({ r, ad }) => eq(r.address_id, ad.id), 'left')
 				.select(({ r, h, ad }) => ({
@@ -264,7 +265,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 		query: (query) =>
 			query
 				.from({ r: outreach_actions() })
-				.where(({ r }) => eq(r.outreach_date, day))
+				.where(({ r }) => eq(ACTIVITY_DATES.outreachActions.column(r), day))
 				.join({ ad: addresses() }, ({ r, ad }) => eq(r.address_id, ad.id), 'left')
 				.select(({ r, ad }) => ({
 					id: r.id,
@@ -287,7 +288,10 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 			query
 				.from({ r: service_requests() })
 				.where(({ r }) =>
-					or(eq(r.request_date, day), and(gte(r.closed_at, start), lt(r.closed_at, next))),
+					or(
+						eq(ACTIVITY_DATES.serviceRequests.column(r), day),
+						and(gte(r.closed_at, start), lt(r.closed_at, next)),
+					),
 				)
 				.join({ ad: addresses() }, ({ r, ad }) => eq(r.address_id, ad.id), 'left')
 				.select(({ r, ad }) => ({
