@@ -603,8 +603,7 @@ Habitat behind the stop, not to the Route item, so it is read-only while
 `isResolving` is true: the stop has no description to show then, and an
 editor opened on an empty one would save over the Habitat's real text
 (#1565). The directions editor writes the Route item's own column and stays
-open to a writer either way. It was a function inside the edit route until
-then, and moved out so a suite could render it.
+open to a writer either way.
 
 #### Inspection filters
 

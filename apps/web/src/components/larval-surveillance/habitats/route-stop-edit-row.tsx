@@ -8,7 +8,12 @@ import { ChevronRightIcon, HomeIcon } from '@simmer-mosquito/ui-web/icons/regist
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { Tag } from '../../../hooks/queries/tag-view';
-import { InlineEditField, OrdinalBadge, StopReorderControls } from '../../stop-order';
+import {
+	InlineEditField,
+	type MoveAction,
+	OrdinalBadge,
+	StopReorderControls,
+} from '../../stop-order';
 import { type RouteStopView, stopTone } from './route-data';
 import { StopStatus, StopTagChips, StopTypePill } from './route-stop-list';
 
@@ -53,7 +58,7 @@ export function EditStopRow({
 	readonly typeName: string | null;
 	readonly tags: readonly Tag[];
 	readonly onEditAddress: (stop: RouteStopView) => void;
-	readonly onMove: (index: number, action: 'up' | 'down' | 'top' | 'bottom') => void;
+	readonly onMove: (index: number, action: MoveAction) => void;
 	readonly onRemove: (stop: RouteStopView) => void;
 	readonly onSaveDescription: (habitatId: string, value: string) => void;
 	readonly onSaveDirections: (routeItemId: string, value: string) => void;
