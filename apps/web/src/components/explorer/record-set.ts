@@ -41,6 +41,9 @@ export interface RecordSetContext {
 	readonly settings: OrganizationSettings;
 }
 
+/** The filter keys that narrow nothing in a context. */
+type InertFilters<TFilters> = (context: RecordSetContext) => readonly (keyof TFilters & string)[];
+
 /** The filter keys whose value is a string, which is what a search box writes. */
 type TextKey<TFilters> = {
 	[Key in keyof TFilters]-?: TFilters[Key] extends string ? Key : never;
@@ -141,6 +144,13 @@ export interface RecordSet<TFilters, TTile = unknown> extends RecordSetLinks<TFi
 	readonly counting?:
 		| FilterCounting<TFilters>
 		| ((context: RecordSetContext) => FilterCounting<TFilters>);
+	/**
+	 * The filters that narrow nothing in `context`, such as Overdue while the
+	 * Organization's threshold is off. This is the one statement of it: the
+	 * set's counting leaves them uncounted, and the declarations draw no control
+	 * and no chip for them, whatever the address says.
+	 */
+	readonly inert?: InertFilters<TFilters>;
 	/** The filter a search box writes, for a set that has one. */
 	readonly textSearch?: TextSearch<TFilters>;
 	readonly endpoint: RecordSetEndpoint;
@@ -178,6 +188,7 @@ export function defineRecordSet<TFilters, const TSpec extends MapFilterSpec>(
 		readonly counting?:
 			| FilterCounting<NoInfer<TFilters>>
 			| ((context: RecordSetContext) => FilterCounting<NoInfer<TFilters>>);
+		readonly inert?: InertFilters<NoInfer<TFilters>>;
 		readonly textSearch?: TextSearch<NoInfer<TFilters>>;
 		readonly endpoint: RecordSetEndpoint;
 		readonly filterSpec: TSpec;
@@ -250,12 +261,28 @@ export function recordSetFilterParams(
 	return encodeMapFilterParams(set.filterSpec, tile as MapFiltersOf<MapFilterSpec>);
 }
 
-/** The set's counting rule in `context`, or none for a set that states none. */
+/** The filter keys that narrow nothing in `context`: none for a set that names none. */
+export function recordSetInert<TFilters>(
+	set: Pick<RecordSet<TFilters>, 'inert'>,
+	context: RecordSetContext,
+): ReadonlySet<keyof TFilters & string> {
+	return new Set(set.inert?.(context) ?? []);
+}
+
+/**
+ * The set's counting rule in `context` with its inert filters left uncounted,
+ * or none for a set that states neither.
+ */
 export function recordSetCounting<TFilters>(
-	set: Pick<RecordSet<TFilters>, 'counting'>,
+	set: Pick<RecordSet<TFilters>, 'counting' | 'inert'>,
 	context: RecordSetContext,
 ): FilterCounting<TFilters> | undefined {
-	return typeof set.counting === 'function' ? set.counting(context) : set.counting;
+	const counting = typeof set.counting === 'function' ? set.counting(context) : set.counting;
+	const inert = recordSetInert(set, context);
+	if (inert.size === 0) {
+		return counting;
+	}
+	return { ...counting, uncounted: [...(counting?.uncounted ?? []), ...inert] };
 }
 
 /**

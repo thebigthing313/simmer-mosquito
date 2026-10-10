@@ -35,11 +35,7 @@ import {
 } from '../../explorer/filter-declarations';
 import { TagBadge } from '../../tag-badge';
 import { SERVICE_REQUEST_STATUS_ORDER, serviceRequestStatusLabel } from './legend';
-import {
-	type ServiceRequestFilters,
-	serviceRequestOverdueCutoffFor,
-	serviceRequestRecordSet,
-} from './service-requests-search';
+import { type ServiceRequestFilters, serviceRequestRecordSet } from './service-requests-search';
 
 /**
  * Each service request filter's control, chip and summary grouping, in chip
@@ -68,8 +64,6 @@ export const serviceRequestFilterDeclarations = defineFilterDeclarations(service
 		kind: 'flag',
 		key: 'overdue',
 		label: 'Overdue',
-		// Off while the Organization's threshold is off, when it narrows nothing.
-		available: (context) => serviceRequestOverdueCutoffFor(context) !== null,
 	},
 	{ kind: 'dateRange' },
 	{
