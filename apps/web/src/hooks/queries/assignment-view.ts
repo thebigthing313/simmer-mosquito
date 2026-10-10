@@ -21,7 +21,7 @@ import { unreadable } from '../../lib/unreadable-input';
  */
 export const ASSIGNMENT_STATUSES = ['notStarted', 'inProgress', 'completed', 'cancelled'] as const;
 
-/** Where a worklist is in its life. Derived from timestamps — there is no column. */
+/** Derived from timestamps. There is no column. */
 export type AssignmentStatus = (typeof ASSIGNMENT_STATUSES)[number];
 
 export const ASSIGNMENT_STATUS_LABELS: Readonly<Record<AssignmentStatus, string>> = {
