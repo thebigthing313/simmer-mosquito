@@ -8,9 +8,10 @@ vi.mock('sonner', () => ({
 const { attachLinksBestEffort } = await import('../../../lib/attach-links');
 
 /**
- * What a failed link write says. A create form's links are new, so the miss is
- * something to add from the record. An edit form's links already existed, so a
- * removal can be what failed, and the place to retry is the edit form (#1566).
+ * What a failed link write says. New crew and samples have no control on the
+ * detail page, so the retry is the edit form (#1602). A note is added from the
+ * thread on the detail page. Links that already existed can fail on a removal,
+ * and the retry is the edit form (#1566).
  */
 describe('attachLinksBestEffort', () => {
 	beforeEach(() => {
@@ -18,18 +19,38 @@ describe('attachLinksBestEffort', () => {
 	});
 
 	it('says nothing when the write lands', async () => {
-		await attachLinksBestEffort('the additional personnel', async () => undefined);
+		await attachLinksBestEffort('the additional personnel', async () => undefined, {
+			write: 'add',
+			recordType: 'collection',
+		});
 		expect(toastError).not.toHaveBeenCalled();
 	});
 
-	it('reports a failed attach with the create wording', async () => {
-		await attachLinksBestEffort('the additional personnel', async () => {
-			throw new Error('Refused.');
-		});
+	it('sends a failed attach to the edit form, naming the record from the register', async () => {
+		await attachLinksBestEffort(
+			'the additional personnel',
+			async () => {
+				throw new Error('Refused.');
+			},
+			{ write: 'add', recordType: 'application' },
+		);
 		expect(toastError).toHaveBeenCalledWith(
 			'Saved, but the additional personnel could not be attached.',
-			{ description: 'Refused. Add them from the record.' },
+			{ description: 'Refused. Edit the chemical application to add them.' },
 		);
+	});
+
+	it('sends a failed note to the thread on the record', async () => {
+		await attachLinksBestEffort(
+			'the note',
+			async () => {
+				throw new Error('Refused.');
+			},
+			{ write: 'comment', recordType: 'serviceRequest' },
+		);
+		expect(toastError).toHaveBeenCalledWith('Saved, but the note could not be attached.', {
+			description: 'Refused. Add it as a comment on the service request.',
+		});
 	});
 
 	it('reports a failed change with the edit wording, naming the record from the register', async () => {
