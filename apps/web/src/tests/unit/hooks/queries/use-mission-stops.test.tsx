@@ -19,6 +19,8 @@ import { renderRead } from './read-harness';
 
 const MISSION = '11111111-1111-4111-8111-111111111111';
 const OTHER_MISSION = '22222222-2222-4222-8222-222222222222';
+/** A request the stop names and no collection holds. */
+const GONE_REQUEST = '33333333-3333-4333-8333-333333333333';
 
 function stop(
 	id: string,
@@ -83,14 +85,26 @@ describe('useMissionStops', () => {
 	});
 
 	it('keeps a stop that names no request, and reads its summary as null', async () => {
-		// Guarded on the stop's own column, because a real request may have a null
-		// summary and nullness alone could not tell that from an unmatched join.
 		seedRows(mission_items, [stop('s1', 1, { requested_control_action_id: null })]);
 
 		const { result } = await renderRead(() => useMissionStops(MISSION));
 
 		expect(result.current.stops.map((row) => row.id)).toEqual(['s1']);
 		expect(result.current.stops[0]?.requestSummary).toBeNull();
+	});
+
+	it('reads a request the client does not hold as null beside its id', async () => {
+		// An unmatched `left` join yields `undefined`, which the projection has to
+		// turn into the `null` its type promises (#1535).
+		seedRows(mission_items, [stop('s1', 1, { requested_control_action_id: GONE_REQUEST })]);
+
+		const { result } = await renderRead(() => useMissionStops(MISSION));
+
+		expect(result.current.stops[0]).toMatchObject({
+			requestedControlActionId: GONE_REQUEST,
+			requestSummary: null,
+			requestControlType: null,
+		});
 	});
 
 	it('keeps a stop sited at no address', async () => {

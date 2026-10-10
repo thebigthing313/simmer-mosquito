@@ -1,16 +1,6 @@
 /**
  * The Dashboard's "collections with a problem" queue: how many in the last 14
  * days, and the effective date of the oldest.
- *
- * The one windowed queue, because `has_problem` never clears and an all-time
- * count would only grow. The window is `collectedSince` from
- * `collection-day.ts`, so the subset is the recent rows rather than every
- * collection the Organization has written.
- *
- * The oldest is folded after rather than taken as `min` in the query: the
- * effective date is a `Date` reduced to the Organization's day under exact
- * timestamps and a string under date-plus-duration, and a `min` over a mixed
- * column is not a minimum.
  */
 
 import { and, eq, useLiveQuery } from '@tanstack/react-db';

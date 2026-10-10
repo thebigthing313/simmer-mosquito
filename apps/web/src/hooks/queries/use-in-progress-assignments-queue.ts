@@ -2,11 +2,6 @@
  * The Dashboard's "assignments started and not finished" queue: `started_at`
  * set, `completed_at` and `cancelled_at` null, and the day the oldest was
  * started.
- *
- * Two aggregates rather than the rows: the page wants a count and one date,
- * and an aggregate emits one changed number when an assignment finishes rather
- * than a new array of every open one. All three predicates are the table's own
- * columns, so the subset is the in-progress rows and nothing else.
  */
 
 import { and, count, isNull, min, not, useLiveQuery } from '@tanstack/react-db';

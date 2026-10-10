@@ -13,17 +13,17 @@ import {
 	sourceReductionTechnicianName,
 } from '../../../components/control-operations/source-reduction/source-reduction-row-parts';
 import { sourceReductionSummaryGroupings } from '../../../components/control-operations/source-reduction/source-reduction-summary';
-import { SourceReductionSurfaceSwitch } from '../../../components/control-operations/source-reduction/source-reduction-surface-switch';
 import {
-	sharedSourceReductionSearch,
 	sourceReductionFilterCodecs,
 	sourceReductionListParams,
+	sourceReductionRecordSet,
 	sourceReductionTileFilters,
 } from '../../../components/control-operations/source-reduction/source-reductions-search';
 import { SourceReductionMapCard } from '../../../components/control-operations/source-reduction-map-card';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useSourceReductionFilterState } from '../../../hooks/control-operations/use-source-reduction-filter-state';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
@@ -59,9 +59,7 @@ function SourceReductionExplorerRoute() {
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
 	const filters = sourceReductionTileFilters(query);
-	// What a move to the Table takes with it: every filter, since the Table
-	// applies each one.
-	const carried = sharedSourceReductionSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 	const {
 		rows,
 		total,
@@ -89,7 +87,14 @@ function SourceReductionExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
-			actions={<SourceReductionSurfaceSwitch compact current="map" search={carried} />}
+			actions={
+				<RecordSetSwitch
+					compact
+					current="map"
+					search={routeSearch}
+					set={sourceReductionRecordSet}
+				/>
+			}
 			activeFilterCount={activeFilterCount}
 			filters={<SourceReductionFilterFields binding={binding} />}
 			heading={{

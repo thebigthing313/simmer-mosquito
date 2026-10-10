@@ -33,9 +33,9 @@ export const WETNESS_OPTIONS: readonly {
 ];
 
 /**
- * How the table counts what is set. `regions` is on the URL and no control on
- * the table writes it, so it is counted nowhere and drawn as no chip, but it
- * stays in the filter set so a link from the map keeps its region selection.
+ * How the table counts what is set. No control on the table writes `regions`
+ * and the switch from the map leaves it behind, so it is counted nowhere and
+ * drawn as no chip.
  */
 export const INSPECTION_TABLE_COUNTING: FilterCounting<InspectionFilters> = {
 	groups: [['from', 'to']],

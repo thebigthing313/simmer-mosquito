@@ -7,6 +7,7 @@ import {
 } from '../command-validation.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 import { resolveLarvalInspectionEntryPolicy } from './larval-inspection-policy.js';
+import { normalizeServiceRequestOverdueDays } from './service-request-overdue.js';
 import { normalizeSpeciesKeyBindings } from './species-key-bindings.js';
 import {
 	type AdultCollectionTimingMode,
@@ -25,6 +26,8 @@ import {
 	type UpdateLarvalInspectionEntryPolicyCommandInput,
 	type UpdateServiceRequestContextCommand,
 	type UpdateServiceRequestContextCommandInput,
+	type UpdateServiceRequestOverdueDaysCommand,
+	type UpdateServiceRequestOverdueDaysCommandInput,
 	type UpdateSpeciesKeyBindingsCommand,
 	type UpdateSpeciesKeyBindingsCommandInput,
 	type UpdateTimezoneCommand,
@@ -142,6 +145,25 @@ export function updateServiceRequestContextCommand(
 		payload: {
 			...basePayload(input),
 			serviceRequestContext,
+		},
+	};
+}
+
+export function updateServiceRequestOverdueDaysCommand(
+	input: UpdateServiceRequestOverdueDaysCommandInput,
+): UpdateServiceRequestOverdueDaysCommand {
+	const issues = validateCommandBase(input);
+	const serviceRequestOverdueDays = normalizeServiceRequestOverdueDays(
+		input.serviceRequestOverdueDays,
+		'serviceRequestOverdueDays',
+		issues,
+	);
+	throwIfIssues('Update service request overdue threshold command is invalid.', issues);
+	return {
+		type: 'organizationSettings.updateServiceRequestOverdueDays',
+		payload: {
+			...basePayload(input),
+			serviceRequestOverdueDays,
 		},
 	};
 }

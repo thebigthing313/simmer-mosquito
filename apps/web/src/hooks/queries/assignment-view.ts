@@ -77,15 +77,31 @@ export interface ProgressCounts {
 	readonly handled: number;
 }
 
-export function assignmentDisplayName(
-	row: { readonly assignmentName: string | null; readonly assignmentDate: string },
-	assigneeName: string | null,
-): string {
+/**
+ * The name an assignment was given, trimmed, or null when it has none.
+ *
+ * A name of only whitespace is no name. The index row reads this to decide
+ * whether its second line draws the date, which it does only when the date is
+ * not already the name.
+ */
+export function assignmentOwnName(row: { readonly assignmentName: string | null }): string | null {
 	const name = row.assignmentName?.trim();
-	if (name) {
-		return name;
-	}
-	return assigneeName === null ? row.assignmentDate : `${row.assignmentDate}, ${assigneeName}`;
+	return name ? name : null;
+}
+
+/**
+ * What an assignment is called wherever it is named, on screen or announced:
+ * its own name, else its formatted day.
+ *
+ * The assignee is not part of it, because every place that draws the name
+ * draws the assignee beside it. `missionDisplayName` follows the same
+ * rule for a mission.
+ */
+export function assignmentDisplayName(row: {
+	readonly assignmentName: string | null;
+	readonly assignmentDate: string;
+}): string {
+	return assignmentOwnName(row) ?? formatAssignmentDate(row.assignmentDate);
 }
 
 /**

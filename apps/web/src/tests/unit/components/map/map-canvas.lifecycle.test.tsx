@@ -475,6 +475,27 @@ describe('StopSequenceMap copy for a Route', () => {
 });
 
 /*
+ * Only a Route, a Mission or an Assignment is a run of stops, so the type
+ * refuses any other record type (#1523). The assertion that matters is the
+ * directive below, which `pnpm typecheck` fails when it has nothing to expect.
+ */
+describe('StopSequenceMap record type', () => {
+	it('refuses a record type that is not a run of stops', () => {
+		const element = (
+			<StopSequenceMap
+				features={[]}
+				fitKey="trap-1"
+				// @ts-expect-error A Trap is not a run of stops.
+				recordType="trap"
+				stopCount={0}
+			/>
+		);
+
+		expect(element.props.recordType).toBe('trap');
+	});
+});
+
+/*
  * Where a map with nothing to fit opens (#1413). The Organization's map centre
  * is read off its synced row, so the case seeds the row and reads the camera
  * the map was created with.

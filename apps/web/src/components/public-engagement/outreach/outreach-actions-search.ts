@@ -1,6 +1,7 @@
 import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
 import { addDaysToDateString } from '../../../lib/local-date';
 import { dateParam, type FilterCodecs, idSetParam } from '../../../lib/search-filters';
+import { defineRecordSet } from '../../explorer/record-set';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
 import type { OutreachTileFilters } from '../../map';
 
@@ -72,16 +73,11 @@ export function outreachListParams(filters: OutreachTileFilters): Record<string,
 }
 
 /**
- * The params a move between the Map and the Table carries. That is every
- * filter, since both surfaces read the same list endpoint and apply each one.
+ * The Outreach Actions Map and Table. Both read `/map/outreach` and apply every filter.
  */
-export function sharedOutreachSearch(search: Record<string, unknown>): Record<string, unknown> {
-	const carried: Record<string, unknown> = {};
-	for (const key of Object.keys(outreachFilterCodecs)) {
-		const value = search[key];
-		if (value !== undefined) {
-			carried[key] = value;
-		}
-	}
-	return carried;
-}
+export const outreachRecordSet = defineRecordSet({
+	recordType: 'outreachAction',
+	paths: { map: '/public-engagement/outreach', table: '/public-engagement/outreach/table' },
+	codecs: outreachFilterCodecs,
+	applies: { from: 'both', to: 'both', people: 'both', methods: 'both', regions: 'both' },
+});

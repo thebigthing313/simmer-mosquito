@@ -1,16 +1,8 @@
 /**
  * The Dashboard's "missions due today or overdue" queue: not started, no
  * terminal timestamp, and scheduled to start before the end of today in the
- * Organization's zone.
- *
- * No lower bound. A mission scheduled for last month and never started is
- * overdue, and the oldest column reads how overdue. An in-progress mission is
- * on no queue, because someone is doing it, which is what the `started_at`
- * predicate says.
- *
- * The bound is the start of tomorrow, so a mission due at any hour of today is
- * inside it, and it is an instant rather than a `YYYY-MM-DD` because the
- * column is a `timestamptz`; `use-missions.ts` widens its window the same way.
+ * Organization's zone. It returns the count and the day the oldest was
+ * scheduled.
  */
 
 import { and, count, isNull, lt, min, useLiveQuery } from '@tanstack/react-db';

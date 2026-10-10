@@ -2,17 +2,17 @@ import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { OutletSimpleLayout } from '../../../components/app-shell';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { SampleFilterFields } from '../../../components/larval-surveillance/samples/sample-filters';
 import type { SampleListRow } from '../../../components/larval-surveillance/samples/sample-row-parts';
-import { SampleSurfaceSwitch } from '../../../components/larval-surveillance/samples/sample-surface-switch';
 import { SamplesTable } from '../../../components/larval-surveillance/samples/samples-table';
 import {
 	SAMPLE_WINDOW_DAYS,
 	sampleFilterCodecs,
 	sampleListParams,
+	sampleRecordSet,
 	sampleTileFilters,
-	sharedSampleSearch,
 } from '../../../components/larval-surveillance/samples-search';
 import { RecordTableEmpty } from '../../../components/record/record-table-empty';
 import { RecordTableUnavailable } from '../../../components/record/record-table-unavailable';
@@ -53,7 +53,7 @@ const SampleIcon = iconRegistry.entities.sample.icon;
 function SamplesTableRoute() {
 	const binding = useSampleFilterState();
 	const { filters, activeCount, reset } = binding;
-	const carried = sharedSampleSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const params = mapQueryParams({
 		bbox: WHOLE_WORLD_BBOX,
@@ -70,7 +70,7 @@ function SamplesTableRoute() {
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
-				actions={<SampleSurfaceSwitch current="table" search={carried} />}
+				actions={<RecordSetSwitch current="table" search={routeSearch} set={sampleRecordSet} />}
 				description="Every sample taken, newest inspection first."
 				icon={SampleIcon}
 				title={recordNoun('sample').titleMany}

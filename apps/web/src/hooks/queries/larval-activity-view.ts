@@ -34,8 +34,9 @@ export interface LarvalActivityRow extends LifeStageFlags {
 	readonly inspectedByProfileId: string | null;
 	/**
 	 * The Profile that made the inspection, already resolved. `null` when nobody was
-	 * recorded — which the panels group under "Unassigned" rather than treating as a
-	 * missing name.
+	 * recorded, which the panels group under "Unassigned", and also when the
+	 * Profile is not in the client, which is permanent for a deleted one. Read
+	 * `inspectedByProfileId` to tell the two apart.
 	 */
 	readonly inspectedByName: string | null;
 	readonly isWet: boolean;

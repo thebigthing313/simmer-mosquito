@@ -7,6 +7,7 @@ import {
 	flagParam,
 	idSetParam,
 } from '../../lib/search-filters';
+import { defineRecordSet } from '../explorer/record-set';
 
 // The inspections explorer's URL filter contract, outside the route module so
 // the overview panels can build deep links from the same definition. Every
@@ -60,19 +61,25 @@ export type InspectionsSearch = {
 };
 
 /**
- * What a move between the two Inspections surfaces carries: the keys named
- * here and nothing else, because the Table's search adds its own sort and the
- * Map has nowhere to put one. It takes the surface's validated search, so a
- * filter at its default stays off the address bar and each surface keeps its
- * own opening window.
+ * The Inspections Map and Table. Both read `/map/inspections`. The Table has
+ * no Region control, so Region is the Map's alone and a switch to the Table
+ * leaves it behind.
  */
-export function sharedInspectionSearch(search: Record<string, unknown>): Record<string, unknown> {
-	const carried: Record<string, unknown> = {};
-	for (const key of Object.keys(inspectionFilterCodecs)) {
-		const value = search[key];
-		if (value !== undefined) {
-			carried[key] = value;
-		}
-	}
-	return carried;
-}
+export const inspectionRecordSet = defineRecordSet({
+	recordType: 'inspection',
+	paths: {
+		map: '/larval-surveillance/inspections',
+		table: '/larval-surveillance/inspections/table',
+	},
+	codecs: inspectionFilterCodecs,
+	applies: {
+		from: 'both',
+		to: 'both',
+		water: 'both',
+		density: 'both',
+		positive: 'both',
+		types: 'both',
+		inspectors: 'both',
+		regions: 'map',
+	},
+});
