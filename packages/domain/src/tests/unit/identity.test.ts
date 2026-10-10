@@ -81,6 +81,34 @@ describe('updateOrganizationDetailsCommand', () => {
 		).toThrow(DomainValidationError);
 	});
 
+	it('refuses a Main contact that is not an email address', () => {
+		let thrown: unknown;
+		try {
+			updateOrganizationDetailsCommand({ ...organization, mainContactEmail: 'not-an-email' });
+		} catch (error) {
+			thrown = error;
+		}
+
+		expect(thrown).toBeInstanceOf(DomainValidationError);
+		expect((thrown as DomainValidationError).issues).toEqual([
+			{ path: 'mainContactEmail', message: 'mainContactEmail must be a valid email address.' },
+		]);
+	});
+
+	it('accepts a Main contact that is an email address, keeping its case, and accepts null', () => {
+		expect(
+			updateOrganizationDetailsCommand({ ...organization, mainContactEmail: 'a@b.co' }).payload
+				.changes,
+		).toEqual({ mainContactEmail: 'a@b.co' });
+		expect(
+			updateOrganizationDetailsCommand({ ...organization, mainContactEmail: 'Ops@Example.org' })
+				.payload.changes.mainContactEmail,
+		).toBe('Ops@Example.org');
+		expect(
+			updateOrganizationDetailsCommand({ ...organization, mainContactEmail: null }).payload.changes,
+		).toEqual({ mainContactEmail: null });
+	});
+
 	it('accepts a null mailing country, because an unfilled address is not an error', () => {
 		expect(
 			updateOrganizationDetailsCommand({ ...organization, mailingCountry: null }).payload.changes
