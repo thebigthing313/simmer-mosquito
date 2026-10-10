@@ -301,6 +301,31 @@ is one timer, and there is no refresh control for the same reason.
 
 ### explorer
 
+#### ExplorerCanvas
+
+The map half of every explorer built on `useExplorerResource`. All eleven
+routes wrote the same `MapCanvas` props, the measure and readout controls,
+`fitToData`, `rememberCamera`, and the panel's inset and search width, and the
+same conditional card under it; Service Requests wrote them inside a component
+of its own (#1423). What still varies is the create menu, the key, and which
+card draws, so those are the three props a route passes beside the hook's
+`canvas` bundle and the panel.
+
+The card is a function of the selected id, the panel's inset and the close
+handler, and a route spreads that object into its card. A card takes no map
+and moves no camera. The hook's flight is the only one a selection makes, and
+a card that has better coordinates than the row is a reason to fix the row.
+
+Service Requests had its own canvas component, `ServiceRequestsMapCanvas`,
+moved out of the route in #1382 because the clustering setting its legend reads
+was the route's fourteenth hook, and fallow scores a component's hook count
+into its cognitive complexity. The route reads that setting again now, which
+the two `useState` calls the hook took over leave room for.
+
+It imports `MapCanvas` through the `components/map` barrel rather than from
+`map-canvas.tsx`. Every route suite replaces `MapCanvas` with a stand-in by
+mocking the barrel, and a direct import would draw a real Mapbox map in jsdom.
+
 #### ExplorerSummary
 
 What an explorer rail draws in place of its rows over 100 in view (#1244).
@@ -474,12 +499,12 @@ drawn.
 #### WeatherSummariesCard
 
 One year per tab, because a station logged daily for ten years is 3,650 rows in
-one table. The tab follows a write because `weather_summaries` is on-demand and
-a write into a subset the live query does not cover waits out a txid that never
-arrives; `settleWrite` swallows that timeout, so it is a slow save over a row
-the user cannot see, and moving the tab fixes both. The dialog is mounted on
-the card for the same reason: the card is what keeps the station's subset
-queried.
+one table. The tab follows a write because the dialog would otherwise close
+over a list missing the row just saved, whenever the save lands in a year other
+than the one on screen. It used to say the switch was also what let the save
+confirm, on the belief that a txid for a row outside the loaded year never
+arrives; #1509 corrected that against `electric-db-collection` 0.5.8, and
+`docs/sync.md` has the reading.
 
 #### WeatherSummaryDialog
 
@@ -947,6 +972,81 @@ Comments does, `MissionNotificationCount`, so a mission with nobody on the list
 reads as one before the click. The assignment page passes nothing and keeps
 exactly Stops and Comments.
 
+#### MissionFilterBar
+
+The Missions filters, moved out of the index route with the rest of what that
+route declared (#1481). It takes the binding from `useMissionFilterState` and
+computes the date window's controls itself, on the schedule presets. The chip
+bar draws while `activeCount` is above zero, which counts a window moved off
+the default as one filter (#1453), and the Dates chip writes
+`binding.defaults` back rather than a range the route computed a second time.
+It stays apart from `AssignmentFilterBar` because the two records share no
+status vocabulary and only Missions filters on control type. One chip bar
+drawn from a filter declaration is #1421.
+
+#### AssignmentFilterBar
+
+The Assignments filters, for the reasons `MissionFilterBar` gives (#1481).
+The route used to draw these inline rather than in a component of its own.
+
+#### MissionResults
+
+The empty state reads `hasFilters`, the set filters alone, and not the window.
+Its copy already says "in this date range", so a moved window with no set
+filter is still "No Missions Scheduled" with the create button, where a set
+filter turns it into "No Matching Missions" with none. The route computes
+`hasFilters` because the chip bar counts the window and this does not.
+
+#### AssignmentResults
+
+The same empty-state rule as `MissionResults`, over assignments (#1481).
+
+#### MissionRow
+
+The whole card is a button that selects the record on the map, and the
+chevron is the only link into the record, so a click on the list never leaves
+the page by accident.
+
+#### AssignmentRow
+
+The same card as `MissionRow`, over an assignment (#1481). It reads its stop
+summary from `stopSummary` in `operations-display.tsx`: the Assignments route
+used to carry a copy typed over `ProgressCounts`, which has the same fields as
+`MissionProgressCounts`.
+
+#### SelectedMissionCard
+
+The card floats over the worklist map for the selected mission, so the map
+says which worklist its stops belong to. It carries no buttons; the row's
+chevron opens the mission.
+
+#### SelectedAssignmentCard
+
+The same card as `SelectedMissionCard`, over an assignment, with Open and Edit
+buttons, as it had inside the route (#1481).
+
+#### RequestControlFilters
+
+The Requests for Control filter card, moved out of the index route (#1481).
+It takes the binding from `useRequestForControlFilterState`. The route used to
+hand the card the defaults object it had built for `useSearchFilters`, which
+was the same object by construction only while both lived in one function;
+the binding makes it one value.
+
+#### RequestControlChips
+
+The chips under `RequestControlFilters`, private to its module (#1481). The
+Dates chip resets to `binding.defaults`. The status chip is the only one whose
+default is not empty, so removing it writes `open` back rather than clearing
+the field.
+
+#### RequestRow
+
+An `ExplorerRow`, since this page is an explorer rather than a worklist: the
+title links to the request and the row selects it on the map. The subtitle
+drops the recommended method when the request names none, rather than drawing
+an empty slot between two separators.
+
 ### overview
 
 One page component at three grains, `OverviewPage`, drawn by `routes/today`,
@@ -1200,14 +1300,6 @@ groupings the way `SampleFilterChips` is drawn on Samples. The summary itself
 is `ServiceRequestSummaryPanel` rather than an inline `ExplorerSummary`, because
 the two ternaries it needs took the route component over `fallow:health`'s
 cognitive complexity threshold.
-
-#### ServiceRequestsMapCanvas
-
-The Service Requests Map's `MapCanvas` moved out of the route in #1382 for the
-same threshold. Clustering on this map put the shared clustering setting in the
-legend, and fallow scores a component's hook count into its cognitive
-complexity, so the route's fourteenth hook took it to 16, one over. The canvas
-reads the setting itself now, beside the legend it decides.
 
 ### record
 

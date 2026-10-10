@@ -1,10 +1,8 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useState } from 'react';
-import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import {
 	AddressFilterChips,
@@ -24,7 +22,7 @@ import {
 	addressTileFilters,
 	sharedAddressSearch,
 } from '../../../components/gis/addresses/addresses-search';
-import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
+import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { useAddressFilterState } from '../../../hooks/gis/use-address-filter-state';
@@ -43,8 +41,6 @@ function AddressesExplorerRoute() {
 	// both land on the list the operator had narrowed to.
 	const binding = useAddressFilterState();
 	const { activeCount: activeFilterCount, clearAll } = binding;
-	const [selectedId, setSelectedId] = useState<string | null>(null);
-	const [map, setMap] = useState<MapboxMap | null>(null);
 	const panel = useExplorerPanel();
 
 	// The tiles and the page read one filter shape off one server predicate, so
@@ -55,25 +51,26 @@ function AddressesExplorerRoute() {
 	// What a move to the Table takes with it: every filter, since the Table
 	// applies each one.
 	const carried = sharedAddressSearch(Route.useSearch());
-	const layer: MapTileLayer = {
-		kind: 'addresses',
-		serverUrl: getServerUrl(),
-		filters,
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		empty,
+		summary,
+		canvas,
 		selectedId,
-		onSelectFeature: setSelectedId,
-	};
-	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
-		useExplorerResource<AddressListing>({
-			path: PATH,
-			rowsKey: 'addresses',
-			rowKey: 'address',
-			recordType: 'address',
-			params: addressListParams(filters),
-			layer,
-			map,
-			selectedId,
-			summarize: true,
-		});
+		setSelectedId,
+	} = useExplorerResource<AddressListing>({
+		path: PATH,
+		rowsKey: 'addresses',
+		rowKey: 'address',
+		recordType: 'address',
+		params: addressListParams(filters),
+		tiles: { kind: 'addresses', filters },
+		summarize: true,
+	});
 
 	return (
 		<ExplorerMapPage
@@ -94,25 +91,12 @@ function AddressesExplorerRoute() {
 			}}
 			onResetFilters={clearAll}
 			map={
-				<>
-					<MapCanvas
-						contextMenu={{ create: [MAP_CREATE_TARGETS.address] }}
-						controls={{ measure: true, readout: true }}
-						fitToData
-						rememberCamera
-						inset={panel.inset}
-						layers={layers}
-						onMapReady={setMap}
-						searchWidth={panel.width}
-					/>
-					{selected === null ? null : (
-						<AddressMapCard
-							id={selected.id}
-							inset={panel.inset}
-							onClose={() => setSelectedId(null)}
-						/>
-					)}
-				</>
+				<ExplorerCanvas
+					canvas={canvas}
+					card={(props) => <AddressMapCard {...props} />}
+					contextMenu={{ create: [MAP_CREATE_TARGETS.address] }}
+					panel={panel}
+				/>
 			}
 			panel={panel}
 			results={{

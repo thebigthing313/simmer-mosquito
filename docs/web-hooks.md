@@ -263,9 +263,26 @@ is the copy the rail gave before it could tell.
 `holdRailOnSelect` is the switch for `useFlyToSelection`'s `holdRail`, off by
 default so the other explorers keep re-paging for the record they fly to.
 
-`layers` is the list the route hands its `MapCanvas`: the tile layer it passed
-in, with the selected row on it as `selectedRecord`. That is the read the
-selection overlay draws from on a clustered tileset (see
+The hook holds the map instance, the selection and the tile layer, since
+#1423. All eleven routes used to keep a `MapboxMap` in state whose only reader
+was this hook, keep a selection whose only readers were the tile layer and the
+card, and write out the same five-field layer around both. So a route passes
+the tileset as `tiles`, a `kind` and its `filters`, and the hook adds the
+server URL, the selected id and the click handler. What comes back is the
+selection, `selectedId` with a setter and a clear for the rail, and `canvas`,
+the bundle `ExplorerCanvas` takes. The map arrives through `canvas.onMapReady`,
+which is `MapCanvas`'s own callback, so nothing changed about how a canvas
+reports its map, and the page still waits for it. Selection state is held here
+and not on the canvas because the rail sets it too, and the selected row the
+flight reads comes from this hook's page.
+
+The selection starts empty on every route, so the setter is all a route needs.
+A deep link to a selected record would be an initial value passed in, and no
+explorer has one.
+
+`canvas.layers` is the list `ExplorerCanvas` hands `MapCanvas`: the tile layer
+built from `tiles`, with the selected row on it as `selectedRecord`. That is
+the read the selection overlay draws from on a clustered tileset (see
 `useSelectionOverlayLayer`), and every explorer passes it, so a tileset that
 starts clustering gets the overlay without its route changing.
 
@@ -1293,7 +1310,13 @@ so a misspelled column fails `tsc`. A collection has no single column: its
 entry is `collectedSince` and `collectionEffectiveDate` from
 `hooks/queries/collection-day.ts`, which every collection read hook windows
 and reduces its rows through, and which hands the day up as `effectiveDate` so
-no page works it out (#1427). It replaced a
+no page works it out (#1427). `PERFORMED_ACTIONS` in
+`hooks/queries/performed-action-reads.ts` reads its `date` for each of the four
+performed control actions from the same register rather than naming the column
+again. A performed control action type added later takes its date column here
+and its joins there, and the heading over `useLinkedControlActions`,
+`useInspectionSamples` and `useHabitatHistory` says what that module holds. It
+replaced a
 `readActivity` on `GET /dashboard`, and two things decided that. The strip is
 what a person opens the page for, and on the server it shared one round trip
 with the untreated habitats read, which was 4.7 seconds on the production
@@ -1529,9 +1552,11 @@ hard to find among the JSX. The rules themselves and the metric inputs live
 in `components/gis/weather/weather-summary-form.ts`, shared with the dialog.
 
 `onWriteYear` is called before the write, not after. The card lists one year
-at a time, and a write into a year its live query does not cover waits out a
-txid that never arrives on that subset: `settleWrite` swallows the
-adapter's timeout, so the dialog closes late over a row the user cannot see.
+at a time, so without it a save into another year closes the dialog over a
+list missing the row just saved. Calling it first starts the written year
+loading while the save waits for confirmation. The written year is not what
+lets the save confirm: `docs/sync.md` has why a txid arrives whatever a live
+query has loaded.
 
 #### useActiveYear
 
@@ -1677,8 +1702,8 @@ selection, its fallback to the first visible row, the `Unassigned` assignee
 option and the status and assignee filter (#1432). The hook owns that much
 and stops there. The load call and the stops call stay at the route, because
 missions read stop views and assignments read features and counts together,
-and each route keeps its rows, its card and its filter bar, since the two
-records share no status vocabulary.
+and each page keeps its own rows, card and filter bar under
+`components/operations/`, since the two records share no status vocabulary.
 
 The selection is computed on read rather than held in an effect: a filter, a
 date change or a delete that takes the picked row out of the list leaves the
@@ -1687,6 +1712,42 @@ one is back. Status is matched over the loaded rows rather than in the query
 because both records derive it from three nullable timestamps. A filter one
 page has and the other does not, control type on Missions, goes in `matches`
 rather than in a third set the hook would have to name.
+
+#### useMissionFilterState
+
+The Missions index reads its filters off the URL through this, the way the
+date-windowed explorers read theirs through `useBiocontrolFilterState` and its
+neighbours (#1481). Before that the route built its defaults, called
+`useSearchFilters` itself and computed the default window a second time for
+the Dates chip, so the chip and the reset read two objects that agreed only by
+copy. The binding carries `defaults`, and the chip reads that.
+
+The page opens on `SCHEDULE_WINDOW`, the last week and the next two, since a
+worklist is a schedule rather than a history. The filter shape and its codecs
+sit in the hook's own module, because the route's `validateSearch` reads the
+same codec object the hook does. The status codec reads `MISSION_STATUSES`,
+which sits beside `MISSION_STATUS_LABELS` with `MissionStatus` derived from it,
+the shape #1466 gave Assignments, so the status popover narrows a selection
+against the list rather than casting it.
+
+There are three of these hooks and not one generic one because the pages open
+on different windows with different defaults. A generic record-set filter hook
+is #1419's question.
+
+#### useAssignmentFilterState
+
+The Assignments index's filters, for the reasons `useMissionFilterState`
+gives, over the same schedule window (#1481). The status codec reads
+`ASSIGNMENT_STATUSES` from `assignment-view.ts`, which #1466 put there.
+
+#### useRequestForControlFilterState
+
+The Requests for Control index's filters, for the reasons
+`useMissionFilterState` gives (#1481). This page opens on the last 90 days
+with the status on `open`, since the queue is read backwards from today to
+find work still waiting, and `open` stays out of the URL as the codec's
+fallback. The status vocabulary is a list with the type derived from it, as
+the two worklists' are.
 
 #### useMissionItemShapes
 
@@ -2000,6 +2061,16 @@ on a `date` column, so the bound is a plain `YYYY-MM-DD` string, no zone
 and no instant. See `use-recent-collections.ts` for the adult case, where it
 is neither.
 
+They are two files of 58 and 54 lines, and they stay two. Every join, the date
+and the measured columns already come from `PERFORMED_ACTIONS`, so what the two
+files still share is the shape of the query. One hook over both would be
+generic over the collection, and the compiler cannot relate the ref the query
+builder hands back to the `PERFORMED_ACTIONS` entry passed in beside it, so the
+call to that entry's predicates would need a cast across the two row types. A
+cast is what the module's no column map rule exists to keep out. That was
+decided in #1428 and #1498, so a duplication report naming the pair is expected
+and is not a finding to fix.
+
 #### usePeopleDirectory
 
 A Profile is who work is attributed to; a Membership is the access that
@@ -2116,6 +2187,39 @@ in keeps its `null` id beside the `null` name, which is how a page tells
 subset each action table is asked for, so a join that took the predicate over
 fails there. A join also works inside a correlated `toArray` include, which is
 how a species count gets its taxon's name.
+
+The control action joins are not written in these hooks. `PERFORMED_ACTIONS`
+in `hooks/queries/performed-action-reads.ts` holds them for the four performed
+control actions, one entry per type: a join predicate for the method, for the
+product on a Chemical Application, for the unit on every type but an Outreach
+Action, and for whoever performed it, plus `measured`, which returns the
+method, performer, amount and unit columns under one set of field names. Before
+#1428 about ten read hooks wrote those joins and columns out per type; eleven
+compose them from the module now, `useLinkedControlActions` and
+`useHabitatHistory` among them. A hook keeps its own `from`, `where`, ordering
+and the field names of the view it returns. The same module exports
+`controlActionBaseSelect`, the placement and audit fields (address, inspection,
+request, mission item, coordinates, metadata and the four audit columns) that
+`useApplication`, `useSourceReduction`, `useBiocontrolAction` and
+`useOutreachAction` project the same way. It leaves out `habitatId`, because an
+Outreach Action has no habitat.
+
+The module has no column map, for the reason `performed-action-writes.ts`
+gives on the write side. Every column is a property access on a typed ref
+inside a function, never a column name in a string, so a misspelled column
+fails `tsc` in that file rather than answering `undefined`. #1498 checked it by
+renaming two columns there and reading two TS2551s.
+
+Every hook that reads a performed control action returns each joined name,
+the performer, the method and the insecticide, as
+`coalesce(joined.name, null)`. The name is `null` both when nothing was
+recorded and when the record is not in the client, which is permanent for a
+deleted Profile because the Profile shape streams live rows only. So the
+surface reads the id beside the name to tell the two apart and draws its own
+`Unknown method` or `No method`; the hook draws neither. A `caseWhen` guarded
+on the foreign key used to yield `undefined` for the second case under a
+`string | null` type, and the Chemical Application map card drew an empty
+applicator row for it (#1501).
 
 #### useInspection and useHabitatSuspense
 

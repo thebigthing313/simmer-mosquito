@@ -25,6 +25,7 @@ import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { addSamplesInFormOrder } from '../../../lib/add-inspection-samples';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { todayInTimeZone } from '../../../lib/local-date';
@@ -153,17 +154,11 @@ function CreateInspectionRoute() {
 
 			// Samples reference the inspection, so they follow it. Best-effort like
 			// the crew rows: a sample that fails to land is reported rather than
-			// failing a save that already succeeded.
-			await attachLinksBestEffort('the samples', async () => {
-				for (const sample of values.samples) {
-					const label = sample.label.trim();
-					await sampleMutations.add({
-						sampleId: sample.id,
-						inspectionId,
-						displayName: label === '' ? null : label,
-					});
-				}
-			});
+			// failing a save that already succeeded. They go one at a time because
+			// the samples grid sorts on `created_at`.
+			await attachLinksBestEffort('the samples', () =>
+				addSamplesInFormOrder(sampleMutations.add, inspectionId, values.samples),
+			);
 
 			// Crew rows reference the inspection, so they can only be written once it
 			// exists.
