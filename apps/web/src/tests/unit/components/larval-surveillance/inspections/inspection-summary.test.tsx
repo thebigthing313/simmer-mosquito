@@ -11,10 +11,19 @@
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ExplorerSummary } from '../../../../../components/explorer/explorer-summary';
-import { inspectionSummaryGroupings } from '../../../../../components/larval-surveillance/inspections/inspection-summary';
+import { DeclaredSummary } from '../../../../../components/explorer/declared-summary';
+import { inspectionFilterDeclarations } from '../../../../../components/larval-surveillance/inspection-filters';
 import type { InspectionFilters } from '../../../../../components/larval-surveillance/inspections-search';
 import type { MapSummary } from '../../../../../hooks/explorer/use-explorer-summary';
+
+// Habitat type and Inspector each name a catalog, which the summary reads for
+// names. The ids differ, so one lookup serves both.
+vi.mock('../../../../../hooks/explorer/use-catalog-options', () => ({
+	useCatalogOptions: () => ({
+		options: [],
+		nameById: new Map([...TYPE_NAMES, ...INSPECTOR_NAMES]),
+	}),
+}));
 
 afterEach(cleanup);
 
@@ -84,16 +93,11 @@ const EMPTY_FILTERS: InspectionFilters = {
 
 function renderSummary(filters: Partial<InspectionFilters> = {}, summary = SUMMARY) {
 	const setFilters = vi.fn<(patch: Partial<InspectionFilters>) => void>();
-	const groupings = inspectionSummaryGroupings({
-		summary,
-		filters: { ...EMPTY_FILTERS, ...filters },
-		setFilters,
-		typeNameById: TYPE_NAMES,
-		inspectorNameById: INSPECTOR_NAMES,
-	});
 	render(
-		<ExplorerSummary
-			groupings={groupings}
+		<DeclaredSummary
+			binding={{ filters: { ...EMPTY_FILTERS, ...filters }, setFilters }}
+			declarations={inspectionFilterDeclarations}
+			order={['water', 'density', 'positive', 'types', 'inspectors']}
 			recordType="inspection"
 			state={{ data: summary, isError: false, retry: () => undefined }}
 		/>,

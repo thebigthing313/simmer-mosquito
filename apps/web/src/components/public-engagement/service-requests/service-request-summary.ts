@@ -1,29 +1,13 @@
 import type { MapSummary } from '../../../hooks/explorer/use-explorer-summary';
 import type { SummaryGroup, SummaryGrouping } from '../../explorer/explorer-summary';
-import { declaredSummaryGroupings } from '../../explorer/filter-declarations';
 import { intakeTypeLabel } from '../public-engagement-display';
-import { serviceRequestFilterDeclarations } from './service-request-filters';
-import type { ServiceRequestFilters } from './service-requests-search';
 
 /**
- * The Service Requests summary's groupings and its figure, out of what
- * `/map/service-requests/summary` answers.
- *
- * Status and Tags are the declared filters' toggle groups. Intake type and the
- * days the oldest open request has waited are drawn as text, because no
- * filter selects either.
+ * The Service Requests summary's Intake Type and Waiting groupings, out of
+ * what `/map/service-requests/summary` answers, drawn as text after the
+ * declared Status and Tags groupings, because no filter selects either.
  */
-export function serviceRequestSummaryGroupings({
-	summary,
-	filters,
-	setFilters,
-	tagNameById,
-}: {
-	readonly summary: MapSummary;
-	readonly filters: ServiceRequestFilters;
-	readonly setFilters: (patch: Partial<ServiceRequestFilters>) => void;
-	readonly tagNameById: ReadonlyMap<string, string>;
-}): readonly SummaryGrouping[] {
+export function serviceRequestSummaryFigures(summary: MapSummary): readonly SummaryGrouping[] {
 	const intakeTypes: SummaryGroup[] = (summary.groups.intakeType ?? []).flatMap(
 		({ value, count }) =>
 			typeof value === 'string' ? [{ key: value, label: intakeTypeLabel(value), count }] : [],
@@ -34,12 +18,6 @@ export function serviceRequestSummaryGroupings({
 	const oldestOpenDays = summary.figures?.oldestOpenDays;
 
 	return [
-		...declaredSummaryGroupings(serviceRequestFilterDeclarations, ['status', 'tags'], {
-			summary,
-			filters,
-			setFilters,
-			names: { tags: tagNameById },
-		}),
 		{ key: 'intake', title: 'Intake Type', groups: intakeTypes },
 		{
 			key: 'waiting',

@@ -37,7 +37,6 @@ import {
 	useExplorerResource,
 } from '../../../hooks/explorer/use-explorer-resource';
 import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
-import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import type { Address } from '../../../hooks/queries/address-view';
 import type { ContactSummary } from '../../../hooks/queries/contact-view';
@@ -60,10 +59,6 @@ export const Route = createFileRoute('/public-engagement/service-requests/')({
 });
 
 function ServiceRequestsExplorerRoute() {
-	// The catalog names the Tags the summary groups by.
-	const { byId: tagById } = useTagOptions();
-	const tagNameById = new Map([...tagById.values()].map((tag) => [tag.id, tag.name]));
-
 	// The filter state lives in the URL, so a shared link and Back out of a
 	// request both land on the list the operator had narrowed to. An address with
 	// no params opens on every request received this year, open or closed.
@@ -160,7 +155,7 @@ function ServiceRequestsExplorerRoute() {
 				skeletonClassName: 'h-16',
 				// Over 100 in view the rows would not fit on one page, so the panel
 				// says what is in view instead (#1371).
-				summary: summarySlot({ binding, state: summary, tagNameById }),
+				summary: summarySlot({ binding, state: summary }),
 				renderRow: (request) => (
 					<RequestRowItem
 						address={parties.addressById.get(request.addressId) ?? null}

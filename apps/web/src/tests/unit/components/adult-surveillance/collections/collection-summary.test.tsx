@@ -12,13 +12,19 @@
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { collectionSummaryGroupings } from '../../../../../components/adult-surveillance/collections/collection-summary';
+import { collectionFilterDeclarations } from '../../../../../components/adult-surveillance/collections/collection-filters';
+import { collectionSummaryFigures } from '../../../../../components/adult-surveillance/collections/collection-summary';
 import {
 	type CollectionFilters,
 	collectionFilterDefaults,
 } from '../../../../../components/adult-surveillance/collections/collections-search';
-import { ExplorerSummary } from '../../../../../components/explorer/explorer-summary';
+import { DeclaredSummary } from '../../../../../components/explorer/declared-summary';
 import type { MapSummary } from '../../../../../hooks/explorer/use-explorer-summary';
+
+// The Method declaration names its catalog, which the summary reads for names.
+vi.mock('../../../../../hooks/explorer/use-catalog-options', () => ({
+	useCatalogOptions: () => ({ options: [], nameById: METHOD_NAMES }),
+}));
 
 afterEach(cleanup);
 
@@ -61,15 +67,12 @@ const DEFAULTS = collectionFilterDefaults('2026-09-28');
 
 function renderSummary(filters: Partial<CollectionFilters> = {}, summary = SUMMARY) {
 	const setFilters = vi.fn<(patch: Partial<CollectionFilters>) => void>();
-	const groupings = collectionSummaryGroupings({
-		summary,
-		filters: { ...DEFAULTS, ...filters },
-		setFilters,
-		methodNameById: METHOD_NAMES,
-	});
 	render(
-		<ExplorerSummary
-			groupings={groupings}
+		<DeclaredSummary
+			binding={{ filters: { ...DEFAULTS, ...filters }, setFilters }}
+			declarations={collectionFilterDeclarations}
+			figures={collectionSummaryFigures}
+			order={['problems', 'awaiting', 'methods']}
 			recordType="collection"
 			state={{ data: summary, isError: false, retry: () => undefined }}
 		/>,

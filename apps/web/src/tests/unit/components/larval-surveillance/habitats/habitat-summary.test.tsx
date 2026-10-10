@@ -11,13 +11,21 @@
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DeclaredSummary } from '../../../../../components/explorer/declared-summary';
 import { ExplorerSummary } from '../../../../../components/explorer/explorer-summary';
-import { habitatSummaryGroupings } from '../../../../../components/larval-surveillance/habitats/habitat-summary';
+import { habitatFilterDeclarations } from '../../../../../components/larval-surveillance/habitats/habitat-filters';
 import {
 	HABITAT_FILTER_DEFAULTS,
 	type HabitatFilters,
 } from '../../../../../components/larval-surveillance/habitats/habitats-search';
 import type { MapSummary } from '../../../../../hooks/explorer/use-explorer-summary';
+
+// The Habitat type declaration names its catalog, which the summary reads for names.
+vi.mock('../../../../../hooks/explorer/use-catalog-options', () => ({
+	useCatalogOptions: () => ({ options: [], nameById: TYPE_NAMES }),
+}));
+
+const ORDER = ['typeIds', 'status', 'access', 'untreated'] as const;
 
 afterEach(cleanup);
 
@@ -63,15 +71,11 @@ const SUMMARY: MapSummary = {
 
 function renderSummary(filters: Partial<HabitatFilters> = {}) {
 	const setFilters = vi.fn();
-	const groupings = habitatSummaryGroupings({
-		summary: SUMMARY,
-		filters: { ...HABITAT_FILTER_DEFAULTS, status: 'all', ...filters },
-		setFilters,
-		typeNameById: TYPE_NAMES,
-	});
 	render(
-		<ExplorerSummary
-			groupings={groupings}
+		<DeclaredSummary
+			binding={{ filters: { ...HABITAT_FILTER_DEFAULTS, status: 'all', ...filters }, setFilters }}
+			declarations={habitatFilterDeclarations}
+			order={ORDER}
 			recordType="habitat"
 			state={{ data: SUMMARY, isError: false, retry: () => undefined }}
 		/>,
@@ -172,15 +176,11 @@ describe('the habitat summary', () => {
 			total: 120,
 			groups: { habitatTypeId: [{ value: null, count: 120 }] },
 		};
-		const groupings = habitatSummaryGroupings({
-			summary: untyped,
-			filters: HABITAT_FILTER_DEFAULTS,
-			setFilters: vi.fn(),
-			typeNameById: TYPE_NAMES,
-		});
 		render(
-			<ExplorerSummary
-				groupings={groupings}
+			<DeclaredSummary
+				binding={{ filters: HABITAT_FILTER_DEFAULTS, setFilters: vi.fn() }}
+				declarations={habitatFilterDeclarations}
+				order={ORDER}
 				recordType="habitat"
 				state={{ data: untyped, isError: false, retry: () => undefined }}
 			/>,

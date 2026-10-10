@@ -10,6 +10,5 @@ export function useInspectionCatalogs(): InspectionCatalogs {
 		habitatTypes: habitatTypes.options,
 		personnel: personnel.options,
 		typeNameById: habitatTypes.nameById,
-		personnelNameById: personnel.nameById,
 	};
 }

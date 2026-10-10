@@ -6,7 +6,6 @@ import {
 	TrapFilterFields,
 	trapFilterDeclarations,
 } from '../../../components/adult-surveillance/traps/trap-filters';
-import { trapSummaryGroupings } from '../../../components/adult-surveillance/traps/trap-summary';
 import {
 	trapFilterCodecs,
 	trapRecordSet,
@@ -14,8 +13,8 @@ import {
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
+import { DeclaredSummary } from '../../../components/explorer/declared-summary';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
-import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS, TRAP_STATUS_COLORS } from '../../../components/map';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
@@ -55,7 +54,7 @@ function TrapsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a trap
 	// both land on the list the operator had narrowed to.
 	const binding = useRecordSetFilters(trapRecordSet, 'map');
-	const { filters: query, activeCount: activeFilterCount, clearAll, setFilters } = binding;
+	const { filters: query, activeCount: activeFilterCount, clearAll } = binding;
 	const panel = useExplorerPanel();
 
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
@@ -115,18 +114,11 @@ function TrapsExplorerRoute() {
 				// Over 100 in view the rows would not fit on one page, so the panel
 				// says what is in view instead (#1244).
 				summary: summary.isShown ? (
-					<ExplorerSummary
+					<DeclaredSummary
+						binding={binding}
 						chips={<DeclaredFilterChips binding={binding} declarations={trapFilterDeclarations} />}
-						groupings={
-							summary.data === null
-								? []
-								: trapSummaryGroupings({
-										summary: summary.data,
-										filters: query,
-										setFilters,
-										methodNameById,
-									})
-						}
+						declarations={trapFilterDeclarations}
+						order={['methods', 'status']}
 						recordType="trap"
 						state={summary}
 					/>

@@ -12,7 +12,7 @@ import {
 	sourceReductionMethodName,
 	sourceReductionTechnicianName,
 } from '../../../components/control-operations/source-reduction/source-reduction-row-parts';
-import { sourceReductionSummaryGroupings } from '../../../components/control-operations/source-reduction/source-reduction-summary';
+import { sourceReductionSummaryFigures } from '../../../components/control-operations/source-reduction/source-reduction-summary';
 import {
 	sourceReductionFilterCodecs,
 	sourceReductionRecordSet,
@@ -20,8 +20,8 @@ import {
 import { SourceReductionMapCard } from '../../../components/control-operations/source-reduction-map-card';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
+import { DeclaredSummary } from '../../../components/explorer/declared-summary';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
-import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
@@ -49,7 +49,7 @@ function SourceReductionExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
 	const binding = useRecordSetFilters(sourceReductionRecordSet, 'map');
-	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
+	const { reset: clearAll, activeCount: activeFilterCount } = binding;
 	const panel = useExplorerPanel();
 
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.sourceReductionMethods);
@@ -118,25 +118,17 @@ function SourceReductionExplorerRoute() {
 				// Over 100 in view the rows would not fit on one page, so the panel
 				// says what is in view instead (#1375).
 				summary: summary.isShown ? (
-					<ExplorerSummary
+					<DeclaredSummary
+						binding={binding}
 						chips={
 							<DeclaredFilterChips
 								binding={binding}
 								declarations={sourceReductionFilterDeclarations}
 							/>
 						}
-						groupings={
-							summary.data === null
-								? []
-								: sourceReductionSummaryGroupings({
-										summary: summary.data,
-										filters: query,
-										setFilters,
-										methodNameById,
-										personNameById,
-										unitById,
-									})
-						}
+						declarations={sourceReductionFilterDeclarations}
+						figures={(data) => sourceReductionSummaryFigures(data, unitById)}
+						order={['methods', 'people']}
 						recordType="sourceReduction"
 						state={summary}
 					/>

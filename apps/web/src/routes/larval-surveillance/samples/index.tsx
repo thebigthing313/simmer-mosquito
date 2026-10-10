@@ -2,8 +2,8 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
+import { DeclaredSummary } from '../../../components/explorer/declared-summary';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
-import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { SampleMapCard } from '../../../components/larval-surveillance/sample-map-card';
 import { sampleLegend } from '../../../components/larval-surveillance/samples/legend';
@@ -17,7 +17,7 @@ import {
 	SpeciesResults,
 	sampleSwatch,
 } from '../../../components/larval-surveillance/samples/sample-row-parts';
-import { sampleSummaryGroupings } from '../../../components/larval-surveillance/samples/sample-summary';
+import { sampleSummaryFigures } from '../../../components/larval-surveillance/samples/sample-summary';
 import {
 	sampleFilterCodecs,
 	sampleRecordSet,
@@ -50,7 +50,7 @@ function SamplesExplorerRoute() {
 	// The filter state lives in the URL, so a deep link, a shared link, and Back
 	// out of a record all land on the same view.
 	const binding = useRecordSetFilters(sampleRecordSet, 'map');
-	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
+	const { filters: query, reset: clearAll, activeCount: activeFilterCount } = binding;
 	const panel = useExplorerPanel();
 
 	const { nameById } = useSpeciesOptions();
@@ -108,20 +108,14 @@ function SamplesExplorerRoute() {
 				// Over 100 in view the rows would not fit on one page, so the panel
 				// says what is in view instead (#1370).
 				summary: summary.isShown ? (
-					<ExplorerSummary
+					<DeclaredSummary
+						binding={binding}
 						chips={
 							<DeclaredFilterChips binding={binding} declarations={sampleFilterDeclarations} />
 						}
-						groupings={
-							summary.data === null
-								? []
-								: sampleSummaryGroupings({
-										summary: summary.data,
-										filters: query,
-										setFilters,
-										speciesNameById: nameById,
-									})
-						}
+						declarations={sampleFilterDeclarations}
+						figures={sampleSummaryFigures}
+						order={['status', 'species', 'nonMosquito']}
 						recordType="sample"
 						state={summary}
 					/>

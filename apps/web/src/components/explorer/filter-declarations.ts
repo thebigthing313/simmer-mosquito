@@ -1,8 +1,9 @@
 /**
  * One declaration per filter on a record set: what kind of value it holds, what
  * it is called, where its options come from, and how the in-view summary groups
- * by it. `declared-filters.tsx` draws the controls and the chips from these, and
- * {@link declaredSummaryGroupings} builds the summary's toggle groups.
+ * by it. `declared-filters.tsx` draws the controls and the chips from these,
+ * and `declared-summary.tsx` draws the summary's toggle groups, which
+ * {@link declaredSummaryGroupings} builds.
  */
 
 import type { ComponentType } from 'react';
@@ -334,8 +335,45 @@ export interface SummaryInput<TFilters> {
 	readonly summary: MapSummary;
 	readonly filters: TFilters;
 	readonly setFilters: (patch: Partial<TFilters>) => void;
-	/** The id to name lookup for each id set the summary draws, from the catalogs the chips read. */
-	readonly names?: Partial<Readonly<Record<Key<TFilters>, ReadonlyMap<string, string>>>>;
+}
+
+/**
+ * Each option source's id to name lookup, keyed by the source a declaration
+ * names. An id set is named through its own declaration's source, so nothing
+ * pairs a lookup with a filter key by hand.
+ */
+export type SourceNames = ReadonlyMap<OptionSource, ReadonlyMap<string, string>>;
+
+/** The declaration named `name`, which has to exist and not be the date window. */
+function summaryDeclaration<TFilters>(
+	declarations: FilterDeclarations<TFilters>,
+	name: Key<TFilters>,
+): Exclude<LooseDeclaration, DateRangeDeclaration> {
+	const declaration = declarations.list.find(
+		(candidate) => candidate.kind !== 'dateRange' && candidate.key === name,
+	);
+	if (declaration === undefined || declaration.kind === 'dateRange') {
+		throw new Error(`No filter is declared under ${name}.`);
+	}
+	return loosenDeclaration(declaration) as Exclude<LooseDeclaration, DateRangeDeclaration>;
+}
+
+/**
+ * The option sources whose names the groupings in `order` draw, each once
+ * however many id sets read it.
+ */
+export function summarySources<TFilters>(
+	declarations: FilterDeclarations<TFilters>,
+	order: readonly Key<TFilters>[],
+): readonly OptionSource[] {
+	const sources = new Set<OptionSource>();
+	for (const name of order) {
+		const declaration = summaryDeclaration(declarations, name);
+		if (declaration.kind === 'idSet' && declaration.summary !== undefined) {
+			sources.add(declaration.options);
+		}
+	}
+	return [...sources];
 }
 
 /**
@@ -346,21 +384,17 @@ export interface SummaryInput<TFilters> {
  * out: an id or a choice leaves its set, a flag goes off, a choice goes to
  * `all`. A value no record in view carries is not drawn, because clicking it
  * would empty the panel. The names come from the declaration, and an id set's
- * from `names`, since the server answers ids.
+ * from its option source's lookup in `names`, since the server answers ids.
+ * `DeclaredSummary` reads those sources the way the chips do and calls this.
  */
 export function declaredSummaryGroupings<TFilters>(
 	declarations: FilterDeclarations<TFilters>,
 	order: readonly Key<TFilters>[],
 	input: SummaryInput<TFilters>,
+	names: SourceNames,
 ): SummaryGrouping[] {
 	return order.map((name) => {
-		const declaration = declarations.list.find(
-			(candidate) => candidate.kind !== 'dateRange' && candidate.key === name,
-		);
-		if (declaration === undefined || declaration.kind === 'dateRange') {
-			throw new Error(`No filter is declared under ${name}.`);
-		}
-		const grouping = summaryGrouping(loosenDeclaration(declaration), input);
+		const grouping = summaryGrouping(summaryDeclaration(declarations, name), input, names);
 		if (grouping === null) {
 			throw new Error(`The ${name} filter declares no summary grouping.`);
 		}
@@ -371,10 +405,11 @@ export function declaredSummaryGroupings<TFilters>(
 function summaryGrouping<TFilters>(
 	declaration: LooseDeclaration,
 	input: SummaryInput<TFilters>,
+	names: SourceNames,
 ): SummaryGrouping | null {
 	switch (declaration.kind) {
 		case 'idSet':
-			return idSetGrouping(declaration, input);
+			return idSetGrouping(declaration, input, names.get(declaration.options));
 		case 'flag':
 			return flagGrouping(declaration, input);
 		case 'choice':
@@ -407,15 +442,13 @@ function read<TValue>(filters: unknown, key: string): TValue {
 function idSetGrouping<TFilters>(
 	declaration: IdSetDeclaration<string>,
 	input: SummaryInput<TFilters>,
+	nameById: ReadonlyMap<string, string> | undefined,
 ): SummaryGrouping | null {
 	const { summary: spec, key, unknown } = declaration;
 	if (spec === undefined) {
 		return null;
 	}
 	const selected = read<ReadonlySet<string>>(input.filters, key);
-	const nameById = (
-		input.names as Readonly<Record<string, ReadonlyMap<string, string>>> | undefined
-	)?.[key];
 	const groups = countsOf(input.summary, spec.grouping).flatMap(
 		({ value, count }): SummaryGroup[] => {
 			if (typeof value === 'string') {

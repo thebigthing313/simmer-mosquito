@@ -3,8 +3,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
+import { DeclaredSummary } from '../../../components/explorer/declared-summary';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
-import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import {
@@ -20,7 +20,7 @@ import {
 	outreachMethodName,
 	outreachTechnicianName,
 } from '../../../components/public-engagement/outreach/outreach-row-parts';
-import { outreachSummaryGroupings } from '../../../components/public-engagement/outreach/outreach-summary';
+import { outreachSummaryFigures } from '../../../components/public-engagement/outreach/outreach-summary';
 import { OutreachMapCard } from '../../../components/public-engagement/outreach-map-card';
 import { formatReach } from '../../../components/public-engagement/public-engagement-display';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
@@ -46,7 +46,7 @@ function OutreachExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
 	const binding = useRecordSetFilters(outreachRecordSet, 'map');
-	const { filters: query, setFilters, reset, activeCount: activeFilterCount } = binding;
+	const { reset, activeCount: activeFilterCount } = binding;
 	const panel = useExplorerPanel();
 
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.outreachMethods);
@@ -104,21 +104,14 @@ function OutreachExplorerRoute() {
 				// Over 100 in view the rows would not fit on one page, so the panel
 				// says what is in view instead (#1377).
 				summary: summary.isShown ? (
-					<ExplorerSummary
+					<DeclaredSummary
+						binding={binding}
 						chips={
 							<DeclaredFilterChips binding={binding} declarations={outreachFilterDeclarations} />
 						}
-						groupings={
-							summary.data === null
-								? []
-								: outreachSummaryGroupings({
-										summary: summary.data,
-										filters: query,
-										setFilters,
-										methodNameById,
-										personNameById,
-									})
-						}
+						declarations={outreachFilterDeclarations}
+						figures={outreachSummaryFigures}
+						order={['methods', 'people']}
 						recordType="outreachAction"
 						state={summary}
 					/>
