@@ -155,15 +155,7 @@ function editBlock() {
  * spelled here, so a case cannot keep passing against a layer the listener
  * stopped asking about.
  */
-const [OUTLINE_LAYER, LINE_LAYER] = edgeLayers();
-
-function edgeLayers(): readonly [string, string] {
-	const [outline, lineLayer, ...rest] = EDGE_LAYERS;
-	if (outline === undefined || lineLayer === undefined || rest.length > 0) {
-		throw new Error(`The edit listener asks ${EDGE_LAYERS.length} layers for an edge, not two.`);
-	}
-	return [outline, lineLayer];
-}
+const [OUTLINE_LAYER, LINE_LAYER] = EDGE_LAYERS;
 
 /** Draw `positions` as a line and open it for editing. */
 function editLine(positions: readonly (readonly [number, number])[]) {

@@ -169,7 +169,7 @@ async function renderPage(record: RequestRecord) {
 
 async function choose(name: string): Promise<void> {
 	fireEvent.pointerDown(
-		screen.getByRole('button', { name: 'More Actions' }),
+		screen.getByRole('button', { name: 'More actions' }),
 		new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
 	);
 	const item = await screen.findByRole('menuitem', { name });

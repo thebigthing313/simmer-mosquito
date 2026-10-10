@@ -2,12 +2,12 @@
  * The trap filters, drawn the same way on the Traps Map and the Traps Table:
  * the search box, Status, the Method and Region popovers, and the chips for
  * whatever is set. It returns the blocks bare, so each surface puts them in its
- * own frame. Takes the binding from `useTrapFilterState`.
+ * own frame. Takes the binding from `useRecordSetFilters`.
  */
 
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
-import type { TrapFilterBinding } from '../../../hooks/adult-surveillance/use-trap-filter-state';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
+import type { RecordSetFilterBinding } from '../../../hooks/explorer/use-record-set-filters';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import {
@@ -20,6 +20,7 @@ import {
 	toggle,
 } from '../../explorer';
 import { TRAP_STATUS_LABELS, TRAP_STATUS_VALUES, type TrapStatusFilter } from './legend';
+import type { TrapFilters } from './traps-search';
 import { TRAP_FILTER_DEFAULTS } from './traps-search';
 
 const STATUS_OPTIONS: readonly { readonly value: TrapStatusFilter; readonly label: string }[] =
@@ -29,7 +30,7 @@ export function TrapFilterFields({
 	binding,
 	wide = false,
 }: {
-	readonly binding: TrapFilterBinding;
+	readonly binding: RecordSetFilterBinding<TrapFilters>;
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
@@ -84,7 +85,11 @@ export function TrapFilterFields({
  * draws these under its controls, and the Traps summary draws them above its
  * groupings.
  */
-export function TrapFilterChips({ binding }: { readonly binding: TrapFilterBinding }) {
+export function TrapFilterChips({
+	binding,
+}: {
+	readonly binding: RecordSetFilterBinding<TrapFilters>;
+}) {
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
 	const { nameById: regionNameById } = useRegionOptions();
 	const { filters, setFilters, clearSearch, clearAll } = binding;

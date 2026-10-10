@@ -14,9 +14,7 @@ import {
 import { collectionSummaryGroupings } from '../../../components/adult-surveillance/collections/collection-summary';
 import {
 	collectionFilterCodecs,
-	collectionListParams,
 	collectionRecordSet,
-	collectionTileFilters,
 } from '../../../components/adult-surveillance/collections/collections-search';
 import { collectionLegend } from '../../../components/adult-surveillance/collections/legend';
 import { createLabel } from '../../../components/app-shell/navigation';
@@ -26,10 +24,10 @@ import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
-import { useCollectionFilterState } from '../../../hooks/adult-surveillance/use-collection-filter-state';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import { collectionEffectiveDate } from '../../../hooks/queries/collection-day';
@@ -46,12 +44,10 @@ export const Route = createFileRoute('/adult-surveillance/collections/')({
 	validateSearch: searchValidator(collectionFilterCodecs),
 });
 
-const PATH = '/map/collections';
-
 function CollectionsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
-	const binding = useCollectionFilterState();
+	const binding = useRecordSetFilters(collectionRecordSet, 'map');
 	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
 	const panel = useExplorerPanel();
 
@@ -61,7 +57,7 @@ function CollectionsExplorerRoute() {
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
-	const filters = collectionTileFilters(query);
+	const filters = collectionRecordSet.tileFilters(query, binding.context);
 	const routeSearch = Route.useSearch();
 	const [clustered] = useMapClustering();
 	const legend = collectionLegend(query.problems, clustered);
@@ -77,11 +73,11 @@ function CollectionsExplorerRoute() {
 		selectedId,
 		setSelectedId,
 	} = useExplorerResource<CollectionListRow>({
-		path: PATH,
-		rowsKey: 'collections',
+		path: collectionRecordSet.endpoint.path,
+		rowsKey: collectionRecordSet.endpoint.rowsKey,
 		rowKey: 'collection',
 		recordType: 'collection',
-		params: collectionListParams(filters),
+		params: collectionRecordSet.listParams(filters),
 		tiles: { kind: 'collections', filters },
 		summarize: true,
 	});

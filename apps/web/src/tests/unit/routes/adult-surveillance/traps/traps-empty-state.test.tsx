@@ -138,7 +138,7 @@ describe('the traps explorer with nothing on the page', () => {
 		renderTraps();
 
 		expect(await screen.findByText('No traps yet')).toBeTruthy();
-		expect(screen.getByText('Create Trap is in the More Actions menu.')).toBeTruthy();
+		expect(screen.getByText('Create Trap is in the More actions menu.')).toBeTruthy();
 	});
 
 	// The sidebar entry, the header's menu item and the pointer read one string
@@ -154,7 +154,7 @@ describe('the traps explorer with nothing on the page', () => {
 		expect(names).toEqual({
 			sidebar: 'Create Trap',
 			header: 'Create Trap',
-			pointer: 'Create Trap is in the More Actions menu.',
+			pointer: 'Create Trap is in the More actions menu.',
 		});
 	});
 
@@ -164,7 +164,7 @@ describe('the traps explorer with nothing on the page', () => {
 		renderTraps();
 
 		expect(await screen.findByText('No traps yet')).toBeTruthy();
-		expect(screen.queryByText('Create Trap is in the More Actions menu.')).toBeNull();
+		expect(screen.queryByText('Create Trap is in the More actions menu.')).toBeNull();
 	});
 
 	// The route opens on active traps, and the extent it sends says so. A null

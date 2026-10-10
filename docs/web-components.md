@@ -344,7 +344,27 @@ back and keep the selection, while the Service Requests switch dropped Search,
 Tags and Region because a filter the Table neither shows nor clears is one
 that either sits unapplied or narrows the rows invisibly. The maintainer
 settled on the second in #1419, so Inspections now loses Region on the way to its Table, the way
-Service Requests always lost its three.
+Service Requests always lost its three. The surface itself holds to the same
+rule: `surfaceCodecs` hands it a codec that reads and writes nothing for each
+key it does not apply, so its `validateSearch` drops a hand-typed one and
+`useRecordSetFilters` resolves and counts it as its default.
+
+The definition also holds what the filter state reads: `defaults(context,
+surface)`, the counting rule, and the `textSearch` key for a set with a search
+box. `useRecordSetFilters` in `docs/web-hooks.md` says what each is for.
+
+And it holds the request. `endpoint` names the `/map/*` list endpoint and the
+key its rows arrive under, `tileFilters` turns the filters into what the tile
+layer reads, and `listParams` turns those into the list endpoint's query
+params. The Map draws its tiles from `tileFilters` and pages its rail through
+`listParams`, and the Table pages through the same two, so the surfaces send
+one filter set under two boxes and cannot drift apart key by key. Both used
+to call the kind's two functions by name, which agreed only because nobody
+had changed one side. `tileFilters` takes the binding's context as well as
+the filters, because the Service Requests cut-off for Overdue is a day off
+the Organization's today and its threshold setting, and with the context on
+the binding the routes read the cut-off from it rather than through a hook of
+their own.
 
 The paths are typed as `LinkProps['to']`, which is the router's own answer, so
 a path the generated route tree does not hold fails `tsc` in the definition.
@@ -395,6 +415,35 @@ reads, over `WHOLE_WORLD_BBOX`, with `usePagedMapResource` and
 holds one page of 100. Each table has one fixed order, the endpoint's, and no
 column sorts. Service Requests is the one table with a control over it,
 newest or oldest first, under the `order` param the Map's rail already sent.
+
+`RecordSetTablePage` draws all eleven (#1419). They were eleven copies of one
+page, the header with the switch, the filter panel, `RecordTableUnavailable`,
+`RecordTableEmpty`, the table and the pager, and two of them differed on 40
+lines that were all names. Each `table.tsx` is still a file route, since
+`createFileRoute` needs a literal path in its own module, so what is left in
+one is the route declaration, the Table's binding, and the page with the
+kind's filter controls, table and empty-state copy. Every Table validates its
+search through `surfaceCodecs(set, 'table')`, so a filter the Table does not
+apply leaves its address. The route calls `useRecordSetFilters` itself rather
+than the page calling it, because two Tables draw their controls from the
+binding in a shape of their own: Inspections hands the bar
+`inspectionFilterBinding`'s adapter, and Service Requests reads the overdue
+cut-off off the binding's context once for both the Overdue control and every
+row. The page frames the controls itself, so a filter bar draws the controls
+and not the panel around them.
+
+The Habitats and Samples tables read the Map's endpoint rather than their
+collection, which is the case every other table inherited. A collection lets
+Postgres filter or sort only by a column of its own table. Three of the
+habitat filters are not columns: Tags are rows in `entity_tags`, Region is
+ADR 0015's spatial membership, and Untreated is the server's rule over
+inspections and control actions. The Dashboard links to the Map with
+Untreated set, so a Table that dropped it would list habitats the link says
+are gone. A Sample's own row holds almost nothing a reader filters by: its
+date is its inspection's, its status is whether any `sample_species` row
+exists, and what was identified in it is those rows. Reading the endpoint
+gets every filter, the Map's order and a total, at the cost of the column
+sort.
 
 The Inspections and Service Requests tables were the last two to move, in
 #1403. Each ran a TanStack DB live query over an on-demand collection,
@@ -601,10 +650,14 @@ know which. The server refuses an intent whatever either side says.
 The map opens on the last 30 days and the table on every inspection, and that
 is the surfaces rather than an oversight: a season of inspections is a solid
 block of dots over the same streets, while the table shows 100 rows a page
-whatever the reach. The endpoint takes `regionId` and the table sends none,
-because it has no control that shows or clears a region, and the switch from
-the map leaves `regions` behind for the same reason. `RecordSetSwitch` above
-carries the rule.
+whatever the reach. `inspectionRecordSet` states both windows, and which
+filters the table applies, under `RecordSetSwitch and defineRecordSet` above.
+
+`inspectionFilterBinding` is the inspection filter bar's shape over
+`useRecordSetFilters`: a plain value and a setter per filter, which is what
+the inspection components were written against. It is a function of the
+generic binding rather than a hook, so the Table route can hand the bar the
+adapter and `RecordSetTablePage` the binding it adapts.
 
 #### inspectionSummaryGroupings
 
@@ -819,12 +872,16 @@ The service request overdue threshold (#1246) is a number of days or off, which
 no one field kind holds. It is two fields of kinds the descriptor already has,
 a switch for on and a number for the days, rather than a fifth kind or a body of
 its own inside `SettingsSheet`. A fifth kind would be a new branch in
-`SettingsFieldInput` and a new member of `SettingsSectionField` for one setting,
+`SettingsFieldControl` and a new member of `SettingsSectionField` for one setting,
 and a custom body would take the Public Engagement section off the descriptor
-and redraw its four context fields by hand. The cost is that the days input
-stays drawn while the switch is off; `serviceRequestOverdueDaysFrom` ignores it
-then, so an emptied input does not stop a save that turns the threshold off,
-and the number is still there when the switch goes back on. The section's
+and redraw its four context fields by hand. The days field carries a `when`
+reading `overdueOn`, so the sheet does not draw it while the switch is off
+(#1557). `when` is for a field that means nothing while another value says so:
+it is read against the values as they stand, the ones `preview` is given, and
+it hides the input without clearing its value. `convert` still gets every
+value, `serviceRequestOverdueDaysFrom` ignores the days while the switch is off,
+so an emptied input does not stop a save that turns the threshold off, and the
+number is still there when the switch goes back on. The section's
 `save` writes the context and then the threshold, one after the other, because
 the second write states the `updated_at` the first committed under. The two
 are not one transaction: a refused threshold write after a saved context
