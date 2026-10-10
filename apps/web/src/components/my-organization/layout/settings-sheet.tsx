@@ -80,7 +80,7 @@ export function SettingsSheet<Values, Payload>({
 								<form.SubmitButton disabled={!canWrite}>Save Changes</form.SubmitButton>
 								<SheetClose asChild>
 									<Button type="button" variant="outline">
-										<CloseIcon data-icon="inline-start" aria-hidden="true" />
+										<CloseIcon aria-hidden="true" />
 										Cancel
 									</Button>
 								</SheetClose>

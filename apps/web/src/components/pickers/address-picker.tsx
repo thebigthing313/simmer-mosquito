@@ -77,7 +77,7 @@ export function AddressPicker({
 							type="button"
 							variant="outline"
 						>
-							<PlusIcon aria-hidden="true" data-icon="inline-start" />
+							<PlusIcon aria-hidden="true" />
 							Create Address
 						</Button>
 					</>
