@@ -8,10 +8,11 @@
 
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import type {
-	RequestFilterBinding,
+	RequestFilters,
 	RequestStatusFilter,
 } from '../../../hooks/operations/use-request-for-control-filter-state';
 import { CONTROL_TYPES, controlTypeLabel } from '../../../hooks/queries/operations-view';
+import type { FilterBinding } from '../../../lib/search-filters';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
@@ -41,7 +42,7 @@ export function RequestControlFilters({
 	nameById,
 	personnelOptions,
 }: {
-	readonly binding: RequestFilterBinding;
+	readonly binding: FilterBinding<RequestFilters>;
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly personnelOptions: readonly FilterOption[];
 }) {
@@ -95,7 +96,7 @@ function RequestControlChips({
 	binding,
 	nameById,
 }: {
-	readonly binding: RequestFilterBinding;
+	readonly binding: FilterBinding<RequestFilters>;
 	readonly nameById: ReadonlyMap<string, string>;
 }) {
 	const { filters, setFilters, reset, activeCount, defaults } = binding;

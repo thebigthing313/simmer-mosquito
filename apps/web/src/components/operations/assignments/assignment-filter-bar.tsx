@@ -8,11 +8,12 @@
  */
 
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
-import type { AssignmentFilterBinding } from '../../../hooks/operations/use-assignment-filter-state';
+import type { AssignmentFilters } from '../../../hooks/operations/use-assignment-filter-state';
 import {
 	ASSIGNMENT_STATUS_LABELS,
 	ASSIGNMENT_STATUSES,
 } from '../../../hooks/queries/assignment-view';
+import type { FilterBinding } from '../../../lib/search-filters';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
@@ -33,7 +34,7 @@ export function AssignmentFilterBar({
 	assigneeLabel,
 	assigneeOptions,
 }: {
-	readonly binding: AssignmentFilterBinding;
+	readonly binding: FilterBinding<AssignmentFilters>;
 	readonly assigneeLabel: (id: string) => string;
 	readonly assigneeOptions: readonly FilterOption[];
 }) {
