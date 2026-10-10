@@ -25,7 +25,6 @@ import {
 	removeRingVertex,
 	samePlanarPosition,
 } from '@simmer-mosquito/mapping';
-import type { MapDrawController } from './draw-controller';
 import {
 	continuedPartOf,
 	continuedVertices,
@@ -33,6 +32,7 @@ import {
 	type DrawGeometry,
 	type DrawGeometryType,
 	type DrawPartGeometry,
+	type DrawReadings,
 	type DrawSketchTool,
 	type DrawTarget,
 	draftProgress,
@@ -268,21 +268,6 @@ export function next(state: DrawState, event: DrawEvent, context: DrawContext): 
 	return transition(state, event, context);
 }
 
-/** What the controller reports about the draft, as against what it lets a caller do. */
-type DrawView = Pick<
-	MapDrawController,
-	| 'isDrawing'
-	| 'isAddingPart'
-	| 'isRequestingPoint'
-	| 'drawType'
-	| 'vertexCount'
-	| 'canFinish'
-	| 'canUndo'
-	| 'continuedPart'
-	| 'editedPart'
-	| 'holeDraft'
->;
-
 /**
  * The controller's reading of a state against the committed shape. The adapter
  * spreads it into what it returns, and the machine's suite asserts on it, so
@@ -291,7 +276,7 @@ type DrawView = Pick<
 export function drawView(
 	{ mode, vertices }: Pick<DrawState, 'mode' | 'vertices'>,
 	value: DrawGeometry | null,
-): DrawView {
+): DrawReadings {
 	return {
 		isDrawing: mode.kind === 'draw' || mode.kind === 'edit',
 		isAddingPart: mode.kind === 'draw' && mode.target.kind === 'part',

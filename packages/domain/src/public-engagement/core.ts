@@ -14,6 +14,7 @@ import {
 	type DomainValidationIssue,
 	type GeoJsonPoint,
 	type GeoJsonPolygon,
+	isEmailAddress,
 	type JsonObject,
 	normalizeOwnedGeometry,
 } from '../shared.js';
@@ -624,7 +625,7 @@ export function normalizeEmail(
 	if (normalized === null) {
 		return null;
 	}
-	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+	if (!isEmailAddress(normalized)) {
 		issues.push({ path, message: `${path} must be a valid email address.` });
 	}
 	return normalized.toLowerCase();

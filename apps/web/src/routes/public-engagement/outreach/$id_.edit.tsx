@@ -10,6 +10,7 @@ import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../c
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { OutreachAction } from '../../../hooks/queries/outreach-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
@@ -17,8 +18,8 @@ import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
 } from '../../../hooks/queries/use-additional-personnel';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useOutreachAction } from '../../../hooks/queries/use-outreach-action';
-import { useOutreachMethodRoster } from '../../../hooks/queries/use-outreach-method-roster';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
@@ -43,7 +44,7 @@ function EditOutreachActionRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const methods = useOutreachMethodRoster();
+	const methods = useCatalogRoster(catalogs.outreachMethods);
 	const profiles = useProfileRoster();
 
 	const { action, isReady, isError } = useOutreachAction(id, { gcTime: activityGcTimeMs });

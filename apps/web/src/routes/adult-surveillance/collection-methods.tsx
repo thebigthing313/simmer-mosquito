@@ -27,8 +27,9 @@ import { useResetOnOpen } from '../../hooks/catalog/use-reset-on-open';
 import type { CatalogMutations } from '../../hooks/mutations/catalog-fields';
 import { useCollectionMethodMutations } from '../../hooks/mutations/use-collection-method-mutations';
 import type { CollectionMethodRecord } from '../../hooks/queries/catalog-record-view';
+import { catalogs } from '../../hooks/queries/catalog-register';
 import { useActiveTrapCountsByMethod } from '../../hooks/queries/use-active-trap-counts-by-method';
-import { useCollectionMethodRecords } from '../../hooks/queries/use-collection-method-records';
+import { useCatalogRecords } from '../../hooks/queries/use-catalog-records';
 import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 
@@ -51,7 +52,7 @@ function matchesMethod(row: CollectionMethodRecord, query: string): boolean {
 function CollectionMethodsRoute() {
 	const { auth } = Route.useRouteContext();
 	const { canManage } = useOrganizationWorkspace(auth.snapshot);
-	const { activeRecords, inactiveRecords } = useCollectionMethodRecords();
+	const { activeRecords, inactiveRecords } = useCatalogRecords(catalogs.collectionMethods);
 	const mutations = useCollectionMethodMutations();
 	const usageById = useActiveTrapCountsByMethod();
 	const search = useCatalogSearch(activeRecords, inactiveRecords, matchesMethod);

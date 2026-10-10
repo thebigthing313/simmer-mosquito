@@ -28,8 +28,8 @@ import {
 import { StopSequenceMap } from '../../../components/map/stop-sequence-map';
 import { AssignmentStatusBadge } from '../../../components/operations/assignments/assignment-display';
 import { WriteOnly } from '../../../components/write-only';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useAssignmentStops } from '../../../hooks/operations/use-assignment-stops';
 import { useWorklistIndex } from '../../../hooks/operations/use-worklist-index';
 import {
@@ -42,6 +42,7 @@ import {
 	formatDueAt,
 	type ProgressCounts,
 } from '../../../hooks/queries/assignment-view';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useAssignmentItemCounts } from '../../../hooks/queries/use-assignment-item-counts';
 import { useAssignments } from '../../../hooks/queries/use-assignments';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -109,7 +110,7 @@ function AssignmentsIndexRoute() {
 	});
 
 	const { assignments, isLoading } = useAssignments(filters.from, filters.to);
-	const personnel = usePersonnelOptions();
+	const personnel = useCatalogOptions(catalogs.profiles);
 	const { nameById } = personnel;
 
 	// Status derives from three nullable timestamps, so it is matched over the loaded rows.

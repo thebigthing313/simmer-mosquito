@@ -11,7 +11,8 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { CheckCircle2Icon, ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
-import { useCollectionMethodOptions } from '../../../hooks/explorer/use-collection-method-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import { ClampedTextCell, LinkedTableRow } from '../../record/linked-table-row';
 import { TRAP_STATUS_LABELS } from './legend';
@@ -31,7 +32,7 @@ export interface TrapTableRow {
  * route read.
  */
 export function TrapsTable({ rows }: { readonly rows: readonly TrapTableRow[] }) {
-	const { nameById: methodNameById } = useCollectionMethodOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
 	return (
 		<div className="rounded-md border border-border/50">
 			<Table>

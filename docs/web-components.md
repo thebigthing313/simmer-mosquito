@@ -920,11 +920,6 @@ The list is on the card rather than in a toast because the generation's most
 confusing answer is an empty one, and a second press that creates nothing
 reads as "already done" only beside the list.
 
-#### operations-data
-
-The write half stays on the collections a page writes through, or the write's
-txid lands on a stream nothing is watching and the save never settles.
-
 #### describeAddStop
 
 The instruction stands apart from the mission name because `missionDisplayName`
@@ -1102,6 +1097,14 @@ under that hook in `docs/web-hooks.md`.
 `required` draws the required mark after the label. The inspection's habitat
 field passes it, since its label carried the mark before it moved onto this
 frame (#1468).
+
+#### OptionRow
+
+Secondary text that is blank after trimming draws no second line, the same as
+`null`. Habitat and trap descriptions and service request details reach the
+row as written, and nothing trims them on write, so a description of spaces
+drew an empty muted line and left that result taller than its neighbours
+(#1484). The rule sits in the row so no caller has to trim first.
 
 ### public-engagement
 

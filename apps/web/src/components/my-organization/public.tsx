@@ -27,8 +27,8 @@ import type { CatalogMutations } from '../../hooks/mutations/catalog-fields';
 import { useNotificationTypeMutations } from '../../hooks/mutations/use-notification-type-mutations';
 import { useOutreachMethodMutations } from '../../hooks/mutations/use-outreach-method-mutations';
 import type { DescribedCatalogRecord } from '../../hooks/queries/catalog-record-view';
-import { useNotificationTypeRecords } from '../../hooks/queries/use-notification-type-records';
-import { useOutreachMethodRecords } from '../../hooks/queries/use-outreach-method-records';
+import { catalogs } from '../../hooks/queries/catalog-register';
+import { useCatalogRecords } from '../../hooks/queries/use-catalog-records';
 import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 import {
 	type CatalogFormValues,
@@ -50,7 +50,7 @@ export function PublicEngagementSettings({
 	readonly canEditMethods: boolean;
 	readonly settings: OrganizationSettings;
 }) {
-	const outreachMethods = useOutreachMethodRecords();
+	const outreachMethods = useCatalogRecords(catalogs.outreachMethods);
 	const outreachMethodMutations = useOutreachMethodMutations();
 
 	return (
@@ -123,8 +123,9 @@ function PublicSettingTile({
 }
 
 function NotificationTypeLookupList({ canManage }: { readonly canManage: boolean }) {
-	const { activeRecords: activeTypes, inactiveRecords: inactiveTypes } =
-		useNotificationTypeRecords();
+	const { activeRecords: activeTypes, inactiveRecords: inactiveTypes } = useCatalogRecords(
+		catalogs.notificationTypes,
+	);
 	const mutations = useNotificationTypeMutations();
 
 	return (
