@@ -165,7 +165,7 @@ async function readCreateOrganizationPayload(request: {
 		};
 	}
 
-	const wrongType = findWrongTypeField(raw);
+	const wrongType = wrongTypeReason(raw);
 	if (wrongType !== null) {
 		return {
 			ok: false,
@@ -245,10 +245,10 @@ const TEXT_FIELDS = [
  * (#1549). `undefined` and `null` are absent for every field, the flag
  * included, so once this passes the flag is `true` or not sent.
  */
-function findWrongTypeField(raw: Record<string, unknown>): string | null {
-	const text = TEXT_FIELDS.find((field) => isPresent(raw[field]) && typeof raw[field] !== 'string');
-	if (text !== undefined) {
-		return `${text} must be text.`;
+function wrongTypeReason(raw: Record<string, unknown>): string | null {
+	const field = TEXT_FIELDS.find((name) => isPresent(raw[name]) && typeof raw[name] !== 'string');
+	if (field !== undefined) {
+		return `${field} must be text.`;
 	}
 
 	const flag = raw.linkRequesterAsOwner;

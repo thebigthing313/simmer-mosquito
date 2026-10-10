@@ -122,7 +122,7 @@ describe('POST /admin/organizations', () => {
 		expect(auth.createOrganization).not.toHaveBeenCalled();
 	});
 
-	it('still refuses a missing name as required', async () => {
+	it('still refuses a blank name as required', async () => {
 		const auth = createFakeAuth();
 		const response = await postOrganization(auth, { name: '  ' });
 
