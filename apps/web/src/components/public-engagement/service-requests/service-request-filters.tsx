@@ -181,9 +181,11 @@ export function ServiceRequestFilterChips({
 	return (
 		<ActiveFilterBar onClearAll={onClearAll}>
 			<StatusChip onReset={() => setStatus('all')} status={status} />
-			{overdueAvailable && overdue ? (
-				<FilterChip label="Overdue" onRemove={() => setOverdue(false)} />
-			) : null}
+			<OverdueChip
+				isAvailable={overdueAvailable}
+				isOn={overdue}
+				onRemove={() => setOverdue(false)}
+			/>
 			<DateRangeChip defaults={dateDefaults} range={dates} setRange={setDates} />
 			<SearchChip onClear={() => setSearch('')} search={search} />
 			{availableTags
@@ -218,6 +220,19 @@ function StatusChip({
 		return null;
 	}
 	return <FilterChip label={`Status: ${serviceRequestStatusLabel(status)}`} onRemove={onReset} />;
+}
+
+/** Overdue, while it is on and the Organization's threshold is on. */
+function OverdueChip({
+	isAvailable,
+	isOn,
+	onRemove,
+}: {
+	readonly isAvailable: boolean;
+	readonly isOn: boolean;
+	readonly onRemove: () => void;
+}) {
+	return isAvailable && isOn ? <FilterChip label="Overdue" onRemove={onRemove} /> : null;
 }
 
 function SearchChip({

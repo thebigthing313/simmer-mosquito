@@ -15,6 +15,7 @@ import {
 	type ServiceRequestTableFilters,
 } from '../../../components/public-engagement/service-requests/service-requests-filter-bar';
 import {
+	countedServiceRequestFilters,
 	type ServiceRequestRailSearch,
 	serviceRequestFilterCodecs,
 	serviceRequestRailOrderCodecs,
@@ -81,9 +82,7 @@ function ServiceRequestsTableRoute() {
 		reset,
 		activeCount: urlFilterCount,
 	} = useSearchFilters(defaults, FILTER_CODECS, DATE_RANGE_COUNTING);
-	// An Overdue left on the address while the threshold is off narrows
-	// nothing, so it does not count as a filter either.
-	const activeCount = urlFilterCount - (query.overdue && !overdueAvailable ? 1 : 0);
+	const activeCount = countedServiceRequestFilters(urlFilterCount, query.overdue, overdueAvailable);
 	const { filters: order, setFilters: setOrder } = useSearchFilters(
 		ORDER_DEFAULTS,
 		serviceRequestRailOrderCodecs,

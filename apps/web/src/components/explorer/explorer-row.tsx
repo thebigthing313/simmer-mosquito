@@ -37,8 +37,7 @@ export function ExplorerRow({
 	titleLink,
 	subtitle,
 	date,
-	dateTone = 'default',
-	dateNote,
+	dateWarning,
 	swatch,
 	personnel,
 	tags,
@@ -63,10 +62,12 @@ export function ExplorerRow({
 	 * rail is not drawn at all.
 	 */
 	readonly date?: string | null;
-	/** `warning` for a date that needs attention, such as an overdue request's age. */
-	readonly dateTone?: 'default' | 'warning';
-	/** Read to a screen reader after the date, saying what the tone says. */
-	readonly dateNote?: string | undefined;
+	/**
+	 * Draws the date in the warning tone, for one that needs attention such as
+	 * an overdue request's age. The text is read to a screen reader after the
+	 * date, so the colour is not the only thing that says so.
+	 */
+	readonly dateWarning?: string | undefined;
 	readonly swatch?: RowSwatch | undefined;
 	/** Who performed the work: inspector, applicator, technician. */
 	readonly personnel?: string | null;
@@ -135,7 +136,7 @@ export function ExplorerRow({
 				)}
 			>
 				<SwatchDot isStacked={isStacked} swatch={swatch} />
-				<DateColumn date={date} isStacked={isStacked} note={dateNote} tone={dateTone} />
+				<DateColumn date={date} isStacked={isStacked} warning={dateWarning} />
 				<span className="min-w-0 flex-1">
 					<RowTitle link={titleLink} title={title} />
 					<RowSubtitle subtitle={subtitle} />
@@ -293,19 +294,17 @@ function SwatchDot({
  * number that is the same for every record in a 30-day window. Stacked, the
  * column is 52px and the record keeps the 36.
  *
- * `warning` draws the date in the warning tone, and `note` is read to a screen
- * reader after it, so the tone is not the only thing that says so.
+ * A `warning` draws the date in the warning tone and is read to a screen
+ * reader after it.
  */
 function DateColumn({
 	date,
 	isStacked,
-	note,
-	tone,
+	warning,
 }: {
 	readonly date: string | null | undefined;
 	readonly isStacked: boolean;
-	readonly note: string | undefined;
-	readonly tone: 'default' | 'warning';
+	readonly warning: string | undefined;
 }) {
 	if (date === undefined) {
 		return null;
@@ -315,13 +314,13 @@ function DateColumn({
 		<span
 			className={cn(
 				'w-[3.25rem] shrink-0 text-xs leading-tight tabular-nums',
-				tone === 'warning' ? 'font-medium text-warning' : 'text-muted-foreground',
+				warning === undefined ? 'text-muted-foreground' : 'font-medium text-warning',
 				isStacked && 'pt-0.5',
 			)}
 		>
 			<span className="block">{head}</span>
 			{year === null ? null : <span className="block">{year}</span>}
-			{note === undefined ? null : <span className="sr-only">{note}</span>}
+			{warning === undefined ? null : <span className="sr-only">{warning}</span>}
 		</span>
 	);
 }

@@ -31,6 +31,7 @@ import { ServiceRequestSummaryPanel } from '../../../components/public-engagemen
 import { ServiceRequestSurfaceSwitch } from '../../../components/public-engagement/service-requests/service-request-surface-switch';
 import { ServiceRequestsMapCanvas } from '../../../components/public-engagement/service-requests/service-requests-map-canvas';
 import {
+	countedServiceRequestFilters,
 	SERVICE_REQUEST_ORDER_OPTIONS,
 	type ServiceRequestRailOrder,
 	type ServiceRequestRailSearch,
@@ -88,9 +89,11 @@ function ServiceRequestsExplorerRoute() {
 		reset,
 		activeCount: urlFilterCount,
 	} = useSearchFilters(defaults, serviceRequestFilterCodecs, DATE_RANGE_COUNTING);
-	// An Overdue left on the address while the threshold is off narrows
-	// nothing, so it does not count as a filter either.
-	const activeFilterCount = urlFilterCount - (query.overdue && !overdueAvailable ? 1 : 0);
+	const activeFilterCount = countedServiceRequestFilters(
+		urlFilterCount,
+		query.overdue,
+		overdueAvailable,
+	);
 	const dateRange = useDateRangeFilters({ from: query.from, to: query.to, today, setFilters });
 	const status = query.status;
 	const selectedTagIds = query.tags;
@@ -304,14 +307,12 @@ function RequestRowItem({
 }) {
 	const title = serviceRequestTitle(request);
 	const subtitle = rowSubtitle({ address, contact, detailsLoading });
-	const ageTone = requestAgeTone(request, overdueCutoff);
 
 	return (
 		<ExplorerRow
 			// How long an open request has waited, or the day a closed one came in.
 			date={requestAgeOrDate(request, today)}
-			dateNote={ageTone === 'warning' ? 'Overdue' : undefined}
-			dateTone={ageTone}
+			dateWarning={requestAgeTone(request, overdueCutoff) === 'warning' ? 'Overdue' : undefined}
 			detailLabel={`View ${title}`}
 			detailLink={{
 				to: '/public-engagement/service-requests/$id',

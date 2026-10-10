@@ -87,19 +87,44 @@ export function ServiceRequestsFilterBar({
 				</div>
 			</div>
 			{activeCount === 0 ? null : (
-				<ActiveFilterBar onClearAll={onClearAll}>
-					{filters.status === 'all' ? null : (
-						<FilterChip
-							label={`Status: ${filters.status === 'open' ? 'Open' : 'Closed'}`}
-							onRemove={() => setFilters({ status: 'all' })}
-						/>
-					)}
-					{overdueAvailable && filters.overdue ? (
-						<FilterChip label="Overdue" onRemove={() => setFilters({ overdue: false })} />
-					) : null}
-					<DateRangeChip defaults={defaults} range={filters} setRange={setFilters} />
-				</ActiveFilterBar>
+				<TableFilterChips
+					defaults={defaults}
+					filters={filters}
+					onClearAll={onClearAll}
+					overdueAvailable={overdueAvailable}
+					setFilters={setFilters}
+				/>
 			)}
 		</div>
+	);
+}
+
+/** One chip per filter that is set, each one clearing its own. */
+function TableFilterChips({
+	defaults,
+	filters,
+	onClearAll,
+	overdueAvailable,
+	setFilters,
+}: {
+	readonly defaults: ServiceRequestTableFilters;
+	readonly filters: ServiceRequestTableFilters;
+	readonly onClearAll: () => void;
+	readonly overdueAvailable: boolean;
+	readonly setFilters: (patch: Partial<ServiceRequestTableFilters>) => void;
+}) {
+	return (
+		<ActiveFilterBar onClearAll={onClearAll}>
+			{filters.status === 'all' ? null : (
+				<FilterChip
+					label={`Status: ${filters.status === 'open' ? 'Open' : 'Closed'}`}
+					onRemove={() => setFilters({ status: 'all' })}
+				/>
+			)}
+			{overdueAvailable && filters.overdue ? (
+				<FilterChip label="Overdue" onRemove={() => setFilters({ overdue: false })} />
+			) : null}
+			<DateRangeChip defaults={defaults} range={filters} setRange={setFilters} />
+		</ActiveFilterBar>
 	);
 }

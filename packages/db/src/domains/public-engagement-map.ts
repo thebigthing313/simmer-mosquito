@@ -213,24 +213,28 @@ function openRequestAgeDaysSql(context: MapReadContext): RawBuilder<number | nul
 	return sql<number | null>`case when sr.closed_at is null then ${today} - sr.request_date end`;
 }
 
-function serviceRequestFilterWhere(
-	filters: ServiceRequestMapFilters | undefined,
-): RawBuilder<boolean>[] {
-	const whereClauses: RawBuilder<boolean>[] = [];
-
-	if (filters?.isOpen === true) {
-		whereClauses.push(sql<boolean>`sr.closed_at is null`);
-	} else if (filters?.isOpen === false) {
-		whereClauses.push(sql<boolean>`sr.closed_at is not null`);
+/** Open or closed, and overdue: the filters that read `closed_at`. */
+function statusClauses(filters: ServiceRequestMapFilters | undefined): RawBuilder<boolean>[] {
+	const clauses: RawBuilder<boolean>[] = [];
+	if (filters?.isOpen !== undefined) {
+		clauses.push(
+			filters.isOpen ? sql<boolean>`sr.closed_at is null` : sql<boolean>`sr.closed_at is not null`,
+		);
 	}
-
-	whereClauses.push(...dateWindowClauses(sql`sr.request_date`, filters ?? {}));
-
 	if (filters?.overdueBefore !== undefined) {
-		whereClauses.push(
+		clauses.push(
 			sql<boolean>`(sr.closed_at is null and sr.request_date < ${filters.overdueBefore})`,
 		);
 	}
+	return clauses;
+}
+
+function serviceRequestFilterWhere(
+	filters: ServiceRequestMapFilters | undefined,
+): RawBuilder<boolean>[] {
+	const whereClauses: RawBuilder<boolean>[] = [...statusClauses(filters)];
+
+	whereClauses.push(...dateWindowClauses(sql`sr.request_date`, filters ?? {}));
 
 	whereClauses.push(
 		...tagMembershipClauses({

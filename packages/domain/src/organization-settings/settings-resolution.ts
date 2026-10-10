@@ -143,33 +143,36 @@ export function mergeOrganizationSettingsChange(
 	base.timezone = resolved.timezone;
 	base.unitDefaults = { ...resolved.unitDefaults };
 	base.speciesKeyBindings = cloneSpeciesKeyBindings(resolved.speciesKeyBindings);
-	const resolvedAdultSurveillance = isPlainObject(base.adultSurveillance)
-		? cloneObject(base.adultSurveillance)
-		: {};
-	resolvedAdultSurveillance.collectionTimingMode = resolved.adultSurveillance.collectionTimingMode;
-	base.adultSurveillance = resolvedAdultSurveillance;
-	const resolvedLarvalSurveillance = isPlainObject(base.larvalSurveillance)
-		? cloneObject(base.larvalSurveillance)
-		: {};
-	resolvedLarvalSurveillance.inspectionEntryPolicy = cloneLarvalInspectionEntryPolicy(
-		resolved.larvalSurveillance.inspectionEntryPolicy,
+	setSectionKey(
+		base,
+		'adultSurveillance',
+		'collectionTimingMode',
+		resolved.adultSurveillance.collectionTimingMode,
 	);
-	base.larvalSurveillance = resolvedLarvalSurveillance;
-	const resolvedControlOperations = isPlainObject(base.controlOperations)
-		? cloneObject(base.controlOperations)
-		: {};
-	resolvedControlOperations.trackInsecticideBatches =
-		resolved.controlOperations.trackInsecticideBatches;
-	base.controlOperations = resolvedControlOperations;
-	const resolvedPublicEngagement = isPlainObject(base.publicEngagement)
-		? cloneObject(base.publicEngagement)
-		: {};
-	resolvedPublicEngagement.serviceRequestContext = cloneServiceRequestContext(
-		resolved.publicEngagement.serviceRequestContext,
+	setSectionKey(
+		base,
+		'larvalSurveillance',
+		'inspectionEntryPolicy',
+		cloneLarvalInspectionEntryPolicy(resolved.larvalSurveillance.inspectionEntryPolicy),
 	);
-	resolvedPublicEngagement.serviceRequestOverdueDays =
-		resolved.publicEngagement.serviceRequestOverdueDays;
-	base.publicEngagement = resolvedPublicEngagement;
+	setSectionKey(
+		base,
+		'controlOperations',
+		'trackInsecticideBatches',
+		resolved.controlOperations.trackInsecticideBatches,
+	);
+	setSectionKey(
+		base,
+		'publicEngagement',
+		'serviceRequestContext',
+		cloneServiceRequestContext(resolved.publicEngagement.serviceRequestContext),
+	);
+	setSectionKey(
+		base,
+		'publicEngagement',
+		'serviceRequestOverdueDays',
+		resolved.publicEngagement.serviceRequestOverdueDays,
+	);
 	switch (change.kind) {
 		case 'timezone':
 			base.timezone = change.timezone;
@@ -177,53 +180,63 @@ export function mergeOrganizationSettingsChange(
 		case 'unitDefaults':
 			base.unitDefaults = { ...change.unitDefaults };
 			break;
-		case 'adultCollectionTimingMode': {
-			const adultSurveillance = isPlainObject(base.adultSurveillance)
-				? cloneObject(base.adultSurveillance)
-				: {};
-			adultSurveillance.collectionTimingMode = change.collectionTimingMode;
-			base.adultSurveillance = adultSurveillance;
+		case 'adultCollectionTimingMode':
+			setSectionKey(base, 'adultSurveillance', 'collectionTimingMode', change.collectionTimingMode);
 			break;
-		}
-		case 'larvalInspectionEntryPolicy': {
-			const larvalSurveillance = isPlainObject(base.larvalSurveillance)
-				? cloneObject(base.larvalSurveillance)
-				: {};
-			larvalSurveillance.inspectionEntryPolicy = cloneLarvalInspectionEntryPolicy(change.policy);
-			base.larvalSurveillance = larvalSurveillance;
-			break;
-		}
-		case 'insecticideBatchTracking': {
-			const controlOperations = isPlainObject(base.controlOperations)
-				? cloneObject(base.controlOperations)
-				: {};
-			controlOperations.trackInsecticideBatches = change.trackInsecticideBatches;
-			base.controlOperations = controlOperations;
-			break;
-		}
-		case 'serviceRequestContext': {
-			const publicEngagement = isPlainObject(base.publicEngagement)
-				? cloneObject(base.publicEngagement)
-				: {};
-			publicEngagement.serviceRequestContext = cloneServiceRequestContext(
-				change.serviceRequestContext,
+		case 'larvalInspectionEntryPolicy':
+			setSectionKey(
+				base,
+				'larvalSurveillance',
+				'inspectionEntryPolicy',
+				cloneLarvalInspectionEntryPolicy(change.policy),
 			);
-			base.publicEngagement = publicEngagement;
 			break;
-		}
-		case 'serviceRequestOverdueDays': {
-			const publicEngagement = isPlainObject(base.publicEngagement)
-				? cloneObject(base.publicEngagement)
-				: {};
-			publicEngagement.serviceRequestOverdueDays = change.serviceRequestOverdueDays;
-			base.publicEngagement = publicEngagement;
+		case 'insecticideBatchTracking':
+			setSectionKey(
+				base,
+				'controlOperations',
+				'trackInsecticideBatches',
+				change.trackInsecticideBatches,
+			);
 			break;
-		}
+		case 'serviceRequestContext':
+			setSectionKey(
+				base,
+				'publicEngagement',
+				'serviceRequestContext',
+				cloneServiceRequestContext(change.serviceRequestContext),
+			);
+			break;
+		case 'serviceRequestOverdueDays':
+			setSectionKey(
+				base,
+				'publicEngagement',
+				'serviceRequestOverdueDays',
+				change.serviceRequestOverdueDays,
+			);
+			break;
 		case 'speciesKeyBindings':
 			base.speciesKeyBindings = cloneSpeciesKeyBindings(change.speciesKeyBindings);
 			break;
 	}
 	return base;
+}
+
+/**
+ * Set one key of one domain section of the stored document, on a copy of the
+ * section so the caller's object is never written through, and keeping the
+ * section's other keys, including ones this version does not know.
+ */
+function setSectionKey(
+	base: Record<string, unknown>,
+	section: string,
+	key: string,
+	value: unknown,
+): void {
+	const current = base[section];
+	const next = isPlainObject(current) ? cloneObject(current) : {};
+	next[key] = value;
+	base[section] = next;
 }
 
 function resolveLarvalPolicyFromRaw(

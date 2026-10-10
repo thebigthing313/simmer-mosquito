@@ -297,14 +297,13 @@ describe('ExplorerRow', () => {
 
 	// An overdue service request's age (#1246): the registered warning token,
 	// and a note read after it so the colour is not the only thing that says so.
-	it('draws a warning date in the warning tone with its note for a screen reader', () => {
+	it('draws a warning date in the warning tone with its words for a screen reader', () => {
 		const row = (tone: 'default' | 'warning') => (
 			<ul>
 				<li>
 					<ExplorerRow
 						date="15 days"
-						dateNote={tone === 'warning' ? 'Overdue' : undefined}
-						dateTone={tone}
+						dateWarning={tone === 'warning' ? 'Overdue' : undefined}
 						detailLabel="View #12"
 						detailLink={DETAIL}
 						isSelected={false}

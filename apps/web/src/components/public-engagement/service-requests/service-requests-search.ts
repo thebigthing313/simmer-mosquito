@@ -47,6 +47,19 @@ export const serviceRequestFilterCodecs: FilterCodecs<ServiceRequestFilters> = {
 	overdue: flagParam,
 };
 
+/**
+ * How many filters a surface says are set, from the count of params on its
+ * address. An Overdue left on the address while the Organization's threshold
+ * is off narrows nothing, so it is not counted either.
+ */
+export function countedServiceRequestFilters(
+	addressCount: number,
+	overdue: boolean,
+	overdueAvailable: boolean,
+): number {
+	return overdue && !overdueAvailable ? addressCount - 1 : addressCount;
+}
+
 /** The order the Map's rail and the Table page in. */
 export type ServiceRequestRailOrder = 'newest' | 'oldest';
 
