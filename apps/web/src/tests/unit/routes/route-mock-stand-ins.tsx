@@ -7,11 +7,14 @@
  * harness imports `use-map-extent-fit`, which imports `@simmer-mosquito/sync`:
  * a `sync` factory that awaited the harness would wait on itself, and the file
  * would sit until the watchdog in `vitest.shared.ts` named it (#663). React is
- * the one runtime import, for the anchor `Link` becomes; `AuthenticatedMe`
- * and `SimmerRole` are types and are erased.
+ * a runtime import, for the anchor `Link` becomes, and so is Testing Library's
+ * `act`, which a navigation that writes the search back notifies inside;
+ * neither imports the app. `AuthenticatedMe` and `SimmerRole` are types and
+ * are erased.
  */
 
 import type { SimmerRole } from '@simmer-mosquito/domain';
+import { act } from '@testing-library/react';
 import { type ReactNode, useSyncExternalStore } from 'react';
 import type { AuthenticatedMe } from '../../../auth';
 
@@ -140,34 +143,85 @@ function substitutedHref(to: string, params: Readonly<Record<string, string>>): 
 }
 
 /**
+ * What a page hands the stand-in's navigation: the next search, as an updater
+ * over the current one or as the whole object, and the router's own `to` and
+ * `replace`, which the stand-in takes and does not read.
+ */
+interface NavigateStandInOptions {
+	readonly search?:
+		| Record<string, unknown>
+		| ((previous: Record<string, unknown>) => Record<string, unknown>);
+	readonly replace?: boolean;
+	readonly to?: string;
+}
+
+/**
+ * What a suite may ask of {@link routerStandIn} beyond the search and params.
+ * `setSearch` is where a navigation writes the next search. Passing it is
+ * what makes the navigation go somewhere: the suite stores the value where its
+ * `search` getter reads it, and every mounted `useSearch` is told.
+ */
+interface RouterStandInOptions {
+	readonly setSearch?: (next: Record<string, unknown>) => void;
+}
+
+/**
  * What {@link routerStandIn} writes over the real module, named so a suite of
- * the stand-in itself can reach `Link` without a cast.
+ * the stand-in itself can reach `Link` and `useNavigate` without a cast.
  */
 interface RouterStandIn {
 	readonly createFileRoute: () => (options: Record<string, unknown>) => Record<string, unknown>;
 	readonly useSearch: () => Record<string, unknown>;
 	readonly useParams: () => Record<string, string>;
-	readonly useNavigate: () => () => Promise<undefined>;
+	readonly useNavigate: () => (options?: NavigateStandInOptions) => Promise<undefined>;
 	readonly Link: (props: LinkStandInProps) => ReactNode;
 }
 
 /**
+ * The search a navigation leads to: the updater applied to the current search,
+ * the object as given, or the current search when the navigation names none.
+ */
+function nextSearch(
+	current: Record<string, unknown>,
+	search: NavigateStandInOptions['search'],
+): Record<string, unknown> {
+	if (typeof search === 'function') {
+		return search(current);
+	}
+	return search ?? current;
+}
+
+/**
  * The router, reduced to what a route module needs to mount outside one: the
- * search and the path params a match would carry, a navigation that goes
- * nowhere, and a `Link` that is an anchor whose `href` is `to` with the
- * params written in (#1147), so a route suite pins which id a link carries
- * without importing the route tree. `search` and `params` are read as a
- * store snapshot, so each must answer the same object until it changes, and a
- * suite that changes one calls {@link notifyRouterStandIn}. `params` defaults
- * to none, which is every route under a static path.
+ * search and the path params a match would carry, a navigation, and a `Link`
+ * that is an anchor whose `href` is `to` with the params written in (#1147),
+ * so a route suite pins which id a link carries without importing the route
+ * tree. `search` and `params` are read as a store snapshot, so each must
+ * answer the same object until it changes, and a suite that changes one
+ * calls {@link notifyRouterStandIn}. `params` defaults to none, which is
+ * every route under a static path.
+ *
+ * The navigation goes nowhere unless `options.setSearch` is passed. With it,
+ * a navigation hands `setSearch` the search it leads to and notifies the
+ * mounted hooks inside `act`, so a page whose state lives in the URL reads its
+ * own write back (#1482).
  */
 export function routerStandIn<TActual extends object>(
 	actual: TActual,
 	search: () => Record<string, unknown>,
 	params: () => Record<string, string> = () => ({}),
+	options: RouterStandInOptions = {},
 ): TActual & RouterStandIn {
 	const useSearch = () => useSyncExternalStore(subscribe, search);
 	const useParams = () => useSyncExternalStore(subscribe, params);
+	const { setSearch } = options;
+	const navigate = async (navigation: NavigateStandInOptions = {}): Promise<undefined> => {
+		if (setSearch) {
+			setSearch(nextSearch(search(), navigation.search));
+			act(() => notifyRouterStandIn());
+		}
+		return undefined;
+	};
 	return {
 		...actual,
 		createFileRoute: () => (options: Record<string, unknown>) => ({
@@ -178,7 +232,7 @@ export function routerStandIn<TActual extends object>(
 		}),
 		useSearch,
 		useParams,
-		useNavigate: () => async () => undefined,
+		useNavigate: () => navigate,
 		Link: ({
 			children,
 			to = '',
