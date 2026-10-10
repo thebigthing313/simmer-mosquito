@@ -13,6 +13,9 @@ import { frameOnMap } from './map-camera';
 import { MapCanvas } from './map-canvas';
 import { MapControlButton, MapControlGroup } from './map-control';
 
+/** The record types that are an ordered run of stops. */
+type StopRunRecordType = Extract<RecordType, 'route' | 'mission' | 'assignment'>;
+
 /**
  * The map for an ordered run of stops: a Route, a Mission or an Assignment.
  * It draws the numbered stops in sequence, frames them once per `fitKey` after
@@ -36,8 +39,8 @@ export function StopSequenceMap({
 	readonly features: readonly RouteStopFeature[];
 	/** Total stops including unmapped ones, so "none mapped" can be told apart from "none". */
 	readonly stopCount: number;
-	/** Which run this is: `route`, `mission` or `assignment`. Its noun comes from `lib/record-nouns.ts`. */
-	readonly recordType: RecordType;
+	/** Which run this is. Its noun comes from `lib/record-nouns.ts`. */
+	readonly recordType: StopRunRecordType;
 	readonly selectedId?: string | null | undefined;
 	readonly highlightId?: string | null | undefined;
 	readonly onSelectStop?: ((id: string | null) => void) | undefined;
