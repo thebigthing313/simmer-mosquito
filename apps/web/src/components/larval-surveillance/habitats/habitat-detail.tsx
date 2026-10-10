@@ -25,7 +25,7 @@ import { useHabitatSuspense } from '../../../hooks/queries/use-habitat-suspense'
 import { useRecordRoutes } from '../../../hooks/queries/use-record-routes';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useHabitatGeometry } from '../../../hooks/use-habitat-geometry';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { HABITAT_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { coordinateLabel } from '../../../lib/coordinate-label';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -47,7 +47,6 @@ import {
 } from '../../record';
 import type { HabitatGeometry } from './habitat-geometry-cache';
 import { HabitatHistoryCard, HistorySkeleton } from './habitat-history-card';
-import { formatDateTime } from './habitat-history-values';
 import { HabitatInspectionStats } from './habitat-inspection-stats';
 
 interface HabitatDetailProps {
@@ -325,10 +324,10 @@ function AuditValue({
 	readonly name: string | null;
 	readonly profileId: string | null;
 }) {
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	return (
 		<span>
-			{formatDateTime(at, timeZone)}
+			{clock.formatInstant(at, 'dateTime')}
 			{profileId === null ? null : ` by ${name ?? 'Unknown'}`}
 		</span>
 	);

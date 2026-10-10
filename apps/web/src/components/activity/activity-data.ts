@@ -554,24 +554,3 @@ function joinParts(parts: readonly (string | null | undefined)[]): string | null
 	);
 	return present.length === 0 ? null : present.join(' · ');
 }
-
-/**
- * The time of day, where the record carries one, in the organization's zone so
- * every reader sees the same clock reading.
- */
-export function formatActivityTime(
-	occurredAt: string | null,
-	timeZone: string | undefined,
-): string | null {
-	if (occurredAt === null) {
-		return null;
-	}
-	const parsed = new Date(occurredAt);
-	return Number.isNaN(parsed.getTime())
-		? null
-		: parsed.toLocaleTimeString('en-US', {
-				hour: 'numeric',
-				minute: '2-digit',
-				...(timeZone === undefined ? {} : { timeZone }),
-			});
-}

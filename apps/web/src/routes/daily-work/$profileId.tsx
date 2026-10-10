@@ -141,7 +141,6 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 						message={panelState.message}
 						onSelect={selection.select}
 						selectedKey={selection.selectedKey}
-						timeZone={timeZone}
 					/>
 				),
 				isEmpty: panelState.isEmpty,

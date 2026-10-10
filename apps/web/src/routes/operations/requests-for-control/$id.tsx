@@ -29,7 +29,6 @@ import { useProfileName } from '../../../hooks/operations/use-profile-name';
 import { useRecommendedMethodName } from '../../../hooks/operations/use-recommended-method-name';
 import {
 	controlTypeLabel,
-	formatScheduledStart,
 	missionDisplayName,
 	requestDisplayName,
 } from '../../../hooks/queries/operations-view';
@@ -43,7 +42,7 @@ import {
 } from '../../../hooks/queries/use-requested-control-action';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-location-context';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import {
 	REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
@@ -106,7 +105,7 @@ function RequestDetailContent({
 	const habitatName = useLinkedHabitatName(request.habitatId);
 	const requestWrites = useRequestedControlActionMutations();
 	const { busy, run } = useCommandRunner();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const isOpen = request.status === 'open';
 
 	const toggleResolved = () => {
@@ -151,7 +150,7 @@ function RequestDetailContent({
 					recordId: request.id,
 					returnTo: '/operations/requests-for-control',
 				},
-				subtitle: `${controlTypeLabel(request.controlType)} · raised ${formatScheduledStart(request.requestedAt, timeZone)}`,
+				subtitle: `${controlTypeLabel(request.controlType)} · raised ${clock.formatInstant(request.requestedAt, 'dateTime')}`,
 				title: subject,
 			}}
 			layout={layout}
@@ -238,7 +237,7 @@ function RequestMissionsCard({ requestId }: { readonly requestId: string }) {
 }
 
 function MissionLinkRow({ mission }: { readonly mission: MissionLink }) {
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	return (
 		<Link
 			className={cn(
@@ -250,13 +249,13 @@ function MissionLinkRow({ mission }: { readonly mission: MissionLink }) {
 		>
 			<div className="flex flex-wrap items-center gap-2">
 				<span className="font-medium text-foreground text-sm">
-					{missionDisplayName(mission, timeZone)}
+					{missionDisplayName(mission, clock)}
 				</span>
 				<MissionStatusBadge status={mission.status} />
 			</div>
 			<span className="text-muted-foreground text-xs">
 				{controlTypeLabel(mission.controlType)} ·{' '}
-				{formatScheduledStart(mission.scheduledStartAt, timeZone)}
+				{clock.formatInstant(mission.scheduledStartAt, 'dateTime')}
 			</span>
 		</Link>
 	);
@@ -289,7 +288,7 @@ function RequestFactRows({ request }: { readonly request: RequestRecord }) {
 	const methodName = useRecommendedMethodName(request.recommendedMethodId);
 	const raisedBy = useProfileName(request.requestedByProfileId);
 	const resolvedBy = useProfileName(request.resolvedByProfileId);
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 
 	return (
 		<>
@@ -301,10 +300,10 @@ function RequestFactRows({ request }: { readonly request: RequestRecord }) {
 				) : null}
 			</DetailRow>
 			<DetailRow label="Raised by">{raisedBy}</DetailRow>
-			<DetailRow label="Raised">{formatScheduledStart(request.requestedAt, timeZone)}</DetailRow>
+			<DetailRow label="Raised">{clock.formatInstant(request.requestedAt, 'dateTime')}</DetailRow>
 			{request.resolvedAt === null ? null : (
 				<DetailRow label="Resolved">
-					{formatScheduledStart(request.resolvedAt, timeZone)}
+					{clock.formatInstant(request.resolvedAt, 'dateTime')}
 					{resolvedBy === null ? '' : ` · ${resolvedBy}`}
 				</DetailRow>
 			)}

@@ -39,7 +39,7 @@ export function DashboardPage() {
 				<SurveillanceBacklog server={server} timeZone={timeZone} today={today} />
 				<OperationsBacklog server={server} timeZone={timeZone} today={today} />
 			</div>
-			<PeopleTodayPanel timeZone={timeZone} today={today} />
+			<PeopleTodayPanel today={today} />
 		</div>
 	);
 }

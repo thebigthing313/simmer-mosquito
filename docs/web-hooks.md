@@ -1103,6 +1103,38 @@ Opening is the only moment the defaults are right: a dialog mounted by a row
 menu keeps its form instance across every row it edits, so the form is
 refilled on open and again when the row changes under an open dialog.
 
+#### useOrganizationClock
+
+The hook is one line over `createOrganizationClock` in
+`lib/organization-clock.ts`, which is where the behaviour lives and where the
+suite points. A read hook, a pure view module or a suite builds the clock with
+the factory and a fixed zone, and a fixed now when the answer depends on one,
+so nothing outside a component has to mount the settings query to format a
+time.
+
+The clock replaced four copies of one `en-US` date-and-time options block and
+four close variants, each taking the zone as a `string | undefined` and each
+answering bad input its own way: `Unknown`, an empty string, `null`, and the
+value echoed in silence (#1433). `formatInstant` answers #609's way, so an
+unreadable value goes back on screen and `unreadable-input.ts` warns once,
+naming the style as `formatInstant (dueAt)`. `null` in is `null` out, which is
+what lets an assignment row hide an absent due time without a guard of its own.
+
+`missionDisplayName` takes the clock rather than a zone, and it is the one
+caller that does not echo. An unnamed mission whose start will not read is
+named by its control type alone, because `Application on Invalid Date` is a
+name nobody gave it. The mission row prints the start beside the name through
+`formatInstant`, so the value still reaches the screen and the console there.
+
+`now` defaults to `getToday`, so `TODAY_OVERRIDE` moves `today()`, `dayOf` and
+the relative style together. The comment timestamps measured "3m ago" against
+`Date.now()` before the clock, which ignored the override.
+
+The clock is rebuilt when the zone changes and reused otherwise:
+the React Compiler memoizes the factory call on the zone, so there is no
+`useMemo`, which `check:manual-memo` would refuse anyway. Its formatters are
+built lazily, one per style, and live as long as the clock.
+
 ### cleanup
 
 #### useMergeSearch

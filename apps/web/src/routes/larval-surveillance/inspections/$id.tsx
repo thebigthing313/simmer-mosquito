@@ -47,12 +47,12 @@ import {
 	useLinkedControlActions,
 } from '../../../hooks/queries/use-linked-control-actions';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { INSPECTION_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { INSPECTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { adhocLabel, habitatLabel } from '../../../lib/coordinate-label';
 import { formatAmount } from '../../../lib/format-count';
-import { formatDateTime, formatFullDate, formatMonthDayYear } from '../../../lib/record-dates';
+import { formatFullDate, formatMonthDayYear } from '../../../lib/record-dates';
 import { recordNoun } from '../../../lib/record-nouns';
 import { sampleName } from '../../../lib/sample-name';
 
@@ -333,7 +333,7 @@ function formatRate(rate: number): string {
  * group, so it takes no rule either.
  */
 function ContextCard({ inspection }: { readonly inspection: InspectionCard }) {
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	return (
 		<Card variant="surface">
 			<CardHeader padding="compact">
@@ -376,10 +376,10 @@ function ContextCard({ inspection }: { readonly inspection: InspectionCard }) {
 					</DetailRow>
 					<DetailRow label="Inspected">{formatFullDate(inspection.inspectionDate)}</DetailRow>
 					<DetailRow label="Recorded">
-						{formatDateTime(inspection.createdAt.toISOString(), timeZone)}
+						{clock.formatInstant(inspection.createdAt, 'dateTime')}
 					</DetailRow>
 					<DetailRow label="Updated">
-						{formatDateTime(inspection.updatedAt.toISOString(), timeZone)}
+						{clock.formatInstant(inspection.updatedAt, 'dateTime')}
 					</DetailRow>
 				</DetailList>
 				<AdditionalPersonnelList target={{ type: 'inspection', id: inspection.id }} />

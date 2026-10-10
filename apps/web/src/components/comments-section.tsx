@@ -26,7 +26,7 @@ import { type KeyboardEvent, useState } from 'react';
 import { useCommentMutations } from '../hooks/mutations/use-comment-mutations';
 import { type CommentTarget, type RecordComment, useComments } from '../hooks/queries/use-comments';
 import { useAuthSnapshot } from '../hooks/use-auth-snapshot';
-import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../hooks/use-organization-clock';
 import { errorMessageForSave } from '../lib/save-error';
 import { type CommentControls, commentControls } from '../lib/write-access';
 import { LabelCount } from './label-count';
@@ -312,7 +312,7 @@ function CommentItem({
 	const [mode, setMode] = useState<'view' | 'edit' | 'confirm-delete'>('view');
 	const [editValue, setEditValue] = useState(comment.commentText);
 	const [busy, setBusy] = useState(false);
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 
 	const startEdit = () => {
 		setEditValue(comment.commentText);
@@ -387,14 +387,14 @@ function CommentItem({
 					) : null}
 					<span
 						className="text-xs text-muted-foreground"
-						title={absoluteTime(comment.commentedAt, timeZone)}
+						title={clock.formatInstant(comment.commentedAt, 'dateTime')}
 					>
-						{relativeTime(comment.commentedAt, timeZone)}
+						{clock.formatInstant(comment.commentedAt, 'relative')}
 					</span>
 					{comment.editedAt === null ? null : (
 						<span
 							className="text-xs text-muted-foreground"
-							title={absoluteTime(comment.editedAt, timeZone)}
+							title={clock.formatInstant(comment.editedAt, 'dateTime')}
 						>
 							{editedLabel(comment)}
 						</span>
@@ -569,64 +569,4 @@ function initialsFor(name: string | null): string {
 	const first = parts[0]?.[0] ?? '';
 	const last = parts.length > 1 ? (parts.at(-1)?.[0] ?? '') : '';
 	return (first + last).toUpperCase() || '?';
-}
-
-/**
- * How long ago a comment was left.
- *
- * The durations — "3m ago", "2d ago" — are zone-free by construction: an
- * elapsed span is the same number wherever it is read. Past a week this falls
- * back to naming the day, and a named day does need a zone, so the
- * organization's is the one that names it.
- */
-function relativeTime(value: Date, timeZone: string | undefined): string {
-	const then = value.getTime();
-	if (Number.isNaN(then)) {
-		return '';
-	}
-	const seconds = Math.round((Date.now() - then) / 1000);
-	if (seconds < 45) {
-		return 'just now';
-	}
-	const minutes = Math.round(seconds / 60);
-	if (minutes < 60) {
-		return `${minutes}m ago`;
-	}
-	const hours = Math.round(minutes / 60);
-	if (hours < 24) {
-		return `${hours}h ago`;
-	}
-	const days = Math.round(hours / 24);
-	if (days < 7) {
-		return `${days}d ago`;
-	}
-	// The year is dropped inside the current one. Which year each falls in is
-	// itself a zone question, so both are read in the organization's — otherwise
-	// a comment left on New Year's Eve is "in this year" to one reader and not
-	// the other.
-	const zone = timeZone === undefined ? {} : { timeZone };
-	const yearOf = (at: number): string =>
-		new Intl.DateTimeFormat('en-US', { ...zone, year: 'numeric' }).format(at);
-	return new Intl.DateTimeFormat('en-US', {
-		...zone,
-		day: 'numeric',
-		month: 'short',
-		year: yearOf(then) === yearOf(Date.now()) ? undefined : 'numeric',
-	}).format(then);
-}
-
-/** The full timestamp behind {@link relativeTime}, on the organization's clock. */
-function absoluteTime(value: Date, timeZone: string | undefined): string {
-	const date = value;
-	if (Number.isNaN(date.getTime())) {
-		return '';
-	}
-	return new Intl.DateTimeFormat('en-US', {
-		day: 'numeric',
-		month: 'short',
-		year: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit',
-		...(timeZone === undefined ? {} : { timeZone }),
-	}).format(date);
 }
