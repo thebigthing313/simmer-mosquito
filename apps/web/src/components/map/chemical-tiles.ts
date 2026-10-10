@@ -1,34 +1,20 @@
 import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
+import { CHEMICAL_MAP_FILTERS, type MapFiltersOf } from '@simmer-mosquito/domain';
 import {
 	allLayerIds,
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import {
-	type RegionScopedTileFilters,
-	setRegionTileParam,
-	type TileDrawOptions,
-	tileExtentUrl,
-	tileTemplateUrl,
-} from './tile-urls';
+import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
- * Server-side filters for the chemical-application vector tiles. Mirrors the
- * query params the `/map/tiles/chemical/{z}/{x}/{y}.mvt` endpoint understands;
- * the same shape drives the `/map/chemical` paged list so the map and the list
- * stay in lockstep.
+ * The filters the `chemical` tiles and extent draw under, typed off the
+ * spec in `@simmer-mosquito/domain` the server parses them with. The list
+ * request encodes the same object, so the map and the list name one set of
+ * params.
  */
-export interface ChemicalTileFilters extends RegionScopedTileFilters {
-	readonly insecticideIds?: readonly string[];
-	readonly applicationMethodIds?: readonly string[];
-	/** Match applications performed by any of these profiles. */
-	readonly applicatorProfileIds?: readonly string[];
-	/** Inclusive `YYYY-MM-DD` lower bound on application date. */
-	readonly dateFrom?: string;
-	/** Inclusive `YYYY-MM-DD` upper bound on application date. */
-	readonly dateTo?: string;
-}
+export type ChemicalTileFilters = MapFiltersOf<typeof CHEMICAL_MAP_FILTERS>;
 
 export const CHEMICAL_SOURCE_ID = 'chemical';
 
@@ -50,36 +36,21 @@ export function buildChemicalTileUrl(
 	filters?: ChemicalTileFilters,
 	options?: TileDrawOptions,
 ): string {
-	return tileTemplateUrl(serverUrl, CHEMICAL_SOURCE_ID, chemicalTileParams(filters), options);
+	return tileTemplateUrl(
+		serverUrl,
+		CHEMICAL_SOURCE_ID,
+		tileFilterQuery(CHEMICAL_MAP_FILTERS, filters),
+		options,
+	);
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */
 export function buildChemicalExtentUrl(serverUrl: string, filters?: ChemicalTileFilters): string {
-	return tileExtentUrl(serverUrl, CHEMICAL_SOURCE_ID, chemicalTileParams(filters));
-}
-
-function chemicalTileParams(filters?: ChemicalTileFilters): URLSearchParams {
-	const params = new URLSearchParams();
-
-	if (filters?.insecticideIds !== undefined && filters.insecticideIds.length > 0) {
-		params.set('insecticideId', [...filters.insecticideIds].sort().join(','));
-	}
-	if (filters?.applicationMethodIds !== undefined && filters.applicationMethodIds.length > 0) {
-		params.set('applicationMethodId', [...filters.applicationMethodIds].sort().join(','));
-	}
-	if (filters?.applicatorProfileIds !== undefined && filters.applicatorProfileIds.length > 0) {
-		params.set('applicator', [...filters.applicatorProfileIds].sort().join(','));
-	}
-	if (filters?.dateFrom !== undefined) {
-		params.set('dateFrom', filters.dateFrom);
-	}
-	if (filters?.dateTo !== undefined) {
-		params.set('dateTo', filters.dateTo);
-	}
-
-	setRegionTileParam(params, filters?.regionIds);
-
-	return params;
+	return tileExtentUrl(
+		serverUrl,
+		CHEMICAL_SOURCE_ID,
+		tileFilterQuery(CHEMICAL_MAP_FILTERS, filters),
+	);
 }
 
 /** The GL layers for the chemical application source. `selectedId` drives the highlight set. */

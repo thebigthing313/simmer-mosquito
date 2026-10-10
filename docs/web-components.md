@@ -373,12 +373,24 @@ box. `useRecordSetFilters` in `docs/web-hooks.md` says what each is for.
 
 And it holds the request. `endpoint` names the `/map/*` list endpoint and the
 key its rows arrive under, `tileFilters` turns the filters into what the tile
-layer reads, and `listParams` turns those into the list endpoint's query
-params. The Map draws its tiles from `tileFilters` and pages its rail through
-`listParams`, and the Table pages through the same two, so the surfaces send
-one filter set under two boxes and cannot drift apart key by key. Both used
-to call the kind's two functions by name, which agreed only because nobody
-had changed one side. `tileFilters` takes the binding's context as well as
+layer reads, and `filterSpec` names the spec in `@simmer-mosquito/domain` that
+the server parses those with. The Map draws its tiles from `tileFilters` and
+pages its rail through `recordSetFilterParams`, which encodes them with the
+spec, and the Table pages through the same two, so the surfaces send one
+filter set under two boxes and cannot drift apart key by key. Both used to
+call the kind's two functions by name, which agreed only because nobody had
+changed one side.
+
+No param name is written in `apps/web` (#1420). Each kind used to restate its
+param names twice, a private `*TileParams` in its `*-tiles.ts` module and a
+`*ListParams` on its set, and both had to agree with the field list the server
+parsed by. The spec is that field list now, `encodeMapFilterParams` encodes
+the tile URL, the extent URL and the list request from it, and a kind's tile
+filter type is `MapFiltersOf` its spec. So `defineRecordSet` infers the tile
+type from `filterSpec` and holds `tileFilters` to it, and an adapter writing a
+key the spec does not hold fails `tsc`. The encoder sorts every list, so the
+tile URL and the list request can differ from the old ones in param order and
+in id order inside a list, and in nothing the server reads. `tileFilters` takes the binding's context as well as
 the filters, because the Service Requests cut-off for Overdue is a day off
 the Organization's today and its threshold setting, and with the context on
 the binding the routes read the cut-off from it rather than through a hook of

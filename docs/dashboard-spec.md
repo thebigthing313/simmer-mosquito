@@ -352,9 +352,9 @@ endpoint and load rows over sync by `inArray`. That was written before reading
 the explorers, and it is wrong for three of the four: the samples, collections
 and habitats explorers read `/map/samples`, `/map/collections` and
 `/map/habitats`, server reads with server-parsed filters, plus their tiles. A
-new filter there is a new `defineFilters` entry and one `where` clause, the
-shape `problem` already takes on collections, and the Dashboard reader shares
-the fragment. There is no `GET /dashboard/queues/:queue/ids`.
+new filter there is a new entry in its spec in `@simmer-mosquito/domain` and
+one `where` clause, the shape `problem` already takes on collections, and the
+Dashboard reader shares the fragment. There is no `GET /dashboard/queues/:queue/ids`.
 
 - **Samples, `status=awaiting`**: exists. `parseSampleTileFilters` reads
   `status` as a `sampleStatus` and the surface resolves it. The link passes

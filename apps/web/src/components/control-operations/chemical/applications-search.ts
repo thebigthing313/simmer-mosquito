@@ -1,5 +1,5 @@
+import { CHEMICAL_MAP_FILTERS } from '@simmer-mosquito/domain';
 import { addDaysToDateString } from '../../../lib/local-date';
-import type { MapQueryValue } from '../../../lib/map-query-params';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -67,22 +67,6 @@ export function applicationTileFilters(filters: ApplicationFilters): ChemicalTil
 }
 
 /**
- * The same filters as `/map/chemical` reads them. The Map adds the viewport's
- * `bbox` to these and the Table adds the whole world's, so the two surfaces
- * send one filter set under two boxes.
- */
-export function applicationListParams(filters: ChemicalTileFilters): Record<string, MapQueryValue> {
-	return {
-		insecticideId: filters.insecticideIds,
-		applicationMethodId: filters.applicationMethodIds,
-		applicator: filters.applicatorProfileIds,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	};
-}
-
-/**
  * The Chemical Applications Map and Table. Both read `/map/chemical` and apply every filter.
  */
 export const applicationRecordSet = defineRecordSet({
@@ -92,7 +76,7 @@ export const applicationRecordSet = defineRecordSet({
 	endpoint: { path: '/map/chemical', rowsKey: 'applications', rowKey: 'application' },
 	tileset: 'chemical',
 	tileFilters: applicationTileFilters,
-	listParams: applicationListParams,
+	filterSpec: CHEMICAL_MAP_FILTERS,
 	defaults: ({ today }) => applicationFilterDefaults(today),
 	counting: DATE_RANGE_COUNTING,
 	applies: {

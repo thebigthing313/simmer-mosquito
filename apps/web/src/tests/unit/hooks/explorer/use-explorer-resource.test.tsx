@@ -94,9 +94,9 @@ interface ResourceOptions {
 
 /**
  * The hook over a record set built from one case's surface. The set's
- * `tileFilters` answers the case's tile filters and its `listParams` the case's
- * params whatever it is handed, so a case can state the page and the tiles
- * apart, which is what most of the cases below are about. That a route's set
+ * `tileFilters` answers the case's tile filters and its spec encodes nothing,
+ * while the case's params go in as the route's own, so a case can state the
+ * page and the tiles apart, which is what most of the cases below are about. That a route's set
  * pairs the two is covered under "what the record set decides", with real
  * sets, and that its tileset is checked against its tile filters is
  * `defineRecordSet`'s, in the record set suite.
@@ -117,11 +117,12 @@ function useSurfaceResource({
 		tileset: tiles.kind,
 		recordType,
 		tileFilters: () => tiles.filters,
-		listParams: () => params,
+		filterSpec: [],
 	} as unknown as RecordSet<null, never>;
 	return useExplorerResource<Row, null, never>({
 		set,
 		binding: { filters: null, context: CONTEXT },
+		params,
 		...options,
 	});
 }
@@ -1339,13 +1340,14 @@ describe('useExplorerResource: what the record set decides', () => {
 		context: CONTEXT,
 	};
 
-	/** The address set with its `listParams` recording the tile filters it was handed. */
+	/** The address set with its `tileFilters` recording each conversion it made. */
 	function recordingAddressSet(handed: unknown[]): typeof addressRecordSet {
 		return {
 			...addressRecordSet,
-			listParams: (tile) => {
+			tileFilters: (filters, context) => {
+				const tile = addressRecordSet.tileFilters(filters, context);
 				handed.push(tile);
-				return addressRecordSet.listParams(tile);
+				return tile;
 			},
 		};
 	}

@@ -307,7 +307,8 @@ record set, and `binding`, the filters and context
 `useRecordSetFilters(set, 'map')` returned, and the hook reads the endpoint
 path, the rows key and the record type off the set. It calls the set's
 `tileFilters` once per render and hands the result to both the tile layer and
-the set's `listParams`, so the tiles and the page cannot read two filter sets.
+`recordSetFilterParams`, which encodes it with the set's `filterSpec`, so the
+tiles and the page cannot read two filter sets.
 Every route used to do that by hand, with five options a route could fill
 from two different sets or with params that skipped `tileFilters`, and `tsc`
 would have taken it. Since #1595 the set also names the tileset its Map

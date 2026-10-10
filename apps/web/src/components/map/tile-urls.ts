@@ -1,59 +1,29 @@
 /**
- * Shared URL shapes for the authenticated map tilesets. Each domain module keeps
- * its own filter → query-param mapping and builds both URLs from that one set, so
- * the tiles a map draws and the extent it frames can never fall out of step.
+ * Shared URL shapes for the authenticated map tilesets. Each domain module
+ * builds both URLs from one query, encoded off its spec in
+ * `@simmer-mosquito/domain`, so the tiles a map draws and the extent it frames
+ * can never fall out of step.
  */
 
 import { trimTrailingSlash } from '@simmer-mosquito/config';
+import {
+	encodeMapFilterParams,
+	type MapFilterSpec,
+	type MapFiltersOf,
+} from '@simmer-mosquito/domain';
 
 /**
- * The region narrowing every record tileset accepts.
- *
- * Regions are the organization's own operational geography, so "only this
- * district" is asked of habitats, traps, applications, and everything else
- * alike. One shape and one param name across every tileset keeps a region deep
- * link into one explorer readable by the next.
+ * A tileset's filters as its query, encoded by the spec the server parses them
+ * with. No filters, or none set, is an empty query, which is what tells the
+ * explorer its rail is empty for "none" rather than for "filters".
  */
-export interface RegionScopedTileFilters {
-	/** Show only records falling inside these regions. Empty means every region. */
-	readonly regionIds?: readonly string[];
-}
-
-/** Fold the region narrowing into a tileset's query, under the shared param. */
-export function setRegionTileParam(
-	params: URLSearchParams,
-	regionIds: readonly string[] | undefined,
-): void {
-	setIdListTileParam(params, 'regionId', regionIds);
-}
-
-/**
- * Fold a list of ids into a tileset's query as one comma-joined param, or leave
- * the query alone when there are none.
- */
-export function setIdListTileParam(
-	params: URLSearchParams,
-	name: string,
-	ids: readonly string[] | undefined,
-): void {
-	if (ids === undefined || ids.length === 0) {
-		return;
-	}
-	// Sorted so re-selecting the same ids in a different order leaves the URL,
-	// and therefore the tile source, untouched.
-	params.set(name, [...ids].sort().join(','));
-}
-
-/** Fold a search term into a tileset's query, trimmed, or nothing for a blank one. */
-export function setTextTileParam(
-	params: URLSearchParams,
-	name: string,
-	value: string | undefined,
-): void {
-	const trimmed = value?.trim();
-	if (trimmed !== undefined && trimmed.length > 0) {
-		params.set(name, trimmed);
-	}
+export function tileFilterQuery<const TSpec extends MapFilterSpec>(
+	spec: TSpec,
+	filters: MapFiltersOf<TSpec> | undefined,
+): URLSearchParams {
+	return new URLSearchParams(
+		filters === undefined ? undefined : encodeMapFilterParams(spec, filters),
+	);
 }
 
 /** How a tileset's tiles draw, as opposed to which records they hold. */

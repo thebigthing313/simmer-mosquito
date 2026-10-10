@@ -1,4 +1,4 @@
-import type { MapQueryValue } from '../../../lib/map-query-params';
+import { ADDRESS_MAP_FILTERS } from '@simmer-mosquito/domain';
 import { type FilterCodecs, idSetParam, textParam } from '../../../lib/search-filters';
 import { defineRecordSet } from '../../explorer/record-set';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
@@ -31,15 +31,6 @@ export function addressTileFilters(filters: AddressFilters): AddressTileFilters 
 }
 
 /**
- * The same filters as `/map/addresses` reads them. The Map adds the viewport's
- * `bbox` to these and the Table adds the whole world's, so the two surfaces
- * send one filter set under two boxes.
- */
-export function addressListParams(filters: AddressTileFilters): Record<string, MapQueryValue> {
-	return { search: filters.search, regionId: filters.regionIds };
-}
-
-/**
  * The Addresses Map and Table. Both read `/map/addresses` and apply every filter.
  */
 export const addressRecordSet = defineRecordSet({
@@ -49,7 +40,7 @@ export const addressRecordSet = defineRecordSet({
 	endpoint: { path: '/map/addresses', rowsKey: 'addresses', rowKey: 'address' },
 	tileset: 'addresses',
 	tileFilters: addressTileFilters,
-	listParams: addressListParams,
+	filterSpec: ADDRESS_MAP_FILTERS,
 	defaults: () => ADDRESS_FILTER_DEFAULTS,
 	textSearch: { key: 'search' },
 	applies: { search: 'both', regions: 'both' },

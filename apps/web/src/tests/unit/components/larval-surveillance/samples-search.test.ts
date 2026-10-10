@@ -2,10 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	sampleFilterCodecs,
 	sampleFilterDefaults,
-	sampleListParams,
 	sampleTileFilters,
 } from '../../../../components/larval-surveillance/samples-search';
-import { mapQueryParams } from '../../../../lib/map-query-params';
 import { resolveFilters } from '../../../../lib/search-filters';
 
 describe('the samples filter contract', () => {
@@ -19,33 +17,28 @@ describe('the samples filter contract', () => {
 		});
 	});
 
-	it('sends the opening window and nothing else to `/map/samples`', () => {
-		const params = mapQueryParams(
-			sampleListParams(sampleTileFilters(sampleFilterDefaults('2026-09-24'))),
-		);
-
-		expect(params).toEqual({ dateFrom: '2026-08-26', dateTo: '2026-09-24' });
+	it('carries the opening window and nothing else to the tiles', () => {
+		expect(sampleTileFilters(sampleFilterDefaults('2026-09-24'))).toEqual({
+			dateFrom: '2026-08-26',
+			dateTo: '2026-09-24',
+		});
 	});
 
-	it('sends every filter the Map has, under the names the endpoint reads', () => {
-		const params = mapQueryParams(
-			sampleListParams(
-				sampleTileFilters({
-					from: '',
-					to: '',
-					status: 'awaiting',
-					species: new Set(['species-1']),
-					nonMosquito: true,
-					regions: new Set(['region-1']),
-				}),
-			),
-		);
-
-		expect(params).toEqual({
+	it('carries every filter the Map has to the tiles', () => {
+		expect(
+			sampleTileFilters({
+				from: '',
+				to: '',
+				status: 'awaiting',
+				species: new Set(['species-1']),
+				nonMosquito: true,
+				regions: new Set(['region-1']),
+			}),
+		).toEqual({
 			status: 'awaiting',
-			species: 'species-1',
-			nonMosquito: 'true',
-			regionId: 'region-1',
+			speciesIds: ['species-1'],
+			nonMosquitoOnly: true,
+			regionIds: ['region-1'],
 		});
 	});
 });

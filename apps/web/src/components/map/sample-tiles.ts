@@ -1,4 +1,5 @@
 import { mapInteraction, mapStatus } from '@simmer-mosquito/design-tokens';
+import { type MapFiltersOf, SAMPLE_MAP_FILTERS, type SampleStatus } from '@simmer-mosquito/domain';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import {
 	allLayerIds,
@@ -6,31 +7,15 @@ import {
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import {
-	type RegionScopedTileFilters,
-	setRegionTileParam,
-	type TileDrawOptions,
-	tileExtentUrl,
-	tileTemplateUrl,
-} from './tile-urls';
+import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
- * Server-side filters for the sample vector tiles. Mirrors the query params the
- * `/map/tiles/samples/{z}/{x}/{y}.mvt` endpoint understands; the same shape drives
- * the `/map/samples` bbox list so the map and the list stay in lockstep.
+ * The filters the `samples` tiles and extent draw under, typed off the
+ * spec in `@simmer-mosquito/domain` the server parses them with. The list
+ * request encodes the same object, so the map and the list name one set of
+ * params.
  */
-export interface SampleTileFilters extends RegionScopedTileFilters {
-	/** Species ids the sample must have an identified result for. */
-	readonly speciesIds?: readonly string[];
-	/** Lifecycle status (`identified` … `unidentifiable`). */
-	readonly status?: string;
-	/** Only samples flagged with non-mosquito material. */
-	readonly nonMosquitoOnly?: boolean;
-	/** Inclusive `YYYY-MM-DD` lower bound on the parent inspection date. */
-	readonly dateFrom?: string;
-	/** Inclusive `YYYY-MM-DD` upper bound on the parent inspection date. */
-	readonly dateTo?: string;
-}
+export type SampleTileFilters = MapFiltersOf<typeof SAMPLE_MAP_FILTERS>;
 
 export const SAMPLE_SOURCE_ID = 'samples';
 
@@ -54,9 +39,6 @@ const colors = {
  * explorer's status-filter chips and the map ramp read from a single source of
  * truth — the filter chips double as the map's legend.
  */
-/** The status the server resolves for a sample. */
-export type SampleStatus = 'identified' | 'awaiting' | 'zero_larvae' | 'unidentifiable';
-
 export const SAMPLE_STATUS_COLORS: Readonly<Record<SampleStatus, string>> = {
 	identified: colors.identified,
 	awaiting: colors.awaiting,
@@ -91,36 +73,17 @@ export function buildSampleTileUrl(
 	filters?: SampleTileFilters,
 	options?: TileDrawOptions,
 ): string {
-	return tileTemplateUrl(serverUrl, SAMPLE_SOURCE_ID, sampleTileParams(filters), options);
+	return tileTemplateUrl(
+		serverUrl,
+		SAMPLE_SOURCE_ID,
+		tileFilterQuery(SAMPLE_MAP_FILTERS, filters),
+		options,
+	);
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */
 export function buildSampleExtentUrl(serverUrl: string, filters?: SampleTileFilters): string {
-	return tileExtentUrl(serverUrl, SAMPLE_SOURCE_ID, sampleTileParams(filters));
-}
-
-function sampleTileParams(filters?: SampleTileFilters): URLSearchParams {
-	const params = new URLSearchParams();
-
-	if (filters?.speciesIds !== undefined && filters.speciesIds.length > 0) {
-		params.set('species', [...filters.speciesIds].sort().join(','));
-	}
-	if (filters?.status !== undefined && filters.status.length > 0) {
-		params.set('status', filters.status);
-	}
-	if (filters?.nonMosquitoOnly === true) {
-		params.set('nonMosquito', 'true');
-	}
-	if (filters?.dateFrom !== undefined) {
-		params.set('dateFrom', filters.dateFrom);
-	}
-	if (filters?.dateTo !== undefined) {
-		params.set('dateTo', filters.dateTo);
-	}
-
-	setRegionTileParam(params, filters?.regionIds);
-
-	return params;
+	return tileExtentUrl(serverUrl, SAMPLE_SOURCE_ID, tileFilterQuery(SAMPLE_MAP_FILTERS, filters));
 }
 
 /** The GL layers for the sample source. `selectedId` drives the highlight set. */

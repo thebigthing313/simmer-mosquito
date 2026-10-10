@@ -1,5 +1,5 @@
+import { BIOCONTROL_MAP_FILTERS } from '@simmer-mosquito/domain';
 import { addDaysToDateString } from '../../../lib/local-date';
-import type { MapQueryValue } from '../../../lib/map-query-params';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -69,24 +69,6 @@ export function biocontrolTileFilters(filters: BiocontrolFilters): BiocontrolTil
 }
 
 /**
- * The same filters as `/map/biocontrol` reads them. The Map adds the
- * viewport's `bbox` to these and the Table adds the whole world's, so the two
- * surfaces send one filter set under two boxes.
- */
-export function biocontrolListParams(
-	filters: BiocontrolTileFilters,
-): Record<string, MapQueryValue> {
-	return {
-		biocontrolMethodId: filters.biocontrolMethodIds,
-		technician: filters.technicianProfileIds,
-		regionId: filters.regionIds,
-		habitatLinked: filters.habitatLinkedOnly,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	};
-}
-
-/**
  * The Biocontrol Actions Map and Table. Both read `/map/biocontrol` and apply every filter.
  */
 export const biocontrolRecordSet = defineRecordSet({
@@ -96,7 +78,7 @@ export const biocontrolRecordSet = defineRecordSet({
 	endpoint: { path: '/map/biocontrol', rowsKey: 'biocontrolActions', rowKey: 'biocontrolAction' },
 	tileset: 'biocontrol',
 	tileFilters: biocontrolTileFilters,
-	listParams: biocontrolListParams,
+	filterSpec: BIOCONTROL_MAP_FILTERS,
 	defaults: ({ today }) => biocontrolFilterDefaults(today),
 	counting: DATE_RANGE_COUNTING,
 	applies: {

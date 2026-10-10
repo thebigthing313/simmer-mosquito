@@ -1,32 +1,20 @@
 import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
+import { type MapFiltersOf, OUTREACH_MAP_FILTERS } from '@simmer-mosquito/domain';
 import {
 	allLayerIds,
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import {
-	type RegionScopedTileFilters,
-	setRegionTileParam,
-	type TileDrawOptions,
-	tileExtentUrl,
-	tileTemplateUrl,
-} from './tile-urls';
+import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
- * Server-side filters for the outreach vector tiles. Mirrors the query params
- * the `/map/tiles/outreach/{z}/{x}/{y}.mvt` endpoint understands; the same shape
- * drives the `/map/outreach` paged list so the map and the list stay in lockstep.
+ * The filters the `outreach` tiles and extent draw under, typed off the
+ * spec in `@simmer-mosquito/domain` the server parses them with. The list
+ * request encodes the same object, so the map and the list name one set of
+ * params.
  */
-export interface OutreachTileFilters extends RegionScopedTileFilters {
-	readonly outreachMethodIds?: readonly string[];
-	/** Match outreach performed by any of these profiles. */
-	readonly technicianProfileIds?: readonly string[];
-	/** Inclusive `YYYY-MM-DD` lower bound on outreach date. */
-	readonly dateFrom?: string;
-	/** Inclusive `YYYY-MM-DD` upper bound on outreach date. */
-	readonly dateTo?: string;
-}
+export type OutreachTileFilters = MapFiltersOf<typeof OUTREACH_MAP_FILTERS>;
 
 export const OUTREACH_SOURCE_ID = 'outreach';
 
@@ -48,33 +36,21 @@ export function buildOutreachTileUrl(
 	filters?: OutreachTileFilters,
 	options?: TileDrawOptions,
 ): string {
-	return tileTemplateUrl(serverUrl, OUTREACH_SOURCE_ID, outreachTileParams(filters), options);
+	return tileTemplateUrl(
+		serverUrl,
+		OUTREACH_SOURCE_ID,
+		tileFilterQuery(OUTREACH_MAP_FILTERS, filters),
+		options,
+	);
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */
 export function buildOutreachExtentUrl(serverUrl: string, filters?: OutreachTileFilters): string {
-	return tileExtentUrl(serverUrl, OUTREACH_SOURCE_ID, outreachTileParams(filters));
-}
-
-function outreachTileParams(filters?: OutreachTileFilters): URLSearchParams {
-	const params = new URLSearchParams();
-
-	if (filters?.outreachMethodIds !== undefined && filters.outreachMethodIds.length > 0) {
-		params.set('outreachMethodId', [...filters.outreachMethodIds].sort().join(','));
-	}
-	if (filters?.technicianProfileIds !== undefined && filters.technicianProfileIds.length > 0) {
-		params.set('technician', [...filters.technicianProfileIds].sort().join(','));
-	}
-	if (filters?.dateFrom !== undefined) {
-		params.set('dateFrom', filters.dateFrom);
-	}
-	if (filters?.dateTo !== undefined) {
-		params.set('dateTo', filters.dateTo);
-	}
-
-	setRegionTileParam(params, filters?.regionIds);
-
-	return params;
+	return tileExtentUrl(
+		serverUrl,
+		OUTREACH_SOURCE_ID,
+		tileFilterQuery(OUTREACH_MAP_FILTERS, filters),
+	);
 }
 
 /** The GL layers for the outreach action source. `selectedId` drives the highlight set. */

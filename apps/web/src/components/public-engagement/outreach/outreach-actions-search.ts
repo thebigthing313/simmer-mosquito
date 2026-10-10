@@ -1,5 +1,5 @@
+import { OUTREACH_MAP_FILTERS } from '@simmer-mosquito/domain';
 import { addDaysToDateString } from '../../../lib/local-date';
-import type { MapQueryValue } from '../../../lib/map-query-params';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -63,21 +63,6 @@ export function outreachTileFilters(filters: OutreachFilters): OutreachTileFilte
 }
 
 /**
- * The same filters as `/map/outreach` reads them. The Map adds the viewport's
- * `bbox` to these and the Table adds the whole world's, so the two surfaces
- * send one filter set under two boxes.
- */
-export function outreachListParams(filters: OutreachTileFilters): Record<string, MapQueryValue> {
-	return {
-		outreachMethodId: filters.outreachMethodIds,
-		technician: filters.technicianProfileIds,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	};
-}
-
-/**
  * The Outreach Actions Map and Table. Both read `/map/outreach` and apply every filter.
  */
 export const outreachRecordSet = defineRecordSet({
@@ -87,7 +72,7 @@ export const outreachRecordSet = defineRecordSet({
 	endpoint: { path: '/map/outreach', rowsKey: 'outreachActions', rowKey: 'outreachAction' },
 	tileset: 'outreach',
 	tileFilters: outreachTileFilters,
-	listParams: outreachListParams,
+	filterSpec: OUTREACH_MAP_FILTERS,
 	defaults: ({ today }) => outreachFilterDefaults(today),
 	counting: DATE_RANGE_COUNTING,
 	applies: { from: 'both', to: 'both', people: 'both', methods: 'both', regions: 'both' },

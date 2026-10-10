@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { buildServiceRequestTileUrl } from '../../../../../components/map/service-request-tiles';
+import { recordSetFilterParams } from '../../../../../components/explorer/record-set';
+import {
+	buildServiceRequestExtentUrl,
+	buildServiceRequestTileUrl,
+} from '../../../../../components/map/service-request-tiles';
 import {
 	serviceRequestFilterCodecs,
 	serviceRequestFilterDefaults,
-	serviceRequestListParams,
 	serviceRequestOrderParams,
+	serviceRequestRecordSet,
 	serviceRequestTileFilters,
 } from '../../../../../components/public-engagement/service-requests/service-requests-search';
-import { mapQueryParams } from '../../../../../lib/map-query-params';
 import { resolveFilters, searchValidator } from '../../../../../lib/search-filters';
 
 describe('the service requests filter contract', () => {
@@ -82,7 +85,7 @@ describe('serviceRequestTileFilters', () => {
 	it('asks the page and the tiles for the same overdue requests', () => {
 		const filters = serviceRequestTileFilters({ ...window, overdue: true }, '2026-10-06');
 
-		expect(mapQueryParams(serviceRequestListParams(filters))).toMatchObject({
+		expect(recordSetFilterParams(serviceRequestRecordSet, filters)).toMatchObject({
 			overdueBefore: '2026-10-06',
 		});
 		expect(buildServiceRequestTileUrl('https://api.test', filters)).toContain(
@@ -93,34 +96,28 @@ describe('serviceRequestTileFilters', () => {
 
 describe('serviceRequestOrderParams', () => {
 	it('leaves newest first unsent', () => {
-		expect(mapQueryParams(serviceRequestOrderParams('newest'))).toEqual({});
+		expect(serviceRequestOrderParams('newest')).toEqual({});
 	});
 
 	it('asks for oldest first by name', () => {
-		expect(mapQueryParams(serviceRequestOrderParams('oldest'))).toEqual({ oldest: 'true' });
+		expect(serviceRequestOrderParams('oldest')).toEqual({ oldest: 'true' });
 	});
-});
 
-describe('serviceRequestListParams', () => {
-	it('names each filter the way /map/service-requests reads it', () => {
-		expect(
-			mapQueryParams(
-				serviceRequestListParams({
-					dateFrom: '2026-01-01',
-					dateTo: '2026-12-31',
-					isOpen: false,
-					regionIds: ['r1'],
-					search: 'bees',
-					tagIds: ['t1', 't2'],
-				}),
-			),
-		).toEqual({
-			dateFrom: '2026-01-01',
-			dateTo: '2026-12-31',
-			regionId: 'r1',
-			search: 'bees',
-			status: 'closed',
-			tagId: 't1,t2',
-		});
+	it('never reaches the tile or the extent URL, which the order does not narrow', () => {
+		const filters = serviceRequestTileFilters(
+			{
+				status: 'open',
+				search: '',
+				tags: new Set<string>(),
+				regions: new Set<string>(),
+				from: '',
+				to: '',
+				overdue: false,
+			},
+			null,
+		);
+
+		expect(buildServiceRequestTileUrl('https://api.test', filters)).not.toContain('oldest');
+		expect(buildServiceRequestExtentUrl('https://api.test', filters)).not.toContain('oldest');
 	});
 });

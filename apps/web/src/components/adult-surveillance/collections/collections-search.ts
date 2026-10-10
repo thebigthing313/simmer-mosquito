@@ -1,5 +1,5 @@
+import { COLLECTION_MAP_FILTERS } from '@simmer-mosquito/domain';
 import { addDaysToDateString } from '../../../lib/local-date';
-import type { MapQueryValue } from '../../../lib/map-query-params';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -68,24 +68,6 @@ export function collectionTileFilters(filters: CollectionFilters): CollectionTil
 }
 
 /**
- * The same filters as `/map/collections` reads them. The Map adds the
- * viewport's `bbox` to these and the Table adds the whole world's, so the two
- * surfaces send one filter set under two boxes.
- */
-export function collectionListParams(
-	filters: CollectionTileFilters,
-): Record<string, MapQueryValue> {
-	return {
-		collectionMethodId: filters.collectionMethodIds,
-		problem: filters.problemOnly,
-		awaiting: filters.awaitingOnly,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	};
-}
-
-/**
  * The Collections Map and Table. Both read `/map/collections` and apply every filter.
  */
 export const collectionRecordSet = defineRecordSet({
@@ -95,7 +77,7 @@ export const collectionRecordSet = defineRecordSet({
 	endpoint: { path: '/map/collections', rowsKey: 'collections', rowKey: 'collection' },
 	tileset: 'collections',
 	tileFilters: collectionTileFilters,
-	listParams: collectionListParams,
+	filterSpec: COLLECTION_MAP_FILTERS,
 	defaults: ({ today }) => collectionFilterDefaults(today),
 	counting: DATE_RANGE_COUNTING,
 	applies: {

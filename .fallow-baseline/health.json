@@ -215,33 +215,8 @@
         "count": 1
       }
     },
-    "apps/web/src/components/map/biocontrol-tiles.ts": {
-      "crap_high": {
-        "count": 1
-      }
-    },
-    "apps/web/src/components/map/chemical-tiles.ts": {
-      "crap_high": {
-        "count": 1
-      }
-    },
-    "apps/web/src/components/map/collection-tiles.ts": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/components/map/geometry-control.tsx": {
       "complexity_high": {
-        "count": 1
-      }
-    },
-    "apps/web/src/components/map/habitat-tiles.ts": {
-      "crap_high": {
-        "count": 1
-      }
-    },
-    "apps/web/src/components/map/inspection-tiles.ts": {
-      "crap_high": {
         "count": 1
       }
     },
@@ -258,28 +233,8 @@
         "count": 1
       }
     },
-    "apps/web/src/components/map/outreach-tiles.ts": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/components/map/record-location-card.tsx": {
       "complexity_high": {
-        "count": 1
-      }
-    },
-    "apps/web/src/components/map/sample-tiles.ts": {
-      "crap_high": {
-        "count": 1
-      }
-    },
-    "apps/web/src/components/map/source-reduction-tiles.ts": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/components/map/trap-tiles.ts": {
-      "crap_moderate": {
         "count": 1
       }
     },
@@ -461,16 +416,6 @@
         "count": 1
       },
       "crap_high": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/operations/assignments/index.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/operations/missions/index.tsx": {
-      "complexity_moderate": {
         "count": 1
       }
     },
@@ -706,7 +651,7 @@
   "target_keys": [
     "apps/web/src/components/map/map-canvas.tsx:complexity",
     "apps/web/src/components/comments-section.tsx:complexity",
-    "apps/web/src/routes/operations/assignments/create.tsx:complexity",
+    "apps/web/src/components/map/record-location-card.tsx:complexity",
     "apps/web/src/lib/search-filters.ts:high impact",
     "apps/web/src/routes/gis/regions/import.tsx:complexity",
     "apps/web/src/components/key-entry/key-entry-dialog.tsx:complexity",

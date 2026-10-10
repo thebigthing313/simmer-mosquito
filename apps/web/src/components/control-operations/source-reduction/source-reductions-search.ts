@@ -1,5 +1,5 @@
+import { SOURCE_REDUCTION_MAP_FILTERS } from '@simmer-mosquito/domain';
 import { addDaysToDateString } from '../../../lib/local-date';
-import type { MapQueryValue } from '../../../lib/map-query-params';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -65,23 +65,6 @@ export function sourceReductionTileFilters(
 }
 
 /**
- * The same filters as `/map/source-reduction` reads them. The Map adds the
- * viewport's `bbox` to these and the Table adds the whole world's, so the two
- * surfaces send one filter set under two boxes.
- */
-export function sourceReductionListParams(
-	filters: SourceReductionTileFilters,
-): Record<string, MapQueryValue> {
-	return {
-		sourceReductionMethodId: filters.sourceReductionMethodIds,
-		technician: filters.technicianProfileIds,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	};
-}
-
-/**
  * The Source Reductions Map and Table. Both read `/map/source-reduction` and apply every filter.
  */
 export const sourceReductionRecordSet = defineRecordSet({
@@ -98,7 +81,7 @@ export const sourceReductionRecordSet = defineRecordSet({
 	},
 	tileset: 'source-reduction',
 	tileFilters: sourceReductionTileFilters,
-	listParams: sourceReductionListParams,
+	filterSpec: SOURCE_REDUCTION_MAP_FILTERS,
 	defaults: ({ today }) => sourceReductionFilterDefaults(today),
 	counting: DATE_RANGE_COUNTING,
 	applies: { from: 'both', to: 'both', people: 'both', methods: 'both', regions: 'both' },

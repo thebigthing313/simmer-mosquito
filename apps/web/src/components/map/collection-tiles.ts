@@ -1,4 +1,5 @@
 import { mapInteraction, mapStatus } from '@simmer-mosquito/design-tokens';
+import { COLLECTION_MAP_FILTERS, type MapFiltersOf } from '@simmer-mosquito/domain';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import {
 	allLayerIds,
@@ -6,31 +7,15 @@ import {
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import {
-	type RegionScopedTileFilters,
-	setRegionTileParam,
-	type TileDrawOptions,
-	tileExtentUrl,
-	tileTemplateUrl,
-} from './tile-urls';
+import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
- * Server-side filters for the collection vector tiles. Mirrors the query params
- * the `/map/tiles/collections/{z}/{x}/{y}.mvt` endpoint understands; the same
- * shape drives the `/map/collections` paged list so the map and the list stay in
- * lockstep.
+ * The filters the `collections` tiles and extent draw under, typed off the
+ * spec in `@simmer-mosquito/domain` the server parses them with. The list
+ * request encodes the same object, so the map and the list name one set of
+ * params.
  */
-export interface CollectionTileFilters extends RegionScopedTileFilters {
-	readonly collectionMethodIds?: readonly string[];
-	/** Only collections flagged with a problem. */
-	readonly problemOnly?: boolean;
-	/** Only collections awaiting identification, the Dashboard's queue. */
-	readonly awaitingOnly?: boolean;
-	/** Inclusive `YYYY-MM-DD` lower bound on collection date. */
-	readonly dateFrom?: string;
-	/** Inclusive `YYYY-MM-DD` upper bound on collection date. */
-	readonly dateTo?: string;
-}
+export type CollectionTileFilters = MapFiltersOf<typeof COLLECTION_MAP_FILTERS>;
 
 export const COLLECTION_SOURCE_ID = 'collections';
 
@@ -91,7 +76,12 @@ export function buildCollectionTileUrl(
 	filters?: CollectionTileFilters,
 	options?: TileDrawOptions,
 ): string {
-	return tileTemplateUrl(serverUrl, COLLECTION_SOURCE_ID, collectionTileParams(filters), options);
+	return tileTemplateUrl(
+		serverUrl,
+		COLLECTION_SOURCE_ID,
+		tileFilterQuery(COLLECTION_MAP_FILTERS, filters),
+		options,
+	);
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */
@@ -99,31 +89,11 @@ export function buildCollectionExtentUrl(
 	serverUrl: string,
 	filters?: CollectionTileFilters,
 ): string {
-	return tileExtentUrl(serverUrl, COLLECTION_SOURCE_ID, collectionTileParams(filters));
-}
-
-function collectionTileParams(filters?: CollectionTileFilters): URLSearchParams {
-	const params = new URLSearchParams();
-
-	if (filters?.collectionMethodIds !== undefined && filters.collectionMethodIds.length > 0) {
-		params.set('collectionMethodId', [...filters.collectionMethodIds].sort().join(','));
-	}
-	if (filters?.problemOnly === true) {
-		params.set('problem', 'true');
-	}
-	if (filters?.awaitingOnly === true) {
-		params.set('awaiting', 'true');
-	}
-	if (filters?.dateFrom !== undefined) {
-		params.set('dateFrom', filters.dateFrom);
-	}
-	if (filters?.dateTo !== undefined) {
-		params.set('dateTo', filters.dateTo);
-	}
-
-	setRegionTileParam(params, filters?.regionIds);
-
-	return params;
+	return tileExtentUrl(
+		serverUrl,
+		COLLECTION_SOURCE_ID,
+		tileFilterQuery(COLLECTION_MAP_FILTERS, filters),
+	);
 }
 
 /** The GL layers for the collection source. `selectedId` drives the highlight set. */

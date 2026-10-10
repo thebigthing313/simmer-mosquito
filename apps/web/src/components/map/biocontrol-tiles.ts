@@ -1,35 +1,20 @@
 import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
+import { BIOCONTROL_MAP_FILTERS, type MapFiltersOf } from '@simmer-mosquito/domain';
 import {
 	allLayerIds,
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import {
-	type RegionScopedTileFilters,
-	setRegionTileParam,
-	type TileDrawOptions,
-	tileExtentUrl,
-	tileTemplateUrl,
-} from './tile-urls';
+import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
- * Server-side filters for the biocontrol vector tiles. Mirrors the query params
- * the `/map/tiles/biocontrol/{z}/{x}/{y}.mvt` endpoint understands; the same
- * shape drives the `/map/biocontrol` paged list so the map and the list stay in
- * lockstep.
+ * The filters the `biocontrol` tiles and extent draw under, typed off the
+ * spec in `@simmer-mosquito/domain` the server parses them with. The list
+ * request encodes the same object, so the map and the list name one set of
+ * params.
  */
-export interface BiocontrolTileFilters extends RegionScopedTileFilters {
-	readonly biocontrolMethodIds?: readonly string[];
-	/** Match releases performed by any of these profiles. */
-	readonly technicianProfileIds?: readonly string[];
-	/** Only activities tied to a habitat record. */
-	readonly habitatLinkedOnly?: boolean;
-	/** Inclusive `YYYY-MM-DD` lower bound on activity date. */
-	readonly dateFrom?: string;
-	/** Inclusive `YYYY-MM-DD` upper bound on activity date. */
-	readonly dateTo?: string;
-}
+export type BiocontrolTileFilters = MapFiltersOf<typeof BIOCONTROL_MAP_FILTERS>;
 
 export const BIOCONTROL_SOURCE_ID = 'biocontrol';
 
@@ -51,7 +36,12 @@ export function buildBiocontrolTileUrl(
 	filters?: BiocontrolTileFilters,
 	options?: TileDrawOptions,
 ): string {
-	return tileTemplateUrl(serverUrl, BIOCONTROL_SOURCE_ID, biocontrolTileParams(filters), options);
+	return tileTemplateUrl(
+		serverUrl,
+		BIOCONTROL_SOURCE_ID,
+		tileFilterQuery(BIOCONTROL_MAP_FILTERS, filters),
+		options,
+	);
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */
@@ -59,31 +49,11 @@ export function buildBiocontrolExtentUrl(
 	serverUrl: string,
 	filters?: BiocontrolTileFilters,
 ): string {
-	return tileExtentUrl(serverUrl, BIOCONTROL_SOURCE_ID, biocontrolTileParams(filters));
-}
-
-function biocontrolTileParams(filters?: BiocontrolTileFilters): URLSearchParams {
-	const params = new URLSearchParams();
-
-	if (filters?.biocontrolMethodIds !== undefined && filters.biocontrolMethodIds.length > 0) {
-		params.set('biocontrolMethodId', [...filters.biocontrolMethodIds].sort().join(','));
-	}
-	if (filters?.technicianProfileIds !== undefined && filters.technicianProfileIds.length > 0) {
-		params.set('technician', [...filters.technicianProfileIds].sort().join(','));
-	}
-	if (filters?.habitatLinkedOnly === true) {
-		params.set('habitatLinked', 'true');
-	}
-	if (filters?.dateFrom !== undefined) {
-		params.set('dateFrom', filters.dateFrom);
-	}
-	if (filters?.dateTo !== undefined) {
-		params.set('dateTo', filters.dateTo);
-	}
-
-	setRegionTileParam(params, filters?.regionIds);
-
-	return params;
+	return tileExtentUrl(
+		serverUrl,
+		BIOCONTROL_SOURCE_ID,
+		tileFilterQuery(BIOCONTROL_MAP_FILTERS, filters),
+	);
 }
 
 /** The GL layers for the biocontrol source. `selectedId` drives the highlight set. */

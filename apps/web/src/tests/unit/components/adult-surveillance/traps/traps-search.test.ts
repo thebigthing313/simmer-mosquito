@@ -1,47 +1,36 @@
 import { describe, expect, it } from 'vitest';
 import {
 	TRAP_FILTER_DEFAULTS,
-	trapListParams,
 	trapTileFilters,
 } from '../../../../../components/adult-surveillance/traps/traps-search';
-import { mapQueryParams } from '../../../../../lib/map-query-params';
 
 /**
- * The Map and the Table send one filter set to `/map/traps`, so this is the
- * one place the translation from the address bar to the request is written.
+ * The Map and the Table send one filter set to `/map/traps`, built from these
+ * tile filters. The wire names are the shared spec's, and the round trip in
+ * `apps/server` holds them.
  */
-describe('the traps list request', () => {
-	it('asks for active traps and nothing else when no filter is set', () => {
-		const params = mapQueryParams(trapListParams(trapTileFilters(TRAP_FILTER_DEFAULTS)));
-
-		expect(params).toEqual({ status: 'active' });
+describe('the traps tile filters', () => {
+	it('ask for active traps and nothing else when no filter is set', () => {
+		expect(trapTileFilters(TRAP_FILTER_DEFAULTS)).toEqual({ isActive: true });
 	});
 
-	it('sends every filter the Map has, under the names the endpoint reads', () => {
-		const params = mapQueryParams(
-			trapListParams(
-				trapTileFilters({
-					search: 'Gravid',
-					status: 'inactive',
-					methods: new Set(['method-1', 'method-2']),
-					regions: new Set(['region-1']),
-				}),
-			),
-		);
-
-		expect(params).toEqual({
-			status: 'inactive',
-			collectionMethodId: 'method-1,method-2',
-			regionId: 'region-1',
+	it('carry every filter the Map has', () => {
+		expect(
+			trapTileFilters({
+				search: 'Gravid',
+				status: 'inactive',
+				methods: new Set(['method-1', 'method-2']),
+				regions: new Set(['region-1']),
+			}),
+		).toEqual({
+			isActive: false,
+			collectionMethodIds: ['method-1', 'method-2'],
+			regionIds: ['region-1'],
 			search: 'Gravid',
 		});
 	});
 
-	it('leaves Status off when it is All', () => {
-		const params = mapQueryParams(
-			trapListParams(trapTileFilters({ ...TRAP_FILTER_DEFAULTS, status: 'all' })),
-		);
-
-		expect(params).toEqual({});
+	it('leave Status off when it is All', () => {
+		expect(trapTileFilters({ ...TRAP_FILTER_DEFAULTS, status: 'all' })).toEqual({});
 	});
 });
