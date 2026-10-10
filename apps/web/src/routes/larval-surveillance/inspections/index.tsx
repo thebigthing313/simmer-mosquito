@@ -14,6 +14,7 @@ import {
 } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { densityLabel, hasAnyLifeStage } from '../../../components/larval-display';
 import {
 	DensityFilter,
@@ -29,13 +30,12 @@ import {
 	inspectionTileFilters,
 } from '../../../components/larval-surveillance/inspection-listing';
 import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
-import { InspectionSurfaceSwitch } from '../../../components/larval-surveillance/inspection-surface-switch';
 import { inspectionSummaryGroupings } from '../../../components/larval-surveillance/inspections/inspection-summary';
 import { inspectionLegend } from '../../../components/larval-surveillance/inspections/legend';
 import {
 	type InspectionFilters as InspectionSearchFilters,
 	inspectionFilterCodecs,
-	sharedInspectionSearch,
+	inspectionRecordSet,
 } from '../../../components/larval-surveillance/inspections-search';
 import {
 	INSPECTION_DENSITY_COLORS,
@@ -55,7 +55,7 @@ import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
-import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
+import { searchValidator } from '../../../lib/search-filters';
 
 const InspectionEntityIcon = iconRegistry.entities.inspection.icon;
 
@@ -87,14 +87,12 @@ function InspectionsExplorerRoute() {
 		setFilters,
 		state,
 		today,
-	} = useInspectionFilterState(DATE_RANGE_COUNTING, 'last-30-days');
+	} = useInspectionFilterState('map');
 	const { dateFrom, dateTo, densities, wetness } = state;
 
 	const panel = useExplorerPanel();
 
-	// What a move to the Table takes with it: the params already on the address
-	// bar, which on this surface are only the shared filter contract.
-	const carried = sharedInspectionSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const filterOptions = useInspectionFilterOptions();
 	const filters = inspectionTileFilters(state);
@@ -127,7 +125,9 @@ function InspectionsExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
-			actions={<InspectionSurfaceSwitch compact current="map" search={carried} />}
+			actions={
+				<RecordSetSwitch compact current="map" search={routeSearch} set={inspectionRecordSet} />
+			}
 			activeFilterCount={activeFilterCount}
 			filters={
 				<InspectionFilters

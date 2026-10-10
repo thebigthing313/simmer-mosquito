@@ -6,9 +6,15 @@ import type {
 	RangeDensity,
 	ResolvedLarvalInspectionEntryPolicy,
 	ServiceRequestContextSettings,
+	ServiceRequestOverdueDays,
 	UnitDefaults,
 } from '@simmer-mosquito/domain';
-import { isEmailAddress } from '@simmer-mosquito/domain';
+import {
+	type DomainValidationIssue,
+	isEmailAddress,
+	MAX_SERVICE_REQUEST_OVERDUE_DAYS,
+	normalizeServiceRequestOverdueDays,
+} from '@simmer-mosquito/domain';
 import type { Organization } from '@simmer-mosquito/sync';
 import { toast } from 'sonner';
 import type { OrganizationDetailsFields } from '../../hooks/mutations/use-organization-settings-mutations';
@@ -136,6 +142,35 @@ export function serviceRequestContextFrom(
 		},
 	};
 }
+
+/**
+ * The overdue threshold, from its switch and its number of days. Off ignores
+ * the number, so a sheet that turns the threshold off saves even with the
+ * days input emptied. On, the days are a whole number from 1 to 365, which is
+ * the domain builder's rule, named by the label the sheet draws.
+ */
+export function serviceRequestOverdueDaysFrom(
+	values: PublicSettingsFormValues,
+): ServiceRequestOverdueDays {
+	if (!values.overdueOn) {
+		return 'off';
+	}
+	const days = values.overdueDays;
+	if (days === null) {
+		throw new Error(`${OVERDUE_DAYS_LABEL} is required.`);
+	}
+	const issues: DomainValidationIssue[] = [];
+	const threshold = normalizeServiceRequestOverdueDays(days, OVERDUE_DAYS_LABEL, issues);
+	if (issues.length > 0) {
+		throw new Error(
+			`${OVERDUE_DAYS_LABEL} must be a whole number from 1 to ${MAX_SERVICE_REQUEST_OVERDUE_DAYS}.`,
+		);
+	}
+	return threshold;
+}
+
+/** The days input's label, which the refusals name it by. */
+export const OVERDUE_DAYS_LABEL = 'Overdue after (days)';
 
 /**
  * Report a failed write, without holding the surface open for it. The hooks in

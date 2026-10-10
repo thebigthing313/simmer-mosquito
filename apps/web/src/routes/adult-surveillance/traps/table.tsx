@@ -2,11 +2,10 @@ import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { TrapFilterFields } from '../../../components/adult-surveillance/traps/trap-filters';
-import { TrapSurfaceSwitch } from '../../../components/adult-surveillance/traps/trap-surface-switch';
 import {
-	sharedTrapSearch,
 	trapFilterCodecs,
 	trapListParams,
+	trapRecordSet,
 	trapTileFilters,
 } from '../../../components/adult-surveillance/traps/traps-search';
 import {
@@ -14,15 +13,16 @@ import {
 	type TrapTableRow,
 } from '../../../components/adult-surveillance/traps/traps-table';
 import { OutletSimpleLayout } from '../../../components/app-shell';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { RecordTableEmpty } from '../../../components/record/record-table-empty';
 import { RecordTableUnavailable } from '../../../components/record/record-table-unavailable';
-import { useTrapFilterState } from '../../../hooks/adult-surveillance/use-trap-filter-state';
 import {
 	mapQueryParams,
 	usePagedMapResource,
 	WHOLE_WORLD_BBOX,
 } from '../../../hooks/explorer/use-paged-map-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
@@ -40,9 +40,9 @@ const TrapIcon = iconRegistry.entities.trap.icon;
  * set.
  */
 function TrapsTableRoute() {
-	const binding = useTrapFilterState();
+	const binding = useRecordSetFilters(trapRecordSet, 'table');
 	const { filters, activeCount, clearAll } = binding;
-	const carried = sharedTrapSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const params = mapQueryParams({
 		bbox: WHOLE_WORLD_BBOX,
@@ -59,7 +59,7 @@ function TrapsTableRoute() {
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
-				actions={<TrapSurfaceSwitch current="table" search={carried} />}
+				actions={<RecordSetSwitch current="table" search={routeSearch} set={trapRecordSet} />}
 				description="Traps by code, or by name where a trap has none."
 				icon={TrapIcon}
 				title={recordNoun('trap').titleMany}

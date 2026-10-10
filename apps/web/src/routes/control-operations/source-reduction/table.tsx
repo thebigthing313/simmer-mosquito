@@ -4,24 +4,24 @@ import { createFileRoute } from '@tanstack/react-router';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { SourceReductionFilterFields } from '../../../components/control-operations/source-reduction/source-reduction-filters';
 import type { SourceReductionListRow } from '../../../components/control-operations/source-reduction/source-reduction-row-parts';
-import { SourceReductionSurfaceSwitch } from '../../../components/control-operations/source-reduction/source-reduction-surface-switch';
 import {
 	SOURCE_REDUCTION_WINDOW_DAYS,
-	sharedSourceReductionSearch,
 	sourceReductionFilterCodecs,
 	sourceReductionListParams,
+	sourceReductionRecordSet,
 	sourceReductionTileFilters,
 } from '../../../components/control-operations/source-reduction/source-reductions-search';
 import { SourceReductionsTable } from '../../../components/control-operations/source-reduction/source-reductions-table';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { RecordTableEmpty } from '../../../components/record/record-table-empty';
 import { RecordTableUnavailable } from '../../../components/record/record-table-unavailable';
-import { useSourceReductionFilterState } from '../../../hooks/control-operations/use-source-reduction-filter-state';
 import {
 	mapQueryParams,
 	usePagedMapResource,
 	WHOLE_WORLD_BBOX,
 } from '../../../hooks/explorer/use-paged-map-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
@@ -39,9 +39,9 @@ const SourceReductionIcon = iconRegistry.entities.sourceReduction.icon;
  * two surfaces list one set.
  */
 function SourceReductionsTableRoute() {
-	const binding = useSourceReductionFilterState();
+	const binding = useRecordSetFilters(sourceReductionRecordSet, 'table');
 	const { filters, activeCount, reset } = binding;
-	const carried = sharedSourceReductionSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const params = mapQueryParams({
 		bbox: WHOLE_WORLD_BBOX,
@@ -58,7 +58,9 @@ function SourceReductionsTableRoute() {
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
-				actions={<SourceReductionSurfaceSwitch current="table" search={carried} />}
+				actions={
+					<RecordSetSwitch current="table" search={routeSearch} set={sourceReductionRecordSet} />
+				}
 				description="Source reductions in the date window, newest first."
 				icon={SourceReductionIcon}
 				title={recordNoun('sourceReduction').titleMany}

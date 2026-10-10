@@ -1,5 +1,6 @@
 import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
 import { choiceParam, type FilterCodecs, idSetParam, textParam } from '../../../lib/search-filters';
+import { defineRecordSet } from '../../explorer/record-set';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
 import type { TrapTileFilters } from '../../map';
 import { TRAP_STATUS_VALUES, type TrapStatusFilter } from './legend';
@@ -55,16 +56,13 @@ export function trapListParams(filters: TrapTileFilters): Record<string, MapQuer
 }
 
 /**
- * The params a move between the Map and the Table carries. That is every
- * filter, since both surfaces read the same list endpoint and apply each one.
+ * The Traps Map and Table. Both read `/map/traps` and apply every filter.
  */
-export function sharedTrapSearch(search: Record<string, unknown>): Record<string, unknown> {
-	const carried: Record<string, unknown> = {};
-	for (const key of Object.keys(trapFilterCodecs)) {
-		const value = search[key];
-		if (value !== undefined) {
-			carried[key] = value;
-		}
-	}
-	return carried;
-}
+export const trapRecordSet = defineRecordSet({
+	recordType: 'trap',
+	paths: { map: '/adult-surveillance/traps', table: '/adult-surveillance/traps/table' },
+	codecs: trapFilterCodecs,
+	defaults: () => TRAP_FILTER_DEFAULTS,
+	textSearch: { key: 'search', delayMs: 200 },
+	applies: { search: 'both', status: 'both', methods: 'both', regions: 'both' },
+});

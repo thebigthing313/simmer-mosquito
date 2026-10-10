@@ -1,6 +1,13 @@
 import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
 import { addDaysToDateString } from '../../../lib/local-date';
-import { dateParam, type FilterCodecs, flagParam, idSetParam } from '../../../lib/search-filters';
+import {
+	DATE_RANGE_COUNTING,
+	dateParam,
+	type FilterCodecs,
+	flagParam,
+	idSetParam,
+} from '../../../lib/search-filters';
+import { defineRecordSet } from '../../explorer/record-set';
 import { whenAny, whenOn, whenText } from '../../explorer/tile-filter-params';
 import type { CollectionTileFilters } from '../../map';
 
@@ -79,16 +86,20 @@ export function collectionListParams(
 }
 
 /**
- * The params a move between the Map and the Table carries. That is every
- * filter, since both surfaces read the same list endpoint and apply each one.
+ * The Collections Map and Table. Both read `/map/collections` and apply every filter.
  */
-export function sharedCollectionSearch(search: Record<string, unknown>): Record<string, unknown> {
-	const carried: Record<string, unknown> = {};
-	for (const key of Object.keys(collectionFilterCodecs)) {
-		const value = search[key];
-		if (value !== undefined) {
-			carried[key] = value;
-		}
-	}
-	return carried;
-}
+export const collectionRecordSet = defineRecordSet({
+	recordType: 'collection',
+	paths: { map: '/adult-surveillance/collections', table: '/adult-surveillance/collections/table' },
+	codecs: collectionFilterCodecs,
+	defaults: ({ today }) => collectionFilterDefaults(today),
+	counting: DATE_RANGE_COUNTING,
+	applies: {
+		from: 'both',
+		to: 'both',
+		methods: 'both',
+		problems: 'both',
+		awaiting: 'both',
+		regions: 'both',
+	},
+});

@@ -62,6 +62,7 @@ const DEFAULTS: ServiceRequestFilters = {
 	regions: new Set(),
 	from: '2026-01-01',
 	to: '2026-10-06',
+	overdue: false,
 };
 
 function renderSummary(filters: Partial<ServiceRequestFilters> = {}, summary = SUMMARY) {
