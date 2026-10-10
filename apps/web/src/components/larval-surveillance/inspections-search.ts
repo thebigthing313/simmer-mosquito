@@ -72,7 +72,7 @@ const MAP_WINDOW_DAYS = 30;
  * dots, and the Table on all time, because it shows a page of rows whatever
  * the reach and says it holds every inspection.
  */
-export function inspectionFilterDefaults(
+function inspectionFilterDefaults(
 	today: string,
 	surface: RecordSetSurface,
 ): InspectionFilters {
