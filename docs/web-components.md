@@ -499,12 +499,12 @@ drawn.
 #### WeatherSummariesCard
 
 One year per tab, because a station logged daily for ten years is 3,650 rows in
-one table. The tab follows a write because `weather_summaries` is on-demand and
-a write into a subset the live query does not cover waits out a txid that never
-arrives; `settleWrite` swallows that timeout, so it is a slow save over a row
-the user cannot see, and moving the tab fixes both. The dialog is mounted on
-the card for the same reason: the card is what keeps the station's subset
-queried.
+one table. The tab follows a write because the dialog would otherwise close
+over a list missing the row just saved, whenever the save lands in a year other
+than the one on screen. It used to say the switch was also what let the save
+confirm, on the belief that a txid for a row outside the loaded year never
+arrives; #1509 corrected that against `electric-db-collection` 0.5.8, and
+`docs/sync.md` has the reading.
 
 #### WeatherSummaryDialog
 

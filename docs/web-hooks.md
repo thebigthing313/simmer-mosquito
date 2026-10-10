@@ -1552,9 +1552,11 @@ hard to find among the JSX. The rules themselves and the metric inputs live
 in `components/gis/weather/weather-summary-form.ts`, shared with the dialog.
 
 `onWriteYear` is called before the write, not after. The card lists one year
-at a time, and a write into a year its live query does not cover waits out a
-txid that never arrives on that subset: `settleWrite` swallows the
-adapter's timeout, so the dialog closes late over a row the user cannot see.
+at a time, so without it a save into another year closes the dialog over a
+list missing the row just saved. Calling it first starts the written year
+loading while the save waits for confirmation. The written year is not what
+lets the save confirm: `docs/sync.md` has why a txid arrives whatever a live
+query has loaded.
 
 #### useActiveYear
 

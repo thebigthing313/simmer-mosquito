@@ -3,12 +3,11 @@
 /**
  * The dialog says which year it is about to write into, before it writes.
  *
- * `weather_summaries` is on-demand and the card that mounts this dialog
- * live-queries one year at a time. A save into a year that query does not cover
- * waits out a txid that never arrives on the subset; `settleWrite` swallows the
- * adapter's timeout, so it reads as a save that hung until the wait gave up and
- * then showed nothing. The card moves its tab to the written year, and it can only do
- * that if it hears about the year before the write goes out.
+ * The card that mounts this dialog live-queries one year at a time. Without the
+ * year, a save into another year closes the dialog over a list missing the row
+ * just saved. The card moves its tab to the written year so the list shows it,
+ * and it hears about the year before the write goes out so that year is loading
+ * while the save waits for confirmation.
  *
  * The order is the whole point, so the create here never resolves. If the call
  * moved to after the `await`, nothing would arrive.
