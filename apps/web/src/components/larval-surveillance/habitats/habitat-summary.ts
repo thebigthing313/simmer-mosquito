@@ -5,10 +5,10 @@ import { habitatFilterDeclarations } from './habitat-filters';
 import type { HabitatFilters } from './habitats-search';
 
 /**
- * The four groupings the Habitats summary draws, out of the counts
- * `/map/habitats/summary` answers: the declared Habitat type, Status, Access
- * and Untreated filters' toggle groups. A habitat with no type is counted and
- * drawn as text, because no filter selects it.
+ * The four groupings the Habitats summary draws out of the counts
+ * `/map/habitats/summary` answers. Each is a declared filter's toggle group,
+ * Habitat type, Status, Access and Untreated. A habitat with no type is
+ * counted and drawn as text, because no filter selects it.
  */
 export function habitatSummaryGroupings({
 	summary,

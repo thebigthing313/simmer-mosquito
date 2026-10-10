@@ -420,17 +420,19 @@ suite over all eleven sets holds the two together.
 The six kinds are the codecs' own: `idSet`, `flag`, `choice`, `choiceSet`,
 `dateRange` and `text`. A `choice` is one value with an `all`, which covers
 the Active and Inactive pair and the status on Traps, Samples and Service
-Requests alike, and inspection density is the one `choiceSet`. A summary click that hits the selected value widens to `all` for a
-choice, not to the default, which is the rule the Traps and Habitats
-summaries had: their Status opens on Active, and clicking Active shows both.
+Requests alike, and inspection density is the one `choiceSet`. A summary
+click on the selected value of a choice widens to `all` rather than to the
+default, which is the rule the Traps and Habitats summaries had. Their Status
+opens on Active, and clicking Active shows both.
 
 The declarations sit beside the controls rather than in the `*-search.ts`
-modules, because a declaration can name a component, such as the Samples Status row,
-the species and Tag pickers or the density row, and the search modules are
-what overview panels import to build deep links. They are still read against the
-set's keys: `defineFilterDeclarations` takes the set, and a declaration naming
-a key the set does not have, or naming a flag as a choice, fails `tsc`. That
-every key is declared once is the suite's check rather than the compiler's.
+modules, because a declaration can name a component, such as the Samples
+Status row, the species and Tag pickers or the density row, and the search
+modules are what overview panels import to build deep links. They are still
+read against the set's keys. `defineFilterDeclarations` takes the set, and a
+declaration naming a key the set does not have, or naming a flag as a choice,
+fails `tsc`. That every key is declared once is the suite's check rather than
+the compiler's.
 
 Chips draw in declaration order, controls go where the surface puts them, and
 summary groupings in the order the per-kind summary module lists them, because
@@ -470,8 +472,9 @@ kind's filter controls, table and empty-state copy. Every Table validates its
 search through `surfaceCodecs(set, 'table')`, so a filter the Table does not
 apply leaves its address. The route calls `useRecordSetFilters` itself rather
 than the page calling it, because Service Requests reads the overdue cut-off
-off the binding's context for every row as well as for its filter bar. The page frames the controls itself, so a filter bar draws the controls
-and not the panel around them.
+off the binding's context for every row as well as for its filter bar. The
+page frames the controls itself, so a filter bar draws the controls and not
+the panel around them.
 
 The Habitats and Samples tables read the Map's endpoint rather than their
 collection, which is the case every other table inherited. A collection lets

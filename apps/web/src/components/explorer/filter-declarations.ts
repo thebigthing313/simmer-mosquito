@@ -2,8 +2,7 @@
  * One declaration per filter on a record set: what kind of value it holds, what
  * it is called, where its options come from, and how the in-view summary groups
  * by it. `declared-filters.tsx` draws the controls and the chips from these, and
- * {@link declaredSummaryGroupings} builds the summary's toggle groups, so a
- * filter is written once rather than once per control, chip and summary group.
+ * {@link declaredSummaryGroupings} builds the summary's toggle groups.
  */
 
 import type { ComponentType } from 'react';

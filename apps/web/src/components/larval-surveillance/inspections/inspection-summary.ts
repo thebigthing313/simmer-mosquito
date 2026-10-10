@@ -5,9 +5,9 @@ import { inspectionFilterDeclarations } from '../inspection-filters';
 import type { InspectionFilters } from '../inspections-search';
 
 /**
- * The five groupings the Inspections summary draws, out of the counts
- * `/map/inspections/summary` answers: the declared Water, Density, Larvae
- * found, Habitat type and Inspector filters' toggle groups. A value no filter
+ * The five groupings the Inspections summary draws out of the counts
+ * `/map/inspections/summary` answers. Each is a declared filter's toggle
+ * group, Water, Density, Larvae found, Habitat type and Inspector. A value no filter
  * selects, an inspection with no density, type or inspector, is drawn as text.
  */
 export function inspectionSummaryGroupings({

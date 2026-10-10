@@ -5,9 +5,9 @@ import { trapFilterDeclarations } from './trap-filters';
 import type { TrapFilters } from './traps-search';
 
 /**
- * The two groupings the Traps summary draws, out of the counts
- * `/map/traps/summary` answers: the declared Method and Status filters'
- * toggle groups. Every trap carries a method, so no null value is answered.
+ * The two groupings the Traps summary draws out of the counts
+ * `/map/traps/summary` answers, the declared Method and Status filters' toggle
+ * groups. Every trap carries a method, so no null value is answered.
  */
 export function trapSummaryGroupings({
 	summary,

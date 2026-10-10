@@ -1,6 +1,6 @@
 /**
- * The inspection filters, shared by the map explorer and the table: each
- * filter's control, chip and summary grouping, declared once. Both surfaces
+ * Each inspection filter's control, chip and summary grouping, declared once
+ * for the map explorer and the table. Both surfaces
  * hold what the reader narrowed to on the URL through the codecs in
  * `inspections-search.ts`. Layout is each surface's own.
  */

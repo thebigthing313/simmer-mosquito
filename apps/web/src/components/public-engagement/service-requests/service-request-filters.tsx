@@ -1,6 +1,6 @@
 /**
- * The service request filters: each one's control, chip and summary grouping,
- * declared once for the Map and the Table, and the Map's filter card, which
+ * Each service request filter's control, chip and summary grouping, declared
+ * once for the Map and the Table, and the Map's filter card, which
  * holds the search, the Status control, the date range, the Tag and Region
  * pickers, Overdue, and the chips. Takes the binding from
  * `useRecordSetFilters`.
