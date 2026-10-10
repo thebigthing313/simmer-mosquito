@@ -9,7 +9,7 @@
  * loading — the loading case never returns.
  */
 
-import { caseWhen, coalesce, eq, isNull, useLiveSuspenseQuery } from '@tanstack/react-db';
+import { coalesce, eq, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
@@ -48,7 +48,7 @@ export function useHabitatSuspense(habitatId: string): AuditedHabitat | undefine
 				name: habitatNameSelect(habitat),
 				description: habitat.description,
 				typeId: habitat.habitat_type_id,
-				typeName: caseWhen(isNull(habitat.habitat_type_id), null, type.name),
+				typeName: coalesce(type.name, null),
 				addressId: habitat.address_id,
 				isActive: habitat.is_active,
 				isInaccessible: habitat.is_inaccessible,

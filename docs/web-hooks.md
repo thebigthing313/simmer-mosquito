@@ -1440,6 +1440,11 @@ A method only gets a tab if an active trap uses it. An organization that has
 never run a gravid trap should not be offered an empty gravid tab, which is
 why the tabs are built from the traps rather than from the catalog.
 
+A tab's label is `null` when its method is not in the client, and the route
+draws `Unknown method` for it. The hook sorts that tab last rather than among
+the U's, because writing the words here to sort by would put a fallback label
+back in a hook (#1535).
+
 #### useTrapFilterState
 
 The Traps Map and the Traps Table read one filter set off the URL, so the
@@ -2218,6 +2223,20 @@ surface reads the id beside the name to tell the two apart and draws its own
 on the foreign key used to yield `undefined` for the second case under a
 `string | null` type, and the Chemical Application map card drew an empty
 applicator row for it (#1501).
+
+The rule is every read hook's, not only the performed actions'. Since #1535
+no hook under `hooks/` projects a `left`-joined column as
+`caseWhen(isNull(<fk>), null, <joined>.<column>)` or as `coalesce` over a
+literal label: the inspector and habitat type on an inspection, the type on a
+habitat, the method and lure on a trap and a collection, the request on a
+mission stop, the folder on a region, the vehicle and equipment on a Chemical
+Application and the author and editor on a comment all read as
+`coalesce(joined.column, null)`. The six adult surveillance reads that baked
+in `Unknown method` and the comment read that baked in `Unknown` return `null`
+now, and the card, row or thread draws the same words itself. The Inspection
+map card is the case that showed: it read only the name, so an inspection
+whose inspector's Profile was deleted said `Unassigned`, and it reads the id
+first now and says `Unknown`, as the detail page does.
 
 #### useInspection and useHabitatSuspense
 

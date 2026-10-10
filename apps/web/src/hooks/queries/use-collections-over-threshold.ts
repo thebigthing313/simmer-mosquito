@@ -57,7 +57,8 @@ export interface OverThresholdCollection {
 	readonly address: LinkedAddress;
 	readonly latitude: number;
 	readonly longitude: number;
-	readonly methodName: string;
+	/** `null` only when the method is not in the client, since the id is never `null`. */
+	readonly methodName: string | null;
 	/** The threshold it met or beat. Never null: a method without one is out. */
 	readonly actionThreshold: number;
 	/** Every species row on the collection summed: both sexes, any status. */
@@ -128,9 +129,7 @@ export function useCollectionsOverThreshold(
 					trapId: collection.trap_id,
 					trapName: coalesce(trap.trap_name, null),
 					trapCode: coalesce(trap.trap_code, null),
-					// `coalesce` because an unmatched join yields `undefined` for every
-					// field of the missing side, and the fold reads null.
-					methodName: coalesce(method.name, 'Unknown method'),
+					methodName: coalesce(method.name, null),
 					actionThreshold: coalesce(method.action_threshold, null),
 					collectedAt: collection.collected_at,
 					collectionDate: collection.collection_date,

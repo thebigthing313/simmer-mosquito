@@ -4,9 +4,7 @@
  * The counterpart of `use-habitat-record.ts` and `use-inspection-record.ts`, and
  * here for the same reason: `use-adult-collection.ts` joins the trap, the
  * method, the lure and the address so a card can name them, and every one of
- * those is a join a form does not need — it writes ids. It also coalesces the
- * method name to `Unknown method`, which is right on a card and wrong in a
- * field.
+ * those is a join a form does not need — it writes ids.
  *
  * `trapId` decides which kind of collection this is — an ad hoc one owns its
  * point and its address, a trap one inherits both — so it is here even though
