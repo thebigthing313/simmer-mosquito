@@ -165,9 +165,7 @@ describe('SettingsSectionSheet', () => {
 	});
 
 	it('moves the active collection timing card as the select changes', async () => {
-		render(
-			<SettingsSectionSheet canManage section={collectionTimingSection} settings={SETTINGS} />,
-		);
+		render(<SettingsSectionSheet section={collectionTimingSection} settings={SETTINGS} />);
 		fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 		const sheet = screen.getByRole('dialog');
 
@@ -187,9 +185,7 @@ describe('SettingsSectionSheet', () => {
 });
 
 function openContextSheet(): void {
-	render(
-		<SettingsSectionSheet canManage section={serviceRequestContextSection} settings={SETTINGS} />,
-	);
+	render(<SettingsSectionSheet section={serviceRequestContextSection} settings={SETTINGS} />);
 	fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 }
 

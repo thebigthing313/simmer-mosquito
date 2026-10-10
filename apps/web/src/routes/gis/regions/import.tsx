@@ -1,5 +1,5 @@
-import type { ImportNote } from '@simmer-mosquito/mapping';
-import { IMPORT_FILE_ACCEPT, readImportFileText } from '@simmer-mosquito/mapping';
+import type { BoundingBox, ImportNote } from '@simmer-mosquito/mapping';
+import { extendBounds, IMPORT_FILE_ACCEPT, readImportFileText } from '@simmer-mosquito/mapping';
 import { isTxIdConfirmationTimeout } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -42,7 +42,7 @@ import {
 	type ImportRefusalCounts,
 	importRowSummary,
 } from '../../../components/map/import-notes';
-import { framingPadding } from '../../../components/map/map-inset';
+import { frameOnMap } from '../../../components/map/map-camera';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
@@ -181,7 +181,7 @@ function ImportRegionsRoute() {
 
 	const fitAll = (instance: MapboxMap) => {
 		setMap(instance);
-		fitMapToItems(instance, items);
+		frameItems(instance, items);
 	};
 
 	// Called where the item set changes rather than watched from render. It used
@@ -191,7 +191,7 @@ function ImportRegionsRoute() {
 	// what the effect reads and what should retrigger it are different things.
 	const fitToItems = (next: readonly ImportItem[]) => {
 		if (map !== null) {
-			fitMapToItems(map, next);
+			frameItems(map, next);
 		}
 	};
 
@@ -213,7 +213,7 @@ function ImportRegionsRoute() {
 		}
 		const item = items.find((entry) => entry.id === id);
 		if (item !== undefined) {
-			fitMapToItems(map, [item]);
+			frameItems(map, [item]);
 		}
 	};
 
@@ -590,37 +590,27 @@ function regionFieldsFor(item: ImportItem, folderId: string) {
 	};
 }
 
+/** Frame the map on `items` as a collection. */
+function frameItems(map: MapboxMap, items: readonly ImportItem[]): void {
+	frameOnMap(map, boundsOfItems(items), { purpose: 'collection', animate: true });
+}
+
 /**
- * Frame the map on `items`.
+ * The box `items` cover, or null when they hold no position.
  *
  * It walks positions rather than rings, because a boundary in several pieces
  * nests one level deeper than one in a single piece. Walking rings gave a
  * multipart item `NaN` bounds, and the preview map then stopped fitting with no
  * error at all.
  */
-function fitMapToItems(map: MapboxMap, items: readonly ImportItem[]): void {
-	let west = Number.POSITIVE_INFINITY;
-	let south = Number.POSITIVE_INFINITY;
-	let east = Number.NEGATIVE_INFINITY;
-	let north = Number.NEGATIVE_INFINITY;
+function boundsOfItems(items: readonly ImportItem[]): BoundingBox | null {
+	let box: BoundingBox | null = null;
 	for (const item of items) {
 		for (const [lng, lat] of boundaryPositions(item.geometry)) {
-			west = Math.min(west, lng);
-			south = Math.min(south, lat);
-			east = Math.max(east, lng);
-			north = Math.max(north, lat);
+			box = extendBounds(box, { lng, lat });
 		}
 	}
-	if (!Number.isFinite(west)) {
-		return;
-	}
-	map.fitBounds(
-		[
-			[west, south],
-			[east, north],
-		],
-		{ ...framingPadding(map, 56), maxZoom: 15, duration: 500 },
-	);
+	return box;
 }
 
 /** Every position a boundary holds, whichever depth its pieces sit at. */

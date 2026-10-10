@@ -239,6 +239,17 @@ carries the same explanation. **Do not switch code splitting off under
 change is needed once the components are preloaded, and a suite running on an
 unsplit build stops exercising the build the app ships.
 
+**A suite that asserts one behaviour across several route modules is named for
+the behaviour, and sits where its routes meet.** No one module is what it
+covers, so it takes the name of what it asserts, and it lives in the deepest
+directory under `apps/web/src/tests/unit/routes` that every route it renders
+shares: a suite over two Operations routes goes in `routes/operations/`, and one
+over routes in several domains goes at `routes/`. `write-attribution.test.tsx`
+is the example, one file at `routes/` asserting that fourteen routes gate their
+submit on the same predicate. Such a suite stays one file. What it proves is that
+the routes agree, which a file per route cannot say, and every route it renders
+is preloaded first, which costs seconds per file, so one file pays that once.
+
 **`scripts/` is a project too, and it has no `src` tree to mirror.** The static
 gates and the modules they share are `.mjs` at `scripts/` and `scripts/lib/`,
 and converting them to TypeScript is not on the table, so the vitest project

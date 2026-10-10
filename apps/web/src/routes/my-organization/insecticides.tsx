@@ -19,11 +19,7 @@ function MyOrganizationInsecticidesRoute() {
 			<DomainSection
 				canManage={workspace.canManage}
 				editAction={
-					<SettingsSectionSheet
-						canManage={workspace.canManage}
-						section={batchTrackingSection}
-						settings={workspace.settings}
-					/>
+					<SettingsSectionSheet section={batchTrackingSection} settings={workspace.settings} />
 				}
 				id="insecticides"
 				meta="Chemical products, labels, registration, and batch traceability"
