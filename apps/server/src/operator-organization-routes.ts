@@ -32,7 +32,6 @@ import {
 	normalizeOrganizationContactDetails,
 	ORGANIZATION_CONTACT_DETAIL_KEYS,
 	ORGANIZATION_SUBSCRIPTION_STATUSES,
-	type OrganizationContactDetailKey,
 } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
@@ -125,19 +124,14 @@ interface CreateOrganizationPayload {
 	readonly billingContactName: string | null;
 	readonly billingContactEmail: string | null;
 	readonly subscriptionNotes: string | null;
-	readonly contact: CreateOrganizationContact;
+	/**
+	 * The insert's own contact type. A detail added to the domain fails `tsc` at
+	 * `ORGANIZATION_CONTACT_COLUMNS` until it has a column, so no second check
+	 * is kept here.
+	 */
+	readonly contact: OrganizationContactInfo;
 	readonly linkRequesterAsOwner: boolean;
 }
-
-/**
- * Every contact detail the domain names, each text or `null`.
- *
- * A `Pick` from the insert's contact type rather than a mapped type over the
- * key, because `Pick` requires each key to be one of the insert's. A detail
- * added to the domain's limits table then fails `tsc` here, at the column the
- * insert has not got, rather than compiling and being dropped on the way in.
- */
-type CreateOrganizationContact = Pick<OrganizationContactInfo, OrganizationContactDetailKey>;
 
 /** A request body once `wrongTypeReason` has passed: each text field a string or absent. */
 type CreateOrganizationBody = Readonly<Record<string, unknown>> & {
@@ -276,7 +270,7 @@ function isPresent(value: unknown): boolean {
 /** Every contact detail a create carries, `null` until one arrives. */
 const NO_CONTACT = Object.fromEntries(
 	ORGANIZATION_CONTACT_DETAIL_KEYS.map((key) => [key, null]),
-) as CreateOrganizationContact;
+) as OrganizationContactInfo;
 
 /**
  * The contact details and the billing contact, checked.

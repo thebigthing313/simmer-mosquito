@@ -1,3 +1,4 @@
+import type { OrganizationContactDetailKey } from '@simmer-mosquito/domain';
 import { type Kysely, sql } from 'kysely';
 
 import type {
@@ -14,16 +15,87 @@ export interface OrganizationSubscriptionMetadata {
 	readonly subscriptionNotes: string | null;
 }
 
-export interface OrganizationContactInfo {
-	readonly mainContactEmail: string | null;
-	readonly phoneNumber: string | null;
-	readonly mailingCountry: string | null;
-	readonly mailingAddressLine1: string | null;
-	readonly mailingAddressLine2: string | null;
-	readonly mailingLocality: string | null;
-	readonly mailingRegion: string | null;
-	readonly mailingPostalCode: string | null;
+/** The contact details as stored: every key the domain names, each text or `null`. */
+export type OrganizationContactInfo = {
+	readonly [K in OrganizationContactDetailKey]: string | null;
+};
+
+type OrganizationColumns = SimmerDatabase['organizations'];
+
+/** A column of `organizations` that holds nullable text and nothing else. */
+type NullableTextColumn = {
+	[C in keyof OrganizationColumns]: OrganizationColumns[C] extends string | null
+		? string | null extends OrganizationColumns[C]
+			? C
+			: never
+		: never;
+}[keyof OrganizationColumns];
+
+/**
+ * Each contact detail and the `organizations` column it is stored in.
+ *
+ * The one place the pairs are written. The operator create's insert, its
+ * conflict update, both reads and the row mapping are built from it, and so is
+ * the details edit's column table in `apps/server`. The `satisfies` is the
+ * check: a key the domain adds fails `tsc` here until it has a column, and a
+ * column that does not exist, or is not nullable text, fails the same way.
+ */
+export const ORGANIZATION_CONTACT_COLUMNS = {
+	mainContactEmail: 'main_contact_email',
+	phoneNumber: 'phone_number',
+	mailingCountry: 'mailing_country',
+	mailingAddressLine1: 'mailing_address_line_1',
+	mailingAddressLine2: 'mailing_address_line_2',
+	mailingLocality: 'mailing_locality',
+	mailingRegion: 'mailing_region',
+	mailingPostalCode: 'mailing_postal_code',
+} as const satisfies Record<OrganizationContactDetailKey, NullableTextColumn>;
+
+type ContactKey = keyof typeof ORGANIZATION_CONTACT_COLUMNS;
+
+type ContactColumn = (typeof ORGANIZATION_CONTACT_COLUMNS)[ContactKey];
+
+type ContactRow = { readonly [C in ContactColumn]: string | null };
+
+/**
+ * The map's own keys, which the `satisfies` holds to the domain's list.
+ *
+ * Walked instead of that list so that a key the map has not got yet fails
+ * `tsc` at the map alone, rather than again at every lookup below.
+ */
+const CONTACT_KEYS = Object.keys(ORGANIZATION_CONTACT_COLUMNS) as readonly ContactKey[];
+
+const CONTACT_COLUMNS = CONTACT_KEYS.map((key) => ORGANIZATION_CONTACT_COLUMNS[key]);
+
+/** The contact details as the columns an insert or an update writes. */
+function toContactRow(contact: OrganizationContactInfo): ContactRow {
+	return Object.fromEntries(
+		CONTACT_KEYS.map((key) => [ORGANIZATION_CONTACT_COLUMNS[key], contact[key]]),
+	) as ContactRow;
 }
+
+/** The contact columns of a row read back as the domain's keys. */
+function toContactInfo(row: ContactRow): OrganizationContactInfo {
+	return Object.fromEntries(
+		CONTACT_KEYS.map((key) => [key, row[ORGANIZATION_CONTACT_COLUMNS[key]]]),
+	) as OrganizationContactInfo;
+}
+
+/** Every column the operator reads return, the contact columns included. */
+const SAFE_ORGANIZATION_COLUMNS = [
+	'id',
+	'workos_organization_id',
+	'name',
+	'slug',
+	'subscription_status',
+	'billing_mode',
+	'billing_contact_name',
+	'billing_contact_email',
+	'subscription_notes',
+	...CONTACT_COLUMNS,
+	'created_at',
+	'updated_at',
+] as const;
 
 export interface SafeOrganization {
 	readonly id: string;
@@ -63,14 +135,7 @@ export async function upsertOperatorOrganization(
 				billing_contact_name: input.billingContactName,
 				billing_contact_email: input.billingContactEmail,
 				subscription_notes: input.subscriptionNotes,
-				main_contact_email: input.contact.mainContactEmail,
-				phone_number: input.contact.phoneNumber,
-				mailing_country: input.contact.mailingCountry,
-				mailing_address_line_1: input.contact.mailingAddressLine1,
-				mailing_address_line_2: input.contact.mailingAddressLine2,
-				mailing_locality: input.contact.mailingLocality,
-				mailing_region: input.contact.mailingRegion,
-				mailing_postal_code: input.contact.mailingPostalCode,
+				...toContactRow(input.contact),
 			})
 			.onConflict((oc) =>
 				oc.column('workos_organization_id').doUpdateSet({
@@ -81,38 +146,11 @@ export async function upsertOperatorOrganization(
 					billing_contact_name: input.billingContactName,
 					billing_contact_email: input.billingContactEmail,
 					subscription_notes: input.subscriptionNotes,
-					main_contact_email: input.contact.mainContactEmail,
-					phone_number: input.contact.phoneNumber,
-					mailing_country: input.contact.mailingCountry,
-					mailing_address_line_1: input.contact.mailingAddressLine1,
-					mailing_address_line_2: input.contact.mailingAddressLine2,
-					mailing_locality: input.contact.mailingLocality,
-					mailing_region: input.contact.mailingRegion,
-					mailing_postal_code: input.contact.mailingPostalCode,
+					...toContactRow(input.contact),
 					updated_at: sql`now()`,
 				}),
 			)
-			.returning([
-				'id',
-				'workos_organization_id',
-				'name',
-				'slug',
-				'subscription_status',
-				'billing_mode',
-				'billing_contact_name',
-				'billing_contact_email',
-				'subscription_notes',
-				'main_contact_email',
-				'phone_number',
-				'mailing_country',
-				'mailing_address_line_1',
-				'mailing_address_line_2',
-				'mailing_locality',
-				'mailing_region',
-				'mailing_postal_code',
-				'created_at',
-				'updated_at',
-			])
+			.returning(SAFE_ORGANIZATION_COLUMNS)
 			.executeTakeFirstOrThrow();
 
 		let ownerLinked = false;
@@ -182,27 +220,7 @@ export async function listOperatorOrganizations(
 ): Promise<SafeOrganization[]> {
 	const rows = await db
 		.selectFrom('organizations')
-		.select([
-			'id',
-			'workos_organization_id',
-			'name',
-			'slug',
-			'subscription_status',
-			'billing_mode',
-			'billing_contact_name',
-			'billing_contact_email',
-			'subscription_notes',
-			'main_contact_email',
-			'phone_number',
-			'mailing_country',
-			'mailing_address_line_1',
-			'mailing_address_line_2',
-			'mailing_locality',
-			'mailing_region',
-			'mailing_postal_code',
-			'created_at',
-			'updated_at',
-		])
+		.select(SAFE_ORGANIZATION_COLUMNS)
 		.where('deleted_at', 'is', null)
 		.orderBy('created_at', 'desc')
 		.execute();
@@ -216,27 +234,7 @@ export async function getOperatorOrganization(
 ): Promise<SafeOrganization | null> {
 	const row = await db
 		.selectFrom('organizations')
-		.select([
-			'id',
-			'workos_organization_id',
-			'name',
-			'slug',
-			'subscription_status',
-			'billing_mode',
-			'billing_contact_name',
-			'billing_contact_email',
-			'subscription_notes',
-			'main_contact_email',
-			'phone_number',
-			'mailing_country',
-			'mailing_address_line_1',
-			'mailing_address_line_2',
-			'mailing_locality',
-			'mailing_region',
-			'mailing_postal_code',
-			'created_at',
-			'updated_at',
-		])
+		.select(SAFE_ORGANIZATION_COLUMNS)
 		.where('id', '=', organizationId)
 		.where('deleted_at', 'is', null)
 		.executeTakeFirst();
@@ -245,7 +243,7 @@ export async function getOperatorOrganization(
 }
 
 function toSafeOrganization(
-	row: {
+	row: ContactRow & {
 		readonly id: string;
 		readonly workos_organization_id: string | null;
 		readonly name: string;
@@ -255,14 +253,6 @@ function toSafeOrganization(
 		readonly billing_contact_name: string | null;
 		readonly billing_contact_email: string | null;
 		readonly subscription_notes: string | null;
-		readonly main_contact_email: string | null;
-		readonly phone_number: string | null;
-		readonly mailing_country: string | null;
-		readonly mailing_address_line_1: string | null;
-		readonly mailing_address_line_2: string | null;
-		readonly mailing_locality: string | null;
-		readonly mailing_region: string | null;
-		readonly mailing_postal_code: string | null;
 		readonly created_at: Date;
 		readonly updated_at: Date;
 	},
@@ -280,16 +270,7 @@ function toSafeOrganization(
 			billingContactEmail: row.billing_contact_email,
 			subscriptionNotes: row.subscription_notes,
 		},
-		contact: {
-			mainContactEmail: row.main_contact_email,
-			phoneNumber: row.phone_number,
-			mailingCountry: row.mailing_country,
-			mailingAddressLine1: row.mailing_address_line_1,
-			mailingAddressLine2: row.mailing_address_line_2,
-			mailingLocality: row.mailing_locality,
-			mailingRegion: row.mailing_region,
-			mailingPostalCode: row.mailing_postal_code,
-		},
+		contact: toContactInfo(row),
 		ownerLinked,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,

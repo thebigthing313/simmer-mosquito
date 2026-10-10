@@ -11,7 +11,7 @@
  * until slice 3, which is where the WorkOS half is settled (#186).
  */
 
-import { sql, updateRow } from '@simmer-mosquito/db';
+import { ORGANIZATION_CONTACT_COLUMNS, sql, updateRow } from '@simmer-mosquito/db';
 import type { IdentityCommand, OrganizationDetailChanges } from '@simmer-mosquito/domain';
 import { CommandError } from './command-endpoint.js';
 import type { ColumnOf } from './command-payload.js';
@@ -158,20 +158,19 @@ function assertWholeMapCenter(
  * carries a field only when the client sent it: a field's absence and a field
  * set to `null` are different writes, and `in` is what tells them apart. Written
  * out eleven times, that distinction is eleven chances to write `??` instead.
+ *
+ * The eight contact rows come from `ORGANIZATION_CONTACT_COLUMNS` in
+ * `packages/db`, which the operator create reads too, so a contact detail has
+ * its column written once for both paths.
  */
 export const ORGANIZATION_DETAIL_COLUMNS: readonly (readonly [
 	column: ColumnOf<'organizations'>,
 	field: keyof OrganizationDetailChanges,
 ])[] = [
 	['name', 'name'],
-	['main_contact_email', 'mainContactEmail'],
-	['phone_number', 'phoneNumber'],
-	['mailing_country', 'mailingCountry'],
-	['mailing_address_line_1', 'mailingAddressLine1'],
-	['mailing_address_line_2', 'mailingAddressLine2'],
-	['mailing_locality', 'mailingLocality'],
-	['mailing_region', 'mailingRegion'],
-	['mailing_postal_code', 'mailingPostalCode'],
+	...(
+		Object.keys(ORGANIZATION_CONTACT_COLUMNS) as (keyof typeof ORGANIZATION_CONTACT_COLUMNS)[]
+	).map((key) => [ORGANIZATION_CONTACT_COLUMNS[key], key] as const),
 	['map_center_lat', 'mapCenterLat'],
 	['map_center_lng', 'mapCenterLng'],
 ];
