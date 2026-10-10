@@ -21,6 +21,7 @@ import {
 	inviteCommand,
 	normalizeOrganizationBillingContact,
 	normalizeOrganizationContactDetails,
+	ORGANIZATION_BILLING_CONTACT_KEYS,
 	ORGANIZATION_CONTACT_DETAIL_KEYS,
 	reinviteCommand,
 	updateOrganizationDetailsCommand,
@@ -231,6 +232,16 @@ describe('normalizeOrganizationBillingContact', () => {
 			issues: [],
 		});
 		expect(normalizeOrganizationBillingContact({})).toEqual({ contact: {}, issues: [] });
+	});
+
+	it('reads every field the exported key list names', () => {
+		const blank = Object.fromEntries(ORGANIZATION_BILLING_CONTACT_KEYS.map((key) => [key, ' ']));
+
+		const { contact } = normalizeOrganizationBillingContact(blank);
+
+		expect(Object.keys(contact)).toEqual(ORGANIZATION_BILLING_CONTACT_KEYS);
+		// An empty list would pass the line above with nothing read.
+		expect(ORGANIZATION_BILLING_CONTACT_KEYS).toContain('billingContactEmail');
 	});
 
 	it('keeps a name of 200 characters and an address of 320, trimmed', () => {
