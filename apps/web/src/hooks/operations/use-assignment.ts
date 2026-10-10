@@ -3,7 +3,7 @@ import type { AssignmentView } from '../../components/operations/assignments/ass
 import { assignments } from '../../lib/collections/assignments';
 import { assignmentStatus } from '../queries/assignment-view';
 import { activityGcTimeMs, unmatchableId } from '../queries/shared';
-/** One assignment. Also the warm-stream anchor on pages that write before reading. */
+/** One assignment, with the status its timestamps mean. */
 export function useAssignment(assignmentId: string | null): {
 	readonly assignment: AssignmentView | null;
 	readonly isLoading: boolean;

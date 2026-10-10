@@ -13,7 +13,10 @@ import { outreach_actions } from '../../lib/collections/outreach_actions';
 import { outreach_methods } from '../../lib/collections/outreach_methods';
 import { profiles } from '../../lib/collections/profiles';
 import type { OutreachAction } from './outreach-view';
+import { controlActionBaseSelect, PERFORMED_ACTIONS } from './performed-action-reads';
 import { addressSelect, useRecordById } from './shared';
+
+const outreachReads = PERFORMED_ACTIONS.outreachActions;
 
 export function useOutreachAction(
 	actionId: string | null,
@@ -38,12 +41,12 @@ export function useOutreachAction(
 				// name no address.
 				.join(
 					{ method: outreach_methods() },
-					({ record: action, method }) => eq(action.outreach_method_id, method.id),
+					({ record: action, method }) => outreachReads.joinMethod(action, method),
 					'left',
 				)
 				.join(
 					{ technician: profiles() },
-					({ record: action, technician }) => eq(action.technician_profile_id, technician.id),
+					({ record: action, technician }) => outreachReads.joinPerformer(action, technician),
 					'left',
 				)
 				.join(
@@ -51,35 +54,27 @@ export function useOutreachAction(
 					({ record: action, address }) => eq(action.address_id, address.id),
 					'left',
 				)
-				.select(({ record: action, method, technician, address }) => ({
-					id: action.id,
-					address: addressSelect(address),
-					outreachDate: action.outreach_date,
-					methodId: action.outreach_method_id,
-					methodName: coalesce(method.name, 'Unknown method'),
-					technicianProfileId: action.technician_profile_id,
-					technicianName: caseWhen(
-						isNull(action.technician_profile_id),
-						null,
-						technician.display_name,
-					),
-					reach: action.reach,
-					reachDescription: action.reach_description,
+				.select(({ record: action, method, technician, address }) => {
+					const measured = outreachReads.measured(action);
+					return {
+						id: action.id,
+						address: addressSelect(address),
+						outreachDate: outreachReads.date(action),
 
-					addressId: action.address_id,
-					inspectionId: action.inspection_id,
-					requestedControlActionId: action.requested_control_action_id,
-					missionItemId: action.mission_item_id,
+						methodId: measured.methodId,
+						methodName: coalesce(method.name, 'Unknown method'),
+						technicianProfileId: measured.performerProfileId,
+						technicianName: caseWhen(
+							isNull(measured.performerProfileId),
+							null,
+							technician.display_name,
+						),
 
-					latitude: action.lat,
-					longitude: action.lng,
-					geometryKind: action.geom_type,
-					metadata: action.metadata,
-					createdAt: action.created_at,
-					updatedAt: action.updated_at,
-					createdByProfileId: action.created_by_profile_id,
-					updatedByProfileId: action.updated_by_profile_id,
-				})),
+						reach: measured.amount,
+						reachDescription: action.reach_description,
+						...controlActionBaseSelect(action),
+					};
+				}),
 	});
 
 	return { action: result.record, isReady: result.isReady, isError: result.isError };

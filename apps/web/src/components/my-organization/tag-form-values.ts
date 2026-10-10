@@ -1,5 +1,5 @@
 import type { TagFields } from '../../hooks/mutations/use-tag-mutations';
-import type { TagRecord } from '../../hooks/queries/use-tag-catalog';
+import type { TagRecord } from '../../hooks/queries/catalog-record-view';
 import { relevanceForSave } from '../../lib/tag-relevance';
 import type { TagFormValues } from './types';
 

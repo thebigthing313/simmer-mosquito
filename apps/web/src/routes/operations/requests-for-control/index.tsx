@@ -20,6 +20,8 @@ import {
 } from '../../../components/explorer';
 import { MapCanvas } from '../../../components/map';
 import { RequestStatusBadge } from '../../../components/request-status-badge';
+import type { CatalogOptions } from '../../../hooks/explorer/use-catalog-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useControlMethodNames } from '../../../hooks/explorer/use-control-method-names';
 import {
 	type DateRangeBinding,
@@ -27,7 +29,7 @@ import {
 } from '../../../hooks/explorer/use-date-range-filters';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useFlyToSelection } from '../../../hooks/explorer/use-fly-to-selection';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import {
 	CONTROL_TYPES,
 	controlTypeLabel,
@@ -128,7 +130,7 @@ function RequestsForControlRoute() {
 	// window stays pushed down; the hook's header says why. Applied in memory
 	// after the window, the way `status` is.
 	const { assignedRequestIds, isReady: assignedReady } = useAssignedRequestIds();
-	const { options: personnelOptions, nameById } = usePersonnelOptions();
+	const { options: personnelOptions, nameById } = useCatalogOptions(catalogs.profiles);
 	const methodNameById = useControlMethodNames();
 
 	const visible = requests.filter((request) =>
@@ -249,7 +251,7 @@ function RequestControlFilters({
 	readonly filters: RequestFilters;
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly onClearAll: () => void;
-	readonly personnelOptions: ReturnType<typeof usePersonnelOptions>['options'];
+	readonly personnelOptions: CatalogOptions['options'];
 	readonly setFilters: (patch: Partial<RequestFilters>) => void;
 }) {
 	return (

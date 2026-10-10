@@ -24,7 +24,8 @@ import { useState } from 'react';
 import type { CatalogMutations } from '../../hooks/mutations/catalog-fields';
 import { useHabitatTypeMutations } from '../../hooks/mutations/use-habitat-type-mutations';
 import type { SchemaCatalogRecord } from '../../hooks/queries/catalog-record-view';
-import { useHabitatTypeRecords } from '../../hooks/queries/use-habitat-type-records';
+import { catalogs } from '../../hooks/queries/catalog-register';
+import { useCatalogRecords } from '../../hooks/queries/use-catalog-records';
 import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../catalog';
 import { CustomFieldsCell } from '../custom-fields-cell';
@@ -33,7 +34,7 @@ import { LookupListFrame } from './layout/lookup-list-frame';
 
 export function HabitatTypeLookupList({ canManage }: { readonly canManage: boolean }) {
 	const { activeRecords: activeHabitatTypes, inactiveRecords: inactiveHabitatTypes } =
-		useHabitatTypeRecords();
+		useCatalogRecords(catalogs.habitatTypes);
 	const mutations = useHabitatTypeMutations();
 
 	return (

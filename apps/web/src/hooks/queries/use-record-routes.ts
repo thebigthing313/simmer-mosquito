@@ -19,10 +19,7 @@ import { and, coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { route_items } from '../../lib/collections/route_items';
 import { routes } from '../../lib/collections/routes';
 import { NATURAL_ORDER } from '../../lib/natural-order';
-
-// Keep the record's stops warm briefly after unmount, so paging through a list of
-// habitats does not re-fetch the same subset on every card.
-const routeItemsGcTimeMs = 30_000;
+import { activityGcTimeMs } from './shared';
 
 /** One line of "this site is stop 4 of Zone 3". */
 export interface RecordRoute {
@@ -44,7 +41,7 @@ export function useRecordRoutes(target: {
 	readonly id: string;
 }): RecordRoutesResult {
 	const result = useLiveQuery({
-		gcTime: routeItemsGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: route_items() })

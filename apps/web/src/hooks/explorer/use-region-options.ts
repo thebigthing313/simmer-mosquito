@@ -2,7 +2,7 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import type { FilterOption } from '../../components/explorer/multi-select-filter';
 import { regions } from '../../lib/collections/regions';
 import { NATURAL_ORDER } from '../../lib/natural-order';
-import { unmatchableId } from '../queries/shared';
+import { activityGcTimeMs, unmatchableId } from '../queries/shared';
 import { useOrganizationIdentity } from '../queries/use-organization-identity';
 
 /**
@@ -19,7 +19,7 @@ export function useRegionOptions(): {
 	const organizationId = useOrganizationIdentity()?.id ?? unmatchableId;
 
 	const result = useLiveQuery({
-		gcTime: regionsGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ region: regions() })
@@ -35,7 +35,3 @@ export function useRegionOptions(): {
 		nameById: new Map(options.map((region) => [region.id, region.label] as const)),
 	};
 }
-
-// Regions are picked, unpicked, and re-picked while an operator narrows a map;
-// holding the subset briefly past unmount keeps that from refetching each time.
-const regionsGcTimeMs = 30_000;

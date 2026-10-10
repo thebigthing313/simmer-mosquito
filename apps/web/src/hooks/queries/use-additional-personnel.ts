@@ -11,25 +11,18 @@
  * the column's. The write now stamps the column's spelling on the optimistic row
  * too, so there is one value to match and a row no longer changes shape under the
  * query when the server confirms it.
- *
- * Mount it wherever personnel are written, not only where they are read: the
- * subscription is what keeps this on-demand collection's live stream warm, and a
- * write over a cold stream never sees its txid come back.
  */
 
 import { type AdditionalPersonnelTargetType, toDbEntityType } from '@simmer-mosquito/domain';
 import { and, eq, useLiveQuery } from '@tanstack/react-db';
 import { additional_personnel } from '../../lib/collections/additional_personnel';
+import { activityGcTimeMs } from './shared';
 
 /** The record the crew is attached to. */
 export interface AdditionalPersonnelTarget {
 	readonly type: AdditionalPersonnelTargetType;
 	readonly id: string;
 }
-
-// Keep an entity's subset warm briefly after unmount so reopening a form reuses
-// it rather than re-requesting.
-const additionalPersonnelGcTimeMs = 30_000;
 
 /** One crew row, as much of it as attaching and detaching needs. */
 export interface AdditionalPersonnelLink {
@@ -52,7 +45,7 @@ export function useAdditionalPersonnel(
 	const entityType = toDbEntityType(target.type);
 
 	const result = useLiveQuery({
-		gcTime: additionalPersonnelGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ personnel: additional_personnel() })

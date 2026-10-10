@@ -1,7 +1,7 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { weather_summaries } from '../../lib/collections/weather_summaries';
-import { unmatchableId } from './shared';
-import { summariesGcTimeMs, summaryYear } from './weather-summary-view';
+import { activityGcTimeMs, unmatchableId } from './shared';
+import { summaryYear } from './weather-summary-view';
 /** The years a station has readings in, newest first. */
 export function useWeatherSummaryYears(stationId: string | null): {
 	readonly years: readonly number[];
@@ -9,7 +9,7 @@ export function useWeatherSummaryYears(stationId: string | null): {
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: summariesGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ summary: weather_summaries() })
