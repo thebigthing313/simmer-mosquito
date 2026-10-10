@@ -6,21 +6,12 @@
  * This is for the two surfaces that *write* them: the detail page removes a link
  * by its own id, and the edit form reconciles a selection against what is
  * already there. Neither can work from names.
- *
- * Mount it wherever batches are written as well as read. The subscription is what
- * keeps this on-demand collection's live stream warm, which is also what lets a
- * write wait for its own txid — see `command-transaction.ts` for why a collection
- * nobody is watching never sees one.
  */
 
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { application_batches } from '../../lib/collections/application_batches';
 import type { ApplicationBatchLink } from '../mutations/use-application-mutations';
-import { unmatchableId } from './shared';
-
-// Keep an application's subset warm briefly after unmount so reopening the record
-// reuses it rather than re-requesting.
-const applicationBatchesGcTimeMs = 30_000;
+import { activityGcTimeMs, unmatchableId } from './shared';
 
 export interface ApplicationBatchesResult {
 	/** The link rows, oldest first. */
@@ -33,7 +24,7 @@ export interface ApplicationBatchesResult {
 
 export function useApplicationBatches(applicationId: string | null): ApplicationBatchesResult {
 	const result = useLiveQuery({
-		gcTime: applicationBatchesGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ entry: application_batches() })

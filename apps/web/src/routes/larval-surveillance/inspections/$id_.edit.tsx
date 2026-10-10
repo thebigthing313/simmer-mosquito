@@ -1,6 +1,5 @@
 import type { ResolvedLarvalInspectionEntryPolicy } from '@simmer-mosquito/domain';
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import {
 	type DrawGeometry,
@@ -20,7 +19,6 @@ import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-ad
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelLink,
 	useAdditionalPersonnel,
@@ -34,7 +32,6 @@ import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/us
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { INSPECTION_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
-import { samples } from '../../../lib/collections/samples';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
@@ -62,15 +59,8 @@ function EditInspectionRoute() {
 	// useLiveQuery (not the suspense variant, which can hang after a nav unmount).
 	const { inspection, isReady, isError } = useInspectionRecord(id);
 
-	// Mounted here rather than inside the loader so the crew subset — and the
-	// samples subset below — are already streaming when the save fires; a write
-	// over a cold on-demand stream never sees its txid come back.
+	// The crew already on the inspection, which the form opens with.
 	const personnel = useAdditionalPersonnel({ type: 'inspection', id });
-	useLiveQuery({
-		gcTime: activityGcTimeMs,
-		query: (query) =>
-			query.from({ sample: samples() }).where(({ sample }) => eq(sample.inspection_id, id)),
-	});
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;

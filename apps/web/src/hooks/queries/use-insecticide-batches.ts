@@ -1,6 +1,7 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { insecticide_batches } from '../../lib/collections/insecticide_batches';
-import { batchesGcTimeMs, type InsecticideBatchRecord } from './use-insecticide-records';
+import { activityGcTimeMs } from './shared';
+import type { InsecticideBatchRecord } from './use-insecticide-records';
 /** One insecticide's batches, read on demand and gated on the subset being ready. */
 export function useInsecticideBatches(insecticideId: string): {
 	readonly batches: readonly InsecticideBatchRecord[];
@@ -8,7 +9,7 @@ export function useInsecticideBatches(insecticideId: string): {
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: batchesGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ batch: insecticide_batches() })

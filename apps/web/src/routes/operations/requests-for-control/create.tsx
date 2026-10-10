@@ -9,7 +9,6 @@ import {
 } from '../../../components/operations/requests-for-control/request-form';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
-import { useRequestedControlAction } from '../../../hooks/queries/use-requested-control-action';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { recordNoun } from '../../../lib/record-nouns';
 import {
@@ -43,11 +42,7 @@ function CreateRequestForControlRoute() {
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
-	// Minted up front so the on-demand stream is already warm when the save fires
-	// — a write to a cold collection waits out its txid confirmation, which reads
-	// as a frozen save.
 	const [requestId] = useState(() => newRecordId());
-	useRequestedControlAction(requestId);
 
 	const requestWrites = useRequestedControlActionMutations();
 

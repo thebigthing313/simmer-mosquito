@@ -906,11 +906,6 @@ The list is on the card rather than in a toast because the generation's most
 confusing answer is an empty one, and a second press that creates nothing
 reads as "already done" only beside the list.
 
-#### operations-data
-
-The write half stays on the collections a page writes through, or the write's
-txid lands on a stream nothing is watching and the save never settles.
-
 #### describeAddStop
 
 The instruction stands apart from the mission name because `missionDisplayName`

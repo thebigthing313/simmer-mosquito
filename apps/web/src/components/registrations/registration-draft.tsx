@@ -79,10 +79,6 @@ function CreateDraft({
 	toolbarSlot,
 }: RegistrationDraftProps) {
 	const mutations = useNotificationRegistrationMutations();
-	// Queried before it exists: `notification_registrations` is on-demand, and a
-	// write into a collection nothing is querying waits out a txid confirmation
-	// that never arrives, which reads as a frozen save rather than a slow one.
-	useRegistration(draft.registrationId);
 
 	const onSave = async (values: RegistrationFormValues, geometry: NonNullable<DraftGeometry>) => {
 		await mutations.record({

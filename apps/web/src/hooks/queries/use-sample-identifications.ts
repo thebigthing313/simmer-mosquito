@@ -16,14 +16,14 @@ import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { sample_species } from '../../lib/collections/sample_species';
 import { species } from '../../lib/collections/species';
 import type { SampleIdentification } from './sample-view';
-import { mapCardGcTimeMs } from './shared';
+import { activityGcTimeMs } from './shared';
 
 export function useSampleIdentifications(sampleId: string): {
 	readonly identifications: readonly SampleIdentification[];
 	readonly isReady: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: mapCardGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ identification: sample_species() })

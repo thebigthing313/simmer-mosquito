@@ -75,10 +75,9 @@ function CreateTrapRoute() {
 		// than a failure. Leaving here on the way past would abandon the page
 		// before the question could be asked, and read as a save that worked.
 		//
-		// The id comes back from the write rather than being minted here, and
-		// neither reason `newRecordId` gives for minting up front applies. Nothing
-		// on this page writes a child row against the new trap, and `traps` is
-		// eager, so there is no on-demand subset to warm.
+		// The id comes back from the write rather than being minted here. Nothing
+		// on this page writes a child row against the new trap, which is the
+		// reason `newRecordId` gives for minting up front.
 		await run(async (acknowledgements) => {
 			const trapId = await mutations.create(
 				trapFieldsFrom(values),

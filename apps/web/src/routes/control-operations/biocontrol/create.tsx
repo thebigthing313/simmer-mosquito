@@ -12,7 +12,6 @@ import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
-import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-biocontrol-method-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
@@ -59,10 +58,8 @@ function CreateBiocontrolActionRoute() {
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const canSubmit = canAttributeWrite({ organization, actorProfileId });
 
-	// Minted up front so the crew rows can be written the moment the release lands
-	// — and so their on-demand stream is already warm when the save fires.
+	// Minted up front so the crew rows can be written the moment the release lands.
 	const [biocontrolActionId] = useState(newRecordId);
-	useAdditionalPersonnel({ type: 'biocontrolAction', id: biocontrolActionId });
 	const recordExtras = useRecordExtras();
 	const { record } = useBiocontrolActionMutations();
 
