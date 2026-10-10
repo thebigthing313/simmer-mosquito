@@ -8,7 +8,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useApplication } from '../../../../hooks/queries/use-application';
 import { installMemoryCollections } from '../../lib/collections/memory-collections';
-import { GONE_METHOD, GONE_PRODUCT, GONE_PROFILE, readRecord, seedUnresolvedActions } from './unresolved-performed-actions';
+import {
+	GONE_METHOD,
+	GONE_PRODUCT,
+	GONE_PROFILE,
+	readRecord,
+	seedUnresolvedActions,
+} from './unresolved-performed-actions';
 
 beforeEach(() => {
 	installMemoryCollections();
