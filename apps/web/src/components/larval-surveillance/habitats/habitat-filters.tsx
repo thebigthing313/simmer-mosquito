@@ -2,14 +2,14 @@
  * The habitat filters, drawn the same way on the Habitats Map and the Habitats
  * Table: the search box, Status and Access, the four popover filters, and the
  * chips for whatever is set. It returns the blocks bare, so each surface puts
- * them in its own frame. Takes the binding from `useHabitatFilterState`.
+ * them in its own frame. Takes the binding from `useRecordSetFilters`.
  */
 
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
+import type { RecordSetFilterBinding } from '../../../hooks/explorer/use-record-set-filters';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
-import type { HabitatFilterBinding } from '../../../hooks/larval-surveillance/use-habitat-filter-state';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import {
 	ActiveFilterBar,
@@ -21,6 +21,7 @@ import {
 	ToggleFilter,
 	toggle,
 } from '../../explorer';
+import type { HabitatFilters } from './habitats-search';
 import { HABITAT_FILTER_DEFAULTS } from './habitats-search';
 import type { AccessFilter, HabitatStatusFilter } from './legend';
 
@@ -40,7 +41,7 @@ export function HabitatFilterFields({
 	binding,
 	wide = false,
 }: {
-	readonly binding: HabitatFilterBinding;
+	readonly binding: RecordSetFilterBinding<HabitatFilters>;
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
@@ -124,7 +125,11 @@ export function HabitatFilterFields({
  * draws these under its controls, and the Habitats summary draws them above
  * its groupings.
  */
-export function HabitatFilterChips({ binding }: { readonly binding: HabitatFilterBinding }) {
+export function HabitatFilterChips({
+	binding,
+}: {
+	readonly binding: RecordSetFilterBinding<HabitatFilters>;
+}) {
 	const { nameById: typeNameById } = useCatalogOptions(catalogs.habitatTypes);
 	const { byId: tagById } = useTagOptions();
 	const { nameById: regionNameById } = useRegionOptions();
@@ -168,7 +173,7 @@ export function HabitatFilterChips({ binding }: { readonly binding: HabitatFilte
 }
 
 /** Status and Access, each a chip only while it is off its default. */
-function StateChips({ binding }: { readonly binding: HabitatFilterBinding }) {
+function StateChips({ binding }: { readonly binding: RecordSetFilterBinding<HabitatFilters> }) {
 	const { filters, setFilters } = binding;
 	return (
 		<>

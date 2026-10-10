@@ -71,7 +71,7 @@ export interface GeoJsonFeatureCollection<
 	readonly features: readonly GeoJsonFeature<TProperties, TGeometry>[];
 }
 
-export function isLngLat(value: unknown): value is LngLat {
+function isLngLat(value: unknown): value is LngLat {
 	if (!isRecord(value)) return false;
 	return isValidLng(value.lng) && isValidLat(value.lat);
 }
@@ -92,15 +92,6 @@ export function isBoundingBox(value: unknown): value is BoundingBox {
 	);
 }
 
-export function parseBoundingBox(value: string): BoundingBox | null {
-	const parts = value.split(',').map((part) => Number.parseFloat(part.trim()));
-	if (parts.length !== 4) return null;
-	const [west, south, east, north] = parts;
-	if (west == null || south == null || east == null || north == null) return null;
-	const bbox = { west, south, east, north };
-	return isBoundingBox(bbox) ? bbox : null;
-}
-
 export function formatBoundingBox(bbox: BoundingBox, decimals = 6): string {
 	return [
 		formatCoordinate(bbox.west, decimals),
@@ -108,15 +99,6 @@ export function formatBoundingBox(bbox: BoundingBox, decimals = 6): string {
 		formatCoordinate(bbox.east, decimals),
 		formatCoordinate(bbox.north, decimals),
 	].join(',');
-}
-
-export function containsLngLat(bbox: BoundingBox, point: LngLat): boolean {
-	return (
-		point.lng >= bbox.west &&
-		point.lng <= bbox.east &&
-		point.lat >= bbox.south &&
-		point.lat <= bbox.north
-	);
 }
 
 /**
@@ -226,7 +208,7 @@ function isOnSegment(start: GeoJsonPosition, end: GeoJsonPosition, point: LngLat
 	);
 }
 
-export function extendBounds(bbox: BoundingBox | null, point: LngLat): BoundingBox {
+function extendBounds(bbox: BoundingBox | null, point: LngLat): BoundingBox {
 	if (bbox === null) {
 		return {
 			west: point.lng,
@@ -498,7 +480,7 @@ function lineMoments(part: readonly GeoJsonPosition[]): LineMoments | null {
  * columns hold the lowercased PostGIS `ST_*` name (`st_polygon`), while GeoJSON
  * objects carry `Polygon` — both normalize to `polygon`.
  */
-export function normalizeGeomType(value: string): string {
+function normalizeGeomType(value: string): string {
 	return value
 		.trim()
 		.toLowerCase()

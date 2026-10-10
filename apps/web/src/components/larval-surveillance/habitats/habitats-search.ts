@@ -1,4 +1,4 @@
-import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
+import type { MapQueryValue } from '../../../lib/map-query-params';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -90,6 +90,11 @@ export const habitatRecordSet = defineRecordSet({
 	recordType: 'habitat',
 	paths: { map: '/larval-surveillance/habitats', table: '/larval-surveillance/habitats/table' },
 	codecs: habitatFilterCodecs,
+	endpoint: { path: '/map/habitats', rowsKey: 'habitats' },
+	tileFilters: habitatTileFilters,
+	listParams: habitatListParams,
+	defaults: () => HABITAT_FILTER_DEFAULTS,
+	textSearch: { key: 'search' },
 	applies: {
 		search: 'both',
 		status: 'both',

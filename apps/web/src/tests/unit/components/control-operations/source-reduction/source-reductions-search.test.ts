@@ -4,7 +4,7 @@ import {
 	sourceReductionListParams,
 	sourceReductionTileFilters,
 } from '../../../../../components/control-operations/source-reduction/source-reductions-search';
-import { mapQueryParams } from '../../../../../hooks/explorer/use-paged-map-resource';
+import { mapQueryParams } from '../../../../../lib/map-query-params';
 
 /**
  * The Map and the Table send one filter set to `/map/source-reduction`, so this

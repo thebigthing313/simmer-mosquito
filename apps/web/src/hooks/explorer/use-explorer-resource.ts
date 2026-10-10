@@ -6,17 +6,13 @@ import type {
 	ExplorerEmptyReason,
 } from '../../components/explorer/explorer-empty-state';
 import { type MapTileLayer, tileLayerExtentUrl } from '../../components/map/tile-layers';
+import { type MapQueryValue, mapQueryParams } from '../../lib/map-query-params';
 import type { RecordType } from '../../lib/record-nouns';
 import { type MapExtent, useMapExtent } from '../map/use-map-extent';
 import { type ExplorerSummaryState, useExplorerSummary } from './use-explorer-summary';
 import { useFlyToSelection } from './use-fly-to-selection';
 import { useMapBoundsParam } from './use-map-bounds-param';
-import {
-	type MapQueryValue,
-	mapQueryParams,
-	type PagedMapResource,
-	usePagedMapResource,
-} from './use-paged-map-resource';
+import { type PagedMapResource, usePagedMapResource } from './use-paged-map-resource';
 import { useSelectedMapRecord } from './use-selected-map-record';
 /**
  * What every explorer rail needs of a row: which record it is, and where on the
@@ -77,6 +73,7 @@ export interface ExplorerCanvasBinding {
 	readonly onMapReady: (map: MapboxMap) => void;
 	/** The record the card is for, or null when nothing is selected. */
 	readonly selectedRecordId: string | null;
+	/** The card's close. A route clears with `setSelectedId(null)`. */
 	readonly clearSelection: () => void;
 }
 
@@ -88,7 +85,6 @@ interface ExplorerSelection {
 	readonly selectedId: string | null;
 	/** Pick a record, or pass null to clear. A map click on empty ground passes null. */
 	readonly setSelectedId: (id: string | null) => void;
-	readonly clearSelection: () => void;
 }
 
 /**
@@ -146,7 +142,6 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	// Held here rather than by the route, which only ever handed it back.
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
-	const clearSelection = () => setSelectedId(null);
 	const layer: MapTileLayer = {
 		...tiles,
 		serverUrl: getServerUrl(),
@@ -212,12 +207,11 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 		summary,
 		selectedId,
 		setSelectedId,
-		clearSelection,
 		canvas: {
 			layers,
 			onMapReady: setMap,
 			selectedRecordId: selected === null ? null : selected.id,
-			clearSelection,
+			clearSelection: () => setSelectedId(null),
 		},
 	};
 }

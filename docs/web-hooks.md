@@ -113,7 +113,10 @@ reductions`, beside five that read `titleMany` out of the register.
 `pnpm check:record-nouns` lists this hook as a register consumer.
 
 `mapQueryParams` exists because every explorer wrote the presence rule out as
-a wall of `if (x !== undefined && x.length > 0)`.
+a wall of `if (x !== undefined && x.length > 0)`. It and `MapQueryValue` live
+in `lib/map-query-params.ts` since #1588 rather than in this hook's module,
+because the record set definition and the eleven set search modules read them
+and none of those is a hook.
 
 `PAGE_SIZE` is 100 since #1244, and the server's `limit` cap moved with it. It
 is also the threshold `useExplorerSummary` reads: a surface with a summary
@@ -201,6 +204,59 @@ optimistic row and its synced twin are two assignments of it while the write
 is in flight, so the grouping drops the duplicate rather than drawing two
 chips.
 
+#### useRecordSetFilters
+
+Each record set's Map and Table read one filter set off the URL, so a switch
+between them carries what both apply and Back out of a record lands on the list
+the reader had narrowed to. This is the one hook over all eleven sets (#1419).
+It replaced nine copies, `useCollectionFilterState` and its neighbours, which
+differed only in names, and the inline `useSearchFilters` call both service
+request routes made.
+
+What differs by kind is the set's definition, so the hook reads it rather than
+taking arguments. The defaults come from `defaults(context, surface)`, and the
+context is the Organization's today and its settings. The window ends on the
+Organization's today rather than the browser's, because the server cuts a
+record's day in that zone too, and a window ending on the browser's day would
+drop the evening's records for a reader west of the Organization. Inspections
+is the one set whose two surfaces open on different windows, which its
+definition states: the Map draws every matching record at once, so a season of
+inspections is a solid block of dots and it opens on the last 30 days, while
+the Table says it holds every inspection and opens on all time. The window is
+a fixed number of days back rather than a calendar month, so the Map opens on
+the same amount of work whenever it is opened.
+
+A surface reads the set's codecs through `surfaceCodecs`, so a key it does not
+apply resolves to its default, counts nothing and leaves the address when
+written. That is what took `INSPECTION_TABLE_COUNTING` and the Table's
+`regionIds: new Set()` override out: neither had anything left to suppress.
+The counting is the set's too, and the service requests one reads the
+Organization's settings, since an Overdue left on the address while the
+threshold is off narrows nothing and is not counted.
+
+The binding carries the context it resolved in, the Organization's today and
+settings, because the set's `tileFilters` reads it. The Service Requests
+routes read the overdue cut-off off it too, for the Overdue control and every
+row, through the same `serviceRequestOverdueCutoffFor` the counting rule and
+the tile conversion call, so the count, the request and the rows cannot
+disagree about whether Overdue is on. That took out
+`useServiceRequestOverdueCutoff`, which read the settings a second time.
+
+The search box half is for a set that names a `textSearch` key, which is
+Traps, Habitats, Addresses and the Service Requests Map. Traps commits after
+200ms, as its Map did before the filters moved out of the route (#1372), and
+the others take `useDebouncedTextFilter`'s default. Clearing has to reach both
+the field the operator is looking at and the committed term on the URL, or the
+box empties and the list stays narrowed. A set with no text key, or a surface
+that does not apply it, gets a box that commits nothing, so `clearAll` is then
+`reset` and nothing else; the hook calls the debounce either way, because a
+hook called on some sets and not others is a hook called conditionally.
+
+Every set calls `useOrganizationSettings` for its today, the three undated
+ones included. The shell has the Organization row before any explorer mounts,
+so it costs no suspension in the app; a suite rendering one of those routes
+seeds the row.
+
 #### useDateRangeFilters
 
 Eight explorers wrote the four pieces out by hand, including the rule that
@@ -269,8 +325,9 @@ was this hook, keep a selection whose only readers were the tile layer and the
 card, and write out the same five-field layer around both. So a route passes
 the tileset as `tiles`, a `kind` and its `filters`, and the hook adds the
 server URL, the selected id and the click handler. What comes back is the
-selection, `selectedId` with a setter and a clear for the rail, and `canvas`,
-the bundle `ExplorerCanvas` takes. The map arrives through `canvas.onMapReady`,
+selection, `selectedId` with a setter for the rail, and `canvas`, the bundle
+`ExplorerCanvas` takes, whose `clearSelection` closes the card. A route clears
+with `setSelectedId(null)`. The map arrives through `canvas.onMapReady`,
 which is `MapCanvas`'s own callback, so nothing changed about how a canvas
 reports its map, and the page still waits for it. Selection state is held here
 and not on the canvas because the rail sets it too, and the selected row the
@@ -1426,68 +1483,7 @@ render and dims it. The response's `today` is the picker's upper bound and
 the partial test, so a client whose clock disagrees with the server draws the
 server's day. `docs/today-spec.md`, "The client half".
 
-### control-operations
-
-#### useApplicationFilterState
-
-The Chemical Applications Map and the Chemical Applications Table read one
-filter set off the URL, so the switch between them carries every filter, the
-date window included (#1374). It is `useCollectionFilterState` over the
-application codecs: the window opens on the last 90 days and ends on the
-Organization's today rather than the browser's, which is the day an
-application is recorded against.
-
-#### useSourceReductionFilterState
-
-The Source Reductions Map and the Source Reductions Table read one filter set
-off the URL, so the switch between them carries every filter, the date window
-included (#1375). It is `useApplicationFilterState` over the source reduction
-codecs: the window opens on the last 90 days and ends on the Organization's
-today rather than the browser's.
-
-#### useBiocontrolFilterState
-
-The Biocontrol Actions Map and the Biocontrol Actions Table read one filter
-set off the URL, so the switch between them carries every filter, the date
-window and the Habitat-linked flag included (#1376). It calls
-`useSearchFilters` the way `useApplicationFilterState` does, over the
-biocontrol codecs: the window opens on
-the last 90 days and ends on the Organization's today rather than the
-browser's.
-
-### public-engagement
-
-#### useOutreachFilterState
-
-The Outreach Actions Map and the Outreach Actions Table read one filter set
-off the URL, so the switch between them carries every filter, the date window
-included (#1377). It calls `useSearchFilters` the way
-`useBiocontrolFilterState` does, over the outreach codecs: the window opens on
-the last 90 days and ends on the Organization's today rather than the
-browser's. It sits under `hooks/public-engagement` rather than beside the
-control operations hooks because Outreach lives at `/public-engagement/outreach`,
-although its commands are `controlOperations.*`.
-
-#### useServiceRequestFilterDefaults
-
-The window opens on the first day of this year in the Organization's zone, so
-the year turns over on the Organization's calendar rather than the browser's.
-The overdue cut-off comes out of the same hook for the same reason. It is
-`serviceRequestOverdueCutoff` over that same today, so the day a request
-becomes overdue turns over on the Organization's calendar too, and the map and
-the table, which both call this hook, draw overdue from one day.
-
 ### adult-surveillance
-
-#### useCollectionFilterState
-
-The Collections Map and the Collections Table read one filter set off the
-URL, so the switch between them carries every filter, the date window
-included (#1373). It is `useSampleFilterState` over the collection codecs: the
-window opens on the last 90 days and ends on the Organization's today rather
-than the browser's, because the server cuts a collection's day in that zone
-too, and a window ending on the browser's day would drop the evening's
-collections for a reader west of the Organization.
 
 #### useTrapDirectory
 
@@ -1499,14 +1495,6 @@ A tab's label is `null` when its method is not in the client, and the route
 draws `Unknown method` for it. The hook sorts that tab last rather than among
 the U's, because writing the words here to sort by would put a fallback label
 back in a hook (#1535).
-
-#### useTrapFilterState
-
-The Traps Map and the Traps Table read one filter set off the URL, so the
-switch between them carries every filter and Back out of a trap lands on the
-list the reader had narrowed to. It is `useHabitatFilterState` over the trap
-codecs, the search box committing after 200ms as the Map's did before the
-filters moved out of the route (#1372).
 
 #### useTrapRoutes and useHabitatRoutes
 
@@ -1561,16 +1549,6 @@ server-only, so views needing the drawable geometry read it over HTTP the
 same way habitats and regions do. `seedAddressGeometryCache` beside it puts
 a shape the client just wrote into the cache so the detail page draws it
 before the request answers.
-
-#### useAddressFilterState
-
-The Address Book Map and the Addresses Table read one filter set off the URL,
-so the switch between them carries both filters and Back out of an address
-lands on the list the reader had narrowed to. It is `useTrapFilterState` over
-the address codecs (#1378), and it replaced `useAddressSearch`, which held
-only the search box beside a `useSearchFilters` call the route made itself.
-Clearing has to reach both the field the operator is looking at and the
-committed term on the URL, or the box empties and the list stays narrowed.
 
 #### useRegionDnd
 
@@ -1652,30 +1630,7 @@ active, matching Traps: a retired station keeps its readings and stays
 reportable, so it is history rather than work, and a map that opens on every
 station an organization ever ran is a map nobody can read. Clearing the
 search reaches both the field and the committed term, for the reason
-`useAddressFilterState` records.
-
-#### useInspectionFilterDefaults
-
-The map's window is a fixed number of days back rather than a calendar
-month, so it opens on the same amount of work whenever it is opened. `today`
-is separate from the window because the date control needs it either way:
-it is the upper bound on both pickers and what a preset counts back from.
-
-The map and the table open on different windows, and the difference is the
-surfaces rather than an oversight. The map draws every matching record at
-once, so a season of inspections is a solid block of dots over the same
-streets and it opens on the last 30 days. The table shows 50 rows whatever
-the reach, and its header says it holds every inspection the crews have
-recorded, so it opens on all of them. Once a reader sets a date, both
-surfaces read it out of the same two params and answer the same window.
-
-#### useInspectionFilterState
-
-A deep link from an overview panel, a shared link, and Back out of a record
-all land on the same view, so the state cannot live in a component. What a
-component wants back is a plain value and a setter per filter, and building
-those out of one patch function is the bulk of what either route would
-otherwise do before it renders anything.
+`useRecordSetFilters` records.
 
 #### useSpeciesComposition and useSamplesAwaiting
 
@@ -1786,8 +1741,7 @@ rather than in a third set the hook would have to name.
 #### useMissionFilterState
 
 The Missions index reads its filters off the URL through this, the way the
-date-windowed explorers read theirs through `useBiocontrolFilterState` and its
-neighbours (#1481). Before that the route built its defaults, called
+date-windowed explorers read theirs through `useRecordSetFilters` (#1481). Before that the route built its defaults, called
 `useSearchFilters` itself and computed the default window a second time for
 the Dates chip, so the chip and the reset read two objects that agreed only by
 copy. The binding carries `defaults`, and the chip reads that.
@@ -1800,9 +1754,8 @@ which sits beside `MISSION_STATUS_LABELS` with `MissionStatus` derived from it,
 the shape #1466 gave Assignments, so the status popover narrows a selection
 against the list rather than casting it.
 
-There are three of these hooks and not one generic one because the pages open
-on different windows with different defaults. A generic record-set filter hook
-is #1419's question.
+There are three of these hooks and they stay outside `useRecordSetFilters`,
+because a worklist page is one surface with no Map/Table pair to define.
 
 #### useAssignmentFilterState
 

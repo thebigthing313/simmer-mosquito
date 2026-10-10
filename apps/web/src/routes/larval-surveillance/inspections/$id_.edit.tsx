@@ -32,6 +32,7 @@ import {
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { INSPECTION_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
+import { addSamplesInFormOrder } from '../../../lib/add-inspection-samples';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -200,16 +201,9 @@ function EditInspectionLoader({
 		);
 
 		if (values.samples.length > 0) {
-			await attachLinksBestEffort('the samples', async () => {
-				for (const sample of values.samples) {
-					const label = sample.label.trim();
-					await sampleMutations.add({
-						sampleId: sample.id,
-						inspectionId: inspection.id,
-						displayName: label === '' ? null : label,
-					});
-				}
-			});
+			await attachLinksBestEffort('the samples', () =>
+				addSamplesInFormOrder(sampleMutations.add, inspection.id, values.samples),
+			);
 		}
 
 		await navigate({ to: '/larval-surveillance/inspections/$id', params: { id: inspection.id } });

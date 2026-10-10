@@ -9,6 +9,7 @@ import {
 	SelectValue,
 } from '@simmer-mosquito/ui-web/components/ui/select';
 import { useSearchPicker } from '../../../hooks/pickers/use-search-picker';
+import { stopCountPhrase } from '../../../lib/format-count';
 import {
 	formatListDate,
 	formatLocalDate,
@@ -320,5 +321,5 @@ function stopLabel(count: number | undefined): string | null {
 	if (count === undefined) {
 		return null;
 	}
-	return count === 1 ? '1 stop' : `${count} stops`;
+	return stopCountPhrase(count);
 }

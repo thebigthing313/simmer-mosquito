@@ -260,7 +260,7 @@ function CreateButton({
 		<WriteOnly minimum={create.minimum ?? 'collector'}>
 			<Button asChild size="sm">
 				<Link to={create.to}>
-					<PlusIcon aria-hidden="true" data-icon="inline-start" />
+					<PlusIcon aria-hidden="true" />
 					{create.label}
 				</Link>
 			</Button>
@@ -357,7 +357,7 @@ function PanelMenu({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button aria-label="More Actions" size="icon-sm" title="More Actions" variant="ghost">
+				<Button aria-label="More actions" size="icon-sm" title="More actions" variant="ghost">
 					<MoreHorizontalIcon aria-hidden="true" />
 				</Button>
 			</DropdownMenuTrigger>

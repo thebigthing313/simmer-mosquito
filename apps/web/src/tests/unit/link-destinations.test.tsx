@@ -33,6 +33,7 @@ import { applicationRecordSet } from '../../components/control-operations/chemic
 import { sourceReductionRecordSet } from '../../components/control-operations/source-reduction/source-reductions-search';
 import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
 import { DashboardPage } from '../../components/dashboard/dashboard-page';
+import { surfaceCodecs } from '../../components/explorer/record-set';
 import { RecordSetSwitch } from '../../components/explorer/record-set-switch';
 import { addressRecordSet } from '../../components/gis/addresses/addresses-search';
 import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
@@ -61,6 +62,7 @@ import { requested_control_actions } from '../../lib/collections/requested_contr
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 import { source_reductions } from '../../lib/collections/source_reductions';
+import { searchValidator } from '../../lib/search-filters';
 import { dayOverview, monthOverview, yearOverview } from './components/overview/overview-fixtures';
 import { installMemoryCollections, seedRows } from './lib/collections/memory-collections';
 import { STUB_ROW_HEIGHT, stubRailViewportHeight } from './rail-viewport-stub';
@@ -326,15 +328,15 @@ describe('the People roster', () => {
  * The fixture sets five of the eight filters and both of the table's sort
  * params, so a link that carried everything and a link that carried only the
  * filters resolve to different addresses. Region is one of the five, and the
- * Table does not apply it, so the switch carries it to the Map and not to the
- * Table.
+ * Table does not apply it, so the Table's address cannot hold it and the
+ * switch carries it in neither direction.
  */
 describe('the Inspections Map/Table switch', () => {
-	const TABLE_ADDRESS = {
+	const HAND_TYPED_TABLE_ADDRESS = {
 		from: '2026-08-01',
 		to: '2026-08-31',
 		water: 'wet',
-		density: ['low'],
+		density: ['light'],
 		regions: ['region-1'],
 		sort: 'dips',
 		direction: 'asc',
@@ -346,15 +348,20 @@ describe('the Inspections Map/Table switch', () => {
 	 * rather than built from the fixture, so a case cannot agree with a mistake
 	 * in the encoder.
 	 */
-	const SHARED = 'from=2026-08-01&to=2026-08-31&water=wet&density=%5B%22low%22%5D';
-	const REGION = 'regions=%5B%22region-1%22%5D';
+	const SHARED = 'from=2026-08-01&to=2026-08-31&water=wet&density=%5B%22light%22%5D';
 
-	it('carries the filters from the Table to the Map, and leaves the sort behind', () => {
-		renderWithRouter(
-			<RecordSetSwitch current="table" search={TABLE_ADDRESS} set={inspectionRecordSet} />,
+	it('carries the filters from the Table to the Map, and leaves the sort and Region behind', () => {
+		// The Table's own validated search: Region has no codec the Table reads,
+		// so a hand-typed one is gone before the switch sees the address.
+		const tableAddress = searchValidator(surfaceCodecs(inspectionRecordSet, 'table'))(
+			HAND_TYPED_TABLE_ADDRESS,
 		);
 
-		expect(linkHref('Map')).toBe(`/larval-surveillance/inspections?${SHARED}&${REGION}`);
+		renderWithRouter(
+			<RecordSetSwitch current="table" search={tableAddress} set={inspectionRecordSet} />,
+		);
+
+		expect(linkHref('Map')).toBe(`/larval-surveillance/inspections?${SHARED}`);
 	});
 
 	it('carries the filters from the Map to the Table, and leaves Region behind', () => {
@@ -364,7 +371,7 @@ describe('the Inspections Map/Table switch', () => {
 			from: '2026-08-01',
 			to: '2026-08-31',
 			water: 'wet',
-			density: ['low'],
+			density: ['light'],
 			regions: ['region-1'],
 		};
 

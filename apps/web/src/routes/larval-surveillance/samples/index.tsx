@@ -19,15 +19,13 @@ import {
 import { sampleSummaryGroupings } from '../../../components/larval-surveillance/samples/sample-summary';
 import {
 	sampleFilterCodecs,
-	sampleListParams,
 	sampleRecordSet,
-	sampleTileFilters,
 } from '../../../components/larval-surveillance/samples-search';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { useSpeciesOptions } from '../../../hooks/explorer/use-species-options';
-import { useSampleFilterState } from '../../../hooks/larval-surveillance/use-sample-filter-state';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -44,18 +42,16 @@ export const Route = createFileRoute('/larval-surveillance/samples/')({
 /** How many species result chips a narrow list row shows before collapsing to "+N". */
 const RESULT_CHIP_LIMIT = 1;
 
-const PATH = '/map/samples';
-
 function SamplesExplorerRoute() {
 	// The filter state lives in the URL, so a deep link, a shared link, and Back
 	// out of a record all land on the same view.
-	const binding = useSampleFilterState();
+	const binding = useRecordSetFilters(sampleRecordSet, 'map');
 	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
 	const panel = useExplorerPanel();
 
 	const { nameById } = useSpeciesOptions();
 
-	const filters = sampleTileFilters(query);
+	const filters = sampleRecordSet.tileFilters(query, binding.context);
 	const routeSearch = Route.useSearch();
 
 	const {
@@ -70,11 +66,11 @@ function SamplesExplorerRoute() {
 		selectedId,
 		setSelectedId,
 	} = useExplorerResource<SampleListRow>({
-		path: PATH,
-		rowsKey: 'samples',
+		path: sampleRecordSet.endpoint.path,
+		rowsKey: sampleRecordSet.endpoint.rowsKey,
 		rowKey: 'sample',
 		recordType: 'sample',
-		params: sampleListParams(filters),
+		params: sampleRecordSet.listParams(filters),
 		tiles: { kind: 'samples', filters },
 		summarize: true,
 	});
