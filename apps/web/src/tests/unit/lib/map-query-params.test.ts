@@ -23,7 +23,7 @@ describe('mapQueryParams', () => {
 		expect(mapQueryParams({ regionId: ['a', 'b', 'c'] })).toEqual({ regionId: 'a,b,c' });
 	});
 
-	// `isWet=false` is a real filter, dry inspections, and not an absent one.
+	// `isWet=false` asks for dry inspections. It is a filter, not an absent one.
 	it('keeps a false flag rather than treating it as unset', () => {
 		expect(mapQueryParams({ isWet: false, positive: true })).toEqual({
 			isWet: 'false',

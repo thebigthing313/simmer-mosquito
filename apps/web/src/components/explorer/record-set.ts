@@ -94,6 +94,10 @@ export interface RecordSet<TFilters, TTile = unknown> extends RecordSetLinks<TFi
 	 * The filters as the tile layer reads them, with an unset filter absent.
 	 * The Map draws its tiles from this and both surfaces build their list
 	 * request from it, so the two cannot send different filters.
+	 *
+	 * Both conversions are properties rather than methods, because TypeScript
+	 * checks a method's parameters bivariantly and a set over one tile type
+	 * would then pass where a set over any tile is asked for (#1588).
 	 */
 	readonly tileFilters: (filters: TFilters, context: RecordSetContext) => TTile;
 	/** The tile filters as the list endpoint's query params. */
