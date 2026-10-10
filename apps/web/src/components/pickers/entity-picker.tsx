@@ -1,4 +1,4 @@
-import { errorMessagesFrom } from '@simmer-mosquito/ui-web/components/form';
+import { errorMessagesFrom, RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { FieldError } from '@simmer-mosquito/ui-web/components/ui/field';
 import { InputGroupButton } from '@simmer-mosquito/ui-web/components/ui/input-group';
@@ -16,6 +16,7 @@ import { useId } from 'react';
 
 export function PickerFrame({
 	label,
+	required = false,
 	value,
 	open,
 	search,
@@ -30,6 +31,8 @@ export function PickerFrame({
 	children,
 }: {
 	readonly label: string;
+	/** Draws the required mark after the label. */
+	readonly required?: boolean;
 	readonly value: string | null;
 	readonly open: boolean;
 	readonly search: string;
@@ -53,7 +56,10 @@ export function PickerFrame({
 
 	return (
 		<div className="grid gap-1.5">
-			<span className="font-medium text-foreground text-sm">{label}</span>
+			<span className="font-medium text-foreground text-sm">
+				{label}
+				{required ? <RequiredMark /> : null}
+			</span>
 			<Popover onOpenChange={onOpenChange} open={open}>
 				<PopoverAnchor asChild>
 					<div ref={anchorRef}>

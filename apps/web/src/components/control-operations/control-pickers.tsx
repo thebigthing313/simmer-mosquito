@@ -6,18 +6,25 @@ import { useHabitatSearch } from '../../hooks/queries/use-habitat-search';
 import { OptionRow, PickerFallback, PickerFrame } from '../pickers/entity-picker';
 
 // A control action picks a habitat when the work was done against a known
-// larval site. Habitats sync on demand, so results come from a live `ilike`
-// subset query. Picking an address is `LocationAddressField`'s, in
-// `components/forms/location-band.tsx`, because that pick also moves the map.
+// larval site, and an inspection picks the habitat it was made at. Habitats
+// sync on demand, so results come from a live `ilike` subset query. Picking an
+// address is `LocationAddressField`'s, in `components/forms/location-band.tsx`,
+// because that pick also moves the map.
 
 export function HabitatPicker({
 	label = 'Habitat',
+	required = false,
+	includeRetired = false,
 	organizationId,
 	value,
 	onSelect,
 	errors,
 }: {
 	readonly label?: string;
+	/** Draws the required mark after the label. */
+	readonly required?: boolean | undefined;
+	/** Offers retired habitats too. The inspection form passes it and no other form does. */
+	readonly includeRetired?: boolean | undefined;
 	readonly organizationId: string;
 	readonly value: string | null;
 	readonly onSelect: (habitat: HabitatMatch | null) => void;
@@ -39,8 +46,15 @@ export function HabitatPicker({
 	const deferredSearch = useDeferredValue(picker.search);
 
 	return (
-		<PickerFrame {...picker.frame} errors={errors} label={label} placeholder="Search habitats">
+		<PickerFrame
+			{...picker.frame}
+			errors={errors}
+			label={label}
+			placeholder="Search habitats"
+			required={required}
+		>
 			<HabitatResults
+				includeRetired={includeRetired}
 				onSelect={(habitat) => {
 					picker.pick(habitat.id, habitat.name);
 					onSelect(habitat);
@@ -54,17 +68,21 @@ export function HabitatPicker({
 }
 
 function HabitatResults({
+	includeRetired,
 	organizationId,
 	search,
 	selectedValue,
 	onSelect,
 }: {
+	readonly includeRetired: boolean;
 	readonly organizationId: string;
 	readonly search: string;
 	readonly selectedValue: string | null;
 	readonly onSelect: (habitat: HabitatMatch) => void;
 }) {
-	const { matches, isReady, isError } = useHabitatSearch(organizationId, search);
+	const { matches, isReady, isError } = useHabitatSearch(organizationId, search, {
+		includeRetired,
+	});
 
 	if (isError) {
 		return <PickerFallback label="Habitats unavailable" />;
