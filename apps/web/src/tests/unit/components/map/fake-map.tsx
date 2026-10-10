@@ -84,6 +84,9 @@ export function createFakeMap() {
 	// What `getZoom` answers. Nothing here moves it; a suite asking how a call
 	// reads the current zoom sets it with `setZoom`.
 	let zoom = 10;
+	// What `isMoving` answers. Nothing here starts or ends a move; a suite staging
+	// a move that is still running sets it with `setMoving`.
+	let moving = false;
 
 	function record(
 		kind: CameraCall['kind'],
@@ -188,6 +191,7 @@ export function createFakeMap() {
 			getWest: () => origin.lng + 0.2,
 		}),
 		getPadding: () => ({ ...padding }),
+		isMoving: () => moving,
 		flyTo(options: CameraOptions, eventData?: object) {
 			assertLive();
 			record('flyTo', options, { eventData });
@@ -328,6 +332,17 @@ export function createFakeMap() {
 		/** Put the map at `next`, which is what `getZoom` answers from then on. */
 		setZoom(next: number) {
 			zoom = next;
+		},
+		/** Say whether a move is in progress, which is what `isMoving` answers from then on. */
+		setMoving(next: boolean) {
+			moving = next;
+		},
+		/**
+		 * Leave `next` on the map with no camera call recorded, which is what a
+		 * padding ease stopped partway does: mapbox keeps the in-between value.
+		 */
+		strandPadding(next: Padding) {
+			padding = { ...next };
 		},
 		/** What a basemap switch does before it fires `style.load`. */
 		wipeStyle() {

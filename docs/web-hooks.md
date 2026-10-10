@@ -684,10 +684,11 @@ keep it unless the call says `retainPadding: false`. Before #1424 nothing in
 left 64, and since this hook writes again only when the inset's four numbers
 change, every later selection centred on the whole canvas, under the results
 panel. So every fit takes its padding from `framingPadding` in
-`components/map/map-inset.ts`: the canvas's current padding off `getPadding()`
-plus the fit's margin on each side, with `retainPadding: false`. A fit can
-hand it an inset in place of `getPadding()`, which `useMapExtentFit` does,
-because on a fresh map it can run before this hook has written anything.
+`components/map/map-inset.ts`: the inset this hook last asked for plus the
+fit's margin on each side, with `retainPadding: false`. A fit can hand it an
+inset of its own, which `useMapExtentFit` does, because on a fresh map it can
+run before this hook has written anything, and a map this hook has not
+written to yet falls back to `getPadding()`.
 
 Every fit and every flight in `apps/web` goes through
 `components/map/map-camera.ts`, which is where that rule is applied: `frameOnMap`
@@ -701,10 +702,26 @@ The `place` focus flies for 1100 ms, the locate button's old number rather than
 the search client's 700, because a place can be anywhere on the map and a
 reader follows a long flight better than a quick one.
 
-One race is left. A fit that starts while this hook's 300 ms padding animation
-is running stops it partway, and `getPadding()` then reads the in-between
-value, which the fit's `retainPadding: false` restores when it ends. This hook
-does not write again, because the inset's four numbers have not changed.
+The padding is animated over 300 ms, and anything that moves the camera inside
+that window stops the ease partway: a fit, a focus, a zoom button, a drag or a
+wheel zoom. A stopped ease leaves the transform where its last frame put it,
+so mapbox keeps the in-between padding, and the effect above never notices because
+the inset's four numbers have not changed. Later selections then centre in
+the wrong place, and `useMapExtentFit`'s in-view test, which reads
+`getBounds()` net of padding, judges against the wrong box (#1490).
+Two things cover it. The hook records the inset it asked for on the map
+(`requestCanvasInset` in `map-inset.ts`), and `framingPadding` builds on that
+record rather than on `getPadding()`, so a fit that starts mid-ease gets the
+right margin. And the hook listens for `moveend`: one frame later, if the map
+is not moving and its padding differs from the record, it eases back to the
+record. A move that ends with the padding right writes nothing.
+
+The frame is the part not to remove. Mapbox fires `moveend` for the stopped
+ease from inside the interrupting call's `stop()`, before that call has set
+the map moving, so `isMoving()` reads false at that point and a write there
+would stop the new move in turn. A frame later the interrupting call has
+started, or a gesture's own render frame has marked it in progress, and
+`isMoving()` answers true.
 
 #### useMapboxMap
 
