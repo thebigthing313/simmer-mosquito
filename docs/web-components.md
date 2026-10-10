@@ -342,8 +342,8 @@ same situation: the Inspections switch carried Region to a Table with no Region
 control and left it unapplied there, so a reader could go Map to Table and
 back and keep the selection, while the Service Requests switch dropped Search,
 Tags and Region because a filter the Table neither shows nor clears is one
-that either sits unapplied or narrows the rows invisibly. The second won on
-2026-10-09, so Inspections now loses Region on the way to its Table, the way
+that either sits unapplied or narrows the rows invisibly. The maintainer
+settled on the second in #1419, so Inspections now loses Region on the way to its Table, the way
 Service Requests always lost its three.
 
 The paths are typed as `LinkProps['to']`, which is the router's own answer, so

@@ -21,7 +21,7 @@ type RoutePath = NonNullable<LinkProps['to']>;
  * Service Requests Table has none for Search, Tags or Region, so those keys are
  * `map` and a switch to the Table leaves them behind.
  */
-export type RecordSetKeyTreatment = 'both' | RecordSetSurface;
+export type AppliedOn = 'both' | RecordSetSurface;
 
 /**
  * One Map/Table pair over one record type and one filter contract.
@@ -34,7 +34,7 @@ export interface RecordSet<TFilters> {
 	readonly recordType: RecordType;
 	readonly paths: { readonly [Surface in RecordSetSurface]: RoutePath };
 	readonly codecs: FilterCodecs<TFilters>;
-	readonly applies: { readonly [Key in keyof TFilters]-?: RecordSetKeyTreatment };
+	readonly applies: { readonly [Key in keyof TFilters]-?: AppliedOn };
 }
 
 /**
@@ -43,15 +43,15 @@ export interface RecordSet<TFilters> {
  */
 export function defineRecordSet<TFilters>(
 	definition: Omit<RecordSet<TFilters>, 'applies'> & {
-		readonly applies: { readonly [Key in keyof NoInfer<TFilters>]-?: RecordSetKeyTreatment };
+		readonly applies: { readonly [Key in keyof NoInfer<TFilters>]-?: AppliedOn };
 	},
 ): RecordSet<TFilters> {
 	return definition;
 }
 
 /** Whether `surface` applies the filter under `key`. */
-function surfaceApplies(treatment: RecordSetKeyTreatment, surface: RecordSetSurface): boolean {
-	return treatment === 'both' || treatment === surface;
+function surfaceApplies(appliedOn: AppliedOn, surface: RecordSetSurface): boolean {
+	return appliedOn === 'both' || appliedOn === surface;
 }
 
 /**

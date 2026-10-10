@@ -47,7 +47,7 @@ function everyParam(set: RecordSet<unknown>): Record<string, unknown> {
 
 function keysAppliedOn(set: RecordSet<unknown>, surface: RecordSetSurface): string[] {
 	return Object.entries(set.applies as Record<string, string>)
-		.filter(([, treatment]) => treatment === 'both' || treatment === surface)
+		.filter(([, appliedOn]) => appliedOn === 'both' || appliedOn === surface)
 		.map(([key]) => key)
 		.sort();
 }
@@ -55,7 +55,7 @@ function keysAppliedOn(set: RecordSet<unknown>, surface: RecordSetSurface): stri
 describe.each(SETS)('the %s record set', (_name, set, tableDrops) => {
 	const filterKeys = Object.keys(set.codecs as object).sort();
 
-	it('names every filter key in its treatment map', () => {
+	it('names every filter key in `applies`', () => {
 		expect(Object.keys(set.applies as object).sort()).toEqual(filterKeys);
 	});
 
@@ -124,7 +124,7 @@ describe('a record set definition', () => {
 		expect(set.paths.table).toBe('/gis/adresses/table');
 	});
 
-	it('refuses a treatment map whose keys are not the filter keys', () => {
+	it('refuses an `applies` map whose keys are not the filter keys', () => {
 		const set = defineRecordSet({
 			recordType: 'address',
 			paths: addressRecordSet.paths,
