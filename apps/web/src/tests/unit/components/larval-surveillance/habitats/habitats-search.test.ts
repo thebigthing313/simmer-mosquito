@@ -4,7 +4,7 @@ import {
 	habitatListParams,
 	habitatTileFilters,
 } from '../../../../../components/larval-surveillance/habitats/habitats-search';
-import { mapQueryParams } from '../../../../../hooks/explorer/use-paged-map-resource';
+import { mapQueryParams } from '../../../../../lib/map-query-params';
 
 /**
  * The Map and the Table send one filter set to `/map/habitats`, so this is the
