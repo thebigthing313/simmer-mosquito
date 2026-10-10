@@ -707,10 +707,27 @@ and larval sheets converted first, closed, and toasted. Three sheets of four
 already did the second, and once the client checks a value by the rule the domain
 does, a server refusal is the rare case, so that is the one the frame keeps.
 
+A sheet's conversion is its only rule, and no field in a settings sheet carries
+a validator. Organization details and unit defaults used to refuse an empty
+required value twice, once in a field validator that drew the message under
+the field and once in the conversion, which never ran on it because the
+validator stopped the submit first. Main contact's email check was the one
+rule held only by a validator. All of them are in the conversion now, so every
+refusal reads the same way, in the error alert with the sheet open (#1475).
+
+The two gates are in two places. Save is disabled while the Organization row
+is still loading, and the frame reads that from
+`useOrganizationSettingsMutations` itself, so no caller can fill it
+differently: before #1475 two callers passed `canWrite` and two passed it
+anded with `canManage`. Who may open a sheet is `DomainSection`'s question,
+which draws the Edit control only at the Admin floor, so no sheet takes a role
+or disables its inputs on one. The server refuses the settings commands below
+that floor either way.
+
 The body is the caller's, handed the form, rather than a field list the frame
-reads. Organization details carries field validators of its own, unit defaults
-draws one select per unit type and the larval sheet lays its density bands out
-in fieldsets, and none of those is a list of inputs keyed by name.
+reads. Unit defaults draws one select per unit type read off its values and
+the larval sheet lays its density bands out in fieldsets, and neither is a
+list of inputs keyed by name.
 
 #### SettingsSectionSheet
 
@@ -1071,6 +1088,14 @@ under that hook in `docs/web-hooks.md`.
 `required` draws the required mark after the label. The inspection's habitat
 field passes it, since its label carried the mark before it moved onto this
 frame (#1468).
+
+#### OptionRow
+
+Secondary text that is blank after trimming draws no second line, the same as
+`null`. Habitat and trap descriptions and service request details reach the
+row as written, and nothing trims them on write, so a description of spaces
+drew an empty muted line and left that result taller than its neighbours
+(#1484). The rule sits in the row so no caller has to trim first.
 
 ### public-engagement
 

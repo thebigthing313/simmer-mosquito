@@ -20,7 +20,6 @@ function MyOrganizationPublicEngagementRoute() {
 				canManage={workspace.canManage}
 				editAction={
 					<SettingsSectionSheet
-						canManage={workspace.canManage}
 						section={serviceRequestContextSection}
 						settings={workspace.settings}
 					/>

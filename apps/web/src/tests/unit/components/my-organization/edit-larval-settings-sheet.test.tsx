@@ -15,8 +15,8 @@ vi.mock('../../../../hooks/mutations/use-organization-settings-mutations', () =>
 	useOrganizationSettingsMutations: () => ({ canWrite: true, setLarvalInspectionEntryPolicy }),
 }));
 
-const { LarvalSettingsDrawer } = await import(
-	'../../../../components/my-organization/larval-settings-drawer'
+const { EditLarvalSettingsSheet } = await import(
+	'../../../../components/my-organization/edit-larval-settings-sheet'
 );
 
 const SETTINGS = {
@@ -40,7 +40,7 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-describe('LarvalSettingsDrawer', () => {
+describe('EditLarvalSettingsSheet', () => {
 	it('opens on the saved bands', () => {
 		openSheet();
 
@@ -81,7 +81,7 @@ describe('LarvalSettingsDrawer', () => {
 });
 
 function openSheet(): void {
-	render(<LarvalSettingsDrawer canManage settings={SETTINGS} />);
+	render(<EditLarvalSettingsSheet settings={SETTINGS} />);
 	fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 }
 

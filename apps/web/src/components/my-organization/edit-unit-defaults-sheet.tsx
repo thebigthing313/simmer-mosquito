@@ -17,12 +17,11 @@ export function EditUnitDefaultsSheet({
 	readonly title: string;
 	readonly units: readonly UnitLabel[];
 }) {
-	const { canWrite, setUnitDefaults } = useOrganizationSettingsMutations();
+	const { setUnitDefaults } = useOrganizationSettingsMutations();
 	const unitTypes = Object.keys(defaultValues) as Array<keyof UnitDefaultsFormValues>;
 
 	return (
 		<SettingsSheet
-			canSave={canWrite}
 			convert={unitDefaultsFrom}
 			description={description}
 			failureMessage="Unable to save unit defaults."
@@ -32,14 +31,7 @@ export function EditUnitDefaultsSheet({
 		>
 			{(form) =>
 				unitTypes.map((unitType) => (
-					<form.AppField
-						key={unitType}
-						name={unitType}
-						validators={{
-							onSubmit: ({ value }) =>
-								value.trim().length === 0 ? `${titleCaseToken(unitType)} is required.` : undefined,
-						}}
-					>
+					<form.AppField key={unitType} name={unitType}>
 						{(field) => (
 							<field.SelectField
 								label={titleCaseToken(unitType)}

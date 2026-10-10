@@ -6,11 +6,14 @@
  * `YYYY-MM-DD` string — no zone, no instant.
  */
 
-import { caseWhen, coalesce, eq, gte, isNull, useLiveQuery } from '@tanstack/react-db';
+import { caseWhen, coalesce, gte, isNull, useLiveQuery } from '@tanstack/react-db';
 import { outreach_actions } from '../../lib/collections/outreach_actions';
 import { outreach_methods } from '../../lib/collections/outreach_methods';
 import { profiles } from '../../lib/collections/profiles';
+import { PERFORMED_ACTIONS } from './performed-action-reads';
 import { activityGcTimeMs } from './shared';
+
+const outreachReads = PERFORMED_ACTIONS.outreachActions;
 
 /** One outreach action as a recent-activity list shows it. */
 export interface RecentOutreachAction {
@@ -34,32 +37,35 @@ export function useRecentOutreachActions(sinceDate: string): {
 		query: (query) =>
 			query
 				.from({ action: outreach_actions() })
-				.where(({ action }) => gte(action.outreach_date, sinceDate))
+				.where(({ action }) => gte(outreachReads.date(action), sinceDate))
 				.join(
 					{ method: outreach_methods() },
-					({ action, method }) => eq(action.outreach_method_id, method.id),
+					({ action, method }) => outreachReads.joinMethod(action, method),
 					'left',
 				)
 				.join(
 					{ technician: profiles() },
-					({ action, technician }) => eq(action.technician_profile_id, technician.id),
+					({ action, technician }) => outreachReads.joinPerformer(action, technician),
 					'left',
 				)
-				.orderBy(({ action }) => action.outreach_date, 'desc')
-				.select(({ action, method, technician }) => ({
-					id: action.id,
-					outreachDate: action.outreach_date,
-					methodId: action.outreach_method_id,
-					methodName: coalesce(method.name, 'Unknown method'),
-					technicianProfileId: action.technician_profile_id,
-					technicianName: caseWhen(
-						isNull(action.technician_profile_id),
-						null,
-						technician.display_name,
-					),
-					reach: action.reach,
-					reachDescription: action.reach_description,
-				})),
+				.orderBy(({ action }) => outreachReads.date(action), 'desc')
+				.select(({ action, method, technician }) => {
+					const measured = outreachReads.measured(action);
+					return {
+						id: action.id,
+						outreachDate: outreachReads.date(action),
+						methodId: measured.methodId,
+						methodName: coalesce(method.name, 'Unknown method'),
+						technicianProfileId: measured.performerProfileId,
+						technicianName: caseWhen(
+							isNull(measured.performerProfileId),
+							null,
+							technician.display_name,
+						),
+						reach: measured.amount,
+						reachDescription: action.reach_description,
+					};
+				}),
 	});
 
 	return { actions: result.data, isReady: result.isReady, isError: result.isError };
