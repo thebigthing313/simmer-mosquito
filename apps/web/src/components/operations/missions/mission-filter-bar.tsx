@@ -8,13 +8,14 @@
  */
 
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
-import type { MissionFilterBinding } from '../../../hooks/operations/use-mission-filter-state';
+import type { MissionFilters } from '../../../hooks/operations/use-mission-filter-state';
 import {
 	CONTROL_TYPES,
 	controlTypeLabel,
 	MISSION_STATUS_LABELS,
 	MISSION_STATUSES,
 } from '../../../hooks/queries/operations-view';
+import type { FilterBinding } from '../../../lib/search-filters';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
@@ -40,7 +41,7 @@ export function MissionFilterBar({
 	assigneeLabel,
 	assigneeOptions,
 }: {
-	readonly binding: MissionFilterBinding;
+	readonly binding: FilterBinding<MissionFilters>;
 	readonly assigneeLabel: (id: string) => string;
 	readonly assigneeOptions: readonly FilterOption[];
 }) {
