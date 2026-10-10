@@ -1,6 +1,7 @@
 import { and, coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import {
 	type RouteStopCluster,
+	type RouteStopResolution,
 	type RouteStopView,
 	stopTone,
 } from '../../components/larval-surveillance/habitats/route-data';
@@ -58,15 +59,13 @@ export function useHabitatRouteStops(routeId: string | null): {
 					position: item.position,
 					directionsToNextItem: item.directions_to_next_item,
 
-					// `undefined` here is the join still resolving, which is what
-					// `isResolving` reports below.
-					resolvedHabitatId: habitat.id,
 					// `null` while the Habitat has not arrived, so the id fallback below
 					// is reachable rather than a bare `, ` from `concat` over nothing.
 					name: joinedHabitatNameSelect(habitat),
 					// `null` while the Habitat has not arrived, which is not the same
 					// answer as a Habitat with no description: the column is never
-					// null, so a resolved one reads `''`.
+					// null, so a resolved one reads `''`. That makes it the joined
+					// row's presence, which `resolution` below reads as `isResolving`.
 					description: coalesce(habitat.description, null),
 					habitatTypeId: coalesce(habitat.habitat_type_id, null),
 					lat: coalesce(habitat.lat, null),
@@ -85,12 +84,12 @@ export function useHabitatRouteStops(routeId: string | null): {
 	// place in the ordered result, and a projection sees a row rather than the
 	// sequence. `position` is the stored sort key and can have gaps, so it is
 	// not the number a crew reads off the list.
-	const stops: RouteStopView[] = rows.map((row, index) => ({
+	const stops: RouteStopView[] = rows.map(({ description, ...row }, index) => ({
 		...row,
+		...resolution(description),
 		ordinal: index + 1,
 		name: row.name ?? `Habitat ${row.habitatId.slice(0, 8)}`,
 		hasLocation: row.lat !== null && row.lng !== null,
-		isResolving: row.resolvedHabitatId === undefined,
 	}));
 
 	const clusters = clusterByAddress(stops);
@@ -112,6 +111,17 @@ export function useHabitatRouteStops(routeId: string | null): {
 		itemCount: rows.length,
 		isLoading: routeId !== null && result.isLoading,
 	};
+}
+
+/**
+ * A stop's description and `isResolving` from the one column that decides
+ * both, so the two cannot disagree: the description is `null` exactly when the
+ * Habitat has not arrived.
+ */
+function resolution(description: string | null): RouteStopResolution {
+	return description === null
+		? { isResolving: true, description: null }
+		: { isResolving: false, description };
 }
 
 /** Group consecutive stops that share a non-null address into one cluster. */

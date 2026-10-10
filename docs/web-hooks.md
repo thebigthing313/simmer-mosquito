@@ -1667,6 +1667,14 @@ the description is `coalesce(habitat.description, null)` under the joined
 column rule: `null` while the Habitat is resolving, and `''` for a Habitat
 with none, since the column is never null.
 
+That `null` is also what sets `isResolving`, through `resolution` in the same
+module, and `RouteStopView` is a union on it: a resolving stop has a `null`
+description and a resolved one a string (#1579). The two fields used to be
+independent, read off the description and the joined Habitat's id, so they
+agreed on every row while the type allowed either without the other, and a
+reader narrowing on `isResolving` still had to write `?? ''`. Deriving both
+from the one column is what makes a join change that splits them fail `tsc`.
+
 #### useHabitatRouteStopCounts
 
 Reads the organization-scoped `route_items` shape, the same on-demand
