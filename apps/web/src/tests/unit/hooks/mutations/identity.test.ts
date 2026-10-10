@@ -463,7 +463,7 @@ describe('a settings write', () => {
 
 	it('gives every other setting its own route and payload key', async () => {
 		// The timezone and the unit defaults are asserted above, each for a reason
-		// of its own. These five have only the pairing to get wrong, and the route
+		// of its own. These six have only the pairing to get wrong, and the route
 		// is how the command is named on this surface.
 		const { result } = renderHook(() => useOrganizationSettingsMutations());
 		const sends: readonly [string, string, () => Promise<void>][] = [
@@ -494,6 +494,11 @@ describe('a settings write', () => {
 						...SETTINGS.publicEngagement.serviceRequestContext,
 						timeWindow: { daysBefore: 30, daysAfter: 5 },
 					}),
+			],
+			[
+				'service-request-overdue-days',
+				'serviceRequestOverdueDays',
+				() => result.current.setServiceRequestOverdueDays('off'),
 			],
 			[
 				'species-key-bindings',

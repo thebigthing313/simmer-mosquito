@@ -1,11 +1,11 @@
 /**
  * Configuring the organization.
  *
- * Eight operations, each naming exactly one thing a Profile can change about
- * the organization: the seven `organizationSettings.*` commands, and the
+ * Nine operations, each naming exactly one thing a Profile can change about
+ * the organization: the eight `organizationSettings.*` commands, and the
  * organization's details. The details are columns, so since ADR 0013's first
  * slice they are `identity.updateOrganizationDetails` through
- * `mutateCollection` like every other table's writes. The seven are a JSON
+ * `mutateCollection` like every other table's writes. The eight are a JSON
  * document and keep their own routes See `organization-writes.ts` for why.
  *
  * What each operation sends is only its own sub-document. The server merges it
@@ -36,6 +36,7 @@ import type {
 	OrganizationSettings,
 	ResolvedLarvalInspectionEntryPolicy,
 	ServiceRequestContextSettings,
+	ServiceRequestOverdueDays,
 	SpeciesKeyBinding,
 	UnitDefaults,
 } from '@simmer-mosquito/domain';
@@ -72,16 +73,17 @@ export interface OrganizationSettingsMutations {
 	) => Promise<void>;
 	readonly setInsecticideBatchTracking: (trackInsecticideBatches: boolean) => Promise<void>;
 	readonly setServiceRequestContext: (context: ServiceRequestContextSettings) => Promise<void>;
+	readonly setServiceRequestOverdueDays: (days: ServiceRequestOverdueDays) => Promise<void>;
 	readonly setSpeciesKeyBindings: (bindings: readonly SpeciesKeyBinding[]) => Promise<void>;
 	/** False while the organization's row is still arriving; every write throws until then. */
 	readonly canWrite: boolean;
 }
 
 /**
- * The seven settings commands, as the routes that carry them.
+ * The eight settings commands, as the routes that carry them.
  *
  * A union rather than a map from command name to path: the path *is* how the
- * command is named on this surface, so a second spelling of the same seven
+ * command is named on this surface, so a second spelling of the same eight
  * facts would only be somewhere for them to disagree.
  */
 type SettingsRoute =
@@ -91,6 +93,7 @@ type SettingsRoute =
 	| 'larval-inspection-entry-policy'
 	| 'insecticide-batch-tracking'
 	| 'service-request-context'
+	| 'service-request-overdue-days'
 	| 'species-key-bindings';
 
 /** The columns `identity.updateOrganizationDetails` writes. */
@@ -247,7 +250,11 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 		}
 
 		const organizationId = row.id;
-		const settings = resolveOrganizationSettings(row.settings).settings;
+		// Off the collection rather than the render's copy, so a second write from
+		// one Save builds on the first instead of putting its old value back on
+		// screen until sync answers.
+		const latest = organizations().get(organizationId) ?? row;
+		const settings = resolveOrganizationSettings(latest.settings).settings;
 		const result = await writeOrganization({
 			url: `${getServerUrl()}/organization-settings/${route}`,
 			body: { ...payload, expectedUpdatedAt: expectedUpdatedAt() },
@@ -357,6 +364,12 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 			publicEngagement: { ...current.publicEngagement, serviceRequestContext },
 		}));
 
+	const setServiceRequestOverdueDays = (serviceRequestOverdueDays: ServiceRequestOverdueDays) =>
+		writeSettings('service-request-overdue-days', { serviceRequestOverdueDays }, (current) => ({
+			...current,
+			publicEngagement: { ...current.publicEngagement, serviceRequestOverdueDays },
+		}));
+
 	const setSpeciesKeyBindings = (bindings: readonly SpeciesKeyBinding[]) =>
 		writeSettings('species-key-bindings', { speciesKeyBindings: { bindings } }, (current) => ({
 			...current,
@@ -370,6 +383,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 		setLarvalInspectionEntryPolicy,
 		setInsecticideBatchTracking,
 		setServiceRequestContext,
+		setServiceRequestOverdueDays,
 		setSpeciesKeyBindings,
 		canWrite: row !== undefined,
 	};

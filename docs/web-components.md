@@ -789,6 +789,21 @@ value is bad before it closes, and an `async` save that both converts and
 writes would hand a conversion error back as a rejection indistinguishable
 from a refused write. `convert` is synchronous and throws; `save` only writes.
 
+The service request overdue threshold (#1246) is a number of days or off, which
+no one field kind holds. It is two fields of kinds the descriptor already has,
+a switch for on and a number for the days, rather than a fifth kind or a body of
+its own inside `SettingsSheet`. A fifth kind would be a new branch in
+`SettingsFieldInput` and a new member of `SettingsSectionField` for one setting,
+and a custom body would take the Public Engagement section off the descriptor
+and redraw its four context fields by hand. The cost is that the days input
+stays drawn while the switch is off; `serviceRequestOverdueDaysFrom` ignores it
+then, so an emptied input does not stop a save that turns the threshold off,
+and the number is still there when the switch goes back on. The section's
+`save` writes the context and then the threshold, one after the other, because
+the second write states the `updated_at` the first committed under. The two
+are not one transaction: a refused threshold write after a saved context
+leaves the context saved, and the toast names the section.
+
 #### ReinviteControl
 
 The redo is its own command, reached from the row it is about, because a second
