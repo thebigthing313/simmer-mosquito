@@ -10,8 +10,8 @@ import { useOrganizationSettings } from '../queries/use-organization-settings';
  * What a service requests surface's address with no filter params means, the
  * Organization's today, and the overdue cut-off: the first request date that
  * is not overdue under the Organization's threshold, or `null` while the
- * threshold is off. The window opens on this year, so the year turns over on
- * the Organization's calendar rather than the browser's, and so does overdue.
+ * threshold is off. The window runs from the first day of this year to
+ * today, both in the Organization's zone.
  */
 export function useServiceRequestFilterDefaults(): {
 	readonly defaults: ServiceRequestFilters;
