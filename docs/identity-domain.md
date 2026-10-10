@@ -156,6 +156,12 @@ is upper-cased and must be one of the 51 state and district codes.
 because an organization that has not filled its address in is not an error, but
 neither can name somewhere else.
 
+The operator console's `POST /admin/organizations` holds a new Organization to
+the same rules. Both read them from `normalizeOrganizationContactDetails` in
+`packages/domain`, which also carries the per-field length limits and the Main
+contact's email check, and the create route refuses before it calls WorkOS
+(#1524).
+
 The reason is that SIMMER does not expect an organization outside the US. A
 mosquito control district is a US institution, and the assumption is already
 load-bearing elsewhere: the organization timezone picker offers US zones only.

@@ -1552,9 +1552,11 @@ hard to find among the JSX. The rules themselves and the metric inputs live
 in `components/gis/weather/weather-summary-form.ts`, shared with the dialog.
 
 `onWriteYear` is called before the write, not after. The card lists one year
-at a time, and a write into a year its live query does not cover waits out a
-txid that never arrives on that subset: `settleWrite` swallows the
-adapter's timeout, so the dialog closes late over a row the user cannot see.
+at a time, so without it a save into another year closes the dialog over a
+list missing the row just saved. Calling it first starts the written year
+loading while the save waits for confirmation. The written year is not what
+lets the save confirm: `docs/sync.md` has why a txid arrives whatever a live
+query has loaded.
 
 #### useActiveYear
 
@@ -2207,6 +2209,17 @@ gives on the write side. Every column is a property access on a typed ref
 inside a function, never a column name in a string, so a misspelled column
 fails `tsc` in that file rather than answering `undefined`. #1498 checked it by
 renaming two columns there and reading two TS2551s.
+
+Every hook that reads a performed control action returns each joined name,
+the performer, the method and the insecticide, as
+`coalesce(joined.name, null)`. The name is `null` both when nothing was
+recorded and when the record is not in the client, which is permanent for a
+deleted Profile because the Profile shape streams live rows only. So the
+surface reads the id beside the name to tell the two apart and draws its own
+`Unknown method` or `No method`; the hook draws neither. A `caseWhen` guarded
+on the foreign key used to yield `undefined` for the second case under a
+`string | null` type, and the Chemical Application map card drew an empty
+applicator row for it (#1501).
 
 #### useInspection and useHabitatSuspense
 

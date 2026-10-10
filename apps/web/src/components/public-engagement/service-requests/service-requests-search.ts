@@ -3,6 +3,7 @@ import {
 	choiceParam,
 	dateParam,
 	type FilterCodecs,
+	flagParam,
 	idSetParam,
 	textParam,
 } from '../../../lib/search-filters';
@@ -25,6 +26,11 @@ export interface ServiceRequestFilters {
 	readonly from: string;
 	/** Inclusive end of the `request_date` window (`YYYY-MM-DD`), `''` for none. */
 	readonly to: string;
+	/**
+	 * Overdue requests only. Read only while the Organization's threshold is on;
+	 * with it off the flag narrows nothing and no control sets it.
+	 */
+	readonly overdue: boolean;
 }
 
 /**
@@ -39,7 +45,21 @@ export const serviceRequestFilterCodecs: FilterCodecs<ServiceRequestFilters> = {
 	regions: idSetParam,
 	from: dateParam,
 	to: dateParam,
+	overdue: flagParam,
 };
+
+/**
+ * How many filters a surface says are set, from the count of params on its
+ * address. An Overdue left on the address while the Organization's threshold
+ * is off narrows nothing, so it is not counted either.
+ */
+export function countedServiceRequestFilters(
+	addressCount: number,
+	overdue: boolean,
+	overdueAvailable: boolean,
+): number {
+	return overdue && !overdueAvailable ? addressCount - 1 : addressCount;
+}
 
 /** The order the Map's rail and the Table page in. */
 export type ServiceRequestRailOrder = 'newest' | 'oldest';
@@ -78,13 +98,14 @@ export function serviceRequestFilterDefaults(today: string): ServiceRequestFilte
 		regions: new Set<string>(),
 		from: startOfYear(today),
 		to: today,
+		overdue: false,
 	};
 }
 
 /**
  * The Service Requests Map and Table. Both read `/map/service-requests`. The
- * Table has controls for status and the date window and none for Search, Tags
- * or Region, so those three are the Map's alone and a switch to the Table
+ * Table has controls for status, the date window and Overdue and none for
+ * Search, Tags or Region, so those three are the Map's alone and a switch to the Table
  * leaves them behind. The `order` param is not a filter and stays on the
  * surface that set it.
  */
@@ -95,5 +116,13 @@ export const serviceRequestRecordSet = defineRecordSet({
 		table: '/public-engagement/service-requests/table',
 	},
 	codecs: serviceRequestFilterCodecs,
-	applies: { status: 'both', search: 'map', tags: 'map', regions: 'map', from: 'both', to: 'both' },
+	applies: {
+		status: 'both',
+		search: 'map',
+		tags: 'map',
+		regions: 'map',
+		from: 'both',
+		to: 'both',
+		overdue: 'both',
+	},
 });

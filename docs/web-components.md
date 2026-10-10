@@ -529,12 +529,12 @@ drawn.
 #### WeatherSummariesCard
 
 One year per tab, because a station logged daily for ten years is 3,650 rows in
-one table. The tab follows a write because `weather_summaries` is on-demand and
-a write into a subset the live query does not cover waits out a txid that never
-arrives; `settleWrite` swallows that timeout, so it is a slow save over a row
-the user cannot see, and moving the tab fixes both. The dialog is mounted on
-the card for the same reason: the card is what keeps the station's subset
-queried.
+one table. The tab follows a write because the dialog would otherwise close
+over a list missing the row just saved, whenever the save lands in a year other
+than the one on screen. It used to say the switch was also what let the save
+confirm, on the belief that a txid for a row outside the loaded year never
+arrives; #1509 corrected that against `electric-db-collection` 0.5.8, and
+`docs/sync.md` has the reading.
 
 #### WeatherSummaryDialog
 
@@ -725,6 +725,11 @@ It fits once per `fitKey` rather than handing the stops to `MapCanvas`'s
 stop on a Route edit page would move the camera under the person placing it,
 which none of these surfaces does.
 
+`recordType` takes only `route`, `mission` and `assignment`, an `Extract` over
+`RecordType`, because the wider type let `recordType="trap"` compile and draw
+`Zoom to trap` (#1523). A rename in the register narrows the alias rather than
+failing on it, so the error lands on the call site passing the old name.
+
 #### MapSearch
 
 Two resets that were effects are read off the state they key on (#1183). The
@@ -809,6 +814,21 @@ A descriptor splits `convert` from `save` on purpose. The frame has to know a
 value is bad before it closes, and an `async` save that both converts and
 writes would hand a conversion error back as a rejection indistinguishable
 from a refused write. `convert` is synchronous and throws; `save` only writes.
+
+The service request overdue threshold (#1246) is a number of days or off, which
+no one field kind holds. It is two fields of kinds the descriptor already has,
+a switch for on and a number for the days, rather than a fifth kind or a body of
+its own inside `SettingsSheet`. A fifth kind would be a new branch in
+`SettingsFieldInput` and a new member of `SettingsSectionField` for one setting,
+and a custom body would take the Public Engagement section off the descriptor
+and redraw its four context fields by hand. The cost is that the days input
+stays drawn while the switch is off; `serviceRequestOverdueDaysFrom` ignores it
+then, so an emptied input does not stop a save that turns the threshold off,
+and the number is still there when the switch goes back on. The section's
+`save` writes the context and then the threshold, one after the other, because
+the second write states the `updated_at` the first committed under. The two
+are not one transaction: a refused threshold write after a saved context
+leaves the context saved, and the toast names the section.
 
 #### ReinviteControl
 

@@ -30,4 +30,16 @@ describe('the service requests filter contract', () => {
 		expect(validate({ status: 'all' })).toEqual({});
 		expect(validate({ status: 'open' })).toEqual({ status: 'open' });
 	});
+
+	it('opens with Overdue off and keeps it off the address bar until it is on', () => {
+		const defaults = serviceRequestFilterDefaults('2026-09-15');
+		const validate = searchValidator(serviceRequestFilterCodecs);
+
+		expect(defaults.overdue).toBe(false);
+		expect(validate({ overdue: false })).toEqual({});
+		expect(validate({ overdue: true })).toEqual({ overdue: true });
+		expect(resolveFilters(defaults, serviceRequestFilterCodecs, { overdue: 'true' })).toMatchObject(
+			{ overdue: true },
+		);
+	});
 });

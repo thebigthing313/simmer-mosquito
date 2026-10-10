@@ -9,15 +9,24 @@ import type { DrawPartGeometry } from '../../../../components/map/draw-parts';
  * no jsdom and no fake map.
  */
 
-export const FIRST_SQUARE: readonly PlanarPosition[] = [
+export const FIRST_TRIANGLE: readonly PlanarPosition[] = [
 	[-90, 35],
 	[-90, 36],
 	[-89, 36],
 ];
-export const SECOND_SQUARE: readonly PlanarPosition[] = [
+export const SECOND_TRIANGLE: readonly PlanarPosition[] = [
 	[-80, 35],
 	[-80, 36],
 	[-79, 36],
+];
+/** On {@link FIRST_TRIANGLE}'s first leg, between its first two corners. */
+export const ON_FIRST_LEG: PlanarPosition = [-90, 35.5];
+/** {@link FIRST_TRIANGLE} with {@link ON_FIRST_LEG} inserted as its second corner. */
+export const TRIANGLE_WITH_LEG_VERTEX: readonly PlanarPosition[] = [
+	[-90, 35],
+	ON_FIRST_LEG,
+	[-90, 36],
+	[-89, 36],
 ];
 /** A four-corner area with room inside it, so a hole has somewhere to go. */
 export const BLOCK: readonly PlanarPosition[] = [
@@ -86,4 +95,9 @@ export const ACROSS_BLOCK: readonly PlanarPosition[] = [
 /** A polygon over `rings`, each closed the way a stored ring is. */
 export function polygon(...rings: readonly PlanarPath[]): DrawPartGeometry {
 	return { type: 'Polygon', coordinates: rings.map(closeRing) };
+}
+
+/** A line through `positions`, left open between the last and the first. */
+export function line(positions: PlanarPath): DrawPartGeometry {
+	return { type: 'LineString', coordinates: positions };
 }
