@@ -1072,6 +1072,14 @@ under that hook in `docs/web-hooks.md`.
 field passes it, since its label carried the mark before it moved onto this
 frame (#1468).
 
+#### OptionRow
+
+Secondary text that is blank after trimming draws no second line, the same as
+`null`. Habitat and trap descriptions and service request details reach the
+row as written, and nothing trims them on write, so a description of spaces
+drew an empty muted line and left that result taller than its neighbours
+(#1484). The rule sits in the row so no caller has to trim first.
+
 ### public-engagement
 
 #### contact-fields
