@@ -793,7 +793,7 @@ The service request overdue threshold (#1246) is a number of days or off, which
 no one field kind holds. It is two fields of kinds the descriptor already has,
 a switch for on and a number for the days, rather than a fifth kind or a body of
 its own inside `SettingsSheet`. A fifth kind would be a new branch in
-`SettingsFieldInput` and a new member of `SettingsSectionField` for one setting,
+`SettingsFieldControl` and a new member of `SettingsSectionField` for one setting,
 and a custom body would take the Public Engagement section off the descriptor
 and redraw its four context fields by hand. The days field carries a `when`
 reading `overdueOn`, so the sheet does not draw it while the switch is off
