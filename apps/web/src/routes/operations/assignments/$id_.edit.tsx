@@ -123,7 +123,7 @@ function AssignmentPlanRoute() {
 
 	const { assignment, isReady, isError } = useAssignment(id);
 	const { stops, isLoading } = useAssignmentStops(id);
-	const { options: assigneeOptions, nameById } = useAssigneeOptions();
+	const { options: assigneeOptions } = useAssigneeOptions();
 
 	const [detailDraft, setDetailDraft] = useState<AssignmentDetailValues | null>(null);
 	const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
@@ -132,11 +132,7 @@ function AssignmentPlanRoute() {
 	const [savingDetails, setSavingDetails] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const assigneeName =
-		assignment?.assignedToProfileId == null
-			? null
-			: (nameById.get(assignment.assignedToProfileId) ?? null);
-	const displayName = assignment === null ? null : assignmentDisplayName(assignment, assigneeName);
+	const displayName = assignment === null ? null : assignmentDisplayName(assignment);
 	useBreadcrumbLabel(id, displayName);
 
 	const savedDetails = assignment === null ? null : toAssignmentDetails(assignment, timeZone);
