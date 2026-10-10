@@ -1,23 +1,12 @@
 import type { DrawVertexRef, PlanarPosition } from '@simmer-mosquito/mapping';
-import type {
-	DrawContinueDraft,
-	DrawEditDraft,
-	DrawGeometry,
-	DrawGeometryType,
-	DrawHoleDraft,
-	DrawProgress,
-} from './draw-parts';
+import type { DrawGeometry, DrawGeometryType, DrawReadings } from './draw-parts';
 
 /**
  * The draw controller surface the form panel and the on-map toolbar both drive.
  * `start` is wired to the form's "Draw geometry" button; `finish`/`cancel`/`undo`
  * live on the floating map toolbar so the user exits draw mode from the map.
  */
-export interface MapDrawController extends DrawProgress {
-	readonly isDrawing: boolean;
-	/** The draw in progress appends a part rather than replacing the shape. */
-	readonly isAddingPart: boolean;
-	readonly isRequestingPoint: boolean;
+export interface MapDrawController extends DrawReadings {
 	readonly start: (type: DrawGeometryType) => void;
 	/**
 	 * Draw one more part of the shape already committed, leaving the rest of it on
@@ -44,8 +33,6 @@ export interface MapDrawController extends DrawProgress {
 	 * is something the user asks for.
 	 */
 	readonly continuePart: (index: number) => void;
-	/** The part being continued, or null while the draw is not one. */
-	readonly continuedPart: DrawContinueDraft | null;
 	/**
 	 * Open the part at `index` for vertex editing: every ring it has, shell and
 	 * holes, seeded into a draft that drags, inserts and deletes corners. Finish
@@ -58,8 +45,6 @@ export interface MapDrawController extends DrawProgress {
 	 * no way back, which is what `removePart` is for.
 	 */
 	readonly editPart: (index: number) => void;
-	/** The part being edited, or null while the draw is not one. */
-	readonly editedPart: DrawEditDraft | null;
 	/** Put one vertex of the open edit at `position`. */
 	readonly moveVertex: (vertex: DrawVertexRef, position: PlanarPosition) => void;
 	/**
@@ -101,8 +86,6 @@ export interface MapDrawController extends DrawProgress {
 	readonly removePart: (index: number) => void;
 	/** Drop one hole from one part, leaving the part itself alone. */
 	readonly removeHole: (partIndex: number, holeIndex: number) => void;
-	/** The hole in progress, or null while the draw is not one. */
-	readonly holeDraft: DrawHoleDraft | null;
 	/** Pick out one part on the map, or clear the highlight with `null`. */
 	readonly highlightPart: (index: number | null) => void;
 	readonly zoomToPart: (index: number) => void;

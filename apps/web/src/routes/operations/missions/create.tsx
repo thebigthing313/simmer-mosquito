@@ -10,7 +10,6 @@ import {
 } from '../../../components/operations/missions/mission-form';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
-import { useMission } from '../../../hooks/queries/use-mission';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -33,11 +32,7 @@ function CreateMissionRoute() {
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
-	// Minted up front so the on-demand stream is warm when the save fires — a
-	// write to a cold collection waits out its txid confirmation, which reads as a
-	// frozen save.
 	const [missionId] = useState(() => newRecordId());
-	useMission(missionId);
 
 	const missionWrites = useMissionMutations();
 

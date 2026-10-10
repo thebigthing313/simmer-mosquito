@@ -2,7 +2,8 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { ControlMethodsPage } from '../../../components/control-operations/control-methods-page';
 import { useOutreachMethodMutations } from '../../../hooks/mutations/use-outreach-method-mutations';
-import { useOutreachMethodRecords } from '../../../hooks/queries/use-outreach-method-records';
+import { catalogs } from '../../../hooks/queries/catalog-register';
+import { useCatalogRecords } from '../../../hooks/queries/use-catalog-records';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 
 const OutreachIcon = iconRegistry.entities.outreachAction.icon;
@@ -14,7 +15,7 @@ export const Route = createFileRoute('/public-engagement/outreach/methods')({
 function OutreachMethodsRoute() {
 	const { auth } = Route.useRouteContext();
 	const { canManage, canManageOperational } = useOrganizationWorkspace(auth.snapshot);
-	const records = useOutreachMethodRecords();
+	const records = useCatalogRecords(catalogs.outreachMethods);
 	const mutations = useOutreachMethodMutations();
 
 	return (

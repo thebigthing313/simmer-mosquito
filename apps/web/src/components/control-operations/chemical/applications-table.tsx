@@ -10,8 +10,9 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
-import { useApplicationMethodOptions } from '../../../hooks/explorer/use-application-method-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useInsecticideOptions } from '../../../hooks/explorer/use-insecticide-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { formatListDate } from '../../../lib/local-date';
 import { LinkedTableRow } from '../../record/linked-table-row';
@@ -28,7 +29,7 @@ import {
  */
 export function ApplicationsTable({ rows }: { readonly rows: readonly ApplicationListRow[] }) {
 	const { nameById: insecticideNameById } = useInsecticideOptions();
-	const { nameById: methodNameById } = useApplicationMethodOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.applicationMethods);
 	const unitById = useUnitLabels().byId;
 	return (
 		<div className="rounded-md border border-border/50">

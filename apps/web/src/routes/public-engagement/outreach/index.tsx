@@ -1,12 +1,10 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useState } from 'react';
-import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
-import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
+import { MAP_CREATE_TARGETS } from '../../../components/map';
 import {
 	outreachFilterCodecs,
 	outreachListParams,
@@ -26,11 +24,11 @@ import { outreachSummaryGroupings } from '../../../components/public-engagement/
 import { OutreachSurfaceSwitch } from '../../../components/public-engagement/outreach/outreach-surface-switch';
 import { OutreachMapCard } from '../../../components/public-engagement/outreach-map-card';
 import { formatReach } from '../../../components/public-engagement/public-engagement-display';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { useOutreachMethodOptions } from '../../../hooks/explorer/use-outreach-method-options';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useOutreachFilterState } from '../../../hooks/public-engagement/use-outreach-filter-state';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
@@ -49,12 +47,10 @@ function OutreachExplorerRoute() {
 	// both land on the list the operator had narrowed to.
 	const binding = useOutreachFilterState();
 	const { filters: query, setFilters, reset, activeCount: activeFilterCount } = binding;
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
-	const { nameById: methodNameById } = useOutreachMethodOptions();
-	const { nameById: personNameById } = usePersonnelOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.outreachMethods);
+	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
@@ -62,27 +58,26 @@ function OutreachExplorerRoute() {
 	// What a move to the Table takes with it: every filter, since the Table
 	// applies each one.
 	const carried = sharedOutreachSearch(Route.useSearch());
-	const layer: MapTileLayer = {
-		kind: 'outreach',
-		serverUrl: getServerUrl(),
-		filters,
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		empty,
+		summary,
+		canvas,
 		selectedId,
-		onSelectFeature: setSelectedId,
-	};
-	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
-		useExplorerResource<OutreachListRow>({
-			path: PATH,
-			rowsKey: 'outreachActions',
-			rowKey: 'outreachAction',
-			recordType: 'outreachAction',
-			params: outreachListParams(filters),
-			layer,
-			map,
-			selectedId,
-			summarize: true,
-		});
-
-	const handleMapReady = (instance: MapboxMap) => setMap(instance);
+		setSelectedId,
+	} = useExplorerResource<OutreachListRow>({
+		path: PATH,
+		rowsKey: 'outreachActions',
+		rowKey: 'outreachAction',
+		recordType: 'outreachAction',
+		params: outreachListParams(filters),
+		tiles: { kind: 'outreach', filters },
+		summarize: true,
+	});
 
 	return (
 		<ExplorerMapPage
@@ -98,27 +93,14 @@ function OutreachExplorerRoute() {
 			}}
 			onResetFilters={reset}
 			map={
-				<>
-					<MapCanvas
-						inset={panel.inset}
-						searchWidth={panel.width}
-						contextMenu={{
-							create: [MAP_CREATE_TARGETS.outreach, MAP_CREATE_TARGETS.serviceRequest],
-						}}
-						controls={{ measure: true, readout: true }}
-						fitToData
-						rememberCamera
-						layers={layers}
-						onMapReady={handleMapReady}
-					/>
-					{selected === null ? null : (
-						<OutreachMapCard
-							id={selected.id}
-							inset={panel.inset}
-							onClose={() => setSelectedId(null)}
-						/>
-					)}
-				</>
+				<ExplorerCanvas
+					canvas={canvas}
+					card={(props) => <OutreachMapCard {...props} />}
+					contextMenu={{
+						create: [MAP_CREATE_TARGETS.outreach, MAP_CREATE_TARGETS.serviceRequest],
+					}}
+					panel={panel}
+				/>
 			}
 			panel={panel}
 			results={{

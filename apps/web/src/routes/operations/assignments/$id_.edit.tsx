@@ -20,6 +20,7 @@ import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
+import { StopSequenceMap } from '../../../components/map/stop-sequence-map';
 import {
 	type AssignmentStopView,
 	assignmentStopTone,
@@ -45,7 +46,6 @@ import {
 	AssignmentTargetPicker,
 	type AssignmentTargetSelection,
 } from '../../../components/operations/assignments/assignment-target-picker';
-import { WorklistMap } from '../../../components/operations/worklist-map';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import {
 	InlineEditField,
@@ -259,7 +259,7 @@ function AssignmentPlanRoute() {
 		<>
 			<MapSplitPage
 				map={
-					<WorklistMap
+					<StopSequenceMap
 						features={features}
 						fitKey={id}
 						highlightId={highlightId}

@@ -19,9 +19,9 @@ import { ROUTE_DELETE_REFUSALS } from '../../lib/acknowledgement-copy';
 import { useBreadcrumbLabel } from '../app-shell';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../danger-zone-card';
+import { StopSequenceMap } from '../map/stop-sequence-map';
 import { WriteOnly } from '../write-only';
-import { RouteMap } from './route-map';
-import { type RouteStop, stopCountLabel } from './route-stop';
+import { stopCountLabel } from './route-stop';
 import type { RouteSummary } from './route-summary';
 import type { RoutePlanningSurface } from './surface';
 
@@ -48,7 +48,6 @@ export function RouteDetailPage({
 	routeId,
 	route,
 	isReady,
-	stops,
 	features,
 	itemCount,
 	isLoading,
@@ -59,7 +58,6 @@ export function RouteDetailPage({
 	readonly route: RouteSummary | null;
 	/** False while the route set is still resolving — before that, absence means nothing. */
 	readonly isReady: boolean;
-	readonly stops: readonly RouteStop[];
 	readonly features: readonly RouteStopFeature[];
 	readonly itemCount: number;
 	readonly isLoading: boolean;
@@ -93,14 +91,15 @@ export function RouteDetailPage({
 	return (
 		<MapSplitPage
 			map={
-				<RouteMap
+				<StopSequenceMap
 					features={features}
 					fitKey={routeId}
 					highlightId={highlightId}
 					onHoverStop={setHighlightId}
 					onSelectStop={setSelectedStopId}
+					recordType="route"
 					selectedId={selectedStopId}
-					stops={stops}
+					stopCount={itemCount}
 				/>
 			}
 		>

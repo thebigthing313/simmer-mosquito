@@ -18,7 +18,8 @@ import { useNewInspectionDraft } from '../../../hooks/larval-surveillance/use-ne
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
-import { useHabitatTypeRoster } from '../../../hooks/queries/use-habitat-type-roster';
+import { catalogs } from '../../../hooks/queries/catalog-register';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -93,7 +94,7 @@ function CreateInspectionRoute() {
 	const sampleMutations = useSampleMutations();
 	const workspace = useOrganizationWorkspace(auth.snapshot);
 	const { organization, settings } = workspace;
-	const habitatTypes = useHabitatTypeRoster();
+	const habitatTypes = useCatalogRoster(catalogs.habitatTypes);
 	const profiles = useProfileRoster();
 
 	const timeZone = useOrganizationTimeZone();
@@ -156,9 +157,6 @@ function CreateInspectionRoute() {
 			await attachLinksBestEffort('the samples', async () => {
 				for (const sample of values.samples) {
 					const label = sample.label.trim();
-					// Sequential: the samples stream is on-demand, so the first insert
-					// warms it and the rest confirm against a live shape instead of
-					// racing a cold one.
 					await sampleMutations.add({
 						sampleId: sample.id,
 						inspectionId,
