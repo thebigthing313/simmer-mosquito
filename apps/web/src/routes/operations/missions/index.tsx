@@ -51,7 +51,6 @@ function MissionsRoute() {
 		setHighlightId,
 		handleSelect,
 		assigneeOptions,
-		assigneeLabel,
 	} = useWorklistIndex({
 		rows: missions,
 		statusOf: missionStatus,
@@ -123,11 +122,7 @@ function MissionsRoute() {
 						</WriteOnly>
 					</div>
 
-					<MissionFilterBar
-						assigneeLabel={assigneeLabel}
-						assigneeOptions={assigneeOptions}
-						binding={binding}
-					/>
+					<MissionFilterBar assigneeOptions={assigneeOptions} binding={binding} />
 				</div>
 
 				<MissionResults

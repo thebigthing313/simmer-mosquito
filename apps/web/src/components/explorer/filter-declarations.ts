@@ -8,8 +8,9 @@
 import type { ComponentType } from 'react';
 import type { MapSummary } from '../../hooks/explorer/use-explorer-summary';
 import { type CatalogDescriptor, catalogs } from '../../hooks/queries/catalog-register';
+import type { DateDirection } from '../../lib/date-presets';
 import type { SummaryGroup, SummaryGrouping } from './explorer-summary';
-import { toggle } from './multi-select-filter';
+import { type FilterOption, toggle } from './multi-select-filter';
 import type { RecordSetContext, RecordSetLinks } from './record-set';
 
 /** Where an id set's options and names come from. */
@@ -18,7 +19,9 @@ export type OptionSource =
 	| { readonly kind: 'regions' }
 	| { readonly kind: 'tags' }
 	| { readonly kind: 'species' }
-	| { readonly kind: 'insecticides' };
+	| { readonly kind: 'insecticides' }
+	/** Options the page builds itself, such as the assignees over the rows it loaded. */
+	| { readonly kind: 'supplied'; readonly options: readonly FilterOption[] };
 
 /** An Organization Lookup catalog as an option source. */
 export function catalogSource(catalog: CatalogDescriptor): OptionSource {
@@ -29,6 +32,11 @@ export const REGION_SOURCE: OptionSource = { kind: 'regions' };
 export const TAG_SOURCE: OptionSource = { kind: 'tags' };
 export const SPECIES_SOURCE: OptionSource = { kind: 'species' };
 export const INSECTICIDE_SOURCE: OptionSource = { kind: 'insecticides' };
+
+/** Options the page supplies, named by their own labels. */
+export function suppliedSource(options: readonly FilterOption[]): OptionSource {
+	return { kind: 'supplied', options };
+}
 
 /**
  * The Region filter, which every record set declares under `regions` the same
@@ -69,7 +77,8 @@ interface DeclarationBase {
 	/**
 	 * Whether the filter narrows anything in this Organization. Left out, it
 	 * always does. While it answers false the filter draws no control and no
-	 * chip, and the set's counting has to leave it uncounted to match.
+	 * chip, and the set's counting has to leave it uncounted to match. Only a
+	 * record set's binding carries the context this reads.
 	 */
 	readonly available?: (context: RecordSetContext) => boolean;
 }
@@ -151,29 +160,43 @@ export interface ChoiceDeclaration<TKey extends string, TValue extends string>
 	};
 }
 
-/** A selection from a fixed set, written by `choiceSetParam`. */
-export interface ChoiceSetDeclaration<TKey extends string, TValue extends string>
-	extends DeclarationBase {
+/**
+ * A selection from a fixed set, written by `choiceSetParam`. It draws a
+ * `MultiSelectFilter` that writes the values in option order, or a control of
+ * its own in `field`.
+ */
+export type ChoiceSetDeclaration<TKey extends string, TValue extends string> = DeclarationBase & {
 	readonly kind: 'choiceSet';
 	readonly key: TKey;
 	readonly label: string;
 	/** Every value, in the order the control, the chips and the summary list them. */
 	readonly options: readonly ChoiceOption<TValue>[];
-	readonly field: ComponentType<{
-		readonly selected: ReadonlySet<TValue>;
-		readonly onChange: (next: ReadonlySet<TValue>) => void;
-	}>;
 	readonly summary?: {
 		readonly grouping: string;
 		readonly title: string;
 		/** The name for the records with no value, drawn as text after the rest. */
 		readonly none?: string;
 	};
-}
+} & (
+		| {
+				readonly field: ComponentType<{
+					readonly selected: ReadonlySet<TValue>;
+					readonly onChange: (next: ReadonlySet<TValue>) => void;
+				}>;
+				readonly empty?: never;
+		  }
+		| {
+				readonly field?: never;
+				/** What the `MultiSelectFilter` says when its search matches nothing. */
+				readonly empty: string;
+		  }
+	);
 
 /** The date window, `from` and `to`, a `dateParam` pair. */
 export interface DateRangeDeclaration extends DeclarationBase {
 	readonly kind: 'dateRange';
+	/** The presets the control offers. Left out, `history`. */
+	readonly direction?: DateDirection;
 }
 
 /** The search box's committed term, written by `textParam`. */
@@ -253,18 +276,25 @@ export function loosenDeclaration<TFilters>(
 export type FilterName<TFilters> = Key<TFilters> | 'dates';
 
 /**
- * A record set's filters, in the order their chips are drawn. Every key the
- * set's codecs declare is named by exactly one declaration, `from` and `to`
- * together by the date range.
+ * What declarations are written against: the codecs that hold the filters on
+ * the URL. A record set is one, and so is a page with no record set that hands
+ * its codecs over alone.
+ */
+export type FilterSet<TFilters> = Pick<RecordSetLinks<TFilters>, 'codecs'>;
+
+/**
+ * A set's filters, in the order their chips are drawn. Every key the set's
+ * codecs declare is named by exactly one declaration, `from` and `to` together
+ * by the date range.
  */
 export interface FilterDeclarations<TFilters> {
-	readonly set: RecordSetLinks<TFilters>;
+	readonly set: FilterSet<TFilters>;
 	readonly list: readonly FilterDeclaration<TFilters>[];
 }
 
 /** Declares a set's filters. An identity at runtime; the inference is the point. */
 export function defineFilterDeclarations<TFilters>(
-	set: RecordSetLinks<TFilters>,
+	set: FilterSet<TFilters>,
 	list: readonly FilterDeclaration<NoInfer<TFilters>>[],
 ): FilterDeclarations<TFilters> {
 	return { set, list: list as readonly FilterDeclaration<TFilters>[] };
@@ -281,12 +311,22 @@ export function declaredKeys(declaration: LooseDeclaration): readonly string[] {
 	return declaration.kind === 'dateRange' ? ['from', 'to'] : [declaration.key];
 }
 
-/** Whether a declaration draws anything in `context`. */
+/**
+ * Whether a declaration draws anything in `context`. A declaration that asks
+ * for the context on a binding with none is a mistake in the page, so it throws
+ * rather than drawing or hiding the filter by guess.
+ */
 export function isAvailable<TFilters>(
 	declaration: FilterDeclaration<TFilters>,
-	context: RecordSetContext,
+	context: RecordSetContext | undefined,
 ): boolean {
-	return declaration.available?.(context) ?? true;
+	if (declaration.available === undefined) {
+		return true;
+	}
+	if (context === undefined) {
+		throw new Error('A filter that reads the Organization needs a record set binding.');
+	}
+	return declaration.available(context);
 }
 
 /** What {@link declaredSummaryGroupings} reads: the summary, the URL's filters and their write. */
