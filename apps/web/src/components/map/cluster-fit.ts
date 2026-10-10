@@ -1,7 +1,3 @@
-import { MAP_CLUSTER_UNTIL_ZOOM } from '@simmer-mosquito/mapping';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { framingPadding } from './map-inset';
-
 /** The box a cluster's points cover, in WGS84. */
 export interface ClusterBounds {
 	readonly west: number;
@@ -34,29 +30,6 @@ export function clusterBounds(
 		return null;
 	}
 	return { west: cluster_west, south: cluster_south, east: cluster_east, north: cluster_north };
-}
-
-/**
- * Zoom the map in to the records under a cluster.
- *
- * Never past the zoom the tiles stop clustering at, since that is where every
- * record under the cluster is drawn as itself. A box with no size, every point
- * on one spot, has nothing to fit, so the map centres on it at that zoom, and
- * points sharing exact coordinates stay stacked there the way they do on a
- * plain tile.
- */
-export function fitMapToCluster(map: MapboxMap, bounds: ClusterBounds): void {
-	if (bounds.west === bounds.east && bounds.south === bounds.north) {
-		map.easeTo({ center: [bounds.west, bounds.south], zoom: MAP_CLUSTER_UNTIL_ZOOM });
-		return;
-	}
-	map.fitBounds(
-		[
-			[bounds.west, bounds.south],
-			[bounds.east, bounds.north],
-		],
-		{ ...framingPadding(map, 48), maxZoom: MAP_CLUSTER_UNTIL_ZOOM },
-	);
 }
 
 /** What a click on a tileset's layers asks for. */

@@ -36,6 +36,7 @@ import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../lib/domain-va
 import { formatLocalDate, parseLocalDate, todayInTimeZone } from '../../../lib/local-date';
 import { profileOptions } from '../../../lib/profile-options';
 import { additionalPersonnelOptions } from '../../additional-personnel';
+import { HabitatPicker } from '../../control-operations/control-pickers';
 import { FirstCommentSection } from '../../forms/first-comment-section';
 import { LocationAddressField } from '../../forms/location-band';
 import { RecordFormFrame } from '../../forms/record-form-frame';
@@ -61,7 +62,7 @@ import {
 	unsetDensityValue,
 	withConditionsChosen,
 } from './inspection-form-values';
-import { HabitatPicker, SelectedHabitat } from './inspection-habitat-picker';
+import { SelectedHabitat } from './inspection-habitat-picker';
 import { SamplesSection } from './inspection-samples-section';
 
 export interface InspectionFormHeader {
@@ -331,11 +332,13 @@ export function InspectionFormPage({
 										) : (
 											<HabitatPicker
 												errors={field.state.meta.errors}
+												includeRetired
 												onSelect={(habitat) => {
 													field.handleChange(habitat?.id ?? null);
 													handleHabitatSelected(habitat);
 												}}
 												organizationId={organizationId}
+												required
 												value={field.state.value}
 											/>
 										)

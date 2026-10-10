@@ -695,6 +695,23 @@ plus the fit's margin on each side, with `retainPadding: false`. A fit can
 hand it an inset in place of `getPadding()`, which `useMapExtentFit` does,
 because on a fresh map it can run before this hook has written anything.
 
+Every fit and every flight in `apps/web` goes through
+`components/map/map-camera.ts`, which is where that rule is applied: `frameOnMap`
+frames a box or a geometry and `focusOnMap` flies to a point, and each reads
+its margin, zoom cap, point zoom and duration off one table keyed by purpose.
+Ten fits and six flights used to pick their own numbers, so one record framed
+differently on a form, a detail card and an explorer card, and three fits had
+no answer for a box with no area (#1424). Outside that module only the zoom
+buttons, the north reset and this hook call `easeTo`, `flyTo` or `fitBounds`.
+The `place` focus flies for 1100 ms, the locate button's old number rather than
+the search client's 700, because a place can be anywhere on the map and a
+reader follows a long flight better than a quick one.
+
+One race is left. A fit that starts while this hook's 300 ms padding animation
+is running stops it partway, and `getPadding()` then reads the in-between
+value, which the fit's `retainPadding: false` restores when it ends. This hook
+does not write again, because the inset's four numbers have not changed.
+
 #### useMapboxMap
 
 Keeping creation, load state, resize and basemap switching behind one
@@ -748,7 +765,7 @@ the cluster carries and selects nothing, so a record already selected stays
 selected. The fit stops at `MAP_CLUSTER_UNTIL_ZOOM`, the zoom the tiles stop
 clustering at: any closer would land on a plain tile showing the same records.
 A box with no size, every point on one spot, has nothing to fit, so that case
-eases to its centre at the same zoom (`fitMapToCluster` in `cluster-fit.ts`).
+eases to its centre at the same zoom (the `cluster` purpose of `frameOnMap`).
 
 The hook takes the clustering setting as `draw.cluster` rather than reading it
 itself, so a suite can mount a tileset in either state without touching the
@@ -1028,9 +1045,10 @@ non-suspense query keeps the popover from suspending the page around it.
 
 What a closed search-and-pick field says is decided here, for all seven pickers
 that draw `PickerFrame`: trap, route, habitat, contact, address, the
-assignment's service request and the mission's request stop (#1434). Each picker
-used to hold its own `open`, `search` and picked label, and
-seeded the label once at mount, so it went stale two ways. A list that arrived
+assignment's service request and the mission's request stop (#1434). The
+inspection form's habitat field joined in #1468 by drawing the habitat picker
+rather than a picker of its own. Each picker used to hold its own `open`,
+`search` and picked label, and seeded the label once at mount, so it went stale two ways. A list that arrived
 after mount never filled the field, which is the collection forms on a cold
 load, where the eager `traps` set has not synced when the form first renders.
 And a `value` moved from outside kept showing the record picked before it: the

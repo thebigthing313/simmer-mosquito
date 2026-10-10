@@ -8,9 +8,10 @@ const PADDING_DURATION_MS = 300;
 
 /**
  * Keeps the map's viewport padding in step with the chrome floating over it.
- * The canvas owns the padding and this is its only writer. A fly-to passes no
- * padding and inherits it; a fit adds its margin through `framingPadding`,
- * which passes `retainPadding: false` so the margin is gone once the fit ends.
+ * The canvas owns the padding and this is its only writer. `focusOnMap` passes
+ * no padding and inherits it; `frameOnMap` adds its margin through
+ * `framingPadding`, which passes `retainPadding: false` so the margin is gone
+ * once the frame ends.
  */
 export function useMapPadding(map: MapboxMap | null, isLoaded: boolean, inset: MapInset): void {
 	// The padding object is rebuilt every render, so the effect takes its four
