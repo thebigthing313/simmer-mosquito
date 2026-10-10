@@ -18,9 +18,7 @@ import {
 import { addressSummaryGroupings } from '../../../components/gis/addresses/address-summary';
 import {
 	addressFilterCodecs,
-	addressListParams,
 	addressRecordSet,
-	addressTileFilters,
 } from '../../../components/gis/addresses/addresses-search';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
@@ -34,7 +32,6 @@ export const Route = createFileRoute('/gis/addresses/')({
 });
 
 const AddressIcon = iconRegistry.actions.searchCheck.icon;
-const PATH = '/map/addresses';
 
 function AddressesExplorerRoute() {
 	// The filters live in the URL, so a shared link and Back out of an address
@@ -47,7 +44,7 @@ function AddressesExplorerRoute() {
 	// the map and the rail stay in lockstep. The rail used to filter and page the
 	// whole address book out of the sync collection beside a map drawing one
 	// viewport, so the two showed different sets (#962).
-	const filters = addressTileFilters(binding.filters);
+	const filters = addressRecordSet.tileFilters(binding.filters, binding.context);
 	const routeSearch = Route.useSearch();
 	const {
 		rows,
@@ -61,11 +58,11 @@ function AddressesExplorerRoute() {
 		selectedId,
 		setSelectedId,
 	} = useExplorerResource<AddressListing>({
-		path: PATH,
-		rowsKey: 'addresses',
+		path: addressRecordSet.endpoint.path,
+		rowsKey: addressRecordSet.endpoint.rowsKey,
 		rowKey: 'address',
 		recordType: 'address',
-		params: addressListParams(filters),
+		params: addressRecordSet.listParams(filters),
 		tiles: { kind: 'addresses', filters },
 		summarize: true,
 	});

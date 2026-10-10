@@ -89,6 +89,9 @@ export const applicationRecordSet = defineRecordSet({
 	recordType: 'application',
 	paths: { map: '/control-operations/chemical', table: '/control-operations/chemical/table' },
 	codecs: applicationFilterCodecs,
+	endpoint: { path: '/map/chemical', rowsKey: 'applications' },
+	tileFilters: applicationTileFilters,
+	listParams: applicationListParams,
 	defaults: ({ today }) => applicationFilterDefaults(today),
 	counting: DATE_RANGE_COUNTING,
 	applies: {

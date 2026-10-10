@@ -92,6 +92,9 @@ export const collectionRecordSet = defineRecordSet({
 	recordType: 'collection',
 	paths: { map: '/adult-surveillance/collections', table: '/adult-surveillance/collections/table' },
 	codecs: collectionFilterCodecs,
+	endpoint: { path: '/map/collections', rowsKey: 'collections' },
+	tileFilters: collectionTileFilters,
+	listParams: collectionListParams,
 	defaults: ({ today }) => collectionFilterDefaults(today),
 	counting: DATE_RANGE_COUNTING,
 	applies: {

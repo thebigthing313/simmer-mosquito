@@ -9,9 +9,7 @@ import {
 import { trapSummaryGroupings } from '../../../components/adult-surveillance/traps/trap-summary';
 import {
 	trapFilterCodecs,
-	trapListParams,
 	trapRecordSet,
-	trapTileFilters,
 } from '../../../components/adult-surveillance/traps/traps-search';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
@@ -47,7 +45,6 @@ export const Route = createFileRoute('/adult-surveillance/traps/')({
 	validateSearch: searchValidator(trapFilterCodecs),
 });
 
-const PATH = '/map/traps';
 const TrapEntityIcon = iconRegistry.entities.trap.icon;
 
 function TrapsExplorerRoute() {
@@ -61,7 +58,7 @@ function TrapsExplorerRoute() {
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (no selection / no search) drop out.
-	const filters = trapTileFilters(query);
+	const filters = trapRecordSet.tileFilters(query, binding.context);
 	const routeSearch = Route.useSearch();
 	const [clustered] = useMapClustering();
 	const legend = trapLegend(query.status, clustered);
@@ -77,11 +74,11 @@ function TrapsExplorerRoute() {
 		selectedId,
 		setSelectedId,
 	} = useExplorerResource<TrapRow>({
-		path: PATH,
-		rowsKey: 'traps',
+		path: trapRecordSet.endpoint.path,
+		rowsKey: trapRecordSet.endpoint.rowsKey,
 		rowKey: 'trap',
 		recordType: 'trap',
-		params: trapListParams(filters),
+		params: trapRecordSet.listParams(filters),
 		tiles: { kind: 'traps', filters },
 		summarize: true,
 	});

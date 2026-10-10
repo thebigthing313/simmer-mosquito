@@ -1,4 +1,5 @@
 import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
+import type { MapQueryValue } from '../../hooks/explorer/use-paged-map-resource';
 import { addDaysToDateString } from '../../lib/local-date';
 import {
 	choiceParam,
@@ -10,6 +11,8 @@ import {
 	idSetParam,
 } from '../../lib/search-filters';
 import { defineRecordSet, type RecordSetSurface } from '../explorer/record-set';
+import { whenAny, whenOn, whenText } from '../explorer/tile-filter-params';
+import type { InspectionTileFilters } from '../map';
 
 // The inspections explorer's URL filter contract, outside the route module so
 // the overview panels can build deep links from the same definition. Every
@@ -86,6 +89,36 @@ function inspectionFilterDefaults(today: string, surface: RecordSetSurface): Ins
 	};
 }
 
+/** The filters as the inspections tile layer reads them. An unset filter is absent. */
+export function inspectionTileFilters(filters: InspectionFilters): InspectionTileFilters {
+	return {
+		...(filters.water === 'all' ? {} : { isWet: filters.water === 'wet' }),
+		...whenAny('densities', filters.density),
+		...whenOn('positiveOnly', filters.positive),
+		...whenAny('habitatTypeIds', filters.types),
+		...whenAny('inspectedByProfileIds', filters.inspectors),
+		...whenAny('regionIds', filters.regions),
+		...whenText('dateFrom', filters.from),
+		...whenText('dateTo', filters.to),
+	};
+}
+
+/** The same filters as `/map/inspections` reads them. */
+export function inspectionListParams(
+	filters: InspectionTileFilters,
+): Record<string, MapQueryValue> {
+	return {
+		isWet: filters.isWet,
+		density: filters.densities,
+		positive: filters.positiveOnly,
+		habitatTypeId: filters.habitatTypeIds,
+		inspectedBy: filters.inspectedByProfileIds,
+		regionId: filters.regionIds,
+		dateFrom: filters.dateFrom,
+		dateTo: filters.dateTo,
+	};
+}
+
 /**
  * The Inspections Map and Table. Both read `/map/inspections`. The Table has
  * no Region control, so Region is the Map's alone and a switch to the Table
@@ -98,6 +131,9 @@ export const inspectionRecordSet = defineRecordSet({
 		table: '/larval-surveillance/inspections/table',
 	},
 	codecs: inspectionFilterCodecs,
+	endpoint: { path: '/map/inspections', rowsKey: 'inspections' },
+	tileFilters: inspectionTileFilters,
+	listParams: inspectionListParams,
 	defaults: ({ today }, surface) => inspectionFilterDefaults(today, surface),
 	counting: DATE_RANGE_COUNTING,
 	applies: {

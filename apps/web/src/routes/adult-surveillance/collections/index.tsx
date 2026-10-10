@@ -14,9 +14,7 @@ import {
 import { collectionSummaryGroupings } from '../../../components/adult-surveillance/collections/collection-summary';
 import {
 	collectionFilterCodecs,
-	collectionListParams,
 	collectionRecordSet,
-	collectionTileFilters,
 } from '../../../components/adult-surveillance/collections/collections-search';
 import { collectionLegend } from '../../../components/adult-surveillance/collections/legend';
 import { createLabel } from '../../../components/app-shell/navigation';
@@ -46,8 +44,6 @@ export const Route = createFileRoute('/adult-surveillance/collections/')({
 	validateSearch: searchValidator(collectionFilterCodecs),
 });
 
-const PATH = '/map/collections';
-
 function CollectionsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
@@ -61,7 +57,7 @@ function CollectionsExplorerRoute() {
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
-	const filters = collectionTileFilters(query);
+	const filters = collectionRecordSet.tileFilters(query, binding.context);
 	const routeSearch = Route.useSearch();
 	const [clustered] = useMapClustering();
 	const legend = collectionLegend(query.problems, clustered);
@@ -77,11 +73,11 @@ function CollectionsExplorerRoute() {
 		selectedId,
 		setSelectedId,
 	} = useExplorerResource<CollectionListRow>({
-		path: PATH,
-		rowsKey: 'collections',
+		path: collectionRecordSet.endpoint.path,
+		rowsKey: collectionRecordSet.endpoint.rowsKey,
 		rowKey: 'collection',
 		recordType: 'collection',
-		params: collectionListParams(filters),
+		params: collectionRecordSet.listParams(filters),
 		tiles: { kind: 'collections', filters },
 		summarize: true,
 	});

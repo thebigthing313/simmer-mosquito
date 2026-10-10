@@ -3,9 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	biocontrolFilterCodecs,
-	biocontrolListParams,
 	biocontrolRecordSet,
-	biocontrolTileFilters,
 } from '../../../components/control-operations/biocontrol/biocontrol-actions-search';
 import {
 	BiocontrolFilterChips,
@@ -47,8 +45,6 @@ export const Route = createFileRoute('/control-operations/biocontrol/')({
 	validateSearch: searchValidator(biocontrolFilterCodecs),
 });
 
-const PATH = '/map/biocontrol';
-
 function BiocontrolExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
@@ -62,7 +58,7 @@ function BiocontrolExplorerRoute() {
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no toggle) drop out.
-	const filters = biocontrolTileFilters(query);
+	const filters = biocontrolRecordSet.tileFilters(query, binding.context);
 	const routeSearch = Route.useSearch();
 	const {
 		rows,
@@ -76,11 +72,11 @@ function BiocontrolExplorerRoute() {
 		selectedId,
 		setSelectedId,
 	} = useExplorerResource<BiocontrolListRow>({
-		path: PATH,
-		rowsKey: 'biocontrolActions',
+		path: biocontrolRecordSet.endpoint.path,
+		rowsKey: biocontrolRecordSet.endpoint.rowsKey,
 		rowKey: 'biocontrolAction',
 		recordType: 'biocontrolAction',
-		params: biocontrolListParams(filters),
+		params: biocontrolRecordSet.listParams(filters),
 		tiles: { kind: 'biocontrol', filters },
 		summarize: true,
 	});
