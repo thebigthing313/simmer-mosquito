@@ -21,17 +21,12 @@ import type {
  * JSON document, and they share this row. Before ADR 0013 the columns were an
  * identity write and the document was commands, which is two contracts on one
  * row; this is the half that had no vocabulary.
+ *
+ * The contact details come from the limits table below rather than being
+ * written out here, so a detail added there is a change this carries.
  */
-export interface OrganizationDetailChanges {
+export interface OrganizationDetailChanges extends OrganizationContactDetails {
 	readonly name?: string;
-	readonly mainContactEmail?: string | null;
-	readonly phoneNumber?: string | null;
-	readonly mailingCountry?: string | null;
-	readonly mailingAddressLine1?: string | null;
-	readonly mailingAddressLine2?: string | null;
-	readonly mailingLocality?: string | null;
-	readonly mailingRegion?: string | null;
-	readonly mailingPostalCode?: string | null;
 	/**
 	 * Where a map with no rows of its own opens, as the client geocoded it from
 	 * the mailing address. Either may arrive alone as a number; clearing sends
