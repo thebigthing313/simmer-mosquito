@@ -13,9 +13,9 @@
  * all", and removing that chip writes the schedule window back and leaves the
  * status, control type and assignee chips where they were.
  *
- * The router is `routerStandIn` with one change: its `navigate` runs the
- * search updater it is handed against the stand-in URL and tells the mounted
- * hooks, so a removed chip is read back off the URL it wrote. The data hooks
+ * The router is `routerStandIn` handed `setSearch`, so its navigation writes
+ * the search back to the stand-in URL and tells the mounted hooks, and a
+ * removed chip is read back off the URL it wrote. The data hooks
  * hand back no rows, the split page renders its children and the worklist map
  * is nothing, since Mapbox GL has no jsdom.
  */
@@ -35,21 +35,12 @@ const url = vi.hoisted(() => ({
 }));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
-	const { notifyRouterStandIn, routerStandIn } = await import('../route-mock-stand-ins');
-	const standIn = routerStandIn(await importOriginal<object>(), () => url.search);
-	return {
-		...standIn,
-		useNavigate:
-			() =>
-			async ({
-				search,
-			}: {
-				readonly search: (previous: Record<string, unknown>) => Record<string, unknown>;
-			}) => {
-				url.search = search(url.search);
-				notifyRouterStandIn();
-			},
-	};
+	const { routerStandIn } = await import('../route-mock-stand-ins');
+	return routerStandIn(await importOriginal<object>(), () => url.search, undefined, {
+		setSearch: (next) => {
+			url.search = next;
+		},
+	});
 });
 
 vi.mock('../../../../hooks/use-auth-snapshot', async () => {
