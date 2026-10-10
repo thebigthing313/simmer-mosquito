@@ -101,12 +101,14 @@ interface ResourceOptions {
  * `tileFilters` answers the case's tile filters and its `listParams` the case's
  * params whatever it is handed, so a case can state the page and the tiles
  * apart, which is what most of the cases below are about. That a route's set
- * pairs the two, and that its tileset is checked against its tile filters, is
- * covered under "what the record set decides", with real sets.
+ * pairs the two is covered under "what the record set decides", with real
+ * sets, and that its tileset is checked against its tile filters is
+ * `defineRecordSet`'s, in the record set suite.
  */
 function useSurfaceResource({
 	path,
 	rowsKey,
+	rowKey,
 	recordType,
 	params,
 	tiles,
@@ -115,7 +117,8 @@ function useSurfaceResource({
 	// The tiles' filter type moves with `kind`, which a set built per case
 	// cannot carry, so the set is held to no tile type at all.
 	const set = {
-		endpoint: { path, rowsKey },
+		endpoint: { path, rowsKey, rowKey },
+		tileset: tiles.kind,
 		recordType,
 		tileFilters: () => tiles.filters,
 		listParams: () => params,
@@ -123,7 +126,6 @@ function useSurfaceResource({
 	return useExplorerResource<Row, null, never>({
 		set,
 		binding: { filters: null, context: CONTEXT },
-		tileset: tiles.kind as never,
 		...options,
 	});
 }
@@ -1332,8 +1334,9 @@ describe('useExplorerResource: what the record set decides', () => {
 	/*
 	 * A route hands the hook its record set and the filters it resolved, and the
 	 * hook reads the endpoint, the record type and both conversions off the set
-	 * (#1587). These cases run real sets, so what they assert is what a route
-	 * sends rather than what a case built.
+	 * (#1587), and the tileset and the single-record key since #1595. These
+	 * cases run real sets, so what they assert is what a route sends rather than
+	 * what a case built.
 	 */
 	const ADDRESS_BINDING = {
 		filters: { ...addressRecordSet.defaults(CONTEXT, 'map'), search: 'elm' },
@@ -1351,16 +1354,17 @@ describe('useExplorerResource: what the record set decides', () => {
 		};
 	}
 
-	it('reads the endpoint, the rows key and the record type off the set', async () => {
-		answer = () => ({ outreachActions: [{ id: 'o-1', lat: 1, lng: 2 }], total: 1 });
+	it('reads the endpoint, both keys, the record type and the tileset off the set', async () => {
+		answer = (url) =>
+			url.pathname === '/map/outreach/o-9'
+				? { outreachAction: { id: 'o-9', lat: 3, lng: 4 } }
+				: { outreachActions: [{ id: 'o-1', lat: 1, lng: 2 }], total: 1 };
 		const fake = createFakeMap();
 		const { result } = renderHook(
 			() => {
 				const resource: ExplorerResource<Row> = useExplorerResource({
 					set: outreachRecordSet,
 					binding: { filters: outreachRecordSet.defaults(CONTEXT, 'map'), context: CONTEXT },
-					tileset: 'outreach',
-					rowKey: 'outreachAction',
 				});
 				return resource;
 			},
@@ -1371,6 +1375,11 @@ describe('useExplorerResource: what the record set decides', () => {
 		await waitFor(() => expect(result.current.rows).toHaveLength(1));
 		expect(pageRequests('/map/outreach')).toHaveLength(1);
 		expect(result.current.empty.recordType).toBe('outreachAction');
+		expect(result.current.canvas.layers[0]?.kind).toBe('outreach');
+
+		// Not on the page, so it is read by id and found under the set's `rowKey`.
+		act(() => result.current.setSelectedId('o-9'));
+		await waitFor(() => expect(result.current.selected?.id).toBe('o-9'));
 	});
 
 	it('draws the tiles and sends the page from one tile filter conversion', async () => {
@@ -1383,8 +1392,6 @@ describe('useExplorerResource: what the record set decides', () => {
 				const resource: ExplorerResource<Row> = useExplorerResource({
 					set,
 					binding: ADDRESS_BINDING,
-					tileset: 'addresses',
-					rowKey: 'address',
 				});
 				return resource;
 			},
@@ -1410,8 +1417,6 @@ describe('useExplorerResource: what the record set decides', () => {
 				const resource: ExplorerResource<Row> = useExplorerResource({
 					set: addressRecordSet,
 					binding: ADDRESS_BINDING,
-					tileset: 'addresses',
-					rowKey: 'address',
 					params: { oldest: true },
 				});
 				return resource;
@@ -1428,32 +1433,4 @@ describe('useExplorerResource: what the record set decides', () => {
 		await waitFor(() => expect(extentRequests()).toHaveLength(1));
 		expect(extentRequests()[0]?.search).toBe('?search=elm');
 	});
-
-	it("refuses a tileset whose filters are not the set's", () => {
-		// A type-level case. `useMisnamedTilesets` is never run, and `tsc` reads it.
-		expect(useMisnamedTilesets).toBeTypeOf('function');
-	});
 });
-
-/**
- * Two tilesets a set cannot draw. Habitats' filters are not the address set's.
- * Source Reduction's differ from the outreach set's by one field name, so each
- * type would pass for the other, which is why the check is exact rather than
- * by assignment. Never called; `tsc` is what reads it.
- */
-function useMisnamedTilesets(): void {
-	useExplorerResource({
-		set: addressRecordSet,
-		binding: { filters: addressRecordSet.defaults(CONTEXT, 'map'), context: CONTEXT },
-		// @ts-expect-error: the habitats tileset does not draw address filters.
-		tileset: 'habitats',
-		rowKey: 'address',
-	});
-	useExplorerResource({
-		set: outreachRecordSet,
-		binding: { filters: outreachRecordSet.defaults(CONTEXT, 'map'), context: CONTEXT },
-		// @ts-expect-error: the source reduction tileset does not draw outreach filters.
-		tileset: 'source-reduction',
-		rowKey: 'outreachAction',
-	});
-}

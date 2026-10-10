@@ -63,8 +63,6 @@ function AddressesExplorerRoute() {
 	}: ExplorerResource<AddressListing> = useExplorerResource({
 		set: addressRecordSet,
 		binding,
-		tileset: 'addresses',
-		rowKey: 'address',
 		summarize: true,
 	});
 
