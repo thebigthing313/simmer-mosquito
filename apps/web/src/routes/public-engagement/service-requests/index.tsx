@@ -5,6 +5,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow, SegmentedFilter } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS, SERVICE_REQUEST_STATUS_COLORS } from '../../../components/map';
 import {
 	contactDisplayName,
@@ -29,14 +30,13 @@ import {
 	serviceRequestTileFilters,
 } from '../../../components/public-engagement/service-requests/service-request-listing';
 import { ServiceRequestSummaryPanel } from '../../../components/public-engagement/service-requests/service-request-summary-panel';
-import { ServiceRequestSurfaceSwitch } from '../../../components/public-engagement/service-requests/service-request-surface-switch';
 import {
 	SERVICE_REQUEST_ORDER_OPTIONS,
 	type ServiceRequestRailOrder,
 	type ServiceRequestRailSearch,
 	serviceRequestFilterCodecs,
 	serviceRequestRailOrderCodecs,
-	sharedServiceRequestSearch,
+	serviceRequestRecordSet,
 } from '../../../components/public-engagement/service-requests/service-requests-search';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
@@ -114,8 +114,7 @@ function ServiceRequestsExplorerRoute() {
 		clearSearchInput();
 		reset();
 	};
-	// What a move to the Table takes with it: status and the date window.
-	const carried = sharedServiceRequestSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 	const regions = useRegionOptions();
 	const panel = useExplorerPanel();
 	const [clustered] = useMapClustering();
@@ -179,7 +178,9 @@ function ServiceRequestsExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
-			actions={<ServiceRequestSurfaceSwitch compact current="map" search={carried} />}
+			actions={
+				<RecordSetSwitch compact current="map" search={routeSearch} set={serviceRequestRecordSet} />
+			}
 			activeFilterCount={activeFilterCount}
 			filters={
 				<ServiceRequestFilterFields {...chips} dateRange={dateRange} onClearSearch={clearSearch} />

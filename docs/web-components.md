@@ -326,6 +326,36 @@ It imports `MapCanvas` through the `components/map` barrel rather than from
 `map-canvas.tsx`. Every route suite replaces `MapCanvas` with a stand-in by
 mocking the barrel, and a direct import would draw a real Mapbox map in jsdom.
 
+#### RecordSetSwitch and defineRecordSet
+
+Eleven record types have a Map and a Table over one filter contract, and each
+pair used to write its own switch module, with two literal paths and a label,
+and its own `shared*Search` function picking the params to carry (#1419). A
+record set is one `defineRecordSet` call beside the kind's codecs now, and the
+switch reads it.
+
+**A surface holds only the filter keys it applies.** `applies` names, for every
+filter key, whether both surfaces apply it or only one, and `carriedSearch`
+drops a key on the way to a surface that does not apply it. There is no key
+that is carried and not applied. Two opposite policies used to stand for the
+same situation: the Inspections switch carried Region to a Table with no Region
+control and left it unapplied there, so a reader could go Map to Table and
+back and keep the selection, while the Service Requests switch dropped Search,
+Tags and Region because a filter the Table neither shows nor clears is one
+that either sits unapplied or narrows the rows invisibly. The second won on
+2026-10-09, so Inspections now loses Region on the way to its Table, the way
+Service Requests always lost its three.
+
+The paths are typed as `LinkProps['to']`, which is the router's own answer, so
+a path the generated route tree does not hold fails `tsc` in the definition.
+That is what used to force each switch to write its `Link`s with literal
+paths. The label is the register's `many` with its first letter raised, plus
+`view`, which is what all eleven spelled by hand.
+
+`carriedSearch` takes the source surface's validated search, so a filter at its
+default is already off it, and an order or a page is not a filter key and is
+never carried.
+
 #### ExplorerSummary
 
 What an explorer rail draws in place of its rows over 100 in view (#1244).
@@ -566,19 +596,15 @@ Each dialog names its own intent rather than calling `habitatUpdatePlan`, which
 reads a whole form against the row it started from; these change one field and
 know which. The server refuses an intent whatever either side says.
 
-#### Inspection filters and the surface switch
+#### Inspection filters
 
 The map opens on the last 30 days and the table on every inspection, and that
 is the surfaces rather than an oversight: a season of inspections is a solid
 block of dots over the same streets, while the table shows 100 rows a page
-whatever the reach. `regions` stays in the table's filter set uncounted so a link that
-came from the map keeps its region selection through a trip to the table and
-back. The endpoint takes `regionId` and the table sends none, because it has no
-control that shows or clears a region. The sidebar cannot carry `search`, so the map/table pair carries its own
-control, and both paths are literals because `tsc` checks a `to` and `search`
-pair only where the path is one. The switch carries the shared filter keys, and
-it takes the validated search so a filter at its default stays off the address
-bar and each surface keeps its own opening window.
+whatever the reach. The endpoint takes `regionId` and the table sends none,
+because it has no control that shows or clears a region, and the switch from
+the map leaves `regions` behind for the same reason. `RecordSetSwitch` above
+carries the rule.
 
 #### inspectionSummaryGroupings
 

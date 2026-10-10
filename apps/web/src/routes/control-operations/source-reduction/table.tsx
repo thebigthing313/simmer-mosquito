@@ -4,15 +4,15 @@ import { createFileRoute } from '@tanstack/react-router';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { SourceReductionFilterFields } from '../../../components/control-operations/source-reduction/source-reduction-filters';
 import type { SourceReductionListRow } from '../../../components/control-operations/source-reduction/source-reduction-row-parts';
-import { SourceReductionSurfaceSwitch } from '../../../components/control-operations/source-reduction/source-reduction-surface-switch';
 import {
 	SOURCE_REDUCTION_WINDOW_DAYS,
-	sharedSourceReductionSearch,
 	sourceReductionFilterCodecs,
 	sourceReductionListParams,
+	sourceReductionRecordSet,
 	sourceReductionTileFilters,
 } from '../../../components/control-operations/source-reduction/source-reductions-search';
 import { SourceReductionsTable } from '../../../components/control-operations/source-reduction/source-reductions-table';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { RecordTableEmpty } from '../../../components/record/record-table-empty';
 import { RecordTableUnavailable } from '../../../components/record/record-table-unavailable';
@@ -41,7 +41,7 @@ const SourceReductionIcon = iconRegistry.entities.sourceReduction.icon;
 function SourceReductionsTableRoute() {
 	const binding = useSourceReductionFilterState();
 	const { filters, activeCount, reset } = binding;
-	const carried = sharedSourceReductionSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const params = mapQueryParams({
 		bbox: WHOLE_WORLD_BBOX,
@@ -58,7 +58,9 @@ function SourceReductionsTableRoute() {
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
-				actions={<SourceReductionSurfaceSwitch current="table" search={carried} />}
+				actions={
+					<RecordSetSwitch current="table" search={routeSearch} set={sourceReductionRecordSet} />
+				}
 				description="Source reductions in the date window, newest first."
 				icon={SourceReductionIcon}
 				title={recordNoun('sourceReduction').titleMany}

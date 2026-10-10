@@ -13,17 +13,17 @@ import {
 	normalizeApplication,
 } from '../../../components/control-operations/chemical/application-row-parts';
 import { applicationSummaryGroupings } from '../../../components/control-operations/chemical/application-summary';
-import { ApplicationSurfaceSwitch } from '../../../components/control-operations/chemical/application-surface-switch';
 import {
 	applicationFilterCodecs,
 	applicationListParams,
+	applicationRecordSet,
 	applicationTileFilters,
-	sharedApplicationSearch,
 } from '../../../components/control-operations/chemical/applications-search';
 import { formatAmount } from '../../../components/control-operations/control-display';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useApplicationFilterState } from '../../../hooks/control-operations/use-application-filter-state';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
@@ -60,9 +60,7 @@ function ApplicationsExplorerRoute() {
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
 	const filters = applicationTileFilters(query);
-	// What a move to the Table takes with it: every filter, since the Table
-	// applies each one.
-	const carried = sharedApplicationSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 	const {
 		rows,
 		total,
@@ -87,7 +85,9 @@ function ApplicationsExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
-			actions={<ApplicationSurfaceSwitch compact current="map" search={carried} />}
+			actions={
+				<RecordSetSwitch compact current="map" search={routeSearch} set={applicationRecordSet} />
+			}
 			activeFilterCount={activeFilterCount}
 			filters={<ApplicationFilterFields binding={binding} />}
 			heading={{
