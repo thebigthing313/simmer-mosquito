@@ -16,7 +16,7 @@ import {
 	type StopFocus,
 	StopReorderControls,
 } from '../../stop-order';
-import { type RouteStopView, stopTone } from './route-data';
+import { type RouteStopView, stopBadgeTone } from './route-data';
 import { StopStatus, StopTagChips, StopTypePill } from './route-stop-list';
 
 /**
@@ -62,7 +62,7 @@ export function EditStopRow({
 }) {
 	return (
 		<StopCardFrame focus={focus} id={stop.routeItemId} label={`Show ${stop.name} on the map`}>
-			<OrdinalBadge ordinal={ordinal} tone={stopTone(stop)} />
+			<OrdinalBadge ordinal={ordinal} tone={stopBadgeTone(stop)} />
 
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-2">

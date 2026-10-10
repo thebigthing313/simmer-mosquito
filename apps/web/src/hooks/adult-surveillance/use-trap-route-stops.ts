@@ -1,25 +1,37 @@
-import { and, coalesce, eq, useLiveQuery } from '@tanstack/react-db';
+import { and, eq, useLiveQuery } from '@tanstack/react-db';
+import { trapStopTone } from '../../components/adult-surveillance/traps/trap-route-data';
 import { route_items } from '../../lib/collections/route_items';
 import { traps } from '../../lib/collections/traps';
 import type { RouteStopFeature } from '../map/use-route-layer';
 import { activityGcTimeMs, joinedOrNull, unmatchableId } from '../queries/shared';
 import { trapDisplayName } from '../queries/trap-view';
 
-/** One resolved trap route stop: a route item joined to its trap, in route order. */
-export interface TrapRouteStopView {
+/**
+ * One trap route stop: a route item joined to its trap, in route order.
+ *
+ * A union on `isResolving`, because the status is the Trap's and the stop
+ * draws before the Trap arrives. A resolving stop carries no `isActive`, so a
+ * reader has to narrow before it can ask whether the stop is active.
+ */
+export type TrapRouteStopView = TrapRouteStopFields & TrapRouteStopResolution;
+
+/** Every field of a stop that both members of {@link TrapRouteStopView} share. */
+interface TrapRouteStopFields {
 	readonly routeItemId: string;
 	readonly trapId: string;
 	readonly ordinal: number;
 	readonly position: number;
 	readonly name: string;
-	readonly isActive: boolean;
 	readonly lat: number | null;
 	readonly lng: number | null;
 	readonly hasLocation: boolean;
 	readonly directionsToNextItem: string | null;
-	/** True while the trap row behind this stop is still resolving. */
-	readonly isResolving: boolean;
 }
+
+/** Whether the Trap behind a stop has arrived, and its status if so. */
+type TrapRouteStopResolution =
+	| { readonly isResolving: false; readonly isActive: boolean }
+	| { readonly isResolving: true };
 
 /**
  * The ordered stops of one trap route, joined to their traps in one query, and
@@ -57,11 +69,12 @@ export function useTrapRouteStops(routeId: string | null): {
 					directionsToNextItem: item.directions_to_next_item,
 
 					// `undefined` here is the join still resolving, which is what
-					// `isResolving` reports below.
-					resolvedTrapId: trap.id,
+					// `stopResolution` below reads: the column is never null, so a Trap
+					// that has arrived reads a boolean. Left raw rather than through a
+					// `coalesce` default, which would draw an unresolved stop as active.
+					isActive: trap.is_active,
 					trapName: joinedOrNull(trap.trap_name),
 					trapCode: joinedOrNull(trap.trap_code),
-					isActive: coalesce(trap.is_active, true),
 					lat: joinedOrNull(trap.lat),
 					lng: joinedOrNull(trap.lng),
 				})),
@@ -83,23 +96,37 @@ export function useTrapRouteStops(routeId: string | null): {
 			trapName: row.trapName,
 			trapCode: row.trapCode,
 		}),
-		isActive: row.isActive,
 		lat: row.lat,
 		lng: row.lng,
 		hasLocation: row.lat !== null && row.lng !== null,
 		directionsToNextItem: row.directionsToNextItem,
-		isResolving: row.resolvedTrapId === undefined,
+		...stopResolution(row.isActive),
 	}));
 
-	const features: readonly RouteStopFeature[] = stops
-		.filter((stop) => stop.hasLocation)
-		.map((stop) => ({
-			id: stop.routeItemId,
-			lat: stop.lat as number,
-			lng: stop.lng as number,
-			ordinal: stop.ordinal,
-			tone: stop.isActive ? ('default' as const) : ('inactive' as const),
-		}));
+	// A resolving stop has no location either, so skipping it changes nothing on
+	// the map; testing `isResolving` is what lets the tone read `isActive`.
+	const features: readonly RouteStopFeature[] = stops.flatMap((stop) =>
+		stop.isResolving || !stop.hasLocation
+			? []
+			: [
+					{
+						id: stop.routeItemId,
+						lat: stop.lat as number,
+						lng: stop.lng as number,
+						ordinal: stop.ordinal,
+						tone: trapStopTone(stop),
+					},
+				],
+	);
 
 	return { stops, features, itemCount: rows.length, isLoading: !result.isReady };
+}
+
+/**
+ * A stop's `isResolving` and status from the one column that decides both, so
+ * the two cannot disagree: the joined `is_active` is never null, so it is
+ * `undefined` exactly when the Trap has not arrived.
+ */
+function stopResolution(isActive: boolean | undefined): TrapRouteStopResolution {
+	return isActive === undefined ? { isResolving: true } : { isResolving: false, isActive };
 }

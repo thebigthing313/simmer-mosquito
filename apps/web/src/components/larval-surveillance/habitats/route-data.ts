@@ -1,6 +1,6 @@
 import { commandPathFor, writeCommand } from '@simmer-mosquito/sync';
 import { getServerUrl } from '../../../auth';
-import type { RouteStopFeature } from '../../../hooks/map/use-route-layer';
+import type { OrdinalTone, StopTone } from '../../stop-order';
 
 /** The slice of a habitat the route surfaces need, geometry, status, address. */
 export interface RouteHabitat {
@@ -19,10 +19,12 @@ export interface RouteHabitat {
 /**
  * One stop: a route item joined to its habitat, in route order.
  *
- * A union on `isResolving`, because the description is the Habitat's and the
- * stop draws before the Habitat arrives. A resolved stop carries a string,
- * `''` when the Habitat has none, and a resolving one carries `null`, so a
- * reader that narrows on `isResolving` knows which it holds.
+ * A union on `isResolving`, because the description and the status are the
+ * Habitat's and the stop draws before the Habitat arrives. A resolved stop
+ * carries a description string, `''` when the Habitat has none, and both
+ * status flags; a resolving one carries a `null` description and no status at
+ * all, so a reader has to narrow on `isResolving` before it can ask whether
+ * the stop is active.
  */
 export type RouteStopView = RouteStopFields & RouteStopResolution;
 
@@ -38,15 +40,18 @@ interface RouteStopFields {
 	readonly addressLabel: string | null;
 	readonly lat: number | null;
 	readonly lng: number | null;
-	readonly isActive: boolean;
-	readonly isInaccessible: boolean;
 	readonly directionsToNextItem: string | null;
 	readonly hasLocation: boolean;
 }
 
-/** Whether the Habitat behind a stop has arrived, and its description if so. */
+/** Whether the Habitat behind a stop has arrived, and its description and status if so. */
 export type RouteStopResolution =
-	| { readonly isResolving: false; readonly description: string }
+	| {
+			readonly isResolving: false;
+			readonly description: string;
+			readonly isActive: boolean;
+			readonly isInaccessible: boolean;
+	  }
 	| { readonly isResolving: true; readonly description: null };
 
 /** A run of consecutive stops that share one address (the grouping cue). */
@@ -57,8 +62,7 @@ export interface RouteStopCluster {
 	readonly stops: readonly RouteStopView[];
 }
 
-export type StopTone = RouteStopFeature['tone'];
-
+/** The tone of a stop whose Habitat has arrived, which the map pin and the badge share. */
 export function stopTone(stop: {
 	readonly isActive: boolean;
 	readonly isInaccessible: boolean;
@@ -67,6 +71,11 @@ export function stopTone(stop: {
 		return 'inaccessible';
 	}
 	return stop.isActive ? 'default' : 'inactive';
+}
+
+/** The badge's tone: {@link stopTone} once the Habitat has arrived, `resolving` until then. */
+export function stopBadgeTone(stop: RouteStopView): OrdinalTone {
+	return stop.isResolving ? 'resolving' : stopTone(stop);
 }
 
 /**
