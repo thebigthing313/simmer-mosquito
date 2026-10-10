@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Asserts that every module in `packages/mapping/src` is reached by a caller
- * outside the package.
+ * Asserts that every module in `packages/mapping/src`, and every value name its
+ * barrel publishes, is reached by a caller outside the package.
  *
  * Run it with `pnpm check:mapping-callers`.
  *
@@ -63,6 +63,31 @@
  * code nothing called, and a rule that let a suite keep a module alive would
  * have passed over both.
  *
+ * ## Value names
+ *
+ * The module rule keeps a module alive when one of its names is asked for, so
+ * every other name it contributes to the barrel rides along. That is how
+ * `extendBounds`, `isLngLat`, `ringPerimeterMeters`, `containsLngLat` and
+ * `parseBoundingBox` stayed published with no caller outside, and running this
+ * rule the first time found three more the issue's search had missed (#1553).
+ * So a second rule reads the barrel name by name: every name in a value
+ * re-export clause, `export { a } from`, must be named by an import outside
+ * `packages/mapping/src`, read off the same scan that feeds the module rule.
+ * A name published as `a as b` is looked for as `b`, since that is what a
+ * caller imports.
+ *
+ * Types are left out, both `export type { A } from` and a `type A` entry
+ * inside a value clause. A type describes a value a caller receives, the
+ * per-kind `ImportGeometry` members and the reshape and split outcomes among
+ * them, so a caller can use one through inference without ever naming it, and
+ * an import is the wrong question to ask of it.
+ *
+ * A name with no caller comes out of the barrel. A helper its own module still
+ * calls stays there, and whether it keeps its `export` keyword is
+ * `fallow dead-code`'s answer: a unit suite importing the module directly is
+ * an importer. A name nothing calls is deleted with its unit cases, #621's
+ * rule.
+ *
  * ## The floors
  *
  * #591's shape, twice, because each guards a silent pass rather than a wrong
@@ -77,6 +102,14 @@
  * `exports` map looks like from here. Without it that failure arrives as every
  * module in the package having gone dead at once, and a reader would go looking
  * for a deletion nobody made.
+ *
+ * `PROBES` is a third guard and cannot be a floor. The name rule is at zero, so
+ * a pattern that stopped reading value clauses would print the same clean line
+ * a working one prints. Four barrel and caller pairs with known answers run
+ * ahead of the walk, through the same reading the barrel and the callers get:
+ * a name asked for, a name not asked for, a type-only name not asked for, and
+ * a renamed name beside an inline `type` entry. A probe read wrong fails the
+ * run before the walk starts.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -105,6 +138,15 @@ const SOURCE_ROOT = join(PACKAGE_DIR, 'src');
  */
 const NAMED = /(?:import|export)\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
 
+/**
+ * A value re-export, `export { a } from`, which is the only clause the name rule
+ * reads.
+ *
+ * `export type { A } from` does not match, because the brace has to follow
+ * `export` directly. That is the type exclusion the header explains.
+ */
+const VALUE_REEXPORT = /export\s+\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
+
 /** Any module specifier, for the subpath question and for the relative walk. */
 const SPECIFIER = /(?:\bfrom|\bimport)\s*\(?\s*['"]([^'"]+)['"]/g;
 
@@ -117,7 +159,39 @@ const MINIMUM_MODULES = 4;
  */
 const MINIMUM_IMPORTED_NAMES = 10;
 
+/**
+ * Sources with known answers for the name rule, run ahead of the walk.
+ *
+ * Each pairs a barrel with one caller, and the caller goes through the same
+ * `namesAskedIn` the workspace scan uses, so a broken caller scan fails here as
+ * well as a broken barrel read. `finds` is the names the rule must report.
+ */
+const PROBES = [
+	{
+		barrel: "export { asked } from './a.js';",
+		caller: "import { asked } from '@simmer-mosquito/mapping';",
+		finds: [],
+	},
+	{
+		barrel: "export { asked, unasked } from './a.js';",
+		caller: "import { asked } from '@simmer-mosquito/mapping';",
+		finds: ['unasked'],
+	},
+	{
+		barrel: "export type { Unasked } from './a.js';",
+		caller: "import { asked } from '@simmer-mosquito/mapping';",
+		finds: [],
+	},
+	{
+		barrel: "export { inner as asked, type Unasked } from './a.js';",
+		caller: "import { asked } from '@simmer-mosquito/mapping';",
+		finds: [],
+	},
+];
+
 function main() {
+	assertItReadsNames();
+
 	const modules = readModules();
 	if (modules.length < MINIMUM_MODULES) {
 		fail(
@@ -133,7 +207,31 @@ function main() {
 	}
 
 	const live = liveModules(asked);
-	report(modules.filter((module) => !live.has(module)));
+	report(
+		modules.filter((module) => !live.has(module)),
+		readEntries().flatMap((entry) => uncalledNamesIn(entry, asked)),
+	);
+}
+
+/**
+ * That the name rule still reads a barrel and a caller the way `PROBES` says.
+ *
+ * No count can stand in for this. The package is at zero uncalled names, so a
+ * rule that stopped matching value clauses would print the same clean line a
+ * working one prints.
+ */
+function assertItReadsNames() {
+	const wrong = PROBES.filter(
+		(probe) =>
+			uncalledNames(probe.barrel, new Set(namesAskedIn(probe.caller)))
+				.map(({ name }) => name)
+				.join(',') !== probe.finds.join(','),
+	);
+	if (wrong.length > 0) {
+		fail(
+			`the name rule no longer reads ${count(wrong.length, 'source')} of the ${PROBES.length} in PROBES as expected, the first being: ${wrong[0].barrel} A run in this state reads every barrel name the same wrong way, so it refuses rather than passing. Fix VALUE_REEXPORT, publishedValues or namesAskedIn in scripts/check-mapping-callers.mjs, and change a probe only alongside the rule it states.`,
+		);
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -198,6 +296,51 @@ const bindings = (clause) =>
 				?.trim(),
 		)
 		.filter((name) => name !== undefined && name.length > 0);
+
+/**
+ * The published name in each entry of a value clause, type-only entries
+ * dropped.
+ *
+ * A re-export publishes the second half of `a as b`, and `b` is what a caller
+ * imports, so that is the name to look for. `bindings` takes the first half
+ * because it reads what is asked of the package, and the two answer different
+ * questions.
+ */
+const publishedValues = (clause) =>
+	clause
+		.split(',')
+		.map((each) => each.trim())
+		.filter((each) => each.length > 0 && !/^type\s/.test(each))
+		.map(
+			(each) =>
+				each
+					.split(/\s+as\s+/)
+					.at(-1)
+					?.trim() ?? each,
+		);
+
+/**
+ * The value names one barrel's text publishes and no caller asks for, as
+ * `{ name, specifier }`.
+ */
+const uncalledNames = (text, askedNames) =>
+	[...text.matchAll(VALUE_REEXPORT)].flatMap(([, clause, specifier]) =>
+		publishedValues(clause)
+			.filter((name) => !askedNames.has(name))
+			.map((name) => ({ name, specifier })),
+	);
+
+/**
+ * The uncalled value names one entry module publishes, each with the module it
+ * comes from. A leaf publishes no clause and contributes nothing.
+ *
+ * @returns {Array<{ name: string, module: string }>}
+ */
+const uncalledNamesIn = (entry, asked) =>
+	uncalledNames(readFileSync(entry.file, 'utf8'), asked.names).map(({ name, specifier }) => ({
+		name,
+		module: resolveRelative(entry.file, specifier)[0] ?? specifier,
+	}));
 
 // ---------------------------------------------------------------------------
 // The live set
@@ -338,22 +481,49 @@ function resolveRelative(from, specifier) {
 // Reporting
 // ---------------------------------------------------------------------------
 
-function report(dead) {
-	if (dead.length === 0) {
-		console.log(`${GATE}: every module in packages/mapping/src is reached by a caller.`);
+function report(dead, uncalled) {
+	if (dead.length === 0 && uncalled.length === 0) {
+		console.log(
+			`${GATE}: every module in packages/mapping/src, and every value name its barrel publishes, is reached by a caller.`,
+		);
 		return;
 	}
+	reportDeadModules(dead);
+	reportUncalledNames(uncalled);
+	process.exit(1);
+}
 
+function reportDeadModules(dead) {
+	if (dead.length === 0) return;
 	console.error(
-		`${GATE}: ${count(dead.length, 'module')} in packages/mapping/src ${dead.length === 1 ? 'is' : 'are'} reached by nothing outside the package. fallow reports them as live because the barrel re-exports them, which is why this gate exists.\n`,
+		`${GATE}: ${count(dead.length, 'module')} in packages/mapping/src ${isOrAre(dead)} reached by nothing outside the package. fallow reports them as live because the barrel re-exports them, which is why this gate exists.
+`,
 	);
 	for (const file of dead) {
 		console.error(`  ${pathFrom(workspaceRoot, file)}`);
 	}
 	console.error(
-		`\nDelete the module and its names from packages/mapping/src/index.ts, along with any suite covering it. If it is meant to have a caller, write the caller in the same branch: a module a barrel publishes and nothing imports is what #621 found four of.`,
+		`
+Delete the module and its names from packages/mapping/src/index.ts, along with any suite covering it. If it is meant to have a caller, write the caller in the same branch: a module a barrel publishes and nothing imports is what #621 found four of.
+`,
 	);
-	process.exit(1);
 }
+
+function reportUncalledNames(uncalled) {
+	if (uncalled.length === 0) return;
+	console.error(
+		`${GATE}: ${count(uncalled.length, 'value name')} the barrel publishes ${isOrAre(uncalled)} imported by nothing outside the package. The module behind each is live because another of its names is asked for, so the module rule cannot see these.
+`,
+	);
+	for (const { name, module } of uncalled) {
+		console.error(`  ${name} from ${pathFrom(workspaceRoot, module)}`);
+	}
+	console.error(
+		`
+Take the name out of packages/mapping/src/index.ts. If its own module still calls it, leave it there as a private helper; if nothing calls it, delete it and its unit cases. If it is meant to have a caller, write the caller in the same branch.`,
+	);
+}
+
+const isOrAre = (list) => (list.length === 1 ? 'is' : 'are');
 
 main();
