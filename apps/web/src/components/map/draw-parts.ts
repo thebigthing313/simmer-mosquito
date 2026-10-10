@@ -915,7 +915,7 @@ export function finishedParts(
  * How far along the draw in progress is: which tool it is on, how many vertices
  * it holds, and whether Finish and Undo have anything to do.
  *
- * `MapDrawController` extends this rather than restating the four members, so
+ * {@link DrawReadings} extends this rather than restating the four members, so
  * the controller the toolbar reads and the answer {@link draftProgress} gives it
  * cannot drift apart.
  */
@@ -930,6 +930,27 @@ export interface DrawProgress {
 	 * already placed, and Undo stops there rather than eating into them.
 	 */
 	readonly canUndo: boolean;
+}
+
+/**
+ * What the controller reports about the draft, as against what it lets a caller
+ * do: {@link DrawProgress}, which mode the draw is in, and the draft of a
+ * continued part, an edited part or a hole that the part list and the map draw.
+ *
+ * `MapDrawController` extends this, and the draw machine's `drawView` returns
+ * it, so the machine names the readings without importing the controller.
+ */
+export interface DrawReadings extends DrawProgress {
+	readonly isDrawing: boolean;
+	/** The draw in progress appends a part rather than replacing the shape. */
+	readonly isAddingPart: boolean;
+	readonly isRequestingPoint: boolean;
+	/** The part being continued, or null while the draw is not one. */
+	readonly continuedPart: DrawContinueDraft | null;
+	/** The part being edited, or null while the draw is not one. */
+	readonly editedPart: DrawEditDraft | null;
+	/** The hole in progress, or null while the draw is not one. */
+	readonly holeDraft: DrawHoleDraft | null;
 }
 
 /**
