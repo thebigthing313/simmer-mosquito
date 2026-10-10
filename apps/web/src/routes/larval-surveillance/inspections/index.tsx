@@ -83,8 +83,6 @@ function InspectionsExplorerRoute() {
 	}: ExplorerResource<InspectionListing> = useExplorerResource({
 		set: inspectionRecordSet,
 		binding,
-		tileset: 'inspections',
-		rowKey: 'inspection',
 		summarize: true,
 	});
 	const [clustered] = useMapClustering();

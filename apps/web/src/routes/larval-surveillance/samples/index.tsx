@@ -71,8 +71,6 @@ function SamplesExplorerRoute() {
 	}: ExplorerResource<SampleListRow> = useExplorerResource({
 		set: sampleRecordSet,
 		binding,
-		tileset: 'samples',
-		rowKey: 'sample',
 		summarize: true,
 	});
 

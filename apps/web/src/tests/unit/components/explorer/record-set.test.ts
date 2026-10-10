@@ -241,6 +241,26 @@ describe('a record set definition', () => {
 		expect(set.textSearch?.key).toBe('regions');
 	});
 
+	it("refuses a tileset whose filters are not the set's", () => {
+		// Habitats' filters are not the address set's.
+		const habitatsOverAddresses = defineRecordSet({
+			...addressRecordSet,
+			// @ts-expect-error: the habitats tileset does not draw address filters.
+			tileset: 'habitats',
+		});
+		// Source Reduction's filters differ from Outreach's by one field name, so
+		// each type would pass for the other, which is why the check is exact
+		// rather than by assignment.
+		const sourceReductionOverOutreach = defineRecordSet({
+			...outreachRecordSet,
+			// @ts-expect-error: the source reduction tileset does not draw outreach filters.
+			tileset: 'source-reduction',
+		});
+
+		expect(habitatsOverAddresses.tileset).toBe('habitats');
+		expect(sourceReductionOverOutreach.tileset).toBe('source-reduction');
+	});
+
 	it('does not widen to a set over any tile', () => {
 		// @ts-expect-error: `listParams` reads address tile filters, so it cannot take any value.
 		const widened: RecordSet<AddressFilters, unknown> = addressRecordSet;
