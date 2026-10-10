@@ -10,8 +10,8 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import type { RouteStopFeature } from '../../hooks/map/use-route-layer';
 import { type RecordType, recordNoun } from '../../lib/record-nouns';
 import { MapCanvas } from '../map';
+import { frameOnMap } from '../map/map-camera';
 import { MapControlButton, MapControlGroup } from '../map/map-control';
-import { framingPadding } from '../map/map-inset';
 
 /**
  * The worklist map: numbered stops in sequence, auto-framed when the worklist
@@ -50,7 +50,8 @@ export function WorklistMap({
 	// Fit once per worklist, and only once coordinates have actually resolved —
 	// the targets stream in separately, so an early fit would frame an empty set.
 	useEffect(() => {
-		if (map === null || boundsOfFeatures(features) === null) {
+		const bounds = boundsOfFeatures(features);
+		if (map === null || bounds === null) {
 			return;
 		}
 		const key = fitKey ?? '';
@@ -58,12 +59,12 @@ export function WorklistMap({
 			return;
 		}
 		lastFitRef.current = key;
-		fitToWorklist(map, features, true);
+		frameOnMap(map, bounds, { purpose: 'collection', animate: true });
 	}, [map, fitKey, features]);
 
 	const handleZoom = () => {
 		if (map !== null) {
-			fitToWorklist(map, features, true);
+			frameOnMap(map, boundsOfFeatures(features), { purpose: 'collection', animate: true });
 		}
 	};
 
@@ -111,58 +112,18 @@ export function WorklistMap({
 }
 
 /**
- * SW/NE bounds across every located stop, or null when none has coordinates.
+ * The bounds across every located stop, or null when none has coordinates.
  * A stop that owns a shape is framed by the whole shape rather than by the pin
  * at its centroid.
  */
-/**
- * Frame a map on a worklist's targets. It takes the features as an argument so
- * the auto-fit effect can depend on them.
- */
-function fitToWorklist(
-	instance: MapboxMap,
-	features: readonly RouteStopFeature[],
-	animate: boolean,
-): void {
-	const bounds = boundsOfFeatures(features);
-	if (bounds === null) {
-		return;
-	}
-	const [[west, south], [east, north]] = bounds;
-	const duration = animate ? 650 : 0;
-	if (west === east && south === north) {
-		instance.easeTo({
-			center: [west, south],
-			zoom: Math.max(instance.getZoom(), 15),
-			duration,
-		});
-		return;
-	}
-	instance.fitBounds(
-		[
-			[west, south],
-			[east, north],
-		],
-		{ ...framingPadding(instance, 72), maxZoom: 16, duration },
-	);
-}
-
-function boundsOfFeatures(
-	features: readonly RouteStopFeature[],
-): [[number, number], [number, number]] | null {
+function boundsOfFeatures(features: readonly RouteStopFeature[]): BoundingBox | null {
 	let box: BoundingBox | null = null;
 	for (const feature of features) {
 		for (const point of framingPoints(feature)) {
 			box = extendBounds(box, point);
 		}
 	}
-
-	return box === null
-		? null
-		: [
-				[box.west, box.south],
-				[box.east, box.north],
-			];
+	return box;
 }
 
 /** What a stop contributes to the frame: its shape's corners, or just its pin. */

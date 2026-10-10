@@ -276,6 +276,11 @@ read, because habitats sync on demand. Without it the field drew its
 placeholder over a value that was set, and the operator picked the habitat they
 had just come from.
 
+`includeRetired` is the one difference between its callers. A control action
+or a request is new work, and offering a retired habitat invites recording
+against it, so those forms leave it off. The inspection form passes it, because
+an inspection is how a retired habitat gets looked at again (#1468).
+
 ### daily-work
 
 #### legend
@@ -569,9 +574,11 @@ out over a busy month.
 #### InspectionFormPage
 
 `inspectedByProfileId` is seeded with the acting profile because "Default to
-me" said only that a default existed. The habitat picker passes
-`includeRetired`, because an inspection is also how a retired site gets looked
-at again; the control pickers exclude.
+me" said only that a default existed. The habitat field is the
+control-operations `HabitatPicker` with `includeRetired` and `required`, and
+the reason for the first is under that component. The form drew a picker of its
+own until #1468, which held its picked label in its own state and so kept the
+previous habitat's name over a value moved from outside.
 
 Conditions opens with neither Wet nor Dry pressed on a new inspection. The
 form used to open on Wet, so an inspection saved by somebody who never looked
@@ -700,10 +707,27 @@ and larval sheets converted first, closed, and toasted. Three sheets of four
 already did the second, and once the client checks a value by the rule the domain
 does, a server refusal is the rare case, so that is the one the frame keeps.
 
+A sheet's conversion is its only rule, and no field in a settings sheet carries
+a validator. Organization details and unit defaults used to refuse an empty
+required value twice, once in a field validator that drew the message under
+the field and once in the conversion, which never ran on it because the
+validator stopped the submit first. Main contact's email check was the one
+rule held only by a validator. All of them are in the conversion now, so every
+refusal reads the same way, in the error alert with the sheet open (#1475).
+
+The two gates are in two places. Save is disabled while the Organization row
+is still loading, and the frame reads that from
+`useOrganizationSettingsMutations` itself, so no caller can fill it
+differently: before #1475 two callers passed `canWrite` and two passed it
+anded with `canManage`. Who may open a sheet is `DomainSection`'s question,
+which draws the Edit control only at the Admin floor, so no sheet takes a role
+or disables its inputs on one. The server refuses the settings commands below
+that floor either way.
+
 The body is the caller's, handed the form, rather than a field list the frame
-reads. Organization details carries field validators of its own, unit defaults
-draws one select per unit type and the larval sheet lays its density bands out
-in fieldsets, and none of those is a list of inputs keyed by name.
+reads. Unit defaults draws one select per unit type read off its values and
+the larval sheet lays its density bands out in fieldsets, and neither is a
+list of inputs keyed by name.
 
 #### SettingsSectionSheet
 
@@ -1045,11 +1069,10 @@ not respond.
 #### PickerFrame
 
 It takes the bound field's `state.meta.errors` and draws them under the input,
-and every picker built on it, `DateControl` and the inspection's own
-`HabitatPicker` pass them through. `domainValidator` files a missing pick or a
-cleared date on the field it names, and `FormErrorAlert` leaves field errors to
-the field, so a control that drops them refuses the save with nothing on
-screen. Until #871 that was a habitat inspection with no habitat, a trap
+and every picker built on it and `DateControl` pass them through.
+`domainValidator` files a missing pick or a cleared date on the field it
+names, and `FormErrorAlert` leaves field errors to the field, so a control that
+drops them refuses the save with nothing on screen. Until #871 that was a habitat inspection with no habitat, a trap
 collection with no trap and every required date, and the inspection's
 `habitatError` fallback for the first could never run, because `onSubmit` only
 runs once the validator has passed. A control the app draws inside a
@@ -1061,6 +1084,10 @@ from `useSearchPicker`, and none holds that state itself. Seven pickers used to
 answer "what does the closed field say" seven ways, and the answers went stale
 when the list arrived late or `value` moved from outside (#1434). The rule is
 under that hook in `docs/web-hooks.md`.
+
+`required` draws the required mark after the label. The inspection's habitat
+field passes it, since its label carried the mark before it moved onto this
+frame (#1468).
 
 ### public-engagement
 

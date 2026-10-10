@@ -23,18 +23,11 @@ type LarvalSettingsForm = SettingsSheetForm<LarvalSettingsFormValues>;
  * The larval surveillance sheet: the inspection entry mode with a preview of
  * what it asks crews for, and the optional density bands in larvae per dip.
  */
-export function LarvalSettingsDrawer({
-	canManage,
-	settings,
-}: {
-	readonly canManage: boolean;
-	readonly settings: OrganizationSettings;
-}) {
-	const { canWrite, setLarvalInspectionEntryPolicy } = useOrganizationSettingsMutations();
+export function EditLarvalSettingsSheet({ settings }: { readonly settings: OrganizationSettings }) {
+	const { setLarvalInspectionEntryPolicy } = useOrganizationSettingsMutations();
 
 	return (
 		<SettingsSheet
-			canSave={canManage && canWrite}
 			convert={larvalEntryPolicyFrom}
 			description="Adjust inspection entry rules and optional density inference ranges."
 			failureMessage="Unable to save larval settings."
@@ -46,13 +39,7 @@ export function LarvalSettingsDrawer({
 			{(form) => (
 				<>
 					<form.AppField name="mode">
-						{(field) => (
-							<field.SelectField
-								disabled={!canManage}
-								label="Entry mode"
-								options={larvalEntryModeOptions}
-							/>
-						)}
+						{(field) => <field.SelectField label="Entry mode" options={larvalEntryModeOptions} />}
 					</form.AppField>
 					<form.Subscribe selector={(state) => state.values}>
 						{(values) => (
@@ -67,7 +54,7 @@ export function LarvalSettingsDrawer({
 							/>
 						)}
 					</form.Subscribe>
-					<DensityRangesEditor canManage={canManage} form={form} />
+					<DensityRangesEditor form={form} />
 				</>
 			)}
 		</SettingsSheet>
@@ -75,13 +62,7 @@ export function LarvalSettingsDrawer({
 }
 
 /** The density inference switch and one editor per density band, disabled while it is off. */
-function DensityRangesEditor({
-	canManage,
-	form,
-}: {
-	readonly canManage: boolean;
-	readonly form: LarvalSettingsForm;
-}) {
+function DensityRangesEditor({ form }: { readonly form: LarvalSettingsForm }) {
 	const id = useId();
 
 	return (
@@ -104,7 +85,6 @@ function DensityRangesEditor({
 							id={`${id}-density`}
 							aria-describedby={`${id}-density-description`}
 							checked={field.state.value}
-							disabled={!canManage}
 							onCheckedChange={(checked) => field.handleChange(checked)}
 						/>
 					</div>
@@ -116,7 +96,7 @@ function DensityRangesEditor({
 						{densityRangeKeys.map((density) => (
 							<DensityRangeEditor
 								density={density}
-								disabled={!canManage || !densityEnabled}
+								disabled={!densityEnabled}
 								form={form}
 								key={density}
 							/>

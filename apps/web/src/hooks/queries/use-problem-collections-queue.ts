@@ -43,7 +43,7 @@ export function useProblemCollectionsQueue(today: string, timeZone: string): Ele
 	let oldest: string | null = null;
 	for (const row of result.data) {
 		const effective = collectionEffectiveDate(row, timeZone);
-		if (effective !== null && effective !== '' && (oldest === null || effective < oldest)) {
+		if (effective !== null && (oldest === null || effective < oldest)) {
 			oldest = effective;
 		}
 	}
