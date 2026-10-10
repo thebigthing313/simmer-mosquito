@@ -10,8 +10,11 @@ import {
 import { useOrganizationTimeZone } from '../use-organization-time-zone';
 import { useSearchFilters } from '../use-search-filters';
 
+/** Which requests the status filter can keep, in the order its segments draw. */
+const REQUEST_STATUS_FILTERS = ['all', 'open', 'resolved'] as const;
+
 /** Which requests the status filter keeps. */
-export type RequestStatusFilter = 'all' | 'open' | 'resolved';
+export type RequestStatusFilter = (typeof REQUEST_STATUS_FILTERS)[number];
 
 /** The Requests for Control filter state, keyed by the param each field appears under. */
 export interface RequestFilters {
@@ -34,7 +37,7 @@ export interface RequestFilters {
 export const requestFilterCodecs: FilterCodecs<RequestFilters> = {
 	from: dateParam,
 	to: dateParam,
-	status: choiceParam(['all', 'open', 'resolved'], 'open'),
+	status: choiceParam(REQUEST_STATUS_FILTERS, 'open'),
 	types: idSetParam,
 	people: idSetParam,
 	unassigned: flagParam,
