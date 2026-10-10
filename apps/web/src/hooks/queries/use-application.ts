@@ -17,7 +17,7 @@
  * this query rather than after it.
  */
 
-import { coalesce, eq } from '@tanstack/react-db';
+import { eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { application_methods } from '../../lib/collections/application_methods';
 import { applications } from '../../lib/collections/applications';
@@ -28,7 +28,7 @@ import { units } from '../../lib/collections/units';
 import { vehicles } from '../../lib/collections/vehicles';
 import type { ChemicalApplication } from './control-action-view';
 import { controlActionBaseSelect, PERFORMED_ACTIONS } from './performed-action-reads';
-import { addressSelect, useRecordById } from './shared';
+import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
 const applicationReads = PERFORMED_ACTIONS.applications;
 
@@ -99,20 +99,20 @@ export function useApplication(
 							insecticideId: measured.productId,
 							// `insecticide_id` is not nullable, so a `null` name only ever means
 							// the product is not in the client.
-							productName: coalesce(product.trade_name, null),
+							productName: joinedOrNull(product.trade_name),
 							methodId: measured.methodId,
-							methodName: coalesce(method.name, null),
+							methodName: joinedOrNull(method.name),
 							applicatorProfileId: measured.performerProfileId,
-							applicatorName: coalesce(applicator.display_name, null),
+							applicatorName: joinedOrNull(applicator.display_name),
 
 							amountApplied: measured.amount,
 							unitId: measured.unitId,
-							unitAbbreviation: coalesce(unit.abbreviation, null),
+							unitAbbreviation: joinedOrNull(unit.abbreviation),
 
 							vehicleId: application.vehicle_id,
-							vehicleName: coalesce(vehicle.vehicle_name, null),
+							vehicleName: joinedOrNull(vehicle.vehicle_name),
 							equipmentId: application.equipment_id,
-							equipmentName: coalesce(rig.equipment_name, null),
+							equipmentName: joinedOrNull(rig.equipment_name),
 							habitatId: application.habitat_id,
 							collectionId: application.collection_id,
 							...controlActionBaseSelect(application),

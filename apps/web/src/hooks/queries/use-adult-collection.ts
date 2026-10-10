@@ -12,7 +12,7 @@
  * only exists once the collection row has arrived.
  */
 
-import { coalesce, eq } from '@tanstack/react-db';
+import { eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { collection_lures } from '../../lib/collections/collection_lures';
 import { collection_methods } from '../../lib/collections/collection_methods';
@@ -21,7 +21,7 @@ import { traps } from '../../lib/collections/traps';
 import { useOrganizationTimeZone } from '../use-organization-time-zone';
 import { collectionEffectiveDate } from './collection-day';
 import type { AdultCollection } from './collection-view';
-import { addressSelect, useRecordById } from './shared';
+import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
 export function useAdultCollection(
 	collectionId: string | null,
@@ -69,13 +69,13 @@ export function useAdultCollection(
 					// which is the one state the name columns cannot tell apart from a
 					// trap that has no name.
 					resolvedTrapId: trap.id,
-					trapName: coalesce(trap.trap_name, null),
-					trapCode: coalesce(trap.trap_code, null),
+					trapName: joinedOrNull(trap.trap_name),
+					trapCode: joinedOrNull(trap.trap_code),
 
 					methodId: collection.collection_method_id,
-					methodName: coalesce(method.name, null),
+					methodName: joinedOrNull(method.name),
 					lureId: collection.collection_lure_id,
-					lureName: coalesce(lure.name, null),
+					lureName: joinedOrNull(lure.name),
 					addressId: collection.address_id,
 
 					collectedAt: collection.collected_at,

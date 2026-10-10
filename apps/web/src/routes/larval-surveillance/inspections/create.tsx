@@ -156,8 +156,10 @@ function CreateInspectionRoute() {
 			// the crew rows: a sample that fails to land is reported rather than
 			// failing a save that already succeeded. They go one at a time because
 			// the samples grid sorts on `created_at`.
-			await attachLinksBestEffort('the samples', () =>
-				addSamplesInFormOrder(sampleMutations.add, inspectionId, values.samples),
+			await attachLinksBestEffort(
+				'the samples',
+				() => addSamplesInFormOrder(sampleMutations.add, inspectionId, values.samples),
+				{ write: 'add', recordType: 'inspection' },
 			);
 
 			// Crew rows reference the inspection, so they can only be written once it

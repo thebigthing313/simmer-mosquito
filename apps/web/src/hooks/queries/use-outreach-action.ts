@@ -7,14 +7,14 @@
  * Two sequential queries before: the action, then the method that titles it.
  */
 
-import { coalesce, eq } from '@tanstack/react-db';
+import { eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { outreach_actions } from '../../lib/collections/outreach_actions';
 import { outreach_methods } from '../../lib/collections/outreach_methods';
 import { profiles } from '../../lib/collections/profiles';
 import type { OutreachAction } from './outreach-view';
 import { controlActionBaseSelect, PERFORMED_ACTIONS } from './performed-action-reads';
-import { addressSelect, useRecordById } from './shared';
+import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
 const outreachReads = PERFORMED_ACTIONS.outreachActions;
 
@@ -62,9 +62,9 @@ export function useOutreachAction(
 						outreachDate: outreachReads.date(action),
 
 						methodId: measured.methodId,
-						methodName: coalesce(method.name, null),
+						methodName: joinedOrNull(method.name),
 						technicianProfileId: measured.performerProfileId,
-						technicianName: coalesce(technician.display_name, null),
+						technicianName: joinedOrNull(technician.display_name),
 
 						reach: measured.amount,
 						reachDescription: action.reach_description,

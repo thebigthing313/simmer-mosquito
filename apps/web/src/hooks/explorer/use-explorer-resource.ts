@@ -45,30 +45,6 @@ export interface ExplorerResource<TRow> extends PagedMapResource<TRow>, Explorer
 }
 
 /**
- * A tileset an explorer can draw. Regions is not an explorer and is left out,
- * since its layer also carries the ticked set.
- */
-type ExplorerTileKind = Exclude<MapTileLayer['kind'], 'regions'>;
-
-/** The filters the tileset `TKind` draws under. */
-type ExplorerTileFilters<TKind extends ExplorerTileKind> = NonNullable<
-	Extract<MapTileLayer, { readonly kind: TKind }>['filters']
->;
-
-/** True when `A` and `B` are one type, rather than each assignable to the other. */
-type Same<A, B> =
-	(<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
-
-/**
- * The tilesets whose filter type is exactly `TTile`, which is what a record
- * set's `tileFilters` returns. Exact rather than assignable, because a tile
- * filter type is optional fields throughout and most would pass for another.
- */
-type ExplorerTileKindFor<TTile> = {
-	[TKind in ExplorerTileKind]: Same<ExplorerTileFilters<TKind>, TTile> extends true ? TKind : never;
-}[ExplorerTileKind];
-
-/**
  * What `ExplorerCanvas` needs off the hook: the layers to draw, the callback
  * the canvas hands its map to, and the card's record with the way to shut it.
  */
@@ -105,9 +81,10 @@ const NO_PARAMS: Readonly<Record<string, MapQueryValue>> = {};
  * the camera move that follows it.
  *
  * The hook holds the map the canvas reports, the selection and the tile layer,
- * so a route hands it a record set, the filters it resolved and a tileset, and
- * renders `ExplorerCanvas` with what comes back. The set's tile filters are
- * computed once here and feed both the tile layer and the page request. The
+ * so a route hands it a record set and the filters it resolved, and renders
+ * `ExplorerCanvas` with what comes back. The set names the tileset and the key
+ * one record arrives under. The set's tile filters are computed once here and
+ * feed both the tile layer and the page request. The
  * viewport goes on the wire ahead of the surface's own filters, and nothing is
  * asked for until the map has one. `empty` reads the layer's extent, which the
  * map fetches to frame the same filters, so it costs no extra request. `TRow`
@@ -116,8 +93,6 @@ const NO_PARAMS: Readonly<Record<string, MapQueryValue>> = {};
 export function useExplorerResource<TRow extends ExplorerRowShape, TFilters, TTile>({
 	set,
 	binding,
-	tileset,
-	rowKey,
 	params = NO_PARAMS,
 	normalizeRow,
 	holdRailOnSelect = false,
@@ -126,7 +101,9 @@ export function useExplorerResource<TRow extends ExplorerRowShape, TFilters, TTi
 	/**
 	 * The record set the Map draws. Its endpoint is the list request and roots
 	 * the query key, and its record type is what a failure and the empty state
-	 * read by.
+	 * read by. Its tileset is the layer `MapCanvas` frames under `fitToData`, and
+	 * the empty state reads that layer's extent through the same query, so the
+	 * surface still sends one extent request.
 	 */
 	readonly set: RecordSet<TFilters, TTile>;
 	/**
@@ -134,15 +111,6 @@ export function useExplorerResource<TRow extends ExplorerRowShape, TFilters, TTi
 	 * `tileFilters` reads. `useRecordSetFilters(set, 'map')` returns both.
 	 */
 	readonly binding: Pick<RecordSetFilterBinding<NoInfer<TFilters>>, 'filters' | 'context'>;
-	/**
-	 * The tileset the map draws, one whose filter type is the set's. The layer
-	 * built from it is the entry `MapCanvas` frames under `fitToData`, its
-	 * extent URL is what the empty state reads, and the two share one query, so
-	 * the surface still sends one extent request.
-	 */
-	readonly tileset: NoInfer<ExplorerTileKindFor<TTile>>;
-	/** The key one record arrives under, e.g. `sourceReduction`. */
-	readonly rowKey: string;
 	/** What the page request sends beside the filters, such as a rail order. */
 	readonly params?: Readonly<Record<string, MapQueryValue>>;
 	/** Defaults a row's newer fields, where a deployed server may not send them. */
@@ -161,14 +129,14 @@ export function useExplorerResource<TRow extends ExplorerRowShape, TFilters, TTi
 	// Held here rather than by the route, which only ever handed it back.
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
-	const { path, rowsKey } = set.endpoint;
+	const { path, rowsKey, rowKey } = set.endpoint;
 	const { recordType } = set;
 	// Computed once, so the tiles and the page cannot read different filters.
 	const tileFilters = set.tileFilters(binding.filters, binding.context);
-	// `ExplorerTileKindFor` pairs the kind with these filters, which TypeScript
+	// `defineRecordSet` pairs the tileset with these filters, which TypeScript
 	// cannot follow from a generic `TTile` into the union.
 	const layer = {
-		kind: tileset,
+		kind: set.tileset,
 		filters: tileFilters,
 		serverUrl: getServerUrl(),
 		selectedId,

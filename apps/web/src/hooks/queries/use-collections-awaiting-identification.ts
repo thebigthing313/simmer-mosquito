@@ -10,7 +10,7 @@
  * their ids.
  */
 
-import { coalesce, eq, toArray, useLiveQuery } from '@tanstack/react-db';
+import { eq, toArray, useLiveQuery } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { collection_species } from '../../lib/collections/collection_species';
@@ -19,7 +19,7 @@ import { traps } from '../../lib/collections/traps';
 import type { LinkedAddress } from './address-view';
 import { collectedSince, collectionEffectiveDate } from './collection-day';
 import { compareByCollectionDateDesc } from './collection-view';
-import { activityGcTimeMs, addressSelect } from './shared';
+import { activityGcTimeMs, addressSelect, joinedOrNull } from './shared';
 
 /** One collection waiting on identification, as the overview lists it. */
 export interface AwaitingCollection {
@@ -74,10 +74,10 @@ export function useCollectionsAwaitingIdentification(
 					latitude: collection.lat,
 					longitude: collection.lng,
 					trapId: collection.trap_id,
-					trapName: coalesce(trap.trap_name, null),
-					trapCode: coalesce(trap.trap_code, null),
+					trapName: joinedOrNull(trap.trap_name),
+					trapCode: joinedOrNull(trap.trap_code),
 					methodId: collection.collection_method_id,
-					methodName: coalesce(method.name, null),
+					methodName: joinedOrNull(method.name),
 					collectedAt: collection.collected_at,
 					collectionDate: collection.collection_date,
 					isZeroResult: collection.is_zero_result,

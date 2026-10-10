@@ -77,8 +77,6 @@ function TrapsExplorerRoute() {
 	}: ExplorerResource<TrapRow> = useExplorerResource({
 		set: trapRecordSet,
 		binding,
-		tileset: 'traps',
-		rowKey: 'trap',
 		summarize: true,
 	});
 

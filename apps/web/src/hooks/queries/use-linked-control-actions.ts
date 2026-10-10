@@ -37,7 +37,7 @@
  */
 
 import type { ControlType } from '@simmer-mosquito/domain';
-import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { applications } from '../../lib/collections/applications';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
 import { biocontrol_methods } from '../../lib/collections/biocontrol_methods';
@@ -50,7 +50,7 @@ import { source_reduction_methods } from '../../lib/collections/source_reduction
 import { source_reductions } from '../../lib/collections/source_reductions';
 import { units } from '../../lib/collections/units';
 import { PERFORMED_ACTIONS } from './performed-action-reads';
-import { activityGcTimeMs } from './shared';
+import { activityGcTimeMs, joinedOrNull } from './shared';
 
 const {
 	applications: applicationReads,
@@ -139,10 +139,10 @@ export function useLinkedControlActions(inspectionId: string): {
 						id: application.id,
 						date: applicationReads.date(application),
 						actorProfileId: measured.performerProfileId,
-						actorName: coalesce(actor.display_name, null),
-						insecticideName: coalesce(insecticide.trade_name, null),
+						actorName: joinedOrNull(actor.display_name),
+						insecticideName: joinedOrNull(insecticide.trade_name),
 						amount: measured.amount,
-						unitAbbreviation: coalesce(unit.abbreviation, null),
+						unitAbbreviation: joinedOrNull(unit.abbreviation),
 					};
 				}),
 	});
@@ -174,10 +174,10 @@ export function useLinkedControlActions(inspectionId: string): {
 						id: sourceReduction.id,
 						date: reductionReads.date(sourceReduction),
 						actorProfileId: measured.performerProfileId,
-						actorName: coalesce(actor.display_name, null),
-						methodName: coalesce(method.name, null),
+						actorName: joinedOrNull(actor.display_name),
+						methodName: joinedOrNull(method.name),
 						amount: measured.amount,
-						unitAbbreviation: coalesce(unit.abbreviation, null),
+						unitAbbreviation: joinedOrNull(unit.abbreviation),
 					};
 				}),
 	});
@@ -204,8 +204,8 @@ export function useLinkedControlActions(inspectionId: string): {
 						id: outreachAction.id,
 						date: outreachReads.date(outreachAction),
 						actorProfileId: measured.performerProfileId,
-						actorName: coalesce(actor.display_name, null),
-						methodName: coalesce(method.name, null),
+						actorName: joinedOrNull(actor.display_name),
+						methodName: joinedOrNull(method.name),
 						reach: measured.amount,
 					};
 				}),
@@ -238,10 +238,10 @@ export function useLinkedControlActions(inspectionId: string): {
 						id: biocontrolAction.id,
 						date: releaseReads.date(biocontrolAction),
 						actorProfileId: measured.performerProfileId,
-						actorName: coalesce(actor.display_name, null),
-						methodName: coalesce(method.name, null),
+						actorName: joinedOrNull(actor.display_name),
+						methodName: joinedOrNull(method.name),
 						amount: measured.amount,
-						unitAbbreviation: coalesce(unit.abbreviation, null),
+						unitAbbreviation: joinedOrNull(unit.abbreviation),
 					};
 				}),
 	});
@@ -264,7 +264,7 @@ export function useLinkedControlActions(inspectionId: string): {
 					id: requestedControlAction.id,
 					date: requestedControlAction.requested_at,
 					actorProfileId: requestedControlAction.requested_by_profile_id,
-					actorName: coalesce(actor.display_name, null),
+					actorName: joinedOrNull(actor.display_name),
 					controlType: requestedControlAction.control_type,
 					summary: requestedControlAction.summary,
 					resolvedAt: requestedControlAction.resolved_at,

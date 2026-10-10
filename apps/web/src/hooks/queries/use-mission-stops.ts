@@ -20,12 +20,12 @@
  * already holds every row it would need to count.
  */
 
-import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { mission_items } from '../../lib/collections/mission_items';
 import { requested_control_actions } from '../../lib/collections/requested_control_actions';
 import type { MissionStop } from './operations-view';
-import { activityGcTimeMs, addressSelect, unmatchableId } from './shared';
+import { activityGcTimeMs, addressSelect, joinedOrNull, unmatchableId } from './shared';
 
 export function useMissionStops(missionId: string | null): {
 	readonly stops: readonly MissionStop[];
@@ -60,8 +60,8 @@ export function useMissionStops(missionId: string | null): {
 					requestedControlActionId: item.requested_control_action_id,
 					// A summary is legitimately null on a real request, so the summary
 					// alone cannot say whether the stop names one: read the id beside it.
-					requestSummary: coalesce(request.summary, null),
-					requestControlType: coalesce(request.control_type, null),
+					requestSummary: joinedOrNull(request.summary),
+					requestControlType: joinedOrNull(request.control_type),
 					addressId: item.address_id,
 					address: addressSelect(address),
 					completedAt: item.completed_at,

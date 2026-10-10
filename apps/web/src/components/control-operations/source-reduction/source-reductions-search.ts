@@ -91,7 +91,12 @@ export const sourceReductionRecordSet = defineRecordSet({
 		table: '/control-operations/source-reduction/table',
 	},
 	codecs: sourceReductionFilterCodecs,
-	endpoint: { path: '/map/source-reduction', rowsKey: 'sourceReductions' },
+	endpoint: {
+		path: '/map/source-reduction',
+		rowsKey: 'sourceReductions',
+		rowKey: 'sourceReduction',
+	},
+	tileset: 'source-reduction',
 	tileFilters: sourceReductionTileFilters,
 	listParams: sourceReductionListParams,
 	defaults: ({ today }) => sourceReductionFilterDefaults(today),

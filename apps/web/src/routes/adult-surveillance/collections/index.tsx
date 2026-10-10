@@ -76,8 +76,6 @@ function CollectionsExplorerRoute() {
 	}: ExplorerResource<CollectionListRow> = useExplorerResource({
 		set: collectionRecordSet,
 		binding,
-		tileset: 'collections',
-		rowKey: 'collection',
 		summarize: true,
 	});
 

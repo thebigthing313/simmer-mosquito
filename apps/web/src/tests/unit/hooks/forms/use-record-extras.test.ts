@@ -19,12 +19,14 @@ vi.mock('../../../../hooks/mutations/use-comment-mutations', () => ({
 
 const { useRecordExtras } = await import('../../../../hooks/forms/use-record-extras');
 
-const TARGET = { type: 'inspection', id: 'a3000000-0000-4000-8000-000000000001' } as const;
+const INSPECTION = { type: 'inspection', id: 'a3000000-0000-4000-8000-000000000001' } as const;
+const COLLECTION = { type: 'collection', id: 'a4000000-0000-4000-8000-000000000001' } as const;
 
 /**
- * The six create forms attach their crew through this hook, onto a record with
- * no crew yet, so a miss there is still something to add from the record. The
- * edit wording #1566 added is for a change to links that already existed.
+ * The six create forms attach their crew and their note through this hook. The
+ * detail page has no crew control, so a missed crew attach sends the person to
+ * the edit form, and a missed note to the thread on the detail page (#1602).
+ * Both name the target's own record type.
  */
 describe('useRecordExtras', () => {
 	beforeEach(() => {
@@ -34,32 +36,36 @@ describe('useRecordExtras', () => {
 		addComment.mockImplementation(() => Promise.resolve());
 	});
 
-	it('reports a failed crew attach with the create wording', async () => {
+	it('sends a failed crew attach to the edit form of the record it hangs off', async () => {
 		setPersonnel.mockImplementation(() => Promise.reject(new Error('Refused.')));
 		const { result } = renderHook(() => useRecordExtras());
 		await result.current.attach({
-			target: TARGET,
+			target: COLLECTION,
 			profileIds: ['b0000000-0000-4000-8000-000000000002'],
 			commentText: '',
 		});
 		expect(setPersonnel).toHaveBeenCalledWith({
-			target: TARGET,
+			target: COLLECTION,
 			existing: [],
 			profileIds: ['b0000000-0000-4000-8000-000000000002'],
 		});
 		expect(toastError).toHaveBeenCalledWith(
 			'Saved, but the additional personnel could not be attached.',
-			{ description: 'Refused. Add them from the record.' },
+			{ description: 'Refused. Edit the collection to add them.' },
 		);
 	});
 
-	it('reports a failed note with the create wording', async () => {
+	it('sends a failed note to the thread on the record it hangs off', async () => {
 		setPersonnel.mockImplementation(() => Promise.resolve());
 		addComment.mockImplementation(() => Promise.reject(new Error('Refused.')));
 		const { result } = renderHook(() => useRecordExtras());
-		await result.current.attach({ target: TARGET, profileIds: [], commentText: 'Standing water.' });
+		await result.current.attach({
+			target: INSPECTION,
+			profileIds: [],
+			commentText: 'Standing water.',
+		});
 		expect(toastError).toHaveBeenCalledWith('Saved, but the note could not be attached.', {
-			description: 'Refused. Add them from the record.',
+			description: 'Refused. Add it as a comment on the inspection.',
 		});
 	});
 });

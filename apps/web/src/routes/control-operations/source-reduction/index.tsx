@@ -71,8 +71,6 @@ function SourceReductionExplorerRoute() {
 	}: ExplorerResource<SourceReductionListRow> = useExplorerResource({
 		set: sourceReductionRecordSet,
 		binding,
-		tileset: 'source-reduction',
-		rowKey: 'sourceReduction',
 		summarize: true,
 	});
 

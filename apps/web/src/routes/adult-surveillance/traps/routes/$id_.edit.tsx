@@ -385,9 +385,8 @@ function StopEditor({
 										Remove from route
 									</DropdownMenuItem>
 								}
+								count={stops.length}
 								index={index}
-								isFirst={index === 0}
-								isLast={index === stops.length - 1}
 								onMove={onMove}
 							/>
 						) : null}
