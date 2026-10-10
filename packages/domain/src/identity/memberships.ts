@@ -211,11 +211,10 @@ export function endMembershipCommand(input: EndMembershipCommandInput): EndMembe
 /**
  * An address, lower-cased.
  *
- * The shape check is `isEmailAddress`: no whitespace, one `@`, and a dot after
- * it. An address without that dot passes a one-`@` rule and still cannot be
- * delivered to, and the writer stages the Membership before WorkOS is asked to
- * send, so the check belongs here, ahead of the row (#1525). Whether the mailbox
- * exists is answered by whether the invitation arrives.
+ * The shape check is `isEmailAddress`. The writer stages the Membership before
+ * WorkOS is asked to send, so an address no invitation can reach is refused
+ * here, ahead of the row (#1525). Whether the mailbox exists is answered by
+ * whether the invitation arrives.
  *
  * Lower-casing is here rather than in the writer because the uniqueness rule
  * the schema owns is on `lower(invited_email)`, and a command that carried the
