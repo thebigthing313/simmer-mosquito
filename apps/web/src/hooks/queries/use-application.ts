@@ -27,7 +27,10 @@ import { profiles } from '../../lib/collections/profiles';
 import { units } from '../../lib/collections/units';
 import { vehicles } from '../../lib/collections/vehicles';
 import type { ChemicalApplication } from './control-action-view';
+import { controlActionBaseSelect, PERFORMED_ACTIONS } from './performed-action-reads';
 import { addressSelect, useRecordById } from './shared';
+
+const applicationReads = PERFORMED_ACTIONS.applications;
 
 export function useApplication(
 	applicationId: string | null,
@@ -48,23 +51,23 @@ export function useApplication(
 				// row entirely rather than leave a field blank.
 				.join(
 					{ product: insecticides() },
-					({ record: application, product }) => eq(application.insecticide_id, product.id),
+					({ record: application, product }) => applicationReads.joinProduct(application, product),
 					'left',
 				)
 				.join(
 					{ method: application_methods() },
-					({ record: application, method }) => eq(application.application_method_id, method.id),
+					({ record: application, method }) => applicationReads.joinMethod(application, method),
 					'left',
 				)
 				.join(
 					{ unit: units() },
-					({ record: application, unit }) => eq(application.application_unit_id, unit.id),
+					({ record: application, unit }) => applicationReads.joinUnit(application, unit),
 					'left',
 				)
 				.join(
 					{ applicator: profiles() },
 					({ record: application, applicator }) =>
-						eq(application.applicator_profile_id, applicator.id),
+						applicationReads.joinPerformer(application, applicator),
 					'left',
 				)
 				.join(
@@ -86,51 +89,42 @@ export function useApplication(
 					'left',
 				)
 				.select(
-					({ record: application, product, method, unit, applicator, address, vehicle, rig }) => ({
-						id: application.id,
-						address: addressSelect(address),
-						actionDate: application.application_date,
+					({ record: application, product, method, unit, applicator, address, vehicle, rig }) => {
+						const measured = applicationReads.measured(application);
+						return {
+							id: application.id,
+							address: addressSelect(address),
+							actionDate: applicationReads.date(application),
 
-						insecticideId: application.insecticide_id,
-						// `insecticide_id` is not nullable, so there is no absent case to
-						// carry — only the join not having resolved yet.
-						productName: coalesce(product.trade_name, 'Unknown product'),
-						methodId: application.application_method_id,
-						// Guarded on the application's own column, so an application with no
-						// method reads as `null` rather than as the `undefined` an unmatched
-						// join yields.
-						methodName: caseWhen(isNull(application.application_method_id), null, method.name),
-						applicatorProfileId: application.applicator_profile_id,
-						applicatorName: caseWhen(
-							isNull(application.applicator_profile_id),
-							null,
-							applicator.display_name,
-						),
+							insecticideId: measured.productId,
+							// `insecticide_id` is not nullable, so there is no absent case to
+							// carry, only the join not having resolved yet.
+							productName: coalesce(product.trade_name, 'Unknown product'),
+							methodId: measured.methodId,
+							// Guarded on the application's own column, so an application with no
+							// method reads as `null` rather than as the `undefined` an unmatched
+							// join yields.
+							methodName: caseWhen(isNull(measured.methodId), null, method.name),
+							applicatorProfileId: measured.performerProfileId,
+							applicatorName: caseWhen(
+								isNull(measured.performerProfileId),
+								null,
+								applicator.display_name,
+							),
 
-						amountApplied: application.amount_applied,
-						unitId: application.application_unit_id,
-						unitAbbreviation: coalesce(unit.abbreviation, null),
+							amountApplied: measured.amount,
+							unitId: measured.unitId,
+							unitAbbreviation: coalesce(unit.abbreviation, null),
 
-						vehicleId: application.vehicle_id,
-						vehicleName: caseWhen(isNull(application.vehicle_id), null, vehicle.vehicle_name),
-						equipmentId: application.equipment_id,
-						equipmentName: caseWhen(isNull(application.equipment_id), null, rig.equipment_name),
-						addressId: application.address_id,
-						habitatId: application.habitat_id,
-						collectionId: application.collection_id,
-						inspectionId: application.inspection_id,
-						requestedControlActionId: application.requested_control_action_id,
-						missionItemId: application.mission_item_id,
-
-						latitude: application.lat,
-						longitude: application.lng,
-						geometryKind: application.geom_type,
-						metadata: application.metadata,
-						createdAt: application.created_at,
-						updatedAt: application.updated_at,
-						createdByProfileId: application.created_by_profile_id,
-						updatedByProfileId: application.updated_by_profile_id,
-					}),
+							vehicleId: application.vehicle_id,
+							vehicleName: caseWhen(isNull(application.vehicle_id), null, vehicle.vehicle_name),
+							equipmentId: application.equipment_id,
+							equipmentName: caseWhen(isNull(application.equipment_id), null, rig.equipment_name),
+							habitatId: application.habitat_id,
+							collectionId: application.collection_id,
+							...controlActionBaseSelect(application),
+						};
+					},
 				),
 	});
 

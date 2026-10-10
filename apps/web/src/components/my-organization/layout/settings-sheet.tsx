@@ -10,6 +10,7 @@ import {
 	SheetTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/sheet';
 import type React from 'react';
+import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
 import {
 	type SettingsSheetForm,
 	type SettingsSheetOptions,
@@ -23,8 +24,6 @@ export interface SettingsSheetProps<Values, Payload> extends SettingsSheetOption
 	readonly description?: string | undefined;
 	/** `wide` for a body that lays fields out in columns. */
 	readonly width?: 'narrow' | 'wide';
-	/** False while the Organization is still loading or the viewer cannot manage it. */
-	readonly canSave: boolean;
 	/** The sheet's fields, drawn under the error alert. */
 	readonly children: (form: SettingsSheetForm<Values>) => React.ReactNode;
 }
@@ -32,17 +31,18 @@ export interface SettingsSheetProps<Values, Payload> extends SettingsSheetOption
 /**
  * The sheet every My Organization settings section edits in: the Edit
  * trigger, the header, the form with its error alert, and Save and Cancel.
- * The body is the caller's, drawn from the form it is handed.
+ * The body is the caller's, drawn from the form it is handed. Save is
+ * disabled while the Organization row is still loading.
  */
 export function SettingsSheet<Values, Payload>({
 	title,
 	description,
 	width = 'narrow',
-	canSave,
 	children,
 	...options
 }: SettingsSheetProps<Values, Payload>) {
 	const { form, open, changeOpen } = useSettingsSheet(options);
+	const { canWrite } = useOrganizationSettingsMutations();
 
 	return (
 		<Sheet open={open} onOpenChange={changeOpen}>
@@ -77,7 +77,7 @@ export function SettingsSheet<Values, Payload>({
 						</div>
 						<SheetFooter>
 							<form.FormActions>
-								<form.SubmitButton disabled={!canSave}>Save Changes</form.SubmitButton>
+								<form.SubmitButton disabled={!canWrite}>Save Changes</form.SubmitButton>
 								<SheetClose asChild>
 									<Button type="button" variant="outline">
 										<CloseIcon data-icon="inline-start" aria-hidden="true" />
