@@ -7,11 +7,11 @@
  */
 
 import type { ApplicationFilterBinding } from '../../../hooks/control-operations/use-application-filter-state';
-import { useApplicationMethodOptions } from '../../../hooks/explorer/use-application-method-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useInsecticideOptions } from '../../../hooks/explorer/use-insecticide-options';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
@@ -35,8 +35,8 @@ export function ApplicationFilterFields({
 	const { filters, setFilters, activeCount, today } = binding;
 	const dateRange = useDateRangeFilters({ from: filters.from, to: filters.to, today, setFilters });
 	const { options: products } = useInsecticideOptions();
-	const { options: methods } = useApplicationMethodOptions();
-	const personnel = usePersonnelOptions();
+	const { options: methods } = useCatalogOptions(catalogs.applicationMethods);
+	const personnel = useCatalogOptions(catalogs.profiles);
 	const regions = useRegionOptions();
 
 	const popovers = (
@@ -95,8 +95,8 @@ export function ApplicationFilterChips({
 	readonly binding: ApplicationFilterBinding;
 }) {
 	const { nameById: insecticideNameById } = useInsecticideOptions();
-	const { nameById: methodNameById } = useApplicationMethodOptions();
-	const { nameById: personNameById } = usePersonnelOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.applicationMethods);
+	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const { nameById: regionNameById } = useRegionOptions();
 	const { filters, setFilters, reset, defaults } = binding;
 	return (

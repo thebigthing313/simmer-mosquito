@@ -15,8 +15,9 @@ import {
 	ChevronRightIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
-import { useHabitatTypeOptions } from '../../../hooks/explorer/use-habitat-type-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { habitatName, habitatTypeName } from '../../../lib/habitat-name';
 import { ClampedTextCell, LinkedTableRow } from '../../record/linked-table-row';
@@ -39,7 +40,7 @@ export interface HabitatTableRow {
  * Takes the rows the route read.
  */
 export function HabitatsTable({ rows }: { readonly rows: readonly HabitatTableRow[] }) {
-	const { nameById: typeNameById } = useHabitatTypeOptions();
+	const { nameById: typeNameById } = useCatalogOptions(catalogs.habitatTypes);
 	// Tags for the rows on this page, so the subset request stays small.
 	const { byId: tagsByHabitatId } = useEntityTags(
 		'habitat',

@@ -7,9 +7,10 @@
  */
 
 import type { CollectionFilterBinding } from '../../../hooks/adult-surveillance/use-collection-filter-state';
-import { useCollectionMethodOptions } from '../../../hooks/explorer/use-collection-method-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
@@ -32,7 +33,7 @@ export function CollectionFilterFields({
 }) {
 	const { filters, setFilters, activeCount, today } = binding;
 	const dateRange = useDateRangeFilters({ from: filters.from, to: filters.to, today, setFilters });
-	const { options: methods } = useCollectionMethodOptions();
+	const { options: methods } = useCatalogOptions(catalogs.collectionMethods);
 	const regions = useRegionOptions();
 
 	const popovers = (
@@ -82,7 +83,7 @@ export function CollectionFilterFields({
  * its groupings.
  */
 export function CollectionFilterChips({ binding }: { readonly binding: CollectionFilterBinding }) {
-	const { nameById: methodNameById } = useCollectionMethodOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
 	const { nameById: regionNameById } = useRegionOptions();
 	const { filters, setFilters, reset, defaults } = binding;
 	return (

@@ -28,11 +28,11 @@ import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
 import { useApplicationFilterState } from '../../../hooks/control-operations/use-application-filter-state';
-import { useApplicationMethodOptions } from '../../../hooks/explorer/use-application-method-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { useInsecticideOptions } from '../../../hooks/explorer/use-insecticide-options';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -56,9 +56,9 @@ function ApplicationsExplorerRoute() {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
-	const { nameById: methodNameById } = useApplicationMethodOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.applicationMethods);
 	const { nameById: insecticideNameById } = useInsecticideOptions();
-	const { nameById: personNameById } = usePersonnelOptions();
+	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const unitById = useUnitLabels().byId;
 
 	// The server tiles + list read the same filter shape, so the map and the paged
