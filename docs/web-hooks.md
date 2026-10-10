@@ -1968,6 +1968,17 @@ on a `date` column, so the bound is a plain `YYYY-MM-DD` string, no zone
 and no instant. See `use-recent-collections.ts` for the adult case, where it
 is neither.
 
+Every hook that reads a performed control action, these two among them,
+returns each joined name, the performer, the method and the insecticide, as
+`coalesce(joined.name, null)`. The name is `null` both when nothing was
+recorded and when the record is not in the client, which is permanent for a
+deleted Profile because the Profile shape streams live rows only. So the
+surface reads the id beside the name to tell the two apart and draws its own
+`Unknown method` or `No method`; the hook draws neither. A `caseWhen` guarded
+on the foreign key used to yield `undefined` for the second case under a
+`string | null` type, and the Chemical Application map card drew an empty
+applicator row for it (#1501).
+
 #### usePeopleDirectory
 
 A Profile is who work is attributed to; a Membership is the access that
