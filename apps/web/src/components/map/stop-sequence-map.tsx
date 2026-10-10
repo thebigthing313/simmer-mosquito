@@ -1,7 +1,7 @@
 import {
 	type BoundingBox,
+	boundsFromCoordinates,
 	boundsFromGeoJson,
-	extendBounds,
 	type LngLat,
 } from '@simmer-mosquito/mapping';
 import { LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
@@ -115,18 +115,13 @@ export function StopSequenceMap({
 }
 
 /**
- * The bounds across every located stop, or null when none has coordinates.
- * A stop that owns a shape is framed by the whole shape rather than by the pin
- * at its centroid.
+ * The bounds across every located stop, or null when none has valid
+ * coordinates. A stop that owns a shape is framed by the whole shape rather
+ * than by the pin at its centroid, and a point with a non-finite or
+ * out-of-range coordinate is left out.
  */
 function boundsOfFeatures(features: readonly RouteStopFeature[]): BoundingBox | null {
-	let box: BoundingBox | null = null;
-	for (const feature of features) {
-		for (const point of framingPoints(feature)) {
-			box = extendBounds(box, point);
-		}
-	}
-	return box;
+	return boundsFromCoordinates(features.flatMap(framingPoints));
 }
 
 /** What a stop contributes to the frame: its shape's corners, or just its pin. */

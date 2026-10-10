@@ -1,5 +1,10 @@
 import type { BoundingBox, ImportNote } from '@simmer-mosquito/mapping';
-import { extendBounds, IMPORT_FILE_ACCEPT, readImportFileText } from '@simmer-mosquito/mapping';
+import {
+	boundsFromCoordinates,
+	IMPORT_FILE_ACCEPT,
+	readImportFileText,
+	toLngLat,
+} from '@simmer-mosquito/mapping';
 import { isTxIdConfirmationTimeout } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -583,7 +588,8 @@ function frameItems(map: MapboxMap, items: readonly ImportItem[]): void {
 }
 
 /**
- * The box `items` cover, or null when they hold no position.
+ * The box `items` cover, or null when they hold no valid position. A position
+ * with a non-finite or out-of-range coordinate is left out.
  *
  * It walks positions rather than rings, because a boundary in several pieces
  * nests one level deeper than one in a single piece. Walking rings gave a
@@ -591,13 +597,9 @@ function frameItems(map: MapboxMap, items: readonly ImportItem[]): void {
  * error at all.
  */
 function boundsOfItems(items: readonly ImportItem[]): BoundingBox | null {
-	let box: BoundingBox | null = null;
-	for (const item of items) {
-		for (const [lng, lat] of boundaryPositions(item.geometry)) {
-			box = extendBounds(box, { lng, lat });
-		}
-	}
-	return box;
+	return boundsFromCoordinates(
+		items.flatMap((item) => boundaryPositions(item.geometry).map(toLngLat)),
+	);
 }
 
 /** Every position a boundary holds, whichever depth its pieces sit at. */
