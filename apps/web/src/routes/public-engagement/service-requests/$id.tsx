@@ -1,4 +1,4 @@
-import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
+import { circlePolygon } from '@simmer-mosquito/mapping';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
@@ -29,7 +29,7 @@ import { LabelCount } from '../../../components/label-count';
 import { HabitatMapCard } from '../../../components/larval-surveillance/habitats/habitat-map-card';
 import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
 import { MapCanvas } from '../../../components/map';
-import { framingPadding } from '../../../components/map/map-inset';
+import { focusOnMap, frameOnMap } from '../../../components/map/map-camera';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
 	contactDisplayName,
@@ -392,16 +392,7 @@ function ContextMap({
 			return;
 		}
 		const ring = circlePolygon({ lng: request.longitude, lat: request.latitude }, radiusMeters);
-		const bounds = boundsFromGeoJson(ring);
-		if (bounds !== null) {
-			map.fitBounds(
-				[
-					[bounds.west, bounds.south],
-					[bounds.east, bounds.north],
-				],
-				{ ...framingPadding(map, 56), duration: 400, maxZoom: 17 },
-			);
-		}
+		frameOnMap(map, ring, { purpose: 'context', animate: true });
 	}, [map, radiusMeters, request.longitude, request.latitude]);
 
 	// The selection is only a selection while its family is on the map: a
@@ -419,11 +410,7 @@ function ContextMap({
 		if (map === null || selectedItem === null) {
 			return;
 		}
-		map.flyTo({
-			center: [selectedItem.lng, selectedItem.lat],
-			zoom: Math.max(map.getZoom(), 15),
-			duration: 500,
-		});
+		focusOnMap(map, selectedItem, { purpose: 'selection' });
 	}, [map, selectedItem]);
 
 	return (
