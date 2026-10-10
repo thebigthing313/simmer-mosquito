@@ -4,6 +4,7 @@ import {
 	choiceSetParam,
 	DATE_RANGE_COUNTING,
 	dateParam,
+	type FilterBinding,
 	type FilterCodecs,
 	idSetParam,
 } from '../../lib/search-filters';
@@ -49,23 +50,12 @@ function missionFilterDefaults(today: string): MissionFilters {
 	};
 }
 
-/** The Missions filter set on the URL, and what it resets to. */
-export interface MissionFilterBinding {
-	readonly filters: MissionFilters;
-	readonly setFilters: (patch: Partial<MissionFilters>) => void;
-	readonly reset: () => void;
-	readonly activeCount: number;
-	readonly defaults: MissionFilters;
-	/** The Organization's today, which the schedule window is measured from. */
-	readonly today: string;
-}
-
 /**
  * The filters the Missions index reads, held on the URL through
  * `missionFilterCodecs`. A window moved off the schedule window counts as one
  * active filter.
  */
-export function useMissionFilterState(): MissionFilterBinding {
+export function useMissionFilterState(): FilterBinding<MissionFilters> {
 	const timeZone = useOrganizationTimeZone();
 	const today = todayInTimeZone(timeZone);
 	const defaults = missionFilterDefaults(today);

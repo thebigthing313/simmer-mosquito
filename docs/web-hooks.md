@@ -1687,6 +1687,16 @@ is one join now. The planner collects the join keys each side produces and
 asks the on-demand collections for exactly those rows, which is the same
 three subsets minus two round trips through React.
 
+The join over `habitats` is `left`, so a stop whose Habitat has not streamed
+still draws, and every `habitat.*` reads `undefined` until it does. Before
+#1565 that stop was titled `, `, because `concat` over three absent operands
+answers its separator, and its description read `''`, which the edit page
+offered to write over the Habitat's real one. The name now reads
+`joinedHabitatNameSelect`, so the `Habitat <8 hex>` fallback is reachable, and
+the description is `coalesce(habitat.description, null)` under the joined
+column rule: `null` while the Habitat is resolving, and `''` for a Habitat
+with none, since the column is never null.
+
 #### useHabitatRouteStopCounts
 
 Reads the organization-scoped `route_items` shape, the same on-demand

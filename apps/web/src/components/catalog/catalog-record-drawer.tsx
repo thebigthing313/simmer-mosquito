@@ -125,7 +125,7 @@ export function CatalogDrawerCancel() {
 	return (
 		<DrawerClose asChild>
 			<Button type="button" variant="outline">
-				<CloseIcon aria-hidden="true" data-icon="inline-start" />
+				<CloseIcon aria-hidden="true" />
 				Cancel
 			</Button>
 		</DrawerClose>

@@ -301,7 +301,7 @@ function ControlAssetDrawer({
 										<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
 										<DrawerClose asChild>
 											<Button type="button" variant="outline">
-												<CloseIcon data-icon="inline-start" aria-hidden="true" />
+												<CloseIcon aria-hidden="true" />
 												Cancel
 											</Button>
 										</DrawerClose>
