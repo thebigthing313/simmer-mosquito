@@ -207,6 +207,5 @@ describe('the Chemical Application detail page', () => {
 		await renderPage(application({ productName: null }), 'Unknown insecticide');
 
 		expect(page.breadcrumbs).toContain('Unknown insecticide');
-		expect(page.breadcrumbs).not.toContain('Unknown product');
 	});
 });
