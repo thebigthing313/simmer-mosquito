@@ -1,7 +1,7 @@
 import { and, coalesce, eq, inArray, useLiveQuery } from '@tanstack/react-db';
 import { tag_items } from '../../lib/collections/tag_items';
 import { tags } from '../../lib/collections/tags';
-import { activityGcTimeMs, unmatchableId } from '../queries/shared';
+import { activityGcTimeMs, joinedOrNull, unmatchableId } from '../queries/shared';
 import type { Tag } from '../queries/tag-view';
 
 /**
@@ -53,8 +53,8 @@ export function useEntityTags(
 					entityId: item.entity_id,
 					id: coalesce(tag.id, item.tag_id),
 					name: coalesce(tag.tag_name, 'Unknown tag'),
-					color: coalesce(tag.color, null),
-					description: coalesce(tag.description, null),
+					color: joinedOrNull(tag.color),
+					description: joinedOrNull(tag.description),
 				})),
 	});
 

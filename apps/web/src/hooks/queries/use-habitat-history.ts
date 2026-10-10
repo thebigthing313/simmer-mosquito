@@ -53,7 +53,7 @@
  */
 
 import type { ControlType, LarvalDensity } from '@simmer-mosquito/domain';
-import { coalesce, eq, toArray, useLiveQuery } from '@tanstack/react-db';
+import { eq, toArray, useLiveQuery } from '@tanstack/react-db';
 import { application_methods } from '../../lib/collections/application_methods';
 import { applications } from '../../lib/collections/applications';
 import { insecticides } from '../../lib/collections/insecticides';
@@ -67,7 +67,7 @@ import { source_reductions } from '../../lib/collections/source_reductions';
 import { species as speciesCatalog } from '../../lib/collections/species';
 import { units } from '../../lib/collections/units';
 import { PERFORMED_ACTIONS } from './performed-action-reads';
-import { activityGcTimeMs } from './shared';
+import { activityGcTimeMs, joinedOrNull } from './shared';
 
 const { applications: applicationReads, sourceReductions: reductionReads } = PERFORMED_ACTIONS;
 
@@ -211,7 +211,7 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 					id: inspection.id,
 					inspectionDate: inspection.inspection_date,
 					inspectedByProfileId: inspection.inspected_by_profile_id,
-					inspectedByName: coalesce(inspector.display_name, null),
+					inspectedByName: joinedOrNull(inspector.display_name),
 					isWet: inspection.is_wet,
 					dipCount: inspection.dip_count,
 					density: inspection.density,
@@ -245,7 +245,7 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 										.select(({ species, taxon }) => ({
 											id: species.id,
 											speciesId: species.species_id,
-											speciesName: coalesce(taxon.display_name, null),
+											speciesName: joinedOrNull(taxon.display_name),
 											larvaeCount: species.larvae_count,
 										})),
 								),
@@ -287,14 +287,14 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 						id: application.id,
 						applicationDate: applicationReads.date(application),
 						applicatorProfileId: measured.performerProfileId,
-						applicatorName: coalesce(applicator.display_name, null),
+						applicatorName: joinedOrNull(applicator.display_name),
 						insecticideId: measured.productId,
-						insecticideName: coalesce(insecticide.trade_name, null),
+						insecticideName: joinedOrNull(insecticide.trade_name),
 						applicationMethodId: measured.methodId,
-						applicationMethodName: coalesce(method.name, null),
+						applicationMethodName: joinedOrNull(method.name),
 						amountApplied: measured.amount,
 						applicationUnitId: measured.unitId,
-						unitAbbreviation: coalesce(unit.abbreviation, null),
+						unitAbbreviation: joinedOrNull(unit.abbreviation),
 					};
 				}),
 	});
@@ -327,12 +327,12 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 						id: reduction.id,
 						sourceReductionDate: reductionReads.date(reduction),
 						technicianProfileId: measured.performerProfileId,
-						technicianName: coalesce(technician.display_name, null),
+						technicianName: joinedOrNull(technician.display_name),
 						sourceReductionMethodId: measured.methodId,
-						sourceReductionMethodName: coalesce(method.name, null),
+						sourceReductionMethodName: joinedOrNull(method.name),
 						sourcesEliminatedAmount: measured.amount,
 						sourcesEliminatedUnitId: measured.unitId,
-						unitAbbreviation: coalesce(unit.abbreviation, null),
+						unitAbbreviation: joinedOrNull(unit.abbreviation),
 					};
 				}),
 	});
@@ -353,7 +353,7 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 					id: request.id,
 					requestedAt: request.requested_at,
 					requestedByProfileId: request.requested_by_profile_id,
-					requestedByName: coalesce(requester.display_name, null),
+					requestedByName: joinedOrNull(requester.display_name),
 					controlType: request.control_type,
 					summary: request.summary,
 					resolvedAt: request.resolved_at,

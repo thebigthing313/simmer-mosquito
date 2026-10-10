@@ -10,7 +10,7 @@ import { habitats } from '../../lib/collections/habitats';
 import { route_items } from '../../lib/collections/route_items';
 import type { RouteStopFeature } from '../map/use-route-layer';
 import { joinedHabitatNameSelect } from '../queries/habitat-view';
-import { activityGcTimeMs, unmatchableId } from '../queries/shared';
+import { activityGcTimeMs, joinedOrNull, unmatchableId } from '../queries/shared';
 
 /**
  * The composed itinerary for a habitat route, in one join: ordered stops,
@@ -64,19 +64,18 @@ export function useHabitatRouteStops(routeId: string | null): {
 					name: joinedHabitatNameSelect(habitat),
 					// `undefined` while the Habitat has not arrived, which is not the
 					// same answer as a Habitat with no description: the column is never
-					// null, so a resolved one reads `''`. Left raw rather than coalesced:
-					// `coalesce(…, null)` is typed `string` while it answers `null`, and
-					// the raw column's `string | undefined` is what `stopResolution`
-					// below reads as the joined row's presence.
+					// null, so a resolved one reads `''`. Left raw rather than through
+					// `joinedOrNull`, because the raw column's `string | undefined` is what
+					// `stopResolution` below reads as the joined row's presence.
 					description: habitat.description,
-					habitatTypeId: coalesce(habitat.habitat_type_id, null),
-					lat: coalesce(habitat.lat, null),
-					lng: coalesce(habitat.lng, null),
+					habitatTypeId: joinedOrNull(habitat.habitat_type_id),
+					lat: joinedOrNull(habitat.lat),
+					lng: joinedOrNull(habitat.lng),
 					isActive: coalesce(habitat.is_active, true),
 					isInaccessible: coalesce(habitat.is_inaccessible, false),
 
-					addressId: coalesce(habitat.address_id, null),
-					addressLabel: coalesce(address.display_name, null),
+					addressId: joinedOrNull(habitat.address_id),
+					addressLabel: joinedOrNull(address.display_name),
 				})),
 	});
 

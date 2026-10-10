@@ -7,12 +7,12 @@
  * the opposite; that is `use-habitat-suspense.ts`.
  */
 
-import { coalesce, eq } from '@tanstack/react-db';
+import { eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
 import { type Habitat, habitatNameSelect } from './habitat-view';
-import { addressSelect, useRecordById } from './shared';
+import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
 /**
  * Takes a nullable id so a form can ask before the user has chosen a Habitat,
@@ -46,7 +46,7 @@ export function useHabitat(
 					name: habitatNameSelect(habitat),
 					description: habitat.description,
 					typeId: habitat.habitat_type_id,
-					typeName: coalesce(type.name, null),
+					typeName: joinedOrNull(type.name),
 					addressId: habitat.address_id,
 					isActive: habitat.is_active,
 					isInaccessible: habitat.is_inaccessible,

@@ -1708,10 +1708,10 @@ has a `null` description and a resolved one a string. The two fields used to
 be independent, read off the description and the joined Habitat's id, so they
 agreed on every row while the type allowed either without the other, and a
 reader narrowing on `isResolving` still had to write `?? ''`. The select is
-raw because `coalesce(habitat.description, null)` is typed `string` while it
-answers `null`, so the type said nothing about the resolving case. The raw
-column is `string | undefined`, `undefined` exactly when the join is
-unmatched, and `stopResolution` takes no `null`, so a nullable
+raw rather than `joinedOrNull(habitat.description)` because `stopResolution`
+reads the join's presence off the column. The raw column is
+`string | undefined`, `undefined` exactly when the join is unmatched, and
+`stopResolution` takes no `null`, so a nullable
 `habitats.description` would fail `tsc` there rather than read every Habitat
 with no description as resolving.
 
@@ -2283,7 +2283,11 @@ renaming two columns there and reading two TS2551s.
 
 Every hook that reads a performed control action returns each joined name,
 the performer, the method and the insecticide, as
-`coalesce(joined.name, null)`. The name is `null` both when nothing was
+`joinedOrNull(joined.name)` from `queries/shared.ts`, which evaluates as
+`coalesce(joined.name, null)`. The bare `coalesce` is not enough, because its
+return type drops the nullable brand a `left` join puts on the ref, so a
+column that is non-null in its row schema is typed without `| null` while an
+unmatched join answers `null` (#1599). The name is `null` both when nothing was
 recorded and when the record is not in the client, which is permanent for a
 deleted Profile because the Profile shape streams live rows only. So the
 surface reads the id beside the name to tell the two apart and draws its own
@@ -2299,7 +2303,7 @@ literal label: the inspector and habitat type on an inspection, the type on a
 habitat, the method and lure on a trap and a collection, the request on a
 mission stop, the folder on a region, the vehicle and equipment on a Chemical
 Application and the author and editor on a comment all read as
-`coalesce(joined.column, null)`. The six adult surveillance reads that baked
+`joinedOrNull(joined.column)`. The six adult surveillance reads that baked
 in `Unknown method` and the comment read that baked in `Unknown` return `null`
 now, and the card, row or thread draws the same words itself. The Inspection
 map card is the case that showed: it read only the name, so an inspection

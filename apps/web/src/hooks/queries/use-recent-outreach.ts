@@ -6,12 +6,12 @@
  * `YYYY-MM-DD` string — no zone, no instant.
  */
 
-import { coalesce, gte, useLiveQuery } from '@tanstack/react-db';
+import { gte, useLiveQuery } from '@tanstack/react-db';
 import { outreach_actions } from '../../lib/collections/outreach_actions';
 import { outreach_methods } from '../../lib/collections/outreach_methods';
 import { profiles } from '../../lib/collections/profiles';
 import { PERFORMED_ACTIONS } from './performed-action-reads';
-import { activityGcTimeMs } from './shared';
+import { activityGcTimeMs, joinedOrNull } from './shared';
 
 const outreachReads = PERFORMED_ACTIONS.outreachActions;
 
@@ -56,9 +56,9 @@ export function useRecentOutreachActions(sinceDate: string): {
 						id: action.id,
 						outreachDate: outreachReads.date(action),
 						methodId: measured.methodId,
-						methodName: coalesce(method.name, null),
+						methodName: joinedOrNull(method.name),
 						technicianProfileId: measured.performerProfileId,
-						technicianName: coalesce(technician.display_name, null),
+						technicianName: joinedOrNull(technician.display_name),
 						reach: measured.amount,
 						reachDescription: action.reach_description,
 					};

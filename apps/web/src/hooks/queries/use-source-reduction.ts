@@ -7,7 +7,7 @@
  * Three sequential queries before: the action, then its method, then its unit.
  */
 
-import { coalesce, eq } from '@tanstack/react-db';
+import { eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { profiles } from '../../lib/collections/profiles';
 import { source_reduction_methods } from '../../lib/collections/source_reduction_methods';
@@ -15,7 +15,7 @@ import { source_reductions } from '../../lib/collections/source_reductions';
 import { units } from '../../lib/collections/units';
 import type { SourceReduction } from './control-action-view';
 import { controlActionBaseSelect, PERFORMED_ACTIONS } from './performed-action-reads';
-import { addressSelect, useRecordById } from './shared';
+import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
 const reductionReads = PERFORMED_ACTIONS.sourceReductions;
 
@@ -68,13 +68,13 @@ export function useSourceReduction(
 						actionDate: reductionReads.date(action),
 
 						methodId: measured.methodId,
-						methodName: coalesce(method.name, null),
+						methodName: joinedOrNull(method.name),
 						technicianProfileId: measured.performerProfileId,
-						technicianName: coalesce(technician.display_name, null),
+						technicianName: joinedOrNull(technician.display_name),
 
 						sourcesEliminated: measured.amount,
 						unitId: measured.unitId,
-						unitAbbreviation: coalesce(unit.abbreviation, null),
+						unitAbbreviation: joinedOrNull(unit.abbreviation),
 						habitatId: action.habitat_id,
 						...controlActionBaseSelect(action),
 					};

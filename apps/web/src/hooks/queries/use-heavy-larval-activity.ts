@@ -14,14 +14,14 @@
  */
 
 import type { LarvalDensity } from '@simmer-mosquito/domain';
-import { and, coalesce, eq, gte, inArray, useLiveQuery } from '@tanstack/react-db';
+import { and, eq, gte, inArray, useLiveQuery } from '@tanstack/react-db';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
 import { inspections } from '../../lib/collections/inspections';
 import { profiles } from '../../lib/collections/profiles';
 import { joinedHabitatNameSelect } from './habitat-view';
 import type { LarvalActivityRow } from './larval-activity-view';
-import { activityGcTimeMs } from './shared';
+import { activityGcTimeMs, joinedOrNull } from './shared';
 
 /** What this panel means by heavy. The two top bands of the density scale. */
 const heavyDensities: LarvalDensity[] = ['heavy', 'very_heavy'];
@@ -69,7 +69,7 @@ export function useHeavyLarvalActivity(sinceDate: string): {
 					id: inspection.id,
 					inspectionDate: inspection.inspection_date,
 					inspectedByProfileId: inspection.inspected_by_profile_id,
-					inspectedByName: coalesce(inspector.display_name, null),
+					inspectedByName: joinedOrNull(inspector.display_name),
 					isWet: inspection.is_wet,
 					density: inspection.density,
 					larvaeCount: inspection.larvae_count,
@@ -79,7 +79,7 @@ export function useHeavyLarvalActivity(sinceDate: string): {
 					// arriving, and `habitat-view.ts` says what that reads as (#998).
 					habitatName: joinedHabitatNameSelect(habitat),
 					habitatTypeId: inspection.habitat_type_id,
-					typeName: coalesce(type.name, null),
+					typeName: joinedOrNull(type.name),
 
 					latitude: inspection.lat,
 					longitude: inspection.lng,

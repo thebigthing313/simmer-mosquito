@@ -40,8 +40,10 @@
 import {
 	type Context,
 	type ContextFromSource,
+	coalesce,
 	eq,
 	type GetResult,
+	type IR,
 	type QueryBuilder,
 	useLiveQuery,
 } from '@tanstack/react-db';
@@ -204,4 +206,32 @@ export function addressSelect<TAddress extends AddressColumns>(
 		region: address.region,
 		postalCode: address.postal_code,
 	};
+}
+
+/** What `coalesce` accepts, which `@tanstack/db` does not export by name. */
+type CoalesceArgument = Parameters<typeof coalesce>[0];
+
+/** The value `coalesce` would type a lone column as: its non-null type. */
+type CoalescedValue<TColumn extends CoalesceArgument> =
+	ReturnType<typeof coalesce<[TColumn]>> extends IR.BasicExpression<infer TValue> ? TValue : never;
+
+/**
+ * A column from the optional side of a `left` join, or `null` when the join
+ * matched nothing.
+ *
+ * It evaluates as `coalesce(column, null)`, which is what the #874 rule asks a
+ * joined column to be projected as. The bare call types wrong: `coalesce` reads
+ * its arguments through a type that drops the nullable brand a `left` join puts
+ * on the ref, so a column that is non-null in its own row schema comes back
+ * typed without `| null` while an unmatched join hands back `null`. This states
+ * the `| null`, so an inferred `select` type agrees with what arrives.
+ *
+ * On a ref from the source side it is redundant and harmless.
+ */
+export function joinedOrNull<TColumn extends CoalesceArgument>(
+	column: TColumn,
+): IR.BasicExpression<CoalescedValue<TColumn> | null> {
+	// The cast is inside the helper so no call site carries one. `coalesce`'s
+	// return type is a conditional over `TColumn` that stays unresolved here.
+	return coalesce(column, null) as IR.BasicExpression<CoalescedValue<TColumn> | null>;
 }
