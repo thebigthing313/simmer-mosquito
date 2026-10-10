@@ -1663,17 +1663,22 @@ still draws, and every `habitat.*` reads `undefined` until it does. Before
 answers its separator, and its description read `''`, which the edit page
 offered to write over the Habitat's real one. The name now reads
 `joinedHabitatNameSelect`, so the `Habitat <8 hex>` fallback is reachable, and
-the description is `coalesce(habitat.description, null)` under the joined
-column rule: `null` while the Habitat is resolving, and `''` for a Habitat
-with none, since the column is never null.
+the description is `null` while the Habitat is resolving, and `''` for a
+Habitat with none, since the column is never null.
 
-That `null` is also what sets `isResolving`, through `resolution` in the same
-module, and `RouteStopView` is a union on it: a resolving stop has a `null`
-description and a resolved one a string (#1579). The two fields used to be
-independent, read off the description and the joined Habitat's id, so they
+Since #1579 the select takes `habitat.description` raw and
+`stopResolution` in the same module turns it into both `description` and
+`isResolving`. `RouteStopView` is a union on `isResolving`: a resolving stop
+has a `null` description and a resolved one a string. The two fields used to
+be independent, read off the description and the joined Habitat's id, so they
 agreed on every row while the type allowed either without the other, and a
-reader narrowing on `isResolving` still had to write `?? ''`. Deriving both
-from the one column is what makes a join change that splits them fail `tsc`.
+reader narrowing on `isResolving` still had to write `?? ''`. The select is
+raw because `coalesce(habitat.description, null)` is typed `string` while it
+answers `null`, so the type said nothing about the resolving case. The raw
+column is `string | undefined`, `undefined` exactly when the join is
+unmatched, and `stopResolution` takes no `null`, so a nullable
+`habitats.description` would fail `tsc` there rather than read every Habitat
+with no description as resolving.
 
 #### useHabitatRouteStopCounts
 

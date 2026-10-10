@@ -62,11 +62,13 @@ export function useHabitatRouteStops(routeId: string | null): {
 					// `null` while the Habitat has not arrived, so the id fallback below
 					// is reachable rather than a bare `, ` from `concat` over nothing.
 					name: joinedHabitatNameSelect(habitat),
-					// `null` while the Habitat has not arrived, which is not the same
-					// answer as a Habitat with no description: the column is never
-					// null, so a resolved one reads `''`. That makes it the joined
-					// row's presence, which `resolution` below reads as `isResolving`.
-					description: coalesce(habitat.description, null),
+					// `undefined` while the Habitat has not arrived, which is not the
+					// same answer as a Habitat with no description: the column is never
+					// null, so a resolved one reads `''`. Left raw rather than coalesced:
+					// `coalesce(…, null)` is typed `string` while it answers `null`, and
+					// the raw column's `string | undefined` is what `stopResolution`
+					// below reads as the joined row's presence.
+					description: habitat.description,
 					habitatTypeId: coalesce(habitat.habitat_type_id, null),
 					lat: coalesce(habitat.lat, null),
 					lng: coalesce(habitat.lng, null),
@@ -86,7 +88,7 @@ export function useHabitatRouteStops(routeId: string | null): {
 	// not the number a crew reads off the list.
 	const stops: RouteStopView[] = rows.map(({ description, ...row }, index) => ({
 		...row,
-		...resolution(description),
+		...stopResolution(description),
 		ordinal: index + 1,
 		name: row.name ?? `Habitat ${row.habitatId.slice(0, 8)}`,
 		hasLocation: row.lat !== null && row.lng !== null,
@@ -115,11 +117,12 @@ export function useHabitatRouteStops(routeId: string | null): {
 
 /**
  * A stop's description and `isResolving` from the one column that decides
- * both, so the two cannot disagree: the description is `null` exactly when the
- * Habitat has not arrived.
+ * both, so the two cannot disagree: the joined description is `undefined`
+ * exactly when the Habitat has not arrived. The parameter takes no `null`, so
+ * a nullable column would fail `tsc` here rather than read as resolving.
  */
-function resolution(description: string | null): RouteStopResolution {
-	return description === null
+function stopResolution(description: string | undefined): RouteStopResolution {
+	return description === undefined
 		? { isResolving: true, description: null }
 		: { isResolving: false, description };
 }
