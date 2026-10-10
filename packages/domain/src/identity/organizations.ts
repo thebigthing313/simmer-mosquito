@@ -283,6 +283,11 @@ const BILLING_CONTACT_LIMITS = {
 /** The two billing contact fields an Organization create carries. */
 export type OrganizationBillingContactKey = keyof typeof BILLING_CONTACT_LIMITS;
 
+/** The billing contact fields, in the order the limits table writes them. */
+export const ORGANIZATION_BILLING_CONTACT_KEYS = Object.keys(
+	BILLING_CONTACT_LIMITS,
+) as readonly OrganizationBillingContactKey[];
+
 /** A billing contact as a caller sent it: absent, `null`, or text not yet checked. */
 export type OrganizationBillingContact = {
 	readonly [K in OrganizationBillingContactKey]?: string | null;

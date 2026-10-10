@@ -30,8 +30,10 @@ import {
 import {
 	normalizeOrganizationBillingContact,
 	normalizeOrganizationContactDetails,
+	ORGANIZATION_BILLING_CONTACT_KEYS,
 	ORGANIZATION_CONTACT_DETAIL_KEYS,
 	ORGANIZATION_SUBSCRIPTION_STATUSES,
+	type OrganizationBillingContactKey,
 	type OrganizationContactDetailKey,
 } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
@@ -139,6 +141,14 @@ interface CreateOrganizationPayload {
  */
 type CreateOrganizationContact = Pick<OrganizationContactInfo, OrganizationContactDetailKey>;
 
+/**
+ * Every billing contact field the domain names, each text or `null`.
+ *
+ * A `Pick` from the payload for the reason the contact's is one: a field added
+ * to the domain's billing limits fails `tsc` here until the payload carries it.
+ */
+type CreateOrganizationBilling = Pick<CreateOrganizationPayload, OrganizationBillingContactKey>;
+
 /** A request body once `wrongTypeReason` has passed: each text field a string or absent. */
 type CreateOrganizationBody = Readonly<Record<string, unknown>> & {
 	readonly [K in TextField]?: string | null;
@@ -185,7 +195,7 @@ async function readCreateOrganizationPayload(request: {
 	// string, and the flag as anything but a boolean, so this is what the body is.
 	const body = raw as CreateOrganizationBody;
 
-	const name = readRequiredText(body.name);
+	const name = readOptionalText(body.name);
 	if (name === null) {
 		return {
 			ok: false,
@@ -220,8 +230,7 @@ async function readCreateOrganizationPayload(request: {
 			name,
 			slug: readOptionalText(body.slug),
 			subscriptionStatus,
-			billingContactName: contact.billingContactName,
-			billingContactEmail: contact.billingContactEmail,
+			...contact.billing,
 			subscriptionNotes: readOptionalText(body.subscriptionNotes),
 			contact: contact.contact,
 			linkRequesterAsOwner: body.linkRequesterAsOwner === true,
@@ -232,15 +241,15 @@ async function readCreateOrganizationPayload(request: {
 /**
  * The fields a create reads as text, `name` first.
  *
- * The contact details are the domain's list rather than a copy of it, so a
- * detail the create reads is a detail this checks the type of.
+ * The billing contact and the contact details are the domain's lists rather
+ * than copies of them, so a field the create reads is a field this checks the
+ * type of.
  */
 const TEXT_FIELDS = [
 	'name',
 	'slug',
 	'billingMode',
-	'billingContactName',
-	'billingContactEmail',
+	...ORGANIZATION_BILLING_CONTACT_KEYS,
 	'subscriptionNotes',
 	...ORGANIZATION_CONTACT_DETAIL_KEYS,
 ] as const;
@@ -278,6 +287,11 @@ const NO_CONTACT = Object.fromEntries(
 	ORGANIZATION_CONTACT_DETAIL_KEYS.map((key) => [key, null]),
 ) as CreateOrganizationContact;
 
+/** Every billing contact field a create carries, `null` until one arrives. */
+const NO_BILLING = Object.fromEntries(
+	ORGANIZATION_BILLING_CONTACT_KEYS.map((key) => [key, null]),
+) as CreateOrganizationBilling;
+
 /**
  * The contact details and the billing contact, checked.
  *
@@ -291,8 +305,7 @@ function readContactPayload(body: CreateOrganizationBody):
 	| {
 			readonly ok: true;
 			readonly contact: CreateOrganizationPayload['contact'];
-			readonly billingContactName: string | null;
-			readonly billingContactEmail: string | null;
+			readonly billing: CreateOrganizationBilling;
 	  }
 	| { readonly ok: false; readonly reason: string } {
 	const { details, issues } = normalizeOrganizationContactDetails(
@@ -300,10 +313,11 @@ function readContactPayload(body: CreateOrganizationBody):
 			ORGANIZATION_CONTACT_DETAIL_KEYS.map((key) => [key, readOptionalText(body[key])]),
 		),
 	);
-	const billing = normalizeOrganizationBillingContact({
-		billingContactName: readOptionalText(body.billingContactName),
-		billingContactEmail: readOptionalText(body.billingContactEmail),
-	});
+	const billing = normalizeOrganizationBillingContact(
+		Object.fromEntries(
+			ORGANIZATION_BILLING_CONTACT_KEYS.map((key) => [key, readOptionalText(body[key])]),
+		),
+	);
 	const refusals = [...issues, ...billing.issues];
 	if (refusals.length > 0) {
 		return { ok: false, reason: refusals.map((issue) => issue.message).join(' ') };
@@ -312,8 +326,7 @@ function readContactPayload(body: CreateOrganizationBody):
 	return {
 		ok: true,
 		contact: { ...NO_CONTACT, ...details },
-		billingContactName: billing.contact.billingContactName ?? null,
-		billingContactEmail: billing.contact.billingContactEmail ?? null,
+		billing: { ...NO_BILLING, ...billing.contact },
 	};
 }
 
@@ -327,11 +340,6 @@ function readSubscriptionStatus(value: unknown): OrganizationSubscriptionStatus 
 	}
 
 	return null;
-}
-
-function readRequiredText(value: string | null | undefined): string | null {
-	const text = readOptionalText(value);
-	return text === null ? null : text;
 }
 
 function readOptionalText(value: string | null | undefined): string | null {
