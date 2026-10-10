@@ -26,8 +26,8 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { TrapPicker } from '../../../../components/adult-surveillance/adult-pickers';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
+import { StopSequenceMap } from '../../../../components/map/stop-sequence-map';
 import { EditFormSkeleton, RecordEditFrame } from '../../../../components/record';
-import { RouteMap } from '../../../../components/route-planning';
 import {
 	type MoveAction,
 	type MovePlan,
@@ -151,12 +151,13 @@ function EditTrapRouteRoute() {
 		<>
 			<MapSplitPage
 				map={
-					<RouteMap
+					<StopSequenceMap
 						features={features}
 						fitKey={id}
 						highlightId={highlightId}
 						onHoverStop={setHighlightId}
-						stops={stops}
+						recordType="route"
+						stopCount={itemCount}
 					/>
 				}
 			>

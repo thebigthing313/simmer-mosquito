@@ -26,12 +26,12 @@ import {
 	RESULT_SKELETON_KEYS,
 	without,
 } from '../../../components/explorer';
+import { StopSequenceMap } from '../../../components/map/stop-sequence-map';
 import {
 	MissionStatusBadge,
 	missionStopFeatures,
 	stopSummary,
 } from '../../../components/operations/operations-display';
-import { WorklistMap } from '../../../components/operations/worklist-map';
 import { WriteOnly } from '../../../components/write-only';
 import { useControlMethodNames } from '../../../hooks/explorer/use-control-method-names';
 import {
@@ -177,7 +177,7 @@ function MissionsRoute() {
 	return (
 		<MapSplitPage
 			map={
-				<WorklistMap
+				<StopSequenceMap
 					features={features}
 					fitKey={selectedId ?? undefined}
 					highlightId={highlightId}
@@ -198,7 +198,7 @@ function MissionsRoute() {
 							mission={selected}
 						/>
 					)}
-				</WorklistMap>
+				</StopSequenceMap>
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">

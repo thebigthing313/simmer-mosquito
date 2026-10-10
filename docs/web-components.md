@@ -660,6 +660,20 @@ the same in both states and the state is on `aria-pressed`, which is
 `MapControlButton`'s `pressed` prop; a label that flipped between "group" and
 "ungroup" would announce the action and the state at once and read as neither.
 
+#### StopSequenceMap
+
+One component draws every ordered run of stops, Routes, Missions and
+Assignments, because `RouteMap` and `WorklistMap` were the same map with two
+noun spellings and two bounds folds (#1491). The Route surfaces lost nothing
+in the merge: their stops carry no shape, so the shape-aware fold frames them
+on the same box the point fold did, and the noun comes out of the register as
+`route` either way.
+
+It fits once per `fitKey` rather than handing the stops to `MapCanvas`'s
+`fitToData`. `useMapExtentFit` refits whenever the box changes, so adding a
+stop on a Route edit page would move the camera under the person placing it,
+which none of these surfaces does.
+
 #### MapSearch
 
 Two resets that were effects are read off the state they key on (#1183). The
