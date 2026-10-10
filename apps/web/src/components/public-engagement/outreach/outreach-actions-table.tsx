@@ -10,8 +10,8 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
-import { useOutreachMethodOptions } from '../../../hooks/explorer/use-outreach-method-options';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { formatListDate } from '../../../lib/local-date';
 import { LinkedTableRow } from '../../record/linked-table-row';
 import { formatReach } from '../public-engagement-display';
@@ -26,8 +26,8 @@ import {
  * the rows the route read.
  */
 export function OutreachActionsTable({ rows }: { readonly rows: readonly OutreachListRow[] }) {
-	const { nameById: methodNameById } = useOutreachMethodOptions();
-	const { nameById: personNameById } = usePersonnelOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.outreachMethods);
+	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	return (
 		<div className="rounded-md border border-border/50">
 			<Table>

@@ -2,7 +2,8 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { ControlMethodsPage } from '../../../components/control-operations/control-methods-page';
 import { useApplicationMethodMutations } from '../../../hooks/mutations/use-application-method-mutations';
-import { useApplicationMethodRecords } from '../../../hooks/queries/use-application-method-records';
+import { catalogs } from '../../../hooks/queries/catalog-register';
+import { useCatalogRecords } from '../../../hooks/queries/use-catalog-records';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 
 export const Route = createFileRoute('/control-operations/chemical/methods')({
@@ -12,7 +13,7 @@ export const Route = createFileRoute('/control-operations/chemical/methods')({
 function ApplicationMethodsRoute() {
 	const { auth } = Route.useRouteContext();
 	const { canManage, canManageOperational } = useOrganizationWorkspace(auth.snapshot);
-	const records = useApplicationMethodRecords();
+	const records = useCatalogRecords(catalogs.applicationMethods);
 	const mutations = useApplicationMethodMutations();
 
 	return (

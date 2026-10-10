@@ -97,20 +97,13 @@ export function useApplication(
 							actionDate: applicationReads.date(application),
 
 							insecticideId: measured.productId,
-							// `insecticide_id` is not nullable, so there is no absent case to
-							// carry, only the join not having resolved yet.
-							productName: coalesce(product.trade_name, 'Unknown product'),
+							// `insecticide_id` is not nullable, so a `null` name only ever means
+							// the product is not in the client.
+							productName: coalesce(product.trade_name, null),
 							methodId: measured.methodId,
-							// Guarded on the application's own column, so an application with no
-							// method reads as `null` rather than as the `undefined` an unmatched
-							// join yields.
-							methodName: caseWhen(isNull(measured.methodId), null, method.name),
+							methodName: coalesce(method.name, null),
 							applicatorProfileId: measured.performerProfileId,
-							applicatorName: caseWhen(
-								isNull(measured.performerProfileId),
-								null,
-								applicator.display_name,
-							),
+							applicatorName: coalesce(applicator.display_name, null),
 
 							amountApplied: measured.amount,
 							unitId: measured.unitId,

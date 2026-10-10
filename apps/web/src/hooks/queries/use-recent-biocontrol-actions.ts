@@ -1,4 +1,4 @@
-import { caseWhen, coalesce, gte, isNull, useLiveQuery } from '@tanstack/react-db';
+import { coalesce, gte, useLiveQuery } from '@tanstack/react-db';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
 import { biocontrol_methods } from '../../lib/collections/biocontrol_methods';
 import { profiles } from '../../lib/collections/profiles';
@@ -35,13 +35,9 @@ export function useRecentBiocontrolActions(sinceDate: string): RecentResult {
 						id: action.id,
 						actionDate: releaseReads.date(action),
 						methodId: measured.methodId,
-						methodName: coalesce(method.name, 'Unknown method'),
+						methodName: coalesce(method.name, null),
 						technicianProfileId: measured.performerProfileId,
-						technicianName: caseWhen(
-							isNull(measured.performerProfileId),
-							null,
-							technician.display_name,
-						),
+						technicianName: coalesce(technician.display_name, null),
 						amount: measured.amount,
 						unitAbbreviation: coalesce(unit.abbreviation, null),
 						habitatId: action.habitat_id,

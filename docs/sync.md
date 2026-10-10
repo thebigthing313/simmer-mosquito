@@ -169,9 +169,16 @@ boundary. `settleWrite` awaits a transaction's `when('settled')` and treats
 `TimeoutWaitingForTxIdError` as success, and the membership writes catch it the
 same way. `when('settled')` replaced `isPersisted.promise`, which `@tanstack/db`
 0.12 deprecates and the 1.0 RC removes, and nothing in the workspace reads the
-alias (#1407). A wait does not promise the txid arrives: a live stream whose loaded
-subset excludes the new row will not carry it, which is the case the timeout is
-for.
+alias (#1407).
+
+What the subset a live query has loaded does not decide is whether the txid
+arrives. Read against `electric-db-collection` 0.5.8: an on-demand collection
+opens one `changes_only` stream over the shape the server forces, which bounds
+by Organization and not by anything a live query filters on, and each subset is
+a separate snapshot request beside it. The message loop records a message's
+`headers.txids` before it asks whether any subset holds the row, so a write into
+a row no live query covers still confirms. The timeout is for the stream itself:
+one that is slow, reconnecting, or paused while a write is in flight.
 
 A table with no write surface is read-only by having no commands mapped to it,
 not by a separate class of collection. `apps/server/src/table-commands` is

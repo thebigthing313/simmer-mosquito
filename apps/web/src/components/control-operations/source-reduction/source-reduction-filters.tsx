@@ -7,10 +7,10 @@
  */
 
 import type { SourceReductionFilterBinding } from '../../../hooks/control-operations/use-source-reduction-filter-state';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
-import { useSourceReductionMethodOptions } from '../../../hooks/explorer/use-source-reduction-method-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
@@ -32,8 +32,8 @@ export function SourceReductionFilterFields({
 }) {
 	const { filters, setFilters, activeCount, today } = binding;
 	const dateRange = useDateRangeFilters({ from: filters.from, to: filters.to, today, setFilters });
-	const { options: methods } = useSourceReductionMethodOptions();
-	const personnel = usePersonnelOptions();
+	const { options: methods } = useCatalogOptions(catalogs.sourceReductionMethods);
+	const personnel = useCatalogOptions(catalogs.profiles);
 	const regions = useRegionOptions();
 
 	const popovers = (
@@ -84,8 +84,8 @@ export function SourceReductionFilterChips({
 }: {
 	readonly binding: SourceReductionFilterBinding;
 }) {
-	const { nameById: methodNameById } = useSourceReductionMethodOptions();
-	const { nameById: personNameById } = usePersonnelOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.sourceReductionMethods);
+	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const { nameById: regionNameById } = useRegionOptions();
 	const { filters, setFilters, reset, defaults } = binding;
 	return (

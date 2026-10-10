@@ -10,8 +10,8 @@ import {
 import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
-import { useCollectionLureRoster } from '../../../hooks/queries/use-collection-lure-roster';
-import { useCollectionMethodRoster } from '../../../hooks/queries/use-collection-method-roster';
+import { catalogs } from '../../../hooks/queries/catalog-register';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { TRAP_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
@@ -41,8 +41,8 @@ function CreateTrapRoute() {
 	const initialGeometry = pointFromSearch(search);
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const methods = useCollectionMethodRoster();
-	const lures = useCollectionLureRoster();
+	const methods = useCatalogRoster(catalogs.collectionMethods);
+	const lures = useCatalogRoster(catalogs.collectionLures);
 	const mutations = useTrapMutations();
 	const { run, dialog } = useAcknowledgedWrite({ askable: TRAP_SAVE_REFUSALS, ask: true });
 

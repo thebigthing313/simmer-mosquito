@@ -58,11 +58,8 @@ vi.mock('../../../../../components/map', async (original) => ({
 vi.mock('../../../../../hooks/queries/use-trap-options', () => ({
 	useTrapOptions: () => ({ traps: [], isReady: harness.trapsReady }),
 }));
-vi.mock('../../../../../hooks/queries/use-collection-method-roster', () => ({
-	useCollectionMethodRoster: () => [],
-}));
-vi.mock('../../../../../hooks/queries/use-collection-lure-roster', () => ({
-	useCollectionLureRoster: () => [],
+vi.mock('../../../../../hooks/queries/use-catalog-roster', () => ({
+	useCatalogRoster: () => [],
 }));
 vi.mock('../../../../../hooks/queries/use-profile-roster', () => ({
 	useProfileRoster: () => [],
