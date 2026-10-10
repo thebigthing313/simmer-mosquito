@@ -3,6 +3,7 @@ import {
 	choiceParam,
 	dateParam,
 	type FilterCodecs,
+	flagParam,
 	idSetParam,
 	textParam,
 } from '../../../lib/search-filters';
@@ -24,6 +25,11 @@ export interface ServiceRequestFilters {
 	readonly from: string;
 	/** Inclusive end of the `request_date` window (`YYYY-MM-DD`), `''` for none. */
 	readonly to: string;
+	/**
+	 * Overdue requests only. Read only while the Organization's threshold is on;
+	 * with it off the flag narrows nothing and no control sets it.
+	 */
+	readonly overdue: boolean;
 }
 
 /**
@@ -38,6 +44,7 @@ export const serviceRequestFilterCodecs: FilterCodecs<ServiceRequestFilters> = {
 	regions: idSetParam,
 	from: dateParam,
 	to: dateParam,
+	overdue: flagParam,
 };
 
 /** The order the Map's rail and the Table page in. */
@@ -77,17 +84,18 @@ export function serviceRequestFilterDefaults(today: string): ServiceRequestFilte
 		regions: new Set<string>(),
 		from: startOfYear(today),
 		to: today,
+		overdue: false,
 	};
 }
 
 /**
- * The params a move between the Map and the Table carries: status and the date
- * window, which both surfaces read. Search, Tags and Regions stay behind,
+ * The params a move between the Map and the Table carries: status, the date
+ * window and Overdue, which both surfaces read. Search, Tags and Regions stay behind,
  * because the Table has no control for them: one it carried would either sit
  * unapplied, leaving rows on screen the filter says are gone, or narrow the rows
  * with nothing on screen to show it or clear it.
  */
-const SHARED_KEYS = ['status', 'from', 'to'] as const;
+const SHARED_KEYS = ['status', 'from', 'to', 'overdue'] as const;
 
 export function sharedServiceRequestSearch(
 	search: Record<string, unknown>,

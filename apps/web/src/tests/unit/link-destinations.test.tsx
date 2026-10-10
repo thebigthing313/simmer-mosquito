@@ -814,6 +814,10 @@ describe('the Dashboard', () => {
 		expect(linkHref('Open service requests')).toBe(
 			'/public-engagement/service-requests?status=open&from=any&to=any',
 		);
+		// The overdue line opens the same explorer with its Overdue filter on (#1246).
+		expect(linkHref('Overdue service requests')).toBe(
+			'/public-engagement/service-requests?overdue=true&from=any&to=any',
+		);
 	});
 
 	it('sends an empty Electric queue to its explorer with the filter and no window', async () => {

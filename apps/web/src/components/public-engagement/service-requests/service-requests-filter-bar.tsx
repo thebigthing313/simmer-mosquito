@@ -1,6 +1,12 @@
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { DateRangeFilter } from '../../date-range-filter';
-import { ActiveFilterBar, DateRangeChip, FilterChip, SegmentedFilter } from '../../explorer';
+import {
+	ActiveFilterBar,
+	DateRangeChip,
+	FilterChip,
+	SegmentedFilter,
+	ToggleFilter,
+} from '../../explorer';
 import type { ServiceRequestStatusFilter } from './legend';
 import {
 	SERVICE_REQUEST_ORDER_OPTIONS,
@@ -8,8 +14,11 @@ import {
 	type ServiceRequestRailOrder,
 } from './service-requests-search';
 
-/** The three filters the Table shares with the Map, read through the Map's codecs. */
-export type ServiceRequestTableFilters = Pick<ServiceRequestFilters, 'status' | 'from' | 'to'>;
+/** The four filters the Table shares with the Map, read through the Map's codecs. */
+export type ServiceRequestTableFilters = Pick<
+	ServiceRequestFilters,
+	'status' | 'from' | 'to' | 'overdue'
+>;
 
 const STATUS_OPTIONS: readonly {
 	readonly value: ServiceRequestStatusFilter;
@@ -21,7 +30,8 @@ const STATUS_OPTIONS: readonly {
 ];
 
 /**
- * Status, the date window and the order, above the rows they narrow. It renders
+ * Status, Overdue, the date window and the order, above the rows they narrow.
+ * Overdue is drawn only while the Organization's threshold is on. It renders
  * whether or not any rows came back, because a filter that matched nothing is
  * when the reader needs the control that loosens it. The order narrows nothing,
  * so it is no chip and a reset leaves it alone.
@@ -33,6 +43,7 @@ export function ServiceRequestsFilterBar({
 	onClearAll,
 	onOrderChange,
 	order,
+	overdueAvailable,
 	setFilters,
 	today,
 }: {
@@ -42,6 +53,7 @@ export function ServiceRequestsFilterBar({
 	readonly onClearAll: () => void;
 	readonly onOrderChange: (order: ServiceRequestRailOrder) => void;
 	readonly order: ServiceRequestRailOrder;
+	readonly overdueAvailable: boolean;
 	readonly setFilters: (patch: Partial<ServiceRequestTableFilters>) => void;
 	readonly today: string;
 }) {
@@ -57,6 +69,15 @@ export function ServiceRequestsFilterBar({
 						options={STATUS_OPTIONS}
 						value={filters.status}
 					/>
+					{overdueAvailable ? (
+						<div>
+							<ToggleFilter
+								label="Overdue"
+								onChange={(overdue) => setFilters({ overdue })}
+								value={filters.overdue}
+							/>
+						</div>
+					) : null}
 					<SegmentedFilter
 						label="Order"
 						onChange={onOrderChange}
@@ -73,6 +94,9 @@ export function ServiceRequestsFilterBar({
 							onRemove={() => setFilters({ status: 'all' })}
 						/>
 					)}
+					{overdueAvailable && filters.overdue ? (
+						<FilterChip label="Overdue" onRemove={() => setFilters({ overdue: false })} />
+					) : null}
 					<DateRangeChip defaults={defaults} range={filters} setRange={setFilters} />
 				</ActiveFilterBar>
 			)}

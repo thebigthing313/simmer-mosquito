@@ -9,6 +9,7 @@ import {
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { Address } from '../../../hooks/queries/address-view';
 import type { ContactSummary } from '../../../hooks/queries/contact-view';
@@ -20,6 +21,7 @@ import {
 	formatRequestDate,
 	intakeTypeLabel,
 	isServiceRequestOpen,
+	requestAgeTone,
 	serviceRequestTitle,
 } from '../public-engagement-display';
 import { RequestStatusBadge } from '../public-engagement-ui';
@@ -27,18 +29,21 @@ import type { ServiceRequestListing } from './service-request-listing';
 
 /**
  * A page of Service Requests as a table, one row per request, each opening its detail page. Takes
- * the rows the route read, the contacts, addresses and profile names resolved for them, and today's
- * date for the age column.
+ * the rows the route read, the contacts, addresses and profile names resolved for them, today's
+ * date for the age column, and the overdue cut-off that draws an overdue request's age in the
+ * warning tone, `null` while the Organization's threshold is off.
  */
 export function ServiceRequestsTable({
 	addressById,
 	contactById,
+	overdueCutoff,
 	profileNames,
 	rows,
 	today,
 }: {
 	readonly addressById: ReadonlyMap<string, Address>;
 	readonly contactById: ReadonlyMap<string, ContactSummary>;
+	readonly overdueCutoff: string | null;
 	readonly profileNames: ReadonlyMap<string, string>;
 	readonly rows: readonly ServiceRequestListing[];
 	readonly today: string;
@@ -68,6 +73,7 @@ export function ServiceRequestsTable({
 							address={addressById.get(row.addressId)}
 							contact={contactById.get(row.contactId)}
 							key={row.id}
+							overdueCutoff={overdueCutoff}
 							receivedByName={
 								row.receivedByProfileId === null
 									? null
@@ -86,12 +92,14 @@ export function ServiceRequestsTable({
 function RequestRow({
 	address,
 	contact,
+	overdueCutoff,
 	receivedByName,
 	row,
 	today,
 }: {
 	readonly address: Address | undefined;
 	readonly contact: ContactSummary | undefined;
+	readonly overdueCutoff: string | null;
 	readonly receivedByName: string | null;
 	readonly row: ServiceRequestListing;
 	readonly today: string;
@@ -99,6 +107,7 @@ function RequestRow({
 	const title = serviceRequestTitle(row);
 	const addressLabel = addressCardLabel(address);
 	const details = row.details.trim();
+	const overdue = requestAgeTone(row, overdueCutoff) === 'warning';
 	return (
 		<LinkedTableRow
 			action={
@@ -116,8 +125,9 @@ function RequestRow({
 			<TableCell className="font-medium tabular-nums">{title}</TableCell>
 			<TableCell className="tabular-nums">{formatRequestDate(row.requestDate)}</TableCell>
 			{/* A closed request has stopped ageing, and Received already dates it. */}
-			<TableCell className="tabular-nums">
+			<TableCell className={cn('tabular-nums', overdue && 'font-medium text-warning')}>
 				{isServiceRequestOpen(row) ? formatRequestAge(row.requestDate, today) : <AbsentValue />}
+				{overdue ? <span className="sr-only"> Overdue</span> : null}
 			</TableCell>
 			<TableCell>
 				<RequestStatusBadge open={row.closedAt === null} />

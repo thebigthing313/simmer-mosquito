@@ -21,6 +21,8 @@ const VALID: PublicSettingsFormValues = {
 	radiusUnitCode: 'mi',
 	daysBefore: 7,
 	daysAfter: 14,
+	overdueOn: true,
+	overdueDays: 14,
 };
 
 const DETAILS: OrganizationDetailsFormValues = {

@@ -45,6 +45,7 @@ const FILTER_CODECS: FilterCodecs<ServiceRequestTableFilters> = {
 	status: serviceRequestFilterCodecs.status,
 	from: serviceRequestFilterCodecs.from,
 	to: serviceRequestFilterCodecs.to,
+	overdue: serviceRequestFilterCodecs.overdue,
 };
 
 export const Route = createFileRoute('/public-engagement/service-requests/table')({
@@ -66,18 +67,23 @@ const RequestIcon = iconRegistry.entities.serviceRequest.icon;
  * `docs/web-components.md` says why there are no column sorts and no Load more.
  */
 function ServiceRequestsTableRoute() {
-	const { defaults: mapDefaults, today } = useServiceRequestFilterDefaults();
+	const { defaults: mapDefaults, today, overdueCutoff } = useServiceRequestFilterDefaults();
+	const overdueAvailable = overdueCutoff !== null;
 	const defaults: ServiceRequestTableFilters = {
 		status: mapDefaults.status,
 		from: mapDefaults.from,
 		to: mapDefaults.to,
+		overdue: mapDefaults.overdue,
 	};
 	const {
 		filters: query,
 		setFilters,
 		reset,
-		activeCount,
+		activeCount: urlFilterCount,
 	} = useSearchFilters(defaults, FILTER_CODECS, DATE_RANGE_COUNTING);
+	// An Overdue left on the address while the threshold is off narrows
+	// nothing, so it does not count as a filter either.
+	const activeCount = urlFilterCount - (query.overdue && !overdueAvailable ? 1 : 0);
 	const { filters: order, setFilters: setOrder } = useSearchFilters(
 		ORDER_DEFAULTS,
 		serviceRequestRailOrderCodecs,
@@ -88,7 +94,7 @@ function ServiceRequestsTableRoute() {
 
 	const params = mapQueryParams({
 		bbox: WHOLE_WORLD_BBOX,
-		...serviceRequestPageParams(serviceRequestTileFilters(query), order.order),
+		...serviceRequestPageParams(serviceRequestTileFilters(query, overdueCutoff), order.order),
 	});
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
 		usePagedMapResource<ServiceRequestListing>({
@@ -117,6 +123,7 @@ function ServiceRequestsTableRoute() {
 				onClearAll={reset}
 				onOrderChange={(next) => setOrder({ order: next })}
 				order={order.order}
+				overdueAvailable={overdueAvailable}
 				setFilters={setFilters}
 				today={today}
 			/>
@@ -138,6 +145,7 @@ function ServiceRequestsTableRoute() {
 					<ServiceRequestsTable
 						addressById={parties.addressById}
 						contactById={parties.contactById}
+						overdueCutoff={overdueCutoff}
 						profileNames={profileNames}
 						rows={rows}
 						today={today}

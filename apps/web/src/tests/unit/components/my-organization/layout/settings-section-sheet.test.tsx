@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  */
 
 const setServiceRequestContext = vi.fn();
+const setServiceRequestOverdueDays = vi.fn();
 const setAdultCollectionTimingMode = vi.fn();
 const toastError = vi.fn();
 
@@ -20,6 +21,7 @@ vi.mock('../../../../../hooks/mutations/use-organization-settings-mutations', ()
 		canWrite: true,
 		setAdultCollectionTimingMode,
 		setServiceRequestContext,
+		setServiceRequestOverdueDays,
 	}),
 }));
 vi.mock('sonner', () => ({ toast: { error: toastError } }));
@@ -38,12 +40,15 @@ const SETTINGS = {
 			radius: { amount: 1, unitCode: 'mi' },
 			timeWindow: { daysBefore: 7, daysAfter: 14 },
 		},
+		serviceRequestOverdueDays: 14,
 	},
 } as unknown as OrganizationSettings;
 
 beforeEach(() => {
 	setServiceRequestContext.mockReset();
 	setServiceRequestContext.mockResolvedValue(undefined);
+	setServiceRequestOverdueDays.mockReset();
+	setServiceRequestOverdueDays.mockResolvedValue(undefined);
 	setAdultCollectionTimingMode.mockReset();
 	setAdultCollectionTimingMode.mockResolvedValue(undefined);
 	toastError.mockReset();
@@ -162,6 +167,45 @@ describe('SettingsSectionSheet', () => {
 			radius: { amount: 1, unitCode: 'mi' },
 			timeWindow: { daysBefore: 0, daysAfter: 0 },
 		});
+	});
+
+	// #1246: the overdue threshold is a switch and a number beside the context.
+	it('opens on the saved overdue threshold', () => {
+		openContextSheet();
+
+		expect(
+			screen.getByRole('switch', { name: 'Mark overdue requests' }).getAttribute('aria-checked'),
+		).toBe('true');
+		expect(inputValue('Overdue after (days)')).toBe('14');
+	});
+
+	it('saves a new number of days after the context', async () => {
+		openContextSheet();
+		fireEvent.change(screen.getByLabelText('Overdue after (days)'), { target: { value: '30' } });
+		save();
+
+		await vi.waitFor(() => expect(setServiceRequestOverdueDays).toHaveBeenCalledWith(30));
+		expect(setServiceRequestContext).toHaveBeenCalledTimes(1);
+	});
+
+	it('saves off when the switch is turned off', async () => {
+		openContextSheet();
+		fireEvent.click(screen.getByRole('switch', { name: 'Mark overdue requests' }));
+		save();
+
+		await vi.waitFor(() => expect(setServiceRequestOverdueDays).toHaveBeenCalledWith('off'));
+	});
+
+	it('refuses a threshold above a year and writes nothing', async () => {
+		openContextSheet();
+		fireEvent.change(screen.getByLabelText('Overdue after (days)'), { target: { value: '400' } });
+		save();
+
+		expect((await screen.findByRole('alert')).textContent).toContain(
+			'Overdue after (days) must be a whole number from 1 to 365.',
+		);
+		expect(setServiceRequestContext).not.toHaveBeenCalled();
+		expect(setServiceRequestOverdueDays).not.toHaveBeenCalled();
 	});
 
 	it('moves the active collection timing card as the select changes', async () => {
