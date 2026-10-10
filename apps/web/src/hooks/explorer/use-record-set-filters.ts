@@ -7,10 +7,10 @@ import {
 	surfaceApplies,
 	surfaceCodecs,
 } from '../../components/explorer/record-set';
-import { todayInTimeZone } from '../../lib/local-date';
 import type { FilterBinding } from '../../lib/search-filters';
 import { useOrganizationSettings } from '../queries/use-organization-settings';
 import { useDebouncedTextFilter } from '../use-debounced-text-filter';
+import { useOrganizationClock } from '../use-organization-clock';
 import { useSearchFilters } from '../use-search-filters';
 
 /** The search box over a set's text filter, which types ahead of the URL. */
@@ -51,7 +51,7 @@ export function useRecordSetFilters<TFilters extends object, TTile>(
 	surface: RecordSetSurface,
 ): RecordSetFilterBinding<TFilters> {
 	const settings = useOrganizationSettings();
-	const today = todayInTimeZone(settings.timezone);
+	const today = useOrganizationClock().today();
 	const context: RecordSetContext = { today, settings };
 	const defaults = set.defaults(context, surface);
 	const { filters, setFilters, reset, activeCount } = useSearchFilters(

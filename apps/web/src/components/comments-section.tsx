@@ -88,9 +88,11 @@ export function CommentsSection({
 	const { add, edit, setPinned, remove } = useCommentMutations();
 
 	const { pinned, unpinned } = partitionByPin(comments);
-	// One clock for the thread, read once, so every comment is judged against the
-	// same moment on the correction window.
-	const [now] = useState(() => new Date());
+	// One moment for the thread, read once, so every comment is judged against the
+	// same instant on the correction window. It is the Organization's clock, the
+	// one each comment's `3d ago` is measured against, so the two cannot disagree.
+	const clock = useOrganizationClock();
+	const [now] = useState(() => clock.now());
 
 	const [error, setError] = useState<string | null>(null);
 	// The id of the just-added comment, so only it plays the entrance animation

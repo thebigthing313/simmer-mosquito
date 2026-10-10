@@ -27,11 +27,10 @@ import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useTrapOptions } from '../../../hooks/queries/use-trap-options';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
-import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
@@ -95,8 +94,8 @@ function CreateCollectionRoute() {
 	const { all: units } = useUnitLabels();
 	const mutations = useCollectionMutations();
 
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 
 	// Minted up front so the crew rows can be written the moment the collection
 	// lands.
@@ -138,7 +137,7 @@ function CreateCollectionRoute() {
 				geometry: isTrap ? null : geometry,
 			});
 
-			const fields = collectionFieldsFrom(values, timeZone);
+			const fields = collectionFieldsFrom(values, clock.zone);
 			await mutations.record({
 				collectionId,
 				fields,

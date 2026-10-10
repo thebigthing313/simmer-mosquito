@@ -1,4 +1,4 @@
-import { addCalendarDays, todayInTimeZone } from '../../lib/local-date';
+import { addCalendarDays } from '../../lib/local-date';
 import {
 	choiceParam,
 	DATE_RANGE_COUNTING,
@@ -8,7 +8,7 @@ import {
 	flagParam,
 	idSetParam,
 } from '../../lib/search-filters';
-import { useOrganizationTimeZone } from '../use-organization-time-zone';
+import { useOrganizationClock } from '../use-organization-clock';
 import { useSearchFilters } from '../use-search-filters';
 
 /** Which requests the status filter can keep, in the order its segments draw. */
@@ -70,8 +70,8 @@ export function requestFilterDefaults(today: string): RequestFilters {
  * active filter, and so does a status other than `open`.
  */
 export function useRequestForControlFilterState(): FilterBinding<RequestFilters> {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const defaults = requestFilterDefaults(today);
 	const { filters, setFilters, reset, activeCount } = useSearchFilters(
 		defaults,

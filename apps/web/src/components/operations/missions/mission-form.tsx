@@ -8,7 +8,7 @@ import {
 	NO_NOTIFICATION_TYPE,
 	useMissionFormOptions,
 } from '../../../hooks/operations/use-mission-form-options';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../lib/domain-validation';
 import { localTimeAsInstant, localTimeOfDay, todayInTimeZone } from '../../../lib/local-date';
 import { DateControl } from '../../date-control';
@@ -199,16 +199,16 @@ export function MissionFormPage({
 	readonly errorTitle: string;
 	readonly onSave: (plan: MissionPlan) => Promise<void>;
 }) {
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const [controlType, setControlType] = useState<ControlType>(defaultValues.controlType);
 
 	const options = useMissionFormOptions(controlType);
 
 	const form = useRecordForm({
 		defaultValues,
-		validate: missionFormValidator(validate, fieldPaths, timeZone),
+		validate: missionFormValidator(validate, fieldPaths, clock.zone),
 		onSubmit: async (value) => {
-			await onSave(readMissionPlan(value, timeZone));
+			await onSave(readMissionPlan(value, clock.zone));
 		},
 	});
 

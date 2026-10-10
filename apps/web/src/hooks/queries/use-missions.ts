@@ -14,7 +14,7 @@
 import { and, gte, lte, useLiveQuery } from '@tanstack/react-db';
 import { missions } from '../../lib/collections/missions';
 import { addCalendarDays, localDayStartAsInstant } from '../../lib/local-date';
-import { useOrganizationTimeZone } from '../use-organization-time-zone';
+import { useOrganizationClock } from '../use-organization-clock';
 import type { MissionListing } from './operations-view';
 import { liveQueryGcTimeMs } from './shared';
 
@@ -31,12 +31,12 @@ export function useMissions(
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const timeZone = useOrganizationTimeZone();
-	const fromBound = from === '' ? EARLIEST_INSTANT : localDayStartAsInstant(from, timeZone);
+	const clock = useOrganizationClock();
+	const fromBound = from === '' ? EARLIEST_INSTANT : localDayStartAsInstant(from, clock.zone);
 	// The start of the day *after* `to`, so a mission dispatched at any hour of the
 	// closing day is still inside the window.
 	const toBound =
-		to === '' ? LATEST_INSTANT : localDayStartAsInstant(addCalendarDays(to, 1), timeZone);
+		to === '' ? LATEST_INSTANT : localDayStartAsInstant(addCalendarDays(to, 1), clock.zone);
 
 	const result = useLiveQuery({
 		gcTime: liveQueryGcTimeMs,

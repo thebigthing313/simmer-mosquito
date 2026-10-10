@@ -28,9 +28,8 @@ import { useAssigneeOptions } from '../../../hooks/operations/use-assignee-optio
 import { useRouteSnapshotItems } from '../../../hooks/operations/use-route-snapshot-items';
 import { useRouteStopCounts } from '../../../hooks/queries/use-route-stop-counts';
 import { useRouteCatalog } from '../../../hooks/queries/use-routes';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { stopCountPhrase } from '../../../lib/format-count';
-import { todayInTimeZone } from '../../../lib/local-date';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
@@ -49,8 +48,8 @@ function AssignmentCreateRoute() {
 	const navigate = useNavigate();
 	const { create, createFromRoute, canWrite } = useAssignmentMutations();
 
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const [assignmentId] = useState(() => newRecordId());
 
 	const [mode, setMode] = useState<Mode>('blank');
@@ -124,7 +123,7 @@ function AssignmentCreateRoute() {
 				assignmentDate: values.assignmentDate,
 				assignmentName: assignmentNameOrNull(values),
 				assignedToProfileId: assigneeOrNull(values),
-				dueAt: toDueAt(values, timeZone),
+				dueAt: toDueAt(values, clock.zone),
 			};
 			if (copiedRouteId !== null) {
 				await createFromRoute({

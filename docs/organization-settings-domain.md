@@ -240,8 +240,9 @@ It affects date-only rules such as:
   is resolved. The identity query already joins `organizations`, so the settings
   blob rides along and no read pays for a second round trip, which is what
   makes it affordable on the map-tile path.
-- **Client.** `useOrganizationTimeZone()` in `apps/web`, read off the synced
-  organization row. It always returns a zone; while that row is still streaming
+- **Client.** `useOrganizationClock()` in `apps/web`, whose `zone` comes from
+  `useOrganizationTimeZone()` reading the synced organization row. It always
+  returns a zone; while that row is still streaming
   it resolves to `DEFAULT_ORGANIZATION_TIMEZONE`. That is deliberate: the
   obvious alternative is the browser's zone, and that is the disagreement this
   whole rule exists to remove. A default is wrong for an organization that has

@@ -1,5 +1,4 @@
 import { datePresetRange, SCHEDULE_WINDOW } from '../../lib/date-presets';
-import { todayInTimeZone } from '../../lib/local-date';
 import {
 	choiceSetParam,
 	DATE_RANGE_COUNTING,
@@ -9,7 +8,7 @@ import {
 	idSetParam,
 } from '../../lib/search-filters';
 import { MISSION_STATUSES, type MissionStatus } from '../queries/operations-view';
-import { useOrganizationTimeZone } from '../use-organization-time-zone';
+import { useOrganizationClock } from '../use-organization-clock';
 import { useSearchFilters } from '../use-search-filters';
 
 /** The Missions filter state, keyed by the param each field appears under. */
@@ -56,8 +55,8 @@ function missionFilterDefaults(today: string): MissionFilters {
  * active filter.
  */
 export function useMissionFilterState(): FilterBinding<MissionFilters> {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const defaults = missionFilterDefaults(today);
 	const { filters, setFilters, reset, activeCount } = useSearchFilters(
 		defaults,

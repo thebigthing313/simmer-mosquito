@@ -1130,6 +1130,24 @@ name nobody gave it. The mission row prints the start beside the name through
 the relative style together. The comment timestamps measured "3m ago" against
 `Date.now()` before the clock, which ignored the override.
 
+It is the only reader of `useOrganizationTimeZone`. A component wanting the
+zone for a write-path helper such as `operationalDayAsTimestamp` reads
+`clock.zone`, and a child that needs the zone reads the clock itself rather
+than taking a `timeZone` prop, which is how the dashboard's strip and both
+backlog panels lost theirs. The zone parameters in `local-date.ts` are a
+`string`, so the browser's-midnight branch `zonedDayStart` used to take on an
+absent zone is gone.
+
+Three places read the current time for something other than a send stamp,
+and all three read `clock.now()`. The collect dialogs on a collection and on an
+assignment stop fall back to now when the typed day will not read, and that
+instant decides which day the collection counts on, so it is the clock the
+clamp beside it already measured against. The comment thread's correction
+window is judged against the same now as each comment's `3d ago`, so the
+controls and the label cannot disagree under `TODAY_OVERRIDE`. The stamps in
+`hooks/mutations/shared.ts` stay on `new Date()`: they are when the device
+sent the write, not the Organization's now.
+
 The clock is rebuilt when the zone changes and reused otherwise:
 the React Compiler memoizes the factory call on the zone, so there is no
 `useMemo`, which `check:manual-memo` would refuse anyway. Its formatters are

@@ -53,11 +53,10 @@ import {
 	useTrapCollections,
 } from '../../../hooks/queries/use-trap-collections';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { usePagedRows } from '../../../hooks/use-paged-rows';
 import { TRAP_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { activeDatePresetId, type DatePreset, datePresetRange } from '../../../lib/date-presets';
-import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 
 export const Route = createFileRoute('/adult-surveillance/traps/$id')({
@@ -166,7 +165,7 @@ function TrapLocationCard({
 const collectionsPageSize = 10;
 
 function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	// `seasons: null` — this card is a trap's whole history, and its paging is what
 	// keeps that readable. The trap directory windows the same read to three
 	// seasons because it is a browsing surface; here the operator arrived by way of
@@ -177,7 +176,7 @@ function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
 		isError,
 	} = useTrapCollections(trapId, {
 		seasons: null,
-		timeZone,
+		timeZone: clock.zone,
 	});
 
 	// Re-sorted here rather than in the query: the two timing modes date a
@@ -361,8 +360,8 @@ function TrapSpeciesDistribution({
 		species.filter((row) => row.epithet === 'unidentified').map((row) => row.id),
 	);
 
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const [from, setFrom] = useState('');
 	const [to, setTo] = useState('');
 	const hasRange = from !== '' || to !== '';
