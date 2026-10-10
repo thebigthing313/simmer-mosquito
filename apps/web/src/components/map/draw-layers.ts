@@ -133,9 +133,9 @@ export function drawLayers(): (
  */
 const HIT_TOLERANCE = 8;
 
-const VERTEX_LAYER = `${SOURCE_ID}-vertex`;
+export const VERTEX_LAYER = `${SOURCE_ID}-vertex`;
 /** The layers a part's own boundary draws on, which is where an edge is clicked. */
-const EDGE_LAYERS = [`${SOURCE_ID}-outline`, `${SOURCE_ID}-line`];
+export const EDGE_LAYERS = [`${SOURCE_ID}-outline`, `${SOURCE_ID}-line`];
 
 /** The vertex under the pointer, read off the feature the map answers with. */
 export function vertexUnder(map: MapboxMap, event: MapMouseEvent): DrawVertexRef | null {

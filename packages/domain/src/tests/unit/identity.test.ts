@@ -293,6 +293,26 @@ describe('inviteCommand', () => {
 		expect(() => inviteCommand({ ...invite, invitedEmail })).toThrow(DomainValidationError);
 	});
 
+	// Both of these pass a one-`@` rule, and the server stages the Membership
+	// before WorkOS is asked to send, so an address no invitation can reach
+	// would leave a Membership nobody can claim (#1525).
+	it.each([
+		'pat@localhost',
+		'a b@c.co',
+	])('refuses %s, which no invitation can reach', (invitedEmail) => {
+		expect(() => inviteCommand({ ...invite, invitedEmail })).toThrow(
+			expect.objectContaining({
+				issues: [{ path: 'invitedEmail', message: 'invitedEmail must be an email address.' }],
+			}),
+		);
+	});
+
+	it('reads the address after trimming it', () => {
+		expect(
+			inviteCommand({ ...invite, invitedEmail: '  Pat@Example.org ' }).payload.invitedEmail,
+		).toBe('pat@example.org');
+	});
+
 	// Without the id there is no key for a retry to collide on, and the spanning
 	// rules say a command in that state must not be built at all.
 	it('refuses a membership id that is not a UUID', () => {

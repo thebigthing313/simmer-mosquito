@@ -75,7 +75,7 @@ function OutreachDetailContent({
 	const methods = useCatalogRoster(catalogs.outreachMethods);
 	const { remove } = useOutreachActionMutations();
 
-	const methodName = action.methodName;
+	const methodName = action.methodName ?? 'Unknown method';
 	const technicianName = action.technicianName;
 
 	useBreadcrumbLabel(action.id, `${methodName} · ${formatActionDate(action.outreachDate)}`);

@@ -253,7 +253,7 @@ function ControlActionRow({ action }: { readonly action: DailyControlAction }) {
 					params={{ id: action.id }}
 					to={KIND_DETAIL_ROUTE[action.kind]}
 				>
-					{action.subjectName}
+					{actionSubject(action)}
 				</Link>
 				<span className="truncate text-muted-foreground text-xs">{actionSecondary(action)}</span>
 			</div>
@@ -317,7 +317,18 @@ function actionSecondary(action: DailyControlAction): string {
 	if (action.kind === 'biocontrol') {
 		return 'Biocontrol release';
 	}
-	return `Application · ${action.methodName ?? 'No method'}`;
+	if (action.methodId === null) {
+		return 'Application · No method';
+	}
+	return `Application · ${action.methodName ?? 'Unknown method'}`;
+}
+
+/** What titles the row: the product for an application, the method otherwise. */
+function actionSubject(action: DailyControlAction): string {
+	if (action.subjectName !== null) {
+		return action.subjectName;
+	}
+	return action.kind === 'application' ? 'Unknown insecticide' : 'Unknown method';
 }
 
 // --- insecticide usage ------------------------------------------------------
@@ -347,6 +358,7 @@ function InsecticideUsagePanel({
 	const rows = usage
 		.map((entry) => ({
 			...entry,
+			name: entry.name ?? 'Unknown insecticide',
 			total: usageTotal({
 				totalsByUnitId: entry.totalsByUnitId,
 				unitById: units.byId,
@@ -458,7 +470,7 @@ function RecentSourceReductionsPanel({ since }: { readonly since: string }) {
 								date={formatActionDate(action.actionDate)}
 								key={action.id}
 								params={{ id: action.id }}
-								primary={action.methodName}
+								primary={action.methodName ?? 'Unknown method'}
 								secondary={technicianLabel(action)}
 								to="/control-operations/source-reduction/$id"
 							/>
@@ -503,7 +515,7 @@ function RecentBiocontrolPanel({ since }: { readonly since: string }) {
 								date={formatActionDate(action.actionDate)}
 								key={action.id}
 								params={{ id: action.id }}
-								primary={action.methodName}
+								primary={action.methodName ?? 'Unknown method'}
 								secondary={technicianLabel(action)}
 								to="/control-operations/biocontrol/$id"
 							/>

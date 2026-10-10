@@ -85,7 +85,7 @@ function BiocontrolDetailContent({
 	const habitatIds = action.habitatId === null ? [] : [action.habitatId];
 	const habitatNameById = useHabitatNames(habitatIds);
 
-	const methodName = action.methodName;
+	const methodName = action.methodName ?? 'Unknown method';
 	const amountLabel = formatMeasure(action.amountReleased, action.unitAbbreviation);
 	const technicianName = action.technicianName;
 	const habitatName =
