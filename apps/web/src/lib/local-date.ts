@@ -24,13 +24,13 @@ import { unreadable, warnUnreadable } from './unreadable-input';
  * `instant` names a moment other than now — which calendar day some *other*
  * instant falls on in the zone, the same question with a different subject.
  */
-export function todayInTimeZone(timeZone: string | undefined, instant?: Date): string {
+export function todayInTimeZone(timeZone: string, instant?: Date): string {
 	// `en-CA` is a format shape rather than a display locale: it is the tag that
 	// orders the parts year-month-day, which is the `YYYY-MM-DD` this returns and
 	// what every date column holds. It is not the `en-US` display pin, and
 	// swapping it to one would return `08/04/2026` and break every caller.
 	return new Intl.DateTimeFormat('en-CA', {
-		timeZone: timeZone || undefined,
+		timeZone,
 		year: 'numeric',
 		month: '2-digit',
 		day: '2-digit',
@@ -180,7 +180,7 @@ export function formatLocalDate(date: Date): string {
  */
 export function localDayStartAsTimestamp(
 	date: string | null | undefined,
-	timeZone: string | undefined,
+	timeZone: string,
 ): string {
 	const iso = localDayStartAsInstant(date, timeZone).toISOString();
 	return `${iso.slice(0, 10)} ${iso.slice(11, 19)}+00`;
@@ -202,10 +202,7 @@ export function localDayStartAsTimestamp(
  * Same epoch fallback, for the same reason: an unreadable date shows too much
  * rather than silently showing nothing.
  */
-export function localDayStartAsInstant(
-	date: string | null | undefined,
-	timeZone: string | undefined,
-): Date {
+export function localDayStartAsInstant(date: string | null | undefined, timeZone: string): Date {
 	return zonedDayStart(date, timeZone) ?? new Date(0);
 }
 
@@ -421,16 +418,10 @@ function instantReading(wall: number, timeZone: string): number {
  * lands an hour into the previous day. The first pass lands on 1am, the first
  * moment the day actually has, which is what a lower bound is asking for.
  */
-function zonedDayStart(
-	date: string | null | undefined,
-	timeZone: string | undefined,
-): Date | undefined {
+function zonedDayStart(date: string | null | undefined, timeZone: string): Date | undefined {
 	const parts = calendarDateParts(date);
 	if (parts === undefined) {
 		return undefined;
-	}
-	if (timeZone === undefined || timeZone === '') {
-		return parseLocalDate(date);
 	}
 	const wall = Date.UTC(parts.year, parts.month - 1, parts.day);
 	const firstPass = wall - zoneOffsetMs(new Date(wall), timeZone);

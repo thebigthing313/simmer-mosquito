@@ -15,7 +15,7 @@ import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useMissionStopExecution } from '../../../hooks/use-mission-stop-execution';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { noTechnicianValue } from '../../../lib/no-technician';
@@ -46,7 +46,7 @@ function CreateOutreachActionRoute() {
 	// completes it in the same transaction.
 	const mission = useMissionStopExecution(search);
 	const navigate = useNavigate();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const methods = useCatalogRoster(catalogs.outreachMethods);
 	const profiles = useProfileRoster();
@@ -128,7 +128,7 @@ function CreateOutreachActionRoute() {
 			<OutreachFormPage
 				canSubmit={canSubmit}
 				mode="create"
-				defaultValues={defaultOutreachFormValues(timeZone)}
+				defaultValues={defaultOutreachFormValues(clock.zone)}
 				header={{
 					title: createLabel('outreachAction'),
 					backTo: '/public-engagement/outreach',

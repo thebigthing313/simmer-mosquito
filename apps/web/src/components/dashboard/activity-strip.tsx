@@ -3,6 +3,7 @@ import { PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/pa
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { useActivityStrip } from '../../hooks/dashboard/use-activity-strip';
 import { useActivityStripChangeMode } from '../../hooks/dashboard/use-activity-strip-change-mode';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { type CountNoun, formatCount } from '../../lib/format-count';
 import { formatMonthDay } from '../../lib/local-date';
 import { recordNoun } from '../../lib/record-nouns';
@@ -43,14 +44,9 @@ const CHANGE_MODES: readonly {
  * Organization has recorded none. Reads the synced tables through
  * `useActivityStrip`, so a cell moves when a write syncs.
  */
-export function ActivityStrip({
-	today,
-	timeZone,
-}: {
-	readonly today: string;
-	readonly timeZone: string;
-}) {
-	const activity = useActivityStrip(today, timeZone);
+export function ActivityStrip({ today }: { readonly today: string }) {
+	const clock = useOrganizationClock();
+	const activity = useActivityStrip(today, clock.zone);
 	const [mode, setMode] = useActivityStripChangeMode();
 	return (
 		<section className="grid gap-2">

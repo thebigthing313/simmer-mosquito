@@ -9,12 +9,11 @@ import {
 } from '../../components/gis/weather/import-commit';
 import { type ParseResult, parseWeatherFile } from '../../components/gis/weather/import-parse';
 import { IMPORT_REFUSALS } from '../../lib/acknowledgement-copy';
-import { todayInTimeZone } from '../../lib/local-date';
 import { errorMessageForSave } from '../../lib/save-error';
 import { newRecordId } from '../mutations/shared';
 import { useAllWeatherSummaries } from '../queries/use-all-weather-summaries';
 import { useAcknowledgedWrite } from '../use-acknowledged-write';
-import { useOrganizationTimeZone } from '../use-organization-time-zone';
+import { useOrganizationClock } from '../use-organization-clock';
 
 /**
  * The weather import page's state machine: choosing a file, assessing what it
@@ -24,7 +23,7 @@ import { useOrganizationTimeZone } from '../use-organization-time-zone';
 export function useWeatherUpload(stationId: string, canSubmit: boolean) {
 	// The organization's calendar day, so the review and the server agree about
 	// which rows are dated in the future.
-	const today = todayInTimeZone(useOrganizationTimeZone());
+	const today = useOrganizationClock().today();
 	// Every reading the station holds, not the year the detail page was showing.
 	// The assessment answers insert, update, no change or fail per row against
 	// what is already stored, so a narrower window would report a row overwriting

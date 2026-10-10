@@ -9,7 +9,7 @@ import {
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
@@ -43,7 +43,7 @@ function EditMissionRoute() {
 
 function EditMissionForm({ mission }: { readonly mission: MissionRecord }) {
 	const navigate = useNavigate();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const missionWrites = useMissionMutations();
 
 	const onSave = async (plan: MissionPlan) => {
@@ -70,7 +70,7 @@ function EditMissionForm({ mission }: { readonly mission: MissionRecord }) {
 	return (
 		<MissionFormPage
 			canSubmit={missionWrites.canWrite}
-			defaultValues={missionFormValuesFrom(mission, timeZone)}
+			defaultValues={missionFormValuesFrom(mission, clock.zone)}
 			errorTitle="Unable to Save Mission"
 			fieldPaths={MISSION_FIELD_PATHS}
 			header={{

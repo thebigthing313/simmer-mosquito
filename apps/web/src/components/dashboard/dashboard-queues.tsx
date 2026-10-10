@@ -11,6 +11,7 @@ import { useInProgressAssignmentsQueue } from '../../hooks/queries/use-in-progre
 import { useOpenServiceRequestsQueue } from '../../hooks/queries/use-open-service-requests-queue';
 import { useOrganizationSettings } from '../../hooks/queries/use-organization-settings';
 import { useProblemCollectionsQueue } from '../../hooks/queries/use-problem-collections-queue';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { countPhrase, formatCount } from '../../lib/format-count';
 import { recordNoun } from '../../lib/record-nouns';
 import { ageInDays, ageLabel, type QueueCount } from './dashboard-data';
@@ -62,14 +63,13 @@ function queueRow(
 
 export function SurveillanceBacklog({
 	server,
-	timeZone,
 	today,
 }: {
 	readonly server: ServerRead;
-	readonly timeZone: string;
 	readonly today: string;
 }) {
-	const problems = useProblemCollectionsQueue(today, timeZone);
+	const clock = useOrganizationClock();
+	const problems = useProblemCollectionsQueue(today, clock.zone);
 	const queues = server.data?.queues;
 
 	const rows: readonly QueueRowModel[] | undefined =
@@ -122,19 +122,18 @@ export function SurveillanceBacklog({
 
 export function OperationsBacklog({
 	server,
-	timeZone,
 	today,
 }: {
 	readonly server: ServerRead;
-	readonly timeZone: string;
 	readonly today: string;
 }) {
+	const clock = useOrganizationClock();
 	const threshold = useOrganizationSettings().publicEngagement.serviceRequestOverdueDays;
 	const serviceRequests = useOpenServiceRequestsQueue(
 		serviceRequestOverdueCutoff(threshold, today),
 	);
-	const assignments = useInProgressAssignmentsQueue(timeZone);
-	const missions = useDueMissionsQueue(today, timeZone);
+	const assignments = useInProgressAssignmentsQueue(clock.zone);
+	const missions = useDueMissionsQueue(today, clock.zone);
 	const queues = server.data?.queues;
 	const overdue = serviceRequests.overdue;
 

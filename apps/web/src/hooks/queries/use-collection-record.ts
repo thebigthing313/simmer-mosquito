@@ -13,7 +13,7 @@
 
 import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import { collections } from '../../lib/collections/collections';
-import { useOrganizationTimeZone } from '../use-organization-time-zone';
+import { useOrganizationClock } from '../use-organization-clock';
 import { collectionEffectiveDate } from './collection-day';
 import { useRecordById } from './shared';
 
@@ -52,7 +52,7 @@ export function useCollectionRecord(collectionId: string | null | undefined): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const result = useRecordById({
 		collection: collections(),
 		id: collectionId ?? null,
@@ -82,7 +82,7 @@ export function useCollectionRecord(collectionId: string | null | undefined): {
 	const collection =
 		result.record === undefined
 			? undefined
-			: { ...result.record, effectiveDate: collectionEffectiveDate(result.record, timeZone) };
+			: { ...result.record, effectiveDate: collectionEffectiveDate(result.record, clock.zone) };
 
 	return { collection, isReady: result.isReady, isError: result.isError };
 }

@@ -31,8 +31,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { useOverview } from '../../hooks/overview/use-overview';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { todayInTimeZone } from '../../lib/local-date';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { OverviewChart, type OverviewChartSeries } from './overview-chart';
 import { OverviewChartZoom } from './overview-chart-zoom';
 import {
@@ -62,8 +61,8 @@ const GRAIN_ICONS = {
 } as const;
 
 export function OverviewPage({ grain }: { readonly grain: OverviewGrain }) {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const current = currentOverviewPeriod(grain, today);
 	const search = useSearch({ strict: false }) as Record<string, unknown>;
 	const navigate = useNavigate();

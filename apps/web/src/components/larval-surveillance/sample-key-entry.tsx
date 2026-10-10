@@ -11,10 +11,9 @@ import {
 	useSampleSpeciesMutations,
 } from '../../hooks/mutations/use-sample-species-mutations';
 import { liveQueryGcTimeMs } from '../../hooks/queries/shared';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { useSpeciesKeyBindings } from '../../hooks/use-species-key-bindings';
 import { sample_species } from '../../lib/collections/sample_species';
-import { todayInTimeZone } from '../../lib/local-date';
 import { type CommitBaseline, flushedKeysAfter, planCommit } from '../key-entry/commit-plan';
 import { KeyEntryDialog } from '../key-entry/key-entry-dialog';
 
@@ -41,7 +40,7 @@ export function SampleKeyEntryDialog({
 }) {
 	const bindings = useSpeciesKeyBindings();
 	const mutations = useSampleSpeciesMutations();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 
 	const result = useLiveQuery({
 		query: (query) =>
@@ -119,7 +118,7 @@ export function SampleKeyEntryDialog({
 						identifiedByProfileId: actorProfileId,
 						// A calendar date, not a timestamp, the domain builder validates
 						// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
-						identifiedAt: todayInTimeZone(timeZone),
+						identifiedAt: clock.today(),
 					},
 				})
 				.then(() => {

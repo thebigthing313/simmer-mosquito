@@ -14,7 +14,7 @@ import { lazy, Suspense, useRef, useState } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
 import { useDailyWorkRoster } from '../../hooks/queries/use-daily-work-roster';
 import { useProfileNames } from '../../hooks/queries/use-profile-names';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { breadcrumbPath } from '../../lib/breadcrumb-via';
 import { organizations } from '../../lib/collections/organizations';
 import { getToday } from '../../lib/get-today';
@@ -74,7 +74,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	// around `Outlet` below instead.
 	const organizationResult = useLiveQuery((query) => query.from({ row: organizations() }));
 	const profileNameById = useProfileNames();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	// The first navigation built at render time: a row per Profile on daily work,
 	// folded into the shell's domain list.
 	const dailyWork = useDailyWorkRoster();
@@ -129,7 +129,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 				accountLinks={webAccountLinks}
 				version={__APP_VERSION__}
 				getToday={getToday}
-				timeZone={timeZone}
+				timeZone={clock.zone}
 				activePath={shellPath}
 				onNavigate={(to) => {
 					// The shell models destinations as plain strings; the router's typed

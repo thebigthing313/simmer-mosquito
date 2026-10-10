@@ -32,7 +32,7 @@ import {
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useTrapOptions } from '../../../hooks/queries/use-trap-options';
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -92,7 +92,7 @@ function EditCollectionLoader({
 	readonly units: readonly UnitLabel[];
 }) {
 	const navigate = useNavigate();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const mutations = useCollectionMutations();
 	// Read here rather than beside the record, so the wait below covers it: the
 	// form reads the trap it opens on once, for the map's reference point (#1436).
@@ -117,8 +117,8 @@ function EditCollectionLoader({
 
 		await mutations.save({
 			collectionId: collection.id,
-			fields: collectionFieldsFrom(values, timeZone),
-			current: collectionFieldsFrom(formValuesFrom(collection, personnel, timeZone), timeZone),
+			fields: collectionFieldsFrom(values, clock.zone),
+			current: collectionFieldsFrom(formValuesFrom(collection, personnel, clock.zone), clock.zone),
 			geometry:
 				refinedPoint === null
 					? null
@@ -170,7 +170,7 @@ function EditCollectionLoader({
 			mode="edit"
 			collectionLures={collectionLures}
 			collectionMethods={collectionMethods}
-			defaultValues={formValuesFrom(collection, personnel, timeZone)}
+			defaultValues={formValuesFrom(collection, personnel, clock.zone)}
 			header={{
 				title: `Edit ${recordNoun('collection').title}`,
 				backTo: '/adult-surveillance/collections/$id',

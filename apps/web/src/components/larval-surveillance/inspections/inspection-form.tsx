@@ -31,9 +31,9 @@ import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../lib/domain-validation';
-import { formatLocalDate, parseLocalDate, todayInTimeZone } from '../../../lib/local-date';
+import { formatLocalDate, parseLocalDate } from '../../../lib/local-date';
 import { profileOptions } from '../../../lib/profile-options';
 import { additionalPersonnelOptions } from '../../additional-personnel';
 import { HabitatPicker } from '../../control-operations/control-pickers';
@@ -117,8 +117,8 @@ export function InspectionFormPage({
 	header,
 	onSave,
 }: InspectionFormPageProps) {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const isEditing = mode === 'edit';
 	const entryMode = policy.mode;
 	const columns = resultColumnsForMode(entryMode);

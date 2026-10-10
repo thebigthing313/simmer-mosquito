@@ -27,13 +27,8 @@ import {
 	type ActivityCollection,
 	useRecentCollections,
 } from '../../hooks/queries/use-recent-collections';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import {
-	addDaysToDateString,
-	formatMonthDay,
-	formatWeekdayMonthDay,
-	todayInTimeZone,
-} from '../../lib/local-date';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
+import { addDaysToDateString, formatMonthDay, formatWeekdayMonthDay } from '../../lib/local-date';
 
 /** How far back the recent-window queries reach. */
 const ADULT_ACTIVITY_WINDOW_DAYS = 14;
@@ -51,8 +46,8 @@ export const Route = createFileRoute('/adult-surveillance/')({
 });
 
 function AdultSurveillanceOverviewRoute() {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const since = addDaysToDateString(today, -(ADULT_ACTIVITY_WINDOW_DAYS - 1));
 
 	// `record` is the measure the route-loading skeleton reserves, so the
@@ -137,8 +132,8 @@ function groupByDay(collections: readonly ActivityCollection[]): readonly DayGro
 }
 
 function RecentCollectionsPanel({ since }: { readonly since: string }) {
-	const timeZone = useOrganizationTimeZone();
-	const { collections, isReady, isError } = useRecentCollections(since, timeZone);
+	const clock = useOrganizationClock();
+	const { collections, isReady, isError } = useRecentCollections(since, clock.zone);
 	const groups = groupByDay(collections);
 
 	return (
@@ -247,8 +242,8 @@ function AdultSpeciesComposition({ today }: { readonly today: string }) {
 // --- awaiting identification -------------------------------------------------
 
 function AwaitingIdentificationPanel({ since }: { readonly since: string }) {
-	const timeZone = useOrganizationTimeZone();
-	const { awaiting, isReady, isError } = useCollectionsAwaitingIdentification(since, timeZone);
+	const clock = useOrganizationClock();
+	const { awaiting, isReady, isError } = useCollectionsAwaitingIdentification(since, clock.zone);
 
 	return (
 		<Panel
@@ -299,10 +294,10 @@ function AwaitingIdentificationPanel({ since }: { readonly since: string }) {
 // --- over action threshold --------------------------------------------------
 
 function OverThresholdPanel({ since }: { readonly since: string }) {
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const { collections, hasConfiguredThresholds, isReady, isError } = useCollectionsOverThreshold(
 		since,
-		timeZone,
+		clock.zone,
 	);
 
 	return (
@@ -394,8 +389,8 @@ function OverThresholdPanel({ since }: { readonly since: string }) {
 // --- attention (problem collections) ----------------------------------------
 
 function AttentionPanel({ since }: { readonly since: string }) {
-	const timeZone = useOrganizationTimeZone();
-	const { collections, isReady, isError } = useRecentCollections(since, timeZone);
+	const clock = useOrganizationClock();
+	const { collections, isReady, isError } = useRecentCollections(since, clock.zone);
 	const flagged = collections.filter((collection) => collection.hasProblem);
 
 	return (

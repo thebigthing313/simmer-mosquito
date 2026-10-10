@@ -36,9 +36,9 @@ import {
 } from '../../hooks/queries/larval-activity-view';
 import { useHeavyLarvalActivity } from '../../hooks/queries/use-heavy-larval-activity';
 import { useLarvalActivityForDate } from '../../hooks/queries/use-larval-activity-for-date';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { habitatLabel } from '../../lib/coordinate-label';
-import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../../lib/local-date';
+import { addDaysToDateString, formatMonthDay } from '../../lib/local-date';
 import { groupRows, type RowGroup } from '../../lib/row-groups';
 
 /** How far back the recent-window queries (heavy list, open samples) reach. */
@@ -101,8 +101,8 @@ function LarvalSurveillanceOverviewRoute() {
 function OverviewBody() {
 	// The organization's "today"; the day strip and windows are pure string math
 	// from here.
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const since = addDaysToDateString(today, -(ACTIVITY_WINDOW_DAYS - 1));
 
 	return (
