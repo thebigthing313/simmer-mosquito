@@ -87,6 +87,14 @@ export interface ServiceRequestMapFilters {
 	/** Inclusive upper bound on `request_date` (`YYYY-MM-DD`). */
 	readonly dateTo?: string;
 	/**
+	 * Overdue requests only: open, and received before this day (`YYYY-MM-DD`).
+	 * The client computes the day from the Organization's threshold and its
+	 * today with `serviceRequestOverdueCutoff`, so the rule is written once, and
+	 * sends nothing when the threshold is off. It narrows inside the date window
+	 * rather than replacing it.
+	 */
+	readonly overdueBefore?: string;
+	/**
 	 * Page the oldest request first rather than the newest. An order, not a
 	 * filter: it narrows nothing, and only the paged read looks at it.
 	 */
@@ -217,6 +225,12 @@ function serviceRequestFilterWhere(
 	}
 
 	whereClauses.push(...dateWindowClauses(sql`sr.request_date`, filters ?? {}));
+
+	if (filters?.overdueBefore !== undefined) {
+		whereClauses.push(
+			sql<boolean>`(sr.closed_at is null and sr.request_date < ${filters.overdueBefore})`,
+		);
+	}
 
 	whereClauses.push(
 		...tagMembershipClauses({

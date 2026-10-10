@@ -2,6 +2,7 @@ import { UNIT_TYPES } from '../column-vocabularies.js';
 import { createIssues } from '../command-validation.js';
 import type { DomainValidationIssue } from '../shared.js';
 import { resolveLarvalInspectionEntryPolicy } from './larval-inspection-policy.js';
+import { normalizeServiceRequestOverdueDays } from './service-request-overdue.js';
 import { cloneSpeciesKeyBindings, resolveSpeciesKeyBindings } from './species-key-bindings.js';
 import {
 	type AdultCollectionTimingMode,
@@ -10,6 +11,7 @@ import {
 	DEFAULT_ORGANIZATION_SETTINGS,
 	DEFAULT_ORGANIZATION_TIMEZONE,
 	DEFAULT_SERVICE_REQUEST_CONTEXT,
+	DEFAULT_SERVICE_REQUEST_OVERDUE_DAYS,
 	DEFAULT_UNIT_DEFAULTS,
 	type LarvalInspectionEntryPolicy,
 	ORGANIZATION_SETTINGS_SCHEMA_VERSION,
@@ -17,6 +19,7 @@ import {
 	type ResolvedLarvalInspectionEntryPolicy,
 	type ResolvedOrganizationSettings,
 	type ServiceRequestContextSettings,
+	type ServiceRequestOverdueDays,
 	type SpeciesKeyBindings,
 	type UnitDefaults,
 	type UnitType,
@@ -97,6 +100,10 @@ export function resolveOrganizationSettings(raw: unknown): ResolvedOrganizationS
 					publicEngagement.serviceRequestContext,
 					issues,
 				),
+				serviceRequestOverdueDays: resolveServiceRequestOverdueDays(
+					publicEngagement.serviceRequestOverdueDays,
+					issues,
+				),
 			},
 		},
 		issues,
@@ -120,6 +127,10 @@ export function mergeOrganizationSettingsChange(
 		| {
 				readonly kind: 'serviceRequestContext';
 				readonly serviceRequestContext: ServiceRequestContextSettings;
+		  }
+		| {
+				readonly kind: 'serviceRequestOverdueDays';
+				readonly serviceRequestOverdueDays: ServiceRequestOverdueDays;
 		  }
 		| {
 				readonly kind: 'speciesKeyBindings';
@@ -156,6 +167,8 @@ export function mergeOrganizationSettingsChange(
 	resolvedPublicEngagement.serviceRequestContext = cloneServiceRequestContext(
 		resolved.publicEngagement.serviceRequestContext,
 	);
+	resolvedPublicEngagement.serviceRequestOverdueDays =
+		resolved.publicEngagement.serviceRequestOverdueDays;
 	base.publicEngagement = resolvedPublicEngagement;
 	switch (change.kind) {
 		case 'timezone':
@@ -195,6 +208,14 @@ export function mergeOrganizationSettingsChange(
 			publicEngagement.serviceRequestContext = cloneServiceRequestContext(
 				change.serviceRequestContext,
 			);
+			base.publicEngagement = publicEngagement;
+			break;
+		}
+		case 'serviceRequestOverdueDays': {
+			const publicEngagement = isPlainObject(base.publicEngagement)
+				? cloneObject(base.publicEngagement)
+				: {};
+			publicEngagement.serviceRequestOverdueDays = change.serviceRequestOverdueDays;
 			base.publicEngagement = publicEngagement;
 			break;
 		}
@@ -319,6 +340,20 @@ function resolveServiceRequestContext(
 		return DEFAULT_SERVICE_REQUEST_CONTEXT;
 	}
 	return context;
+}
+
+function resolveServiceRequestOverdueDays(
+	value: unknown,
+	issues: DomainValidationIssue[],
+): ServiceRequestOverdueDays {
+	if (value === undefined || value === null) {
+		return DEFAULT_SERVICE_REQUEST_OVERDUE_DAYS;
+	}
+	return normalizeServiceRequestOverdueDays(
+		value,
+		'publicEngagement.serviceRequestOverdueDays',
+		issues,
+	);
 }
 
 function resolveBoolean(
