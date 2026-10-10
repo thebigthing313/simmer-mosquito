@@ -77,7 +77,9 @@
  * That scan leaves out this package's own suites and keeps a suite in another
  * package, so the two rules agree on what a caller is.
  * A name published as `a as b` is looked for as `b`, since that is what a
- * caller imports.
+ * caller imports, and the module rule reads the barrel the same way: the
+ * module behind `a as b` is reached by a caller importing `b` and not by one
+ * importing `a` (#1586).
  *
  * Types are left out, both `export type { A } from` and a `type A` entry
  * inside a value clause. A type describes a value a caller receives, the
@@ -124,6 +126,14 @@
  * for only as `import type { x }` and only as `import { type x }`, each of
  * which must be reported. A probe read wrong fails the run before the walk
  * starts.
+ *
+ * `MODULE_PROBES` is the same guard over the module rule, for the same reason:
+ * the package is at zero dead modules and its barrel renames nothing. Four
+ * barrel and caller pairs each give the re-export clauses the caller must
+ * reach: a renamed entry asked for by its published name, which reaches its
+ * module, the same entry asked for by its local name, which does not, an entry
+ * with no rename, which does, and a type-only entry asked for by a type-only
+ * import, which does. They run beside `PROBES`, ahead of the walk.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -217,8 +227,41 @@ const PROBES = [
 	},
 ];
 
+/**
+ * Sources with known answers for the module rule, run ahead of the walk.
+ *
+ * Each pairs a barrel with one caller, and `reaches` is the specifiers of the
+ * re-export clauses the caller must reach, read through the same
+ * `reachedSpecifiers` the walk seeds from. A renamed entry is the case these
+ * are for: a caller imports the published half, so reading the local half
+ * reports the module behind it dead (#1586).
+ */
+const MODULE_PROBES = [
+	{
+		barrel: "export { inner as published } from './a.js';",
+		caller: "import { published } from '@simmer-mosquito/mapping';",
+		reaches: ['./a.js'],
+	},
+	{
+		barrel: "export { inner as published } from './a.js';",
+		caller: "import { inner } from '@simmer-mosquito/mapping';",
+		reaches: [],
+	},
+	{
+		barrel: "export { asked } from './a.js';",
+		caller: "import { asked } from '@simmer-mosquito/mapping';",
+		reaches: ['./a.js'],
+	},
+	{
+		barrel: "export type { Shape } from './a.js';",
+		caller: "import type { Shape } from '@simmer-mosquito/mapping';",
+		reaches: ['./a.js'],
+	},
+];
+
 function main() {
 	assertItReadsNames();
+	assertItReadsModules();
 
 	const modules = readModules();
 	if (modules.length < MINIMUM_MODULES) {
@@ -262,6 +305,27 @@ function assertItReadsNames() {
 	}
 }
 
+/**
+ * That the module rule still reads a barrel and a caller the way
+ * `MODULE_PROBES` says.
+ *
+ * The package is at zero dead modules and its barrel renames nothing, so a
+ * rule reading the wrong half of `a as b` would print the same clean line a
+ * working one prints, until the first rename reported its module dead.
+ */
+function assertItReadsModules() {
+	const wrong = MODULE_PROBES.filter(
+		(probe) =>
+			reachedSpecifiers(probe.barrel, allNames(namesAskedIn(probe.caller))).join(',') !==
+			probe.reaches.join(','),
+	);
+	if (wrong.length > 0) {
+		fail(
+			`the module rule no longer reads ${count(wrong.length, 'source')} of the ${MODULE_PROBES.length} in MODULE_PROBES as expected, the first being the barrel ${wrong[0].barrel} against the caller ${wrong[0].caller}. A run in this state reports a module live or dead for the wrong name, so it refuses rather than passing. Fix NAMED, clauseEntries or reachedSpecifiers in scripts/check-mapping-callers.mjs, and change a probe only alongside the rule it states.`,
+		);
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Reading
 // ---------------------------------------------------------------------------
@@ -281,7 +345,7 @@ function readWhatCallersAsk() {
 	const texts = callerTexts();
 	const entries = texts.flatMap(namesAskedIn);
 	return {
-		names: new Set(entries.map(({ name }) => name)),
+		names: allNames(entries),
 		values: valueNames(entries),
 		subpaths: new Set(texts.flatMap(subpathsNamedIn)),
 	};
@@ -306,6 +370,9 @@ const namesAskedIn = (text) =>
 	[...text.matchAll(NAMED)]
 		.filter(([, , , specifier]) => isThisPackage(specifier))
 		.flatMap(([, typeClause, clause]) => clauseEntries(clause, typeClause !== undefined));
+
+/** Every name asked for, type-only entries included, which the module rule counts. */
+const allNames = (entries) => new Set(entries.map(({ name }) => name));
 
 /** The names asked for in a value entry, which are what the name rule counts. */
 const valueNames = (entries) =>
@@ -443,16 +510,28 @@ function seedsFrom(entry, asked) {
 		return asked.subpaths.has(entry.specifier) ? [{ file: entry.file, follow: true }] : [];
 	}
 
-	const wanted = reexports.filter(([, , clause]) =>
-		clauseEntries(clause).some(({ name }) => asked.names.has(name)),
-	);
 	return [
 		{ file: entry.file, follow: false },
-		...wanted
-			.flatMap(([, , , specifier]) => resolveRelative(entry.file, specifier))
+		...reachedSpecifiers(text, asked.names)
+			.flatMap((specifier) => resolveRelative(entry.file, specifier))
 			.map((file) => ({ file, follow: true })),
 	];
 }
+
+/**
+ * The specifiers of the re-export clauses in one barrel's text that hold a name
+ * a caller asked for.
+ *
+ * The barrel side is read by `alias`, the published half of `a as b`, because
+ * a caller imports `b`, and `a` is a name the package does not publish. A
+ * type-only entry counts, and so does a type-only caller, since a module whose
+ * only outside use is its types is used. Kept apart from resolving the
+ * specifiers to files so `MODULE_PROBES` can run it without the walk.
+ */
+const reachedSpecifiers = (text, askedNames) =>
+	[...text.matchAll(NAMED)]
+		.filter(([, , clause]) => clauseEntries(clause).some(({ alias }) => askedNames.has(alias)))
+		.map(([, , , specifier]) => specifier);
 
 /**
  * An `export *` in an entry module, which this cannot read.
