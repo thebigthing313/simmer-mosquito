@@ -27,7 +27,7 @@ import {
 	upsertOperatorOrganization,
 } from '@simmer-mosquito/db';
 import {
-	isEmailAddress,
+	normalizeOrganizationBillingContact,
 	normalizeOrganizationContactDetails,
 	ORGANIZATION_SUBSCRIPTION_STATUSES,
 } from '@simmer-mosquito/domain';
@@ -208,7 +208,7 @@ async function readCreateOrganizationPayload(request: {
 			name,
 			slug: readOptionalText(raw.slug),
 			subscriptionStatus,
-			billingContactName: readOptionalText(raw.billingContactName),
+			billingContactName: contact.billingContactName,
 			billingContactEmail: contact.billingContactEmail,
 			subscriptionNotes: readOptionalText(raw.subscriptionNotes),
 			contact: contact.contact,
@@ -274,18 +274,19 @@ const NO_CONTACT: CreateOrganizationPayload['contact'] = {
 };
 
 /**
- * The eight contact details and the billing contact email, checked.
+ * The eight contact details and the billing contact, checked.
  *
- * The details are held to the details builder's rules, read from the domain
- * rather than written again, so a create cannot store what an edit would
- * refuse. The billing email is not a detail that builder carries, so it is
- * checked here against the same email rule. Refusing at this point is what
+ * Both are held to the domain's rules rather than written again here, so a
+ * create cannot store what an edit would refuse, and the billing email is
+ * refused in the Main contact's words. The billing contact is a second call
+ * because the details builder does not carry it. Refusing at this point is what
  * keeps WorkOS from being asked first for a row the insert would reject.
  */
 function readContactPayload(raw: Record<string, unknown>):
 	| {
 			readonly ok: true;
 			readonly contact: CreateOrganizationPayload['contact'];
+			readonly billingContactName: string | null;
 			readonly billingContactEmail: string | null;
 	  }
 	| { readonly ok: false; readonly reason: string } {
@@ -299,16 +300,21 @@ function readContactPayload(raw: Record<string, unknown>):
 		mailingRegion: readOptionalText(raw.mailingRegion),
 		mailingPostalCode: readOptionalText(raw.mailingPostalCode),
 	});
-	if (issues.length > 0) {
-		return { ok: false, reason: issues.map((issue) => issue.message).join(' ') };
+	const billing = normalizeOrganizationBillingContact({
+		billingContactName: readOptionalText(raw.billingContactName),
+		billingContactEmail: readOptionalText(raw.billingContactEmail),
+	});
+	const refusals = [...issues, ...billing.issues];
+	if (refusals.length > 0) {
+		return { ok: false, reason: refusals.map((issue) => issue.message).join(' ') };
 	}
 
-	const billingContactEmail = readOptionalText(raw.billingContactEmail);
-	if (billingContactEmail !== null && !isEmailAddress(billingContactEmail)) {
-		return { ok: false, reason: 'billingContactEmail must be a valid email address.' };
-	}
-
-	return { ok: true, contact: { ...NO_CONTACT, ...details }, billingContactEmail };
+	return {
+		ok: true,
+		contact: { ...NO_CONTACT, ...details },
+		billingContactName: billing.contact.billingContactName ?? null,
+		billingContactEmail: billing.contact.billingContactEmail ?? null,
+	};
 }
 
 function readSubscriptionStatus(value: unknown): OrganizationSubscriptionStatus | null {
