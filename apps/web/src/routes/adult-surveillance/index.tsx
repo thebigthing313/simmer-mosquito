@@ -194,7 +194,7 @@ function DayGroupBlock({ group }: { readonly group: DayGroup }) {
 						<div className="grid min-w-0 flex-1">
 							<CollectionLink id={collection.id} label={collectionPlaceLabel(collection)} />
 							<span className="truncate text-muted-foreground text-xs">
-								{collection.methodName}
+								{collection.methodName ?? 'Unknown method'}
 								{collection.collectedByProfileId === null
 									? ''
 									: ` · ${collection.collectedByName ?? 'Unknown'}`}
@@ -281,7 +281,7 @@ function AwaitingIdentificationPanel({ since }: { readonly since: string }) {
 								<div className="grid min-w-0 flex-1">
 									<CollectionLink id={collection.id} label={collectionPlaceLabel(collection)} />
 									<span className="truncate text-muted-foreground text-xs">
-										{collection.methodName}
+										{collection.methodName ?? 'Unknown method'}
 									</span>
 								</div>
 								<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
@@ -365,7 +365,7 @@ function OverThresholdPanel({ since }: { readonly since: string }) {
 										{collectionPlaceLabel(collection)}
 									</span>
 									<span className="truncate text-muted-foreground text-xs">
-										{collection.methodName}
+										{collection.methodName ?? 'Unknown method'}
 									</span>
 								</Link>
 								<span className="shrink-0 text-sm tabular-nums">
@@ -425,7 +425,7 @@ function AttentionPanel({ since }: { readonly since: string }) {
 								<div className="grid min-w-0 flex-1">
 									<CollectionLink id={collection.id} label={collectionPlaceLabel(collection)} />
 									<span className="truncate text-muted-foreground text-xs">
-										{collection.methodName}
+										{collection.methodName ?? 'Unknown method'}
 									</span>
 								</div>
 								<span className="w-11 shrink-0 text-right text-muted-foreground text-xs tabular-nums">

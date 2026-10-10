@@ -5,7 +5,7 @@
  * appears next to a map that is already drawn.
  */
 
-import { caseWhen, eq, isNull } from '@tanstack/react-db';
+import { coalesce, eq } from '@tanstack/react-db';
 import { region_folders } from '../../lib/collections/region_folders';
 import { regions } from '../../lib/collections/regions';
 import type { Region } from './region-view';
@@ -33,9 +33,7 @@ export function useRegion(
 					name: region.name,
 					description: region.description,
 					folderId: region.region_folder_id,
-					// Guarded on the Region's own column, so a top-level Region reads as
-					// `null` rather than as the `undefined` an unmatched join yields.
-					folderName: caseWhen(isNull(region.region_folder_id), null, folder.name),
+					folderName: coalesce(folder.name, null),
 					latitude: region.lat,
 					longitude: region.lng,
 					geometryKind: region.geom_type,
