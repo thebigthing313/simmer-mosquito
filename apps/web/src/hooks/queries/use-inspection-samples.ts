@@ -23,9 +23,7 @@ import { coalesce, eq, toArray, useLiveQuery } from '@tanstack/react-db';
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 import { species as speciesCatalog } from '../../lib/collections/species';
-
-/** How long an inspection's samples stay warm after the page leaves them. */
-const samplesGcTimeMs = 30_000;
+import { activityGcTimeMs } from './shared';
 
 /** One identification under a sample. */
 export interface InspectionSampleSpecies {
@@ -53,7 +51,7 @@ export function useInspectionSamples(inspectionId: string): {
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: samplesGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ sample: samples() })

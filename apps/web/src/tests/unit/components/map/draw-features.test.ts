@@ -7,7 +7,7 @@ import type {
 	EditMode,
 	Mode,
 } from '../../../../components/map/draw-parts';
-import { BLOCK, ESCAPING_POND, POND, polygon } from './draw-fixtures';
+import { BLOCK, ESCAPING_POND, POND, polygon, SECOND_SQUARE } from './draw-fixtures';
 
 /*
  * What the draw control puts in its source, asserted from a mode and a shape
@@ -15,12 +15,6 @@ import { BLOCK, ESCAPING_POND, POND, polygon } from './draw-fixtures';
  * cases below hand `buildFeatures` the same arguments the hook does and read the
  * features back.
  */
-
-const FAR_SQUARE = [
-	[-80, 35],
-	[-80, 36],
-	[-79, 36],
-] as const;
 
 function drawing(target: DrawTarget, type: 'Point' | 'LineString' | 'Polygon' = 'Polygon'): Mode {
 	return { kind: 'draw', type, target };
@@ -90,13 +84,13 @@ describe('buildFeatures', () => {
 	it('marks only the highlighted piece', () => {
 		const committed: DrawGeometry = {
 			type: 'MultiPolygon',
-			coordinates: [[closeRing(BLOCK)], [closeRing(FAR_SQUARE)]],
+			coordinates: [[closeRing(BLOCK)], [closeRing(SECOND_SQUARE)]],
 		};
 
 		const drawn = features({ committed, highlighted: 1 });
 
 		expect(drawn.filter((feature) => feature.properties?.highlighted === true)).toHaveLength(
-			1 + FAR_SQUARE.length,
+			1 + SECOND_SQUARE.length,
 		);
 	});
 

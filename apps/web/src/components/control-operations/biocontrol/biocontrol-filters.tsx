@@ -7,10 +7,10 @@
  */
 
 import type { BiocontrolFilterBinding } from '../../../hooks/control-operations/use-biocontrol-filter-state';
-import { useBiocontrolMethodOptions } from '../../../hooks/explorer/use-biocontrol-method-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
@@ -33,8 +33,8 @@ export function BiocontrolFilterFields({
 }) {
 	const { filters, setFilters, activeCount, today } = binding;
 	const dateRange = useDateRangeFilters({ from: filters.from, to: filters.to, today, setFilters });
-	const { options: methods } = useBiocontrolMethodOptions();
-	const personnel = usePersonnelOptions();
+	const { options: methods } = useCatalogOptions(catalogs.biocontrolMethods);
+	const personnel = useCatalogOptions(catalogs.profiles);
 	const regions = useRegionOptions();
 
 	const popovers = (
@@ -86,8 +86,8 @@ export function BiocontrolFilterFields({
  * them above its groupings.
  */
 export function BiocontrolFilterChips({ binding }: { readonly binding: BiocontrolFilterBinding }) {
-	const { nameById: methodNameById } = useBiocontrolMethodOptions();
-	const { nameById: personNameById } = usePersonnelOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.biocontrolMethods);
+	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const { nameById: regionNameById } = useRegionOptions();
 	const { filters, setFilters, reset, defaults } = binding;
 	return (

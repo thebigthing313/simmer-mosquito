@@ -1,7 +1,5 @@
 import { type Collection, eq, useLiveQuery } from '@tanstack/react-db';
-import { unmatchableId } from '../queries/shared';
-
-const selectedGcTimeMs = 30_000;
+import { activityGcTimeMs, unmatchableId } from '../queries/shared';
 
 /** What every synced row carries, and all this lookup needs. */
 interface IdentifiedRow {
@@ -28,7 +26,7 @@ export function useSelectedRowLabel<TRow extends IdentifiedRow>({
 	// runs against the shared `id` shape every synced row satisfies.
 	const rows = collection as unknown as Collection<IdentifiedRow, string | number>;
 	const { data } = useLiveQuery({
-		gcTime: selectedGcTimeMs,
+		gcTime: activityGcTimeMs,
 		// No `limit` — an id equality already yields at most one row, and the query
 		// compiler rejects LIMIT without an ORDER BY.
 		query: (query) => query.from({ row: rows }).where(({ row }) => eq(row.id, queryId)),

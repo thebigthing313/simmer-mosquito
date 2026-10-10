@@ -660,6 +660,20 @@ the same in both states and the state is on `aria-pressed`, which is
 `MapControlButton`'s `pressed` prop; a label that flipped between "group" and
 "ungroup" would announce the action and the state at once and read as neither.
 
+#### StopSequenceMap
+
+One component draws the stops of a Route, a Mission and an Assignment.
+`RouteMap` and `WorklistMap` were the same map with two noun spellings and
+two bounds folds, so #1491 kept one. The Route surfaces lost nothing
+in the merge: their stops carry no shape, so the shape-aware fold frames them
+on the same box the point fold did, and the noun comes out of the register as
+`route` either way.
+
+It fits once per `fitKey` rather than handing the stops to `MapCanvas`'s
+`fitToData`. `useMapExtentFit` refits whenever the box changes, so adding a
+stop on a Route edit page would move the camera under the person placing it,
+which none of these surfaces does.
+
 #### MapSearch
 
 Two resets that were effects are read off the state they key on (#1183). The
@@ -905,11 +919,6 @@ assignment says `notStarted`.
 The list is on the card rather than in a toast because the generation's most
 confusing answer is an empty one, and a second press that creates nothing
 reads as "already done" only beside the list.
-
-#### operations-data
-
-The write half stays on the collections a page writes through, or the write's
-txid lands on a stream nothing is watching and the save never settles.
 
 #### describeAddStop
 
@@ -1163,6 +1172,14 @@ under that hook in `docs/web-hooks.md`.
 `required` draws the required mark after the label. The inspection's habitat
 field passes it, since its label carried the mark before it moved onto this
 frame (#1468).
+
+#### OptionRow
+
+Secondary text that is blank after trimming draws no second line, the same as
+`null`. Habitat and trap descriptions and service request details reach the
+row as written, and nothing trims them on write, so a description of spaces
+drew an empty muted line and left that result taller than its neighbours
+(#1484). The rule sits in the row so no caller has to trim first.
 
 ### public-engagement
 

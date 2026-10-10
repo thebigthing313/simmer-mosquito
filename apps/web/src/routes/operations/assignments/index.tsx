@@ -4,12 +4,12 @@ import { PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { StopSequenceMap } from '../../../components/map/stop-sequence-map';
 import { AssignmentFilterBar } from '../../../components/operations/assignments/assignment-filter-bar';
 import { AssignmentResults } from '../../../components/operations/assignments/assignment-results';
 import { SelectedAssignmentCard } from '../../../components/operations/assignments/selected-assignment-card';
-import { WorklistMap } from '../../../components/operations/worklist-map';
 import { WriteOnly } from '../../../components/write-only';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import {
 	assignmentFilterCodecs,
 	useAssignmentFilterState,
@@ -17,6 +17,7 @@ import {
 import { useAssignmentStops } from '../../../hooks/operations/use-assignment-stops';
 import { useWorklistIndex } from '../../../hooks/operations/use-worklist-index';
 import { assignmentStatus } from '../../../hooks/queries/assignment-view';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useAssignmentItemCounts } from '../../../hooks/queries/use-assignment-item-counts';
 import { useAssignments } from '../../../hooks/queries/use-assignments';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -32,7 +33,7 @@ function AssignmentsIndexRoute() {
 	const { filters } = binding;
 
 	const { assignments, isLoading } = useAssignments(filters.from, filters.to);
-	const personnel = usePersonnelOptions();
+	const personnel = useCatalogOptions(catalogs.profiles);
 	const { nameById } = personnel;
 
 	// Status derives from three nullable timestamps, so it is matched over the loaded rows.
@@ -66,7 +67,7 @@ function AssignmentsIndexRoute() {
 	return (
 		<MapSplitPage
 			map={
-				<WorklistMap
+				<StopSequenceMap
 					features={features}
 					fitKey={selectedId ?? undefined}
 					highlightId={highlightId}
@@ -87,7 +88,7 @@ function AssignmentsIndexRoute() {
 							counts={counts}
 						/>
 					)}
-				</WorklistMap>
+				</StopSequenceMap>
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">

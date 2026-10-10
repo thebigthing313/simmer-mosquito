@@ -1,11 +1,11 @@
 import type { InspectionCatalogs } from '../../components/larval-surveillance/inspection-filters';
-import { useHabitatTypeOptions } from '../explorer/use-habitat-type-options';
-import { usePersonnelOptions } from '../explorer/use-personnel-options';
+import { useCatalogOptions } from '../explorer/use-catalog-options';
+import { catalogs } from '../queries/catalog-register';
 
 /** The two eager catalogs a filtered row is labelled from. */
 export function useInspectionCatalogs(): InspectionCatalogs {
-	const habitatTypes = useHabitatTypeOptions();
-	const personnel = usePersonnelOptions();
+	const habitatTypes = useCatalogOptions(catalogs.habitatTypes);
+	const personnel = useCatalogOptions(catalogs.profiles);
 	return {
 		habitatTypes: habitatTypes.options,
 		personnel: personnel.options,

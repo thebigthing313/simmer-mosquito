@@ -8,15 +8,16 @@ import { ExplorerMapPage } from '../../../components/explorer';
 import { MapCanvas } from '../../../components/map';
 import { RequestControlFilters } from '../../../components/operations/requests-for-control/request-control-filters';
 import { RequestRow } from '../../../components/operations/requests-for-control/request-row';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useControlMethodNames } from '../../../hooks/explorer/use-control-method-names';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useFlyToSelection } from '../../../hooks/explorer/use-fly-to-selection';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import {
 	type RequestFilters,
 	requestFilterCodecs,
 	useRequestForControlFilterState,
 } from '../../../hooks/operations/use-request-for-control-filter-state';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { type RequestListing, requestStatus } from '../../../hooks/queries/operations-view';
 import { useAssignedRequestIds } from '../../../hooks/queries/use-assigned-request-ids';
 import { useRequestedControlActions } from '../../../hooks/queries/use-requested-control-actions';
@@ -45,7 +46,7 @@ function RequestsForControlRoute() {
 	// window stays pushed down; the hook's header says why. Applied in memory
 	// after the window, the way `status` is.
 	const { assignedRequestIds, isReady: assignedReady } = useAssignedRequestIds();
-	const { options: personnelOptions, nameById } = usePersonnelOptions();
+	const { options: personnelOptions, nameById } = useCatalogOptions(catalogs.profiles);
 	const methodNameById = useControlMethodNames();
 
 	const visible = requests.filter((request) =>

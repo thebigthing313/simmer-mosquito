@@ -11,9 +11,9 @@ import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
-import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
+import { catalogs } from '../../../hooks/queries/catalog-register';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-source-reduction-method-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useMissionStopExecution } from '../../../hooks/use-mission-stop-execution';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -50,7 +50,7 @@ function CreateSourceReductionRoute() {
 	const navigate = useNavigate();
 	const timeZone = useOrganizationTimeZone();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const methods = useSourceReductionMethodRoster();
+	const methods = useCatalogRoster(catalogs.sourceReductionMethods);
 	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
 
@@ -58,10 +58,8 @@ function CreateSourceReductionRoute() {
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const canSubmit = canAttributeWrite({ organization, actorProfileId });
 
-	// Minted up front so the crew rows can be written the moment the action lands
-	// — and so their on-demand stream is already warm when the save fires.
+	// Minted up front so the crew rows can be written the moment the action lands.
 	const [sourceReductionId] = useState(newRecordId);
-	useAdditionalPersonnel({ type: 'sourceReduction', id: sourceReductionId });
 	const recordExtras = useRecordExtras();
 	const { record } = useSourceReductionMutations();
 

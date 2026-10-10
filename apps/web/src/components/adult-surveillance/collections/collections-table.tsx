@@ -10,8 +10,8 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
-import { useCollectionMethodOptions } from '../../../hooks/explorer/use-collection-method-options';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { collectionEffectiveDate } from '../../../hooks/queries/collection-day';
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -29,9 +29,9 @@ import {
  * rows the route read.
  */
 export function CollectionsTable({ rows }: { readonly rows: readonly CollectionListRow[] }) {
-	const { nameById: methodNameById } = useCollectionMethodOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
 	const trapNameById = useTrapNames();
-	const personnel = usePersonnelOptions();
+	const personnel = useCatalogOptions(catalogs.profiles);
 	const timeZone = useOrganizationTimeZone();
 	return (
 		<div className="rounded-md border border-border/50">

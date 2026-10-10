@@ -4,20 +4,21 @@ import { PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { StopSequenceMap } from '../../../components/map/stop-sequence-map';
 import { MissionFilterBar } from '../../../components/operations/missions/mission-filter-bar';
 import { MissionResults } from '../../../components/operations/missions/mission-results';
 import { SelectedMissionCard } from '../../../components/operations/missions/selected-mission-card';
 import { missionStopFeatures } from '../../../components/operations/operations-display';
-import { WorklistMap } from '../../../components/operations/worklist-map';
 import { WriteOnly } from '../../../components/write-only';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useControlMethodNames } from '../../../hooks/explorer/use-control-method-names';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import {
 	missionFilterCodecs,
 	useMissionFilterState,
 } from '../../../hooks/operations/use-mission-filter-state';
 import { useMissionStopViews } from '../../../hooks/operations/use-mission-stop-views';
 import { useWorklistIndex } from '../../../hooks/operations/use-worklist-index';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { missionStatus } from '../../../hooks/queries/operations-view';
 import { useMissionItemCounts } from '../../../hooks/queries/use-mission-item-counts';
 import { useMissions } from '../../../hooks/queries/use-missions';
@@ -34,7 +35,7 @@ function MissionsRoute() {
 	const { filters } = binding;
 
 	const { missions, isLoading } = useMissions(filters.from, filters.to);
-	const personnel = usePersonnelOptions();
+	const personnel = useCatalogOptions(catalogs.profiles);
 	const { nameById } = personnel;
 	const methodNameById = useControlMethodNames();
 
@@ -77,7 +78,7 @@ function MissionsRoute() {
 	return (
 		<MapSplitPage
 			map={
-				<WorklistMap
+				<StopSequenceMap
 					features={features}
 					fitKey={selectedId ?? undefined}
 					highlightId={highlightId}
@@ -98,7 +99,7 @@ function MissionsRoute() {
 							mission={selected}
 						/>
 					)}
-				</WorklistMap>
+				</StopSequenceMap>
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">

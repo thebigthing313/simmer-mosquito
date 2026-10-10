@@ -1,6 +1,6 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { notification_registration_types } from '../../lib/collections/notification_registration_types';
-import { mapCardGcTimeMs, unmatchableId } from './shared';
+import { activityGcTimeMs, unmatchableId } from './shared';
 import type { RegistrationSubscriptionRecord } from './use-registration-record';
 /** The notification types one registration subscribes to. */
 export function useRegistrationSubscriptions(registrationId: string | null | undefined): {
@@ -10,7 +10,7 @@ export function useRegistrationSubscriptions(registrationId: string | null | und
 	const id = registrationId ?? unmatchableId;
 
 	const result = useLiveQuery({
-		gcTime: mapCardGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ link: notification_registration_types() })
