@@ -13,10 +13,10 @@
  */
 
 import { type CommentTargetType, toDbEntityType } from '@simmer-mosquito/domain';
-import { and, coalesce, eq, useLiveQuery } from '@tanstack/react-db';
+import { and, eq, useLiveQuery } from '@tanstack/react-db';
 import { comments } from '../../lib/collections/comments';
 import { profiles } from '../../lib/collections/profiles';
-import { activityGcTimeMs } from './shared';
+import { activityGcTimeMs, joinedOrNull } from './shared';
 
 /** The record a thread is attached to. */
 export interface CommentTarget {
@@ -84,12 +84,12 @@ export function useComments(target: CommentTarget): CommentsResult {
 					id: comment.id,
 					commentText: comment.comment_text,
 					commentedByProfileId: comment.commented_by_profile_id,
-					authorName: coalesce(author.display_name, null),
+					authorName: joinedOrNull(author.display_name),
 					commentedAt: comment.commented_at,
 					isPinned: comment.is_pinned,
 					editedAt: comment.edited_at,
 					editedByProfileId: comment.edited_by_profile_id,
-					editorName: coalesce(editor.display_name, null),
+					editorName: joinedOrNull(editor.display_name),
 				})),
 	});
 

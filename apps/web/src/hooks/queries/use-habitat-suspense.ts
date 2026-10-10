@@ -9,13 +9,13 @@
  * loading — the loading case never returns.
  */
 
-import { coalesce, eq, useLiveSuspenseQuery } from '@tanstack/react-db';
+import { eq, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
 import { profiles } from '../../lib/collections/profiles';
 import { type AuditedHabitat, habitatNameSelect } from './habitat-view';
-import { addressSelect } from './shared';
+import { addressSelect, joinedOrNull } from './shared';
 
 export function useHabitatSuspense(habitatId: string): AuditedHabitat | undefined {
 	const result = useLiveSuspenseQuery((query) =>
@@ -48,7 +48,7 @@ export function useHabitatSuspense(habitatId: string): AuditedHabitat | undefine
 				name: habitatNameSelect(habitat),
 				description: habitat.description,
 				typeId: habitat.habitat_type_id,
-				typeName: coalesce(type.name, null),
+				typeName: joinedOrNull(type.name),
 				addressId: habitat.address_id,
 				isActive: habitat.is_active,
 				isInaccessible: habitat.is_inaccessible,
@@ -59,9 +59,9 @@ export function useHabitatSuspense(habitatId: string): AuditedHabitat | undefine
 				createdAt: habitat.created_at,
 				updatedAt: habitat.updated_at,
 				createdByProfileId: habitat.created_by_profile_id,
-				createdByName: coalesce(creator.display_name, null),
+				createdByName: joinedOrNull(creator.display_name),
 				updatedByProfileId: habitat.updated_by_profile_id,
-				updatedByName: coalesce(updater.display_name, null),
+				updatedByName: joinedOrNull(updater.display_name),
 			})),
 	);
 

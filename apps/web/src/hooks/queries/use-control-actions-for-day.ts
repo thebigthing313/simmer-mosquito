@@ -19,7 +19,7 @@
  * to answer the same questions.
  */
 
-import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { application_methods } from '../../lib/collections/application_methods';
 import { applications } from '../../lib/collections/applications';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
@@ -30,7 +30,7 @@ import { source_reduction_methods } from '../../lib/collections/source_reduction
 import { source_reductions } from '../../lib/collections/source_reductions';
 import { units } from '../../lib/collections/units';
 import { PERFORMED_ACTIONS } from './performed-action-reads';
-import { activityGcTimeMs } from './shared';
+import { activityGcTimeMs, joinedOrNull } from './shared';
 
 const {
 	applications: applicationReads,
@@ -105,12 +105,12 @@ export function useControlActionsForDay(date: string): {
 						id: application.id,
 						actionDate: applicationReads.date(application),
 						performedByProfileId: measured.performerProfileId,
-						performedByName: coalesce(performer.display_name, null),
-						subjectName: coalesce(product.trade_name, null),
+						performedByName: joinedOrNull(performer.display_name),
+						subjectName: joinedOrNull(product.trade_name),
 						methodId: measured.methodId,
-						methodName: coalesce(method.name, null),
+						methodName: joinedOrNull(method.name),
 						amount: measured.amount,
-						unitAbbreviation: coalesce(unit.abbreviation, null),
+						unitAbbreviation: joinedOrNull(unit.abbreviation),
 						createdAt: application.created_at,
 					};
 				}),
@@ -144,10 +144,10 @@ export function useControlActionsForDay(date: string): {
 						id: action.id,
 						actionDate: reductionReads.date(action),
 						performedByProfileId: measured.performerProfileId,
-						performedByName: coalesce(performer.display_name, null),
-						subjectName: coalesce(method.name, null),
+						performedByName: joinedOrNull(performer.display_name),
+						subjectName: joinedOrNull(method.name),
 						amount: measured.amount,
-						unitAbbreviation: coalesce(unit.abbreviation, null),
+						unitAbbreviation: joinedOrNull(unit.abbreviation),
 						createdAt: action.created_at,
 					};
 				}),
@@ -177,10 +177,10 @@ export function useControlActionsForDay(date: string): {
 						id: action.id,
 						actionDate: releaseReads.date(action),
 						performedByProfileId: measured.performerProfileId,
-						performedByName: coalesce(performer.display_name, null),
-						subjectName: coalesce(method.name, null),
+						performedByName: joinedOrNull(performer.display_name),
+						subjectName: joinedOrNull(method.name),
 						amount: measured.amount,
-						unitAbbreviation: coalesce(unit.abbreviation, null),
+						unitAbbreviation: joinedOrNull(unit.abbreviation),
 						createdAt: action.created_at,
 					};
 				}),

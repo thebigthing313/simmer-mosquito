@@ -9,14 +9,14 @@
  * navigation unmount over an on-demand collection, and `inspections` is one.
  */
 
-import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
 import { inspections } from '../../lib/collections/inspections';
 import { profiles } from '../../lib/collections/profiles';
 import { joinedHabitatNameSelect } from './habitat-view';
 import type { LarvalActivityRow } from './larval-activity-view';
-import { activityGcTimeMs } from './shared';
+import { activityGcTimeMs, joinedOrNull } from './shared';
 
 export function useLarvalActivityForDate(date: string): {
 	readonly rows: readonly LarvalActivityRow[];
@@ -55,7 +55,7 @@ export function useLarvalActivityForDate(date: string): {
 					id: inspection.id,
 					inspectionDate: inspection.inspection_date,
 					inspectedByProfileId: inspection.inspected_by_profile_id,
-					inspectedByName: coalesce(inspector.display_name, null),
+					inspectedByName: joinedOrNull(inspector.display_name),
 					isWet: inspection.is_wet,
 					density: inspection.density,
 					larvaeCount: inspection.larvae_count,
@@ -65,7 +65,7 @@ export function useLarvalActivityForDate(date: string): {
 					// arriving, and `habitat-view.ts` says what that reads as (#998).
 					habitatName: joinedHabitatNameSelect(habitat),
 					habitatTypeId: inspection.habitat_type_id,
-					typeName: coalesce(type.name, null),
+					typeName: joinedOrNull(type.name),
 
 					latitude: inspection.lat,
 					longitude: inspection.lng,
