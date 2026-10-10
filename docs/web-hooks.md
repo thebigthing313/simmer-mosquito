@@ -206,7 +206,7 @@ chips.
 Each record set's Map and Table read one filter set off the URL, so a switch
 between them carries what both apply and Back out of a record lands on the list
 the reader had narrowed to. This is the one hook over all eleven sets (#1419).
-It replaced ten copies, `useCollectionFilterState` and its neighbours, which
+It replaced nine copies, `useCollectionFilterState` and its neighbours, which
 differed only in names, and the inline `useSearchFilters` call both service
 request routes made.
 
@@ -1412,6 +1412,52 @@ share `activityBranches` on the server for the same reason, and now they share
 the subsets. A person's `records` counts entries, not rows, so a collection
 one person set and collected is two, which is what the Monitor lists for them.
 
+#### useOpenServiceRequestsQueue
+
+Two `useLiveQuery` subsets rather than one joined query. The split into new
+and in progress needs the open requests that no stop names, and those are the
+rows on a `left` join's nullable side, which gets no pushdown. So the requests
+subset is the open ones and the stops subset is the `assignment_items` rows
+naming a request, each narrowing its own shape, and the split is a set lookup
+over the rows that arrived.
+
+The overdue line (#1246) reads the same open rows rather than a third subset.
+It counts the open requests that the domain's `isServiceRequestOverdue` calls
+overdue against `overdueCutoff`. Its oldest date is the open queue's oldest whenever any request
+is overdue, because the oldest open request is then overdue too.
+
+#### useDueMissionsQueue
+
+No lower bound. A mission scheduled for last month and never started is
+overdue, and the oldest date is what says how overdue. An in-progress mission
+is on no queue, because someone is doing it, and the `started_at` predicate is
+what says so.
+
+The upper bound is the start of tomorrow, so a mission due at any hour of
+today is inside it. It is an instant from `localDayStartAsInstant` rather than
+a `YYYY-MM-DD`, because `scheduled_start_at` is a `timestamptz`, and
+`useMissions` widens its window to the start of the next day the same way.
+
+#### useInProgressAssignmentsQueue
+
+Two aggregates, a `count` and a `min`, rather than the rows. The page wants a
+count and one date, and an aggregate emits one changed number when an
+assignment finishes rather than a new array of every open one. All three
+predicates are the table's own columns, so the subset is the in-progress rows
+and nothing else.
+
+#### useProblemCollectionsQueue
+
+The one windowed queue of the four, at 14 days, because `has_problem` never
+clears and an all-time count would only grow. The window is `collectedSince`
+from `hooks/queries/collection-day.ts`, so the subset is the recent rows
+rather than every collection the Organization has written.
+
+The oldest is folded over the rows after the query rather than taken as `min`
+inside it. The effective date is a `Date` reduced to the Organization's day
+under exact timestamps and a string under date plus duration, and a `min` over
+a column holding both is not a minimum.
+
 ### overview
 
 #### useOverview
@@ -1427,6 +1473,19 @@ render and dims it. The response's `today` is the picker's upper bound and
 the partial test, so a client whose clock disagrees with the server draws the
 server's day. `docs/today-spec.md`, "The client half".
 
+### public-engagement
+
+#### useServiceRequestOverdueCutoff
+
+The overdue cut-off is `serviceRequestOverdueCutoff` over the Organization's
+today, so the day a request becomes overdue turns over on the Organization's
+calendar rather than the browser's, and the Map and the Table, which both call
+this hook, draw overdue from one day. It replaced
+`useServiceRequestFilterDefaults`, whose defaults and today moved into
+`serviceRequestRecordSet` and `useRecordSetFilters` (#1419). The record set's
+counting rule reads the cut-off through the same `serviceRequestOverdueCutoffFor`,
+so the count and the tile filters cannot disagree about whether Overdue is on.
+
 ### adult-surveillance
 
 #### useTrapDirectory
@@ -1434,6 +1493,11 @@ server's day. `docs/today-spec.md`, "The client half".
 A method only gets a tab if an active trap uses it. An organization that has
 never run a gravid trap should not be offered an empty gravid tab, which is
 why the tabs are built from the traps rather than from the catalog.
+
+A tab's label is `null` when its method is not in the client, and the route
+draws `Unknown method` for it. The hook sorts that tab last rather than among
+the U's, because writing the words here to sort by would put a fallback label
+back in a hook (#1535).
 
 #### useTrapRoutes and useHabitatRoutes
 
@@ -2179,6 +2243,20 @@ surface reads the id beside the name to tell the two apart and draws its own
 on the foreign key used to yield `undefined` for the second case under a
 `string | null` type, and the Chemical Application map card drew an empty
 applicator row for it (#1501).
+
+The rule is every read hook's, not only the performed actions'. Since #1535
+no hook under `hooks/` projects a `left`-joined column as
+`caseWhen(isNull(<fk>), null, <joined>.<column>)` or as `coalesce` over a
+literal label: the inspector and habitat type on an inspection, the type on a
+habitat, the method and lure on a trap and a collection, the request on a
+mission stop, the folder on a region, the vehicle and equipment on a Chemical
+Application and the author and editor on a comment all read as
+`coalesce(joined.column, null)`. The six adult surveillance reads that baked
+in `Unknown method` and the comment read that baked in `Unknown` return `null`
+now, and the card, row or thread draws the same words itself. The Inspection
+map card is the case that showed: it read only the name, so an inspection
+whose inspector's Profile was deleted said `Unassigned`, and it reads the id
+first now and says `Unknown`, as the detail page does.
 
 #### useInspection and useHabitatSuspense
 

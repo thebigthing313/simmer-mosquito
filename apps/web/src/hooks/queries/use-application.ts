@@ -17,7 +17,7 @@
  * this query rather than after it.
  */
 
-import { caseWhen, coalesce, eq, isNull } from '@tanstack/react-db';
+import { coalesce, eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { application_methods } from '../../lib/collections/application_methods';
 import { applications } from '../../lib/collections/applications';
@@ -110,9 +110,9 @@ export function useApplication(
 							unitAbbreviation: coalesce(unit.abbreviation, null),
 
 							vehicleId: application.vehicle_id,
-							vehicleName: caseWhen(isNull(application.vehicle_id), null, vehicle.vehicle_name),
+							vehicleName: coalesce(vehicle.vehicle_name, null),
 							equipmentId: application.equipment_id,
-							equipmentName: caseWhen(isNull(application.equipment_id), null, rig.equipment_name),
+							equipmentName: coalesce(rig.equipment_name, null),
 							habitatId: application.habitat_id,
 							collectionId: application.collection_id,
 							...controlActionBaseSelect(application),

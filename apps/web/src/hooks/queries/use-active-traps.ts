@@ -35,7 +35,8 @@ export interface TrapListing {
 	readonly trapName: string | null;
 	readonly trapCode: string | null;
 	readonly methodId: string;
-	readonly methodName: string;
+	/** `null` only when the method is not in the client, since the id is never `null`. */
+	readonly methodName: string | null;
 	/** What the trap is, in the operator's words — the second line of a picker row. */
 	readonly description: string | null;
 	/**
@@ -68,7 +69,7 @@ export function useActiveTraps(): {
 				trapName: trap.trap_name,
 				trapCode: trap.trap_code,
 				methodId: trap.collection_method_id,
-				methodName: coalesce(method.name, 'Unknown method'),
+				methodName: coalesce(method.name, null),
 				description: trap.description,
 				isActive: trap.is_active,
 			})),

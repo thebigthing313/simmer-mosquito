@@ -59,7 +59,9 @@ export function CollectionMapCard({
 					collection={collection}
 				/>
 				<div className="grid gap-1.5">
-					<MapCardDetail icon={CollectionEntityIcon}>{collection.methodName}</MapCardDetail>
+					<MapCardDetail icon={CollectionEntityIcon}>
+						{collection.methodName ?? 'Unknown method'}
+					</MapCardDetail>
 					<MapCardAddress address={collection.address} addressId={collection.addressId} />
 					<MapCardDetail icon={LocateFixedIcon} mono>
 						{mapCardCoordinates({ lat: collection.latitude, lng: collection.longitude })}

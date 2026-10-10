@@ -35,7 +35,8 @@ export interface AwaitingCollection {
 	readonly latitude: number;
 	readonly longitude: number;
 	readonly methodId: string;
-	readonly methodName: string;
+	/** `null` only when the method is not in the client, since the id is never `null`. */
+	readonly methodName: string | null;
 	readonly collectedAt: Date | null;
 	readonly collectionDate: string | null;
 	/** The day it counts on, in the Organization's zone. See `collection-day.ts`. */
@@ -76,7 +77,7 @@ export function useCollectionsAwaitingIdentification(
 					trapName: coalesce(trap.trap_name, null),
 					trapCode: coalesce(trap.trap_code, null),
 					methodId: collection.collection_method_id,
-					methodName: coalesce(method.name, 'Unknown method'),
+					methodName: coalesce(method.name, null),
 					collectedAt: collection.collected_at,
 					collectionDate: collection.collection_date,
 					isZeroResult: collection.is_zero_result,
