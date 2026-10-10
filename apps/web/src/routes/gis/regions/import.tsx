@@ -320,7 +320,7 @@ function ImportRegionsRoute() {
 								type="file"
 							/>
 							<Button onClick={() => fileInputRef.current?.click()} type="button" variant="outline">
-								<UploadIcon aria-hidden="true" data-icon="inline-start" />
+								<UploadIcon aria-hidden="true" />
 								{fileName === null ? 'Choose KML, KMZ, or GeoJSON File' : 'Choose a Different File'}
 							</Button>
 							{fileName === null ? null : (
@@ -372,7 +372,7 @@ function ImportRegionsRoute() {
 											type="button"
 											variant="outline"
 										>
-											<PlusIcon aria-hidden="true" data-icon="inline-start" />
+											<PlusIcon aria-hidden="true" />
 											Create Folder
 										</Button>
 									</div>
@@ -459,9 +459,7 @@ function ImportRegionsRoute() {
 							<Link to="/gis/regions">Cancel</Link>
 						</Button>
 						<Button disabled={!canImport} onClick={runImport} type="button">
-							{isImporting ? (
-								<Loader2Icon aria-hidden="true" className="animate-spin" data-icon="inline-start" />
-							) : null}
+							{isImporting ? <Loader2Icon aria-hidden="true" className="animate-spin" /> : null}
 							{isImporting && progress !== null
 								? `Importing ${progress.done} of ${progress.total}…`
 								: `Import ${items.length} ${items.length === 1 ? 'region' : 'regions'}`}

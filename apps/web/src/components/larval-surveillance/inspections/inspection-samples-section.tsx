@@ -96,7 +96,7 @@ export function SamplesSection({
 					type="button"
 					variant="outline"
 				>
-					<PlusIcon aria-hidden="true" data-icon="inline-start" />
+					<PlusIcon aria-hidden="true" />
 					Add Sample
 				</Button>
 			</div>

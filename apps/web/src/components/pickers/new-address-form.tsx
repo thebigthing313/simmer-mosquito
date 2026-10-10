@@ -163,9 +163,9 @@ export function NewAddressForm({
 				<div className="grid content-end gap-1.5">
 					<Button disabled={isGeocoding} onClick={geocodeAddress} type="button" variant="outline">
 						{isGeocoding ? (
-							<Loader2Icon aria-hidden="true" className="animate-spin" data-icon="inline-start" />
+							<Loader2Icon aria-hidden="true" className="animate-spin" />
 						) : (
-							<SearchIcon aria-hidden="true" data-icon="inline-start" />
+							<SearchIcon aria-hidden="true" />
 						)}
 						Geocode
 					</Button>
@@ -179,7 +179,7 @@ export function NewAddressForm({
 				</p>
 				{requestMapPoint === undefined ? null : (
 					<Button onClick={drawManualPoint} size="sm" type="button" variant="ghost">
-						<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
+						<MapPinnedIcon aria-hidden="true" />
 						{geometry === null ? 'Place on Map' : 'Move Point'}
 					</Button>
 				)}
@@ -194,9 +194,7 @@ export function NewAddressForm({
 					Cancel
 				</Button>
 				<Button disabled={isSaving} onClick={createAddress} type="button">
-					{isSaving ? (
-						<Loader2Icon aria-hidden="true" className="animate-spin" data-icon="inline-start" />
-					) : null}
+					{isSaving ? <Loader2Icon aria-hidden="true" className="animate-spin" /> : null}
 					Create Address
 				</Button>
 			</div>
