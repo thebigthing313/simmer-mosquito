@@ -1,8 +1,5 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useState } from 'react';
-import { getServerUrl } from '../../../auth';
 import { CollectionMapCard } from '../../../components/adult-surveillance/collection-map-card';
 import {
 	CollectionFilterChips,
@@ -25,8 +22,9 @@ import {
 import { collectionLegend } from '../../../components/adult-surveillance/collections/legend';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
-import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
+import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
 import { useCollectionFilterState } from '../../../hooks/adult-surveillance/use-collection-filter-state';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
@@ -55,8 +53,6 @@ function CollectionsExplorerRoute() {
 	// both land on the list the operator had narrowed to.
 	const binding = useCollectionFilterState();
 	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
@@ -71,27 +67,26 @@ function CollectionsExplorerRoute() {
 	const carried = sharedCollectionSearch(Route.useSearch());
 	const [clustered] = useMapClustering();
 	const legend = collectionLegend(query.problems, clustered);
-	const layer: MapTileLayer = {
-		kind: 'collections',
-		serverUrl: getServerUrl(),
-		filters,
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		empty,
+		summary,
+		canvas,
 		selectedId,
-		onSelectFeature: setSelectedId,
-	};
-	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
-		useExplorerResource<CollectionListRow>({
-			path: PATH,
-			rowsKey: 'collections',
-			rowKey: 'collection',
-			recordType: 'collection',
-			params: collectionListParams(filters),
-			layer,
-			map,
-			selectedId,
-			summarize: true,
-		});
-
-	const handleMapReady = (instance: MapboxMap) => setMap(instance);
+		setSelectedId,
+	} = useExplorerResource<CollectionListRow>({
+		path: PATH,
+		rowsKey: 'collections',
+		rowKey: 'collection',
+		recordType: 'collection',
+		params: collectionListParams(filters),
+		tiles: { kind: 'collections', filters },
+		summarize: true,
+	});
 
 	return (
 		<ExplorerMapPage
@@ -107,26 +102,13 @@ function CollectionsExplorerRoute() {
 			}}
 			onResetFilters={clearAll}
 			map={
-				<>
-					<MapCanvas
-						inset={panel.inset}
-						searchWidth={panel.width}
-						contextMenu={{ create: [MAP_CREATE_TARGETS.collection, MAP_CREATE_TARGETS.trap] }}
-						layers={layers}
-						controls={{ measure: true, readout: true }}
-						fitToData
-						rememberCamera
-						legend={legend}
-						onMapReady={handleMapReady}
-					/>
-					{selected === null ? null : (
-						<CollectionMapCard
-							id={selected.id}
-							inset={panel.inset}
-							onClose={() => setSelectedId(null)}
-						/>
-					)}
-				</>
+				<ExplorerCanvas
+					canvas={canvas}
+					card={(props) => <CollectionMapCard {...props} />}
+					contextMenu={{ create: [MAP_CREATE_TARGETS.collection, MAP_CREATE_TARGETS.trap] }}
+					legend={legend}
+					panel={panel}
+				/>
 			}
 			panel={panel}
 			results={{
