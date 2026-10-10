@@ -19,7 +19,7 @@ import {
 	type FilterDeclarations,
 	suppliedSource,
 } from '../../explorer/filter-declarations';
-import { ASSIGNEE_UNKNOWN, CONTROL_TYPE_FILTER } from '../operations-filters';
+import { CONTROL_TYPE_FILTER, PROFILE_UNKNOWN } from '../operations-filters';
 
 /** The Missions filters, in the order their chips draw. */
 function missionFilterDeclarations(
@@ -41,7 +41,7 @@ function missionFilterDeclarations(
 			label: 'Assigned to',
 			empty: 'No profiles',
 			options: suppliedSource(assigneeOptions),
-			unknown: ASSIGNEE_UNKNOWN,
+			unknown: PROFILE_UNKNOWN,
 		},
 	]);
 }
