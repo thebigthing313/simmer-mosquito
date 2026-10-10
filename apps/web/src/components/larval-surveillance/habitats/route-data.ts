@@ -23,7 +23,8 @@ export interface RouteStopView {
 	readonly ordinal: number;
 	readonly position: number;
 	readonly name: string;
-	readonly description: string;
+	/** `null` while the Habitat behind this stop is still resolving. */
+	readonly description: string | null;
 	readonly habitatTypeId: string | null;
 	readonly addressId: string | null;
 	readonly addressLabel: string | null;

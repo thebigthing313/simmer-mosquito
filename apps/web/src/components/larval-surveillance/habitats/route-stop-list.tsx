@@ -140,7 +140,7 @@ function StopRow({
 						<StopStatus stop={stop} />
 					</span>
 					<StopTagChips tags={tags} />
-					{stop.description.trim().length > 0 ? (
+					{stop.description !== null && stop.description.trim().length > 0 ? (
 						<span className="mt-1 block whitespace-pre-wrap text-foreground/80 text-xs leading-snug">
 							{stop.description}
 						</span>

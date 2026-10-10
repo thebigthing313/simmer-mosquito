@@ -596,6 +596,16 @@ Each dialog names its own intent rather than calling `habitatUpdatePlan`, which
 reads a whole form against the row it started from; these change one field and
 know which. The server refuses an intent whatever either side says.
 
+#### EditStopRow
+
+One stop on the habitat Route edit page. Its description editor saves to the
+Habitat behind the stop, not to the Route item, so it is read-only while
+`isResolving` is true: the stop has no description to show then, and an
+editor opened on an empty one would save over the Habitat's real text
+(#1565). The directions editor writes the Route item's own column and stays
+open to a writer either way. It was a function inside the edit route until
+then, and moved out so a suite could render it.
+
 #### Inspection filters
 
 The map opens on the last 30 days and the table on every inspection, and that
