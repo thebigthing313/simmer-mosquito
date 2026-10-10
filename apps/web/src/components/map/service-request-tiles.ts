@@ -31,6 +31,11 @@ export interface ServiceRequestTileFilters extends RegionScopedTileFilters {
 	readonly dateFrom?: string;
 	/** Inclusive `YYYY-MM-DD` upper bound on the request date. */
 	readonly dateTo?: string;
+	/**
+	 * Overdue requests only: open, and received before this `YYYY-MM-DD`, which
+	 * is `serviceRequestOverdueCutoff` for the Organization's threshold.
+	 */
+	readonly overdueBefore?: string;
 }
 
 export const SERVICE_REQUEST_SOURCE_ID = 'service-requests';
@@ -105,6 +110,7 @@ function serviceRequestTileParams(filters: ServiceRequestTileFilters = {}): URLS
 	setIdListTileParam(params, 'tagId', filters.tagIds);
 	setTextTileParam(params, 'dateFrom', filters.dateFrom);
 	setTextTileParam(params, 'dateTo', filters.dateTo);
+	setTextTileParam(params, 'overdueBefore', filters.overdueBefore);
 	setRegionTileParam(params, filters.regionIds);
 
 	return params;

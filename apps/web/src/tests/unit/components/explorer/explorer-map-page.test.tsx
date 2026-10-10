@@ -380,7 +380,7 @@ describe('ExplorerMapPage', () => {
 		signedInRole = 'collector';
 		const { rerender } = render(<Page create={{ to: '/x', label: 'Create Habitat' }} />);
 		fireEvent.pointerDown(
-			screen.getByRole('button', { name: 'More Actions' }),
+			screen.getByRole('button', { name: 'More actions' }),
 			new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
 		);
 		expect(await screen.findByText('Create Habitat')).toBeTruthy();
@@ -393,7 +393,7 @@ describe('ExplorerMapPage', () => {
 	it('leaves the menu out when the surface has neither action', () => {
 		render(<Page hasCreate={false} hasReset={false} />);
 
-		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
 	});
 
 	// The pager states the count, so a second one would be saying it twice.
@@ -477,7 +477,7 @@ describe('ExplorerMapPage', () => {
 			render(<Page create={{ to: '/x', label: 'Create Habitat' }} emptyReason="none" rows={[]} />);
 
 			expect(screen.getByText('No habitats yet')).toBeTruthy();
-			expect(screen.getByText('Create Habitat is in the More Actions menu.')).toBeTruthy();
+			expect(screen.getByText('Create Habitat is in the More actions menu.')).toBeTruthy();
 		});
 
 		// The pointer sits behind the same floor the control does. A reader who
@@ -487,7 +487,7 @@ describe('ExplorerMapPage', () => {
 			render(<Page create={{ to: '/x', label: 'Create Habitat' }} emptyReason="none" rows={[]} />);
 
 			expect(screen.getByText('No habitats yet')).toBeTruthy();
-			expect(screen.queryByText('Create Habitat is in the More Actions menu.')).toBeNull();
+			expect(screen.queryByText('Create Habitat is in the More actions menu.')).toBeNull();
 		});
 
 		it('draws placeholders rather than a reason while the extent is still out', () => {

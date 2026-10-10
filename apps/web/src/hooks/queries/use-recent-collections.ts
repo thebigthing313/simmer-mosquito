@@ -36,7 +36,8 @@ export interface ActivityCollection {
 	readonly trapName: string | null;
 	readonly trapCode: string | null;
 	readonly methodId: string;
-	readonly methodName: string;
+	/** `null` only when the method is not in the client, since the id is never `null`. */
+	readonly methodName: string | null;
 	readonly addressId: string | null;
 	/**
 	 * Joined, not looked up. It is the rung below the Trap name on a collection
@@ -97,7 +98,7 @@ export function useRecentCollections(
 					trapName: coalesce(trap.trap_name, null),
 					trapCode: coalesce(trap.trap_code, null),
 					methodId: collection.collection_method_id,
-					methodName: coalesce(method.name, 'Unknown method'),
+					methodName: coalesce(method.name, null),
 					addressId: collection.address_id,
 					latitude: collection.lat,
 					longitude: collection.lng,

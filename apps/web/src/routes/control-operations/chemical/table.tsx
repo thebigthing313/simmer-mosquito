@@ -7,24 +7,24 @@ import {
 	type ApplicationListRow,
 	normalizeApplication,
 } from '../../../components/control-operations/chemical/application-row-parts';
-import { ApplicationSurfaceSwitch } from '../../../components/control-operations/chemical/application-surface-switch';
 import {
 	APPLICATION_WINDOW_DAYS,
 	applicationFilterCodecs,
 	applicationListParams,
+	applicationRecordSet,
 	applicationTileFilters,
-	sharedApplicationSearch,
 } from '../../../components/control-operations/chemical/applications-search';
 import { ApplicationsTable } from '../../../components/control-operations/chemical/applications-table';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { RecordTableEmpty } from '../../../components/record/record-table-empty';
 import { RecordTableUnavailable } from '../../../components/record/record-table-unavailable';
-import { useApplicationFilterState } from '../../../hooks/control-operations/use-application-filter-state';
 import {
 	mapQueryParams,
 	usePagedMapResource,
 	WHOLE_WORLD_BBOX,
 } from '../../../hooks/explorer/use-paged-map-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
@@ -42,9 +42,9 @@ const ApplicationIcon = iconRegistry.entities.application.icon;
  * two surfaces list one set.
  */
 function ApplicationsTableRoute() {
-	const binding = useApplicationFilterState();
+	const binding = useRecordSetFilters(applicationRecordSet, 'table');
 	const { filters, activeCount, reset } = binding;
-	const carried = sharedApplicationSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const params = mapQueryParams({
 		bbox: WHOLE_WORLD_BBOX,
@@ -62,7 +62,9 @@ function ApplicationsTableRoute() {
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
-				actions={<ApplicationSurfaceSwitch current="table" search={carried} />}
+				actions={
+					<RecordSetSwitch current="table" search={routeSearch} set={applicationRecordSet} />
+				}
 				description="Chemical applications in the date window, newest first."
 				icon={ApplicationIcon}
 				title={recordNoun('application').titleMany}

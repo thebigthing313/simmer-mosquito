@@ -3,25 +3,25 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { CollectionFilterFields } from '../../../components/adult-surveillance/collections/collection-filters';
 import type { CollectionListRow } from '../../../components/adult-surveillance/collections/collection-row-parts';
-import { CollectionSurfaceSwitch } from '../../../components/adult-surveillance/collections/collection-surface-switch';
 import {
 	COLLECTION_WINDOW_DAYS,
 	collectionFilterCodecs,
 	collectionListParams,
+	collectionRecordSet,
 	collectionTileFilters,
-	sharedCollectionSearch,
 } from '../../../components/adult-surveillance/collections/collections-search';
 import { CollectionsTable } from '../../../components/adult-surveillance/collections/collections-table';
 import { OutletSimpleLayout } from '../../../components/app-shell';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { RecordTableEmpty } from '../../../components/record/record-table-empty';
 import { RecordTableUnavailable } from '../../../components/record/record-table-unavailable';
-import { useCollectionFilterState } from '../../../hooks/adult-surveillance/use-collection-filter-state';
 import {
 	mapQueryParams,
 	usePagedMapResource,
 	WHOLE_WORLD_BBOX,
 } from '../../../hooks/explorer/use-paged-map-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
@@ -38,9 +38,9 @@ const CollectionIcon = iconRegistry.entities.collection.icon;
  * a box around the whole world, so the two surfaces list one set.
  */
 function CollectionsTableRoute() {
-	const binding = useCollectionFilterState();
+	const binding = useRecordSetFilters(collectionRecordSet, 'table');
 	const { filters, activeCount, reset } = binding;
-	const carried = sharedCollectionSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const params = mapQueryParams({
 		bbox: WHOLE_WORLD_BBOX,
@@ -57,7 +57,7 @@ function CollectionsTableRoute() {
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
-				actions={<CollectionSurfaceSwitch current="table" search={carried} />}
+				actions={<RecordSetSwitch current="table" search={routeSearch} set={collectionRecordSet} />}
 				description="Collections in the date window, newest first."
 				icon={CollectionIcon}
 				title={recordNoun('collection').titleMany}

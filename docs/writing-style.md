@@ -73,8 +73,12 @@ first paint".
   sentence takes sentence case: descriptions, an empty state's body, toasts,
   errors and field hints. `Record Inspection` on the button, `No Samples
   Recorded` over an empty list, and `Samples appear once an inspection
-  records them.` under it. A select option takes sentence case too: it is a
-  value somebody picks, inside a control whose label is already the title. A
+  records them.` under it. A button that draws only an icon takes sentence
+  case. Its name reaches a person only as the `aria-label`, the `title` or the
+  tooltip, and nobody scans those as a heading. A button with visible text
+  keeps Title Case: `Record Inspection` on the button, `Zoom in` on the icon.
+  A select option takes sentence case too: it is a value somebody picks,
+  inside a control whose label is already the title. A
   proper noun inside one keeps its capitals, so a time zone still reads
   `Eastern Time`. The collection timing setting is one value written both ways
   on one sheet: `Exact timestamps` in the select, `Exact Timestamps` on the

@@ -37,6 +37,7 @@ export function ExplorerRow({
 	titleLink,
 	subtitle,
 	date,
+	dateWarning,
 	swatch,
 	personnel,
 	tags,
@@ -61,6 +62,12 @@ export function ExplorerRow({
 	 * rail is not drawn at all.
 	 */
 	readonly date?: string | null;
+	/**
+	 * Draws the date in the warning tone, for one that needs attention such as
+	 * an overdue request's age. The text is read to a screen reader after the
+	 * date, so the colour is not the only thing that says so.
+	 */
+	readonly dateWarning?: string | undefined;
 	readonly swatch?: RowSwatch | undefined;
 	/** Who performed the work: inspector, applicator, technician. */
 	readonly personnel?: string | null;
@@ -129,7 +136,7 @@ export function ExplorerRow({
 				)}
 			>
 				<SwatchDot isStacked={isStacked} swatch={swatch} />
-				<DateColumn date={date} isStacked={isStacked} />
+				<DateColumn date={date} isStacked={isStacked} warning={dateWarning} />
 				<span className="min-w-0 flex-1">
 					<RowTitle link={titleLink} title={title} />
 					<RowSubtitle subtitle={subtitle} />
@@ -286,13 +293,18 @@ function SwatchDot({
  * needs 88px, and in a 380px rail that was a quarter of the row spent on a
  * number that is the same for every record in a 30-day window. Stacked, the
  * column is 52px and the record keeps the 36.
+ *
+ * A `warning` draws the date in the warning tone and is read to a screen
+ * reader after it.
  */
 function DateColumn({
 	date,
 	isStacked,
+	warning,
 }: {
 	readonly date: string | null | undefined;
 	readonly isStacked: boolean;
+	readonly warning: string | undefined;
 }) {
 	if (date === undefined) {
 		return null;
@@ -301,12 +313,14 @@ function DateColumn({
 	return (
 		<span
 			className={cn(
-				'w-[3.25rem] shrink-0 text-muted-foreground text-xs leading-tight tabular-nums',
+				'w-[3.25rem] shrink-0 text-xs leading-tight tabular-nums',
+				warning === undefined ? 'text-muted-foreground' : 'text-warning',
 				isStacked && 'pt-0.5',
 			)}
 		>
 			<span className="block">{head}</span>
 			{year === null ? null : <span className="block">{year}</span>}
+			{warning === undefined ? null : <span className="sr-only">{warning}</span>}
 		</span>
 	);
 }

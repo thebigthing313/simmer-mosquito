@@ -2,14 +2,14 @@
  * The outreach filters, drawn the same way on the Outreach Actions Map and
  * Table: the date window, the Method, Technician and Region popovers, and the
  * chips for whatever is set. It returns the blocks bare, so each surface puts
- * them in its own frame. Takes the binding from `useOutreachFilterState`.
+ * them in its own frame. Takes the binding from `useRecordSetFilters`.
  */
 
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
-import type { OutreachFilterBinding } from '../../../hooks/public-engagement/use-outreach-filter-state';
 import { catalogs } from '../../../hooks/queries/catalog-register';
+import type { FilterBinding } from '../../../lib/search-filters';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
@@ -20,12 +20,13 @@ import {
 	MultiSelectFilter,
 	toggle,
 } from '../../explorer';
+import type { OutreachFilters } from './outreach-actions-search';
 
 export function OutreachFilterFields({
 	binding,
 	wide = false,
 }: {
-	readonly binding: OutreachFilterBinding;
+	readonly binding: FilterBinding<OutreachFilters>;
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
@@ -78,7 +79,11 @@ export function OutreachFilterFields({
  * draws these under its controls, and the Outreach Actions summary draws them
  * above its groupings.
  */
-export function OutreachFilterChips({ binding }: { readonly binding: OutreachFilterBinding }) {
+export function OutreachFilterChips({
+	binding,
+}: {
+	readonly binding: FilterBinding<OutreachFilters>;
+}) {
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.outreachMethods);
 	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const { nameById: regionNameById } = useRegionOptions();

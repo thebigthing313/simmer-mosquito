@@ -7,7 +7,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link, type LinkProps } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useControlMethodNames } from '../../hooks/explorer/use-control-method-names';
-import { assignmentStatus } from '../../hooks/queries/assignment-view';
+import { assignmentDisplayName, assignmentStatus } from '../../hooks/queries/assignment-view';
 import {
 	controlTypeLabel,
 	formatRequestedAt,
@@ -229,9 +229,7 @@ function AssignmentsPanel({
 								<OverviewRow
 									icon={<AssignmentIcon aria-hidden="true" className="size-4" />}
 									key={assignment.id}
-									primary={
-										assignment.assignmentName?.trim() || `Assignment ${assignment.assignmentDate}`
-									}
+									primary={assignmentDisplayName(assignment)}
 									secondary={`${
 										assignment.assignedToProfileId === null
 											? 'Unassigned'

@@ -3,15 +3,15 @@
  * Applications Map and Table: the date window, the Insecticide, Method, Applicator
  * and Region popovers, and the chips for whatever is set. It returns the blocks
  * bare, so each surface puts them in its own frame. Takes the binding from
- * `useApplicationFilterState`.
+ * `useRecordSetFilters`.
  */
 
-import type { ApplicationFilterBinding } from '../../../hooks/control-operations/use-application-filter-state';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useInsecticideOptions } from '../../../hooks/explorer/use-insecticide-options';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { catalogs } from '../../../hooks/queries/catalog-register';
+import type { FilterBinding } from '../../../lib/search-filters';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
@@ -23,12 +23,13 @@ import {
 	toggle,
 } from '../../explorer';
 import { insecticideName } from './application-row-parts';
+import type { ApplicationFilters } from './applications-search';
 
 export function ApplicationFilterFields({
 	binding,
 	wide = false,
 }: {
-	readonly binding: ApplicationFilterBinding;
+	readonly binding: FilterBinding<ApplicationFilters>;
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
@@ -92,7 +93,7 @@ export function ApplicationFilterFields({
 export function ApplicationFilterChips({
 	binding,
 }: {
-	readonly binding: ApplicationFilterBinding;
+	readonly binding: FilterBinding<ApplicationFilters>;
 }) {
 	const { nameById: insecticideNameById } = useInsecticideOptions();
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.applicationMethods);

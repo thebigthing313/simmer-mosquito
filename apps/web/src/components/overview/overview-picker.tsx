@@ -39,9 +39,9 @@ const PICKER_COPY: Readonly<
 		{ readonly previous: string; readonly next: string; readonly current: string }
 	>
 > = {
-	day: { previous: 'Previous Day', next: 'Next Day', current: 'Today' },
-	month: { previous: 'Previous Month', next: 'Next Month', current: 'This Month' },
-	year: { previous: 'Previous Year', next: 'Next Year', current: 'This Year' },
+	day: { previous: 'Previous day', next: 'Next day', current: 'Today' },
+	month: { previous: 'Previous month', next: 'Next month', current: 'This Month' },
+	year: { previous: 'Previous year', next: 'Next year', current: 'This Year' },
 };
 
 export function OverviewPicker({
