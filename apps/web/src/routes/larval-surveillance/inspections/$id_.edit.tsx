@@ -206,8 +206,10 @@ function EditInspectionLoader({
 		);
 
 		if (values.samples.length > 0) {
-			await attachLinksBestEffort('the samples', () =>
-				addSamplesInFormOrder(sampleMutations.add, inspection.id, values.samples),
+			await attachLinksBestEffort(
+				'the samples',
+				() => addSamplesInFormOrder(sampleMutations.add, inspection.id, values.samples),
+				{ write: 'add', recordType: 'inspection' },
 			);
 		}
 
