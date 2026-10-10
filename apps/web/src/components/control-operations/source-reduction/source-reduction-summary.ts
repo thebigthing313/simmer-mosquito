@@ -1,22 +1,17 @@
 import type { MapSummary } from '../../../hooks/explorer/use-explorer-summary';
 import type { SummaryGroup, SummaryGrouping } from '../../explorer/explorer-summary';
-import { toggle } from '../../explorer/multi-select-filter';
+import { declaredSummaryGroupings } from '../../explorer/filter-declarations';
 import { formatAmount } from '../control-display';
+import { sourceReductionFilterDeclarations } from './source-reduction-filters';
 import type { SourceReductionFilters } from './source-reductions-search';
-
-/** A filter on the Source Reductions page that takes a set of ids. */
-type IdSetFilter = 'methods' | 'people';
 
 /**
  * The Source Reductions summary's two groupings and its sources eliminated, out
- * of what `/map/source-reduction/summary` answers, each value wired to the
- * filter it names.
+ * of what `/map/source-reduction/summary` answers.
  *
- * A method is added to `methods` and a technician to `people`. A value the
- * filter already holds is selected, and clicking it widens back out by taking
- * the value out of the set. Names come from the catalogs the chips read, since
- * the server answers ids. Sources eliminated are drawn as text, one line per
- * unit.
+ * Method and Technician are the declared filters' toggle groups, a source
+ * reduction with no technician left out since no filter selects it. Sources
+ * eliminated are drawn as text, one line per unit.
  */
 export function sourceReductionSummaryGroupings({
 	summary,
@@ -36,28 +31,6 @@ export function sourceReductionSummaryGroupings({
 		{ readonly unitName: string; readonly abbreviation: string }
 	>;
 }): readonly SummaryGrouping[] {
-	// A source reduction with no technician has no filter value to set, so its
-	// null group is not drawn.
-	const idGroups = (
-		grouping: string,
-		filter: IdSetFilter,
-		nameById: ReadonlyMap<string, string>,
-		unknown: string,
-	): SummaryGroup[] =>
-		(summary.groups[grouping] ?? []).flatMap(({ value, count }) =>
-			typeof value === 'string'
-				? [
-						{
-							key: value,
-							label: nameById.get(value) ?? unknown,
-							count,
-							isSelected: filters[filter].has(value),
-							onToggle: () => setFilters({ [filter]: toggle(filters[filter], value) }),
-						},
-					]
-				: [],
-		);
-
 	const eliminated: SummaryGroup[] = (summary.breakdowns?.sourcesEliminated ?? []).flatMap(
 		({ by, count, sum }) => {
 			const { unitId } = by;
@@ -77,16 +50,12 @@ export function sourceReductionSummaryGroupings({
 	);
 
 	return [
-		{
-			key: 'method',
-			title: 'Method',
-			groups: idGroups('sourceReductionMethodId', 'methods', methodNameById, 'Unknown method'),
-		},
-		{
-			key: 'technician',
-			title: 'Technician',
-			groups: idGroups('technicianProfileId', 'people', personNameById, 'Unknown person'),
-		},
+		...declaredSummaryGroupings(sourceReductionFilterDeclarations, ['methods', 'people'], {
+			summary,
+			filters,
+			setFilters,
+			names: { methods: methodNameById, people: personNameById },
+		}),
 		{ key: 'eliminated', title: 'Sources Eliminated', groups: eliminated },
 	];
 }

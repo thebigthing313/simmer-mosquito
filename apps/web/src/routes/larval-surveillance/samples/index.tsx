@@ -1,14 +1,15 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { SampleMapCard } from '../../../components/larval-surveillance/sample-map-card';
 import { sampleLegend } from '../../../components/larval-surveillance/samples/legend';
 import {
-	SampleFilterChips,
 	SampleFilterFields,
+	sampleFilterDeclarations,
 } from '../../../components/larval-surveillance/samples/sample-filters';
 import {
 	SampleContext,
@@ -110,7 +111,9 @@ function SamplesExplorerRoute() {
 				// says what is in view instead (#1370).
 				summary: summary.isShown ? (
 					<ExplorerSummary
-						chips={activeFilterCount === 0 ? null : <SampleFilterChips binding={binding} />}
+						chips={
+							<DeclaredFilterChips binding={binding} declarations={sampleFilterDeclarations} />
+						}
 						groupings={
 							summary.data === null
 								? []

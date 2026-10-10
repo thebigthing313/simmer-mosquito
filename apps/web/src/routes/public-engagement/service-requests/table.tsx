@@ -52,15 +52,9 @@ function ServiceRequestsTableRoute() {
 			}}
 			filters={
 				<ServiceRequestsFilterBar
-					activeCount={binding.activeCount}
-					defaults={binding.defaults}
-					filters={binding.filters}
-					onClearAll={binding.clearAll}
+					binding={binding}
 					onOrderChange={(next) => setOrder({ order: next })}
 					order={order.order}
-					overdueAvailable={overdueCutoff !== null}
-					setFilters={binding.setFilters}
-					today={binding.today}
 				/>
 			}
 			icon={RequestIcon}

@@ -1,8 +1,12 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { ServiceRequestsFilterBar } from '../../../../../components/public-engagement/service-requests/service-requests-filter-bar';
-import type { ServiceRequestFilters } from '../../../../../components/public-engagement/service-requests/service-requests-search';
+import {
+	type ServiceRequestFilters,
+	serviceRequestRecordSet,
+} from '../../../../../components/public-engagement/service-requests/service-requests-search';
+import { recordSetBinding, recordSetContext } from '../../explorer/record-set-binding';
 
 /**
  * The Table's Overdue control (#1246): drawn while the Organization's threshold
@@ -11,37 +15,20 @@ import type { ServiceRequestFilters } from '../../../../../components/public-eng
 
 afterEach(cleanup);
 
-const DEFAULTS: ServiceRequestFilters = {
-	status: 'all',
-	search: '',
-	tags: new Set(),
-	regions: new Set(),
-	from: '2026-01-01',
-	to: '2026-10-20',
-	overdue: false,
-};
-
-function renderBar(filters: ServiceRequestFilters, overdueAvailable: boolean, activeCount: number) {
-	const setFilters = vi.fn();
-	render(
-		<ServiceRequestsFilterBar
-			activeCount={activeCount}
-			defaults={DEFAULTS}
-			filters={filters}
-			onClearAll={() => {}}
-			onOrderChange={() => {}}
-			order="newest"
-			overdueAvailable={overdueAvailable}
-			setFilters={setFilters}
-			today="2026-10-20"
-		/>,
+function renderBar(patch: Partial<ServiceRequestFilters>, overdueAvailable: boolean) {
+	const binding = recordSetBinding(
+		serviceRequestRecordSet,
+		'table',
+		patch,
+		recordSetContext(overdueAvailable ? 14 : 'off'),
 	);
-	return setFilters;
+	render(<ServiceRequestsFilterBar binding={binding} onOrderChange={() => {}} order="newest" />);
+	return binding.setFilters;
 }
 
 describe('ServiceRequestsFilterBar', () => {
 	it('turns Overdue on', () => {
-		const setFilters = renderBar(DEFAULTS, true, 0);
+		const setFilters = renderBar({}, true);
 
 		fireEvent.click(screen.getByRole('button', { name: 'Overdue' }));
 
@@ -49,7 +36,7 @@ describe('ServiceRequestsFilterBar', () => {
 	});
 
 	it('draws a chip that turns Overdue off', () => {
-		const setFilters = renderBar({ ...DEFAULTS, overdue: true }, true, 1);
+		const setFilters = renderBar({ overdue: true }, true);
 
 		fireEvent.click(screen.getByRole('button', { name: 'Remove Overdue filter' }));
 
@@ -57,7 +44,7 @@ describe('ServiceRequestsFilterBar', () => {
 	});
 
 	it('draws no Overdue control and no chip while the threshold is off', () => {
-		renderBar({ ...DEFAULTS, overdue: true }, false, 0);
+		renderBar({ overdue: true }, false);
 
 		expect(screen.queryByRole('button', { name: 'Overdue' })).toBeNull();
 		expect(screen.queryByText('Overdue')).toBeNull();

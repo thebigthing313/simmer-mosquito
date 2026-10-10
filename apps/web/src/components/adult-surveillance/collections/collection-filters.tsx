@@ -6,117 +6,66 @@
  * its own frame. Takes the binding from `useRecordSetFilters`.
  */
 
-import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
-import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
-import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import type { RecordSetFilterBinding } from '../../../hooks/explorer/use-record-set-filters';
 import { catalogs } from '../../../hooks/queries/catalog-register';
-import type { FilterBinding } from '../../../lib/search-filters';
-import { DateRangeFilter } from '../../date-range-filter';
+import { FilterFieldsLayout, FilterGrid } from '../../explorer';
+import { DeclaredFilterChips, filterFields } from '../../explorer/declared-filters';
 import {
-	ActiveFilterBar,
-	DateRangeChip,
-	FilterChip,
-	FilterFieldsLayout,
-	FilterGrid,
-	MultiSelectFilter,
-	ToggleFilter,
-	toggle,
-} from '../../explorer';
-import type { CollectionFilters } from './collections-search';
+	catalogSource,
+	defineFilterDeclarations,
+	REGION_FILTER,
+} from '../../explorer/filter-declarations';
+import { type CollectionFilters, collectionRecordSet } from './collections-search';
+
+/** Each collection filter's control, chip and summary grouping, in chip order. */
+export const collectionFilterDeclarations = defineFilterDeclarations(collectionRecordSet, [
+	{ kind: 'dateRange' },
+	{
+		kind: 'idSet',
+		key: 'methods',
+		label: 'Method',
+		empty: 'No collection methods',
+		options: catalogSource(catalogs.collectionMethods),
+		unknown: 'Unknown method',
+		summary: { grouping: 'collectionMethodId', title: 'Collection Method' },
+	},
+	REGION_FILTER,
+	{
+		kind: 'flag',
+		key: 'problems',
+		label: 'Problems only',
+		summary: { grouping: 'problem', title: 'Problems', label: 'Problem reported' },
+	},
+	{
+		kind: 'flag',
+		key: 'awaiting',
+		label: 'Awaiting identification',
+		summary: { grouping: 'awaiting', title: 'Identification', label: 'Awaiting identification' },
+	},
+]);
 
 export function CollectionFilterFields({
 	binding,
 	wide = false,
 }: {
-	readonly binding: FilterBinding<CollectionFilters>;
+	readonly binding: RecordSetFilterBinding<CollectionFilters>;
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
-	const { filters, setFilters, activeCount, today } = binding;
-	const dateRange = useDateRangeFilters({ from: filters.from, to: filters.to, today, setFilters });
-	const { options: methods } = useCatalogOptions(catalogs.collectionMethods);
-	const regions = useRegionOptions();
-
-	const popovers = (
-		<FilterGrid>
-			<MultiSelectFilter
-				empty="No collection methods"
-				label="Method"
-				onChange={(methodIds) => setFilters({ methods: methodIds })}
-				options={methods}
-				selected={filters.methods}
-			/>
-			<MultiSelectFilter
-				empty="No regions"
-				label="Region"
-				onChange={(regionIds) => setFilters({ regions: regionIds })}
-				options={regions.options}
-				selected={filters.regions}
-			/>
-			<ToggleFilter
-				label="Problems only"
-				onChange={(problems) => setFilters({ problems })}
-				value={filters.problems}
-			/>
-			<ToggleFilter
-				label="Awaiting identification"
-				onChange={(awaiting) => setFilters({ awaiting })}
-				value={filters.awaiting}
-			/>
-		</FilterGrid>
-	);
-
-	const chips = activeCount === 0 ? null : <CollectionFilterChips binding={binding} />;
-
+	const fields = filterFields(collectionFilterDeclarations, binding);
 	return (
 		<FilterFieldsLayout
-			chips={chips}
-			controls={<DateRangeFilter {...dateRange} />}
-			popovers={popovers}
+			chips={<DeclaredFilterChips binding={binding} declarations={collectionFilterDeclarations} />}
+			controls={fields.dates}
+			popovers={
+				<FilterGrid>
+					{fields.methods}
+					{fields.regions}
+					{fields.problems}
+					{fields.awaiting}
+				</FilterGrid>
+			}
 			wide={wide}
 		/>
-	);
-}
-
-/**
- * One chip per filter that is set, each one clearing its own. The filter card
- * draws these under its controls, and the Collections summary draws them above
- * its groupings.
- */
-export function CollectionFilterChips({
-	binding,
-}: {
-	readonly binding: FilterBinding<CollectionFilters>;
-}) {
-	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
-	const { nameById: regionNameById } = useRegionOptions();
-	const { filters, setFilters, reset, defaults } = binding;
-	return (
-		<ActiveFilterBar onClearAll={reset}>
-			<DateRangeChip defaults={defaults} range={filters} setRange={setFilters} />
-			{[...filters.methods].map((id) => (
-				<FilterChip
-					key={id}
-					label={methodNameById.get(id) ?? 'Unknown method'}
-					onRemove={() => setFilters({ methods: toggle(filters.methods, id) })}
-				/>
-			))}
-			{[...filters.regions].map((id) => (
-				<FilterChip
-					key={`region-${id}`}
-					label={regionNameById.get(id) ?? 'Unknown region'}
-					onRemove={() => setFilters({ regions: toggle(filters.regions, id) })}
-				/>
-			))}
-			{filters.problems ? (
-				<FilterChip label="Problems only" onRemove={() => setFilters({ problems: false })} />
-			) : null}
-			{filters.awaiting ? (
-				<FilterChip
-					label="Awaiting identification"
-					onRemove={() => setFilters({ awaiting: false })}
-				/>
-			) : null}
-		</ActiveFilterBar>
 	);
 }

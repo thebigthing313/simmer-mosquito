@@ -3,8 +3,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ApplicationMapCard } from '../../../components/control-operations/application-map-card';
 import {
-	ApplicationFilterChips,
 	ApplicationFilterFields,
+	applicationFilterDeclarations,
 } from '../../../components/control-operations/chemical/application-filters';
 import {
 	type ApplicationListRow,
@@ -19,6 +19,7 @@ import {
 } from '../../../components/control-operations/chemical/applications-search';
 import { formatAmount } from '../../../components/control-operations/control-display';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
@@ -110,7 +111,9 @@ function ApplicationsExplorerRoute() {
 				// says what is in view instead (#1374).
 				summary: summary.isShown ? (
 					<ExplorerSummary
-						chips={activeFilterCount === 0 ? null : <ApplicationFilterChips binding={binding} />}
+						chips={
+							<DeclaredFilterChips binding={binding} declarations={applicationFilterDeclarations} />
+						}
 						groupings={
 							summary.data === null
 								? []

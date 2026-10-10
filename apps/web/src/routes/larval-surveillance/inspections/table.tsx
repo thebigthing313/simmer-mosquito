@@ -2,7 +2,6 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { surfaceCodecs } from '../../../components/explorer/record-set';
 import { RecordSetTablePage } from '../../../components/explorer/record-set-table-page';
-import { inspectionFilterBinding } from '../../../components/larval-surveillance/inspection-filters';
 import type { InspectionListing } from '../../../components/larval-surveillance/inspection-listing';
 import { InspectionsFilterBar } from '../../../components/larval-surveillance/inspections-filter-bar';
 import { inspectionRecordSet } from '../../../components/larval-surveillance/inspections-search';
@@ -36,9 +35,7 @@ function InspectionsTableRoute() {
 				filteredDescription: 'Nothing recorded matches what is set above.',
 				scope: { kind: 'yet' },
 			}}
-			filters={
-				<InspectionsFilterBar binding={inspectionFilterBinding(binding)} catalogs={catalogs} />
-			}
+			filters={<InspectionsFilterBar binding={binding} />}
 			icon={InspectionIcon}
 			search={search}
 			set={inspectionRecordSet}

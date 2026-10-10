@@ -6,131 +6,73 @@
  * `useRecordSetFilters`.
  */
 
-import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
-import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
-import { useInsecticideOptions } from '../../../hooks/explorer/use-insecticide-options';
-import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import type { RecordSetFilterBinding } from '../../../hooks/explorer/use-record-set-filters';
 import { catalogs } from '../../../hooks/queries/catalog-register';
-import type { FilterBinding } from '../../../lib/search-filters';
-import { DateRangeFilter } from '../../date-range-filter';
+import { FilterFieldsLayout, FilterGrid } from '../../explorer';
+import { DeclaredFilterChips, filterFields } from '../../explorer/declared-filters';
 import {
-	ActiveFilterBar,
-	DateRangeChip,
-	FilterChip,
-	FilterFieldsLayout,
-	FilterGrid,
-	MultiSelectFilter,
-	toggle,
-} from '../../explorer';
-import { insecticideName } from './application-row-parts';
-import type { ApplicationFilters } from './applications-search';
+	catalogSource,
+	defineFilterDeclarations,
+	INSECTICIDE_SOURCE,
+	REGION_FILTER,
+} from '../../explorer/filter-declarations';
+import { type ApplicationFilters, applicationRecordSet } from './applications-search';
+
+/** Each chemical application filter's control, chip and summary grouping, in chip order. */
+export const applicationFilterDeclarations = defineFilterDeclarations(applicationRecordSet, [
+	{ kind: 'dateRange' },
+	{
+		kind: 'idSet',
+		key: 'insecticides',
+		label: 'Insecticide',
+		empty: 'No insecticides',
+		options: INSECTICIDE_SOURCE,
+		unknown: 'Unknown insecticide',
+		summary: { grouping: 'insecticideId', title: 'Insecticide' },
+	},
+	{
+		kind: 'idSet',
+		key: 'methods',
+		label: 'Method',
+		empty: 'No application methods',
+		options: catalogSource(catalogs.applicationMethods),
+		unknown: 'Unknown method',
+		summary: { grouping: 'applicationMethodId', title: 'Method' },
+	},
+	{
+		kind: 'idSet',
+		key: 'people',
+		label: 'Applicator',
+		empty: 'No people',
+		options: catalogSource(catalogs.profiles),
+		unknown: 'Unknown person',
+		summary: { grouping: 'applicatorProfileId', title: 'Applicator' },
+	},
+	REGION_FILTER,
+]);
 
 export function ApplicationFilterFields({
 	binding,
 	wide = false,
 }: {
-	readonly binding: FilterBinding<ApplicationFilters>;
+	readonly binding: RecordSetFilterBinding<ApplicationFilters>;
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
-	const { filters, setFilters, activeCount, today } = binding;
-	const dateRange = useDateRangeFilters({ from: filters.from, to: filters.to, today, setFilters });
-	const { options: products } = useInsecticideOptions();
-	const { options: methods } = useCatalogOptions(catalogs.applicationMethods);
-	const personnel = useCatalogOptions(catalogs.profiles);
-	const regions = useRegionOptions();
-
-	const popovers = (
-		<FilterGrid>
-			<MultiSelectFilter
-				empty="No insecticides"
-				label="Insecticide"
-				onChange={(insecticides) => setFilters({ insecticides })}
-				options={products}
-				selected={filters.insecticides}
-			/>
-			<MultiSelectFilter
-				empty="No application methods"
-				label="Method"
-				onChange={(methodIds) => setFilters({ methods: methodIds })}
-				options={methods}
-				selected={filters.methods}
-			/>
-			<MultiSelectFilter
-				empty="No people"
-				label="Applicator"
-				onChange={(people) => setFilters({ people })}
-				options={personnel.options}
-				selected={filters.people}
-			/>
-			<MultiSelectFilter
-				empty="No regions"
-				label="Region"
-				onChange={(regionIds) => setFilters({ regions: regionIds })}
-				options={regions.options}
-				selected={filters.regions}
-			/>
-		</FilterGrid>
-	);
-
-	const chips = activeCount === 0 ? null : <ApplicationFilterChips binding={binding} />;
-
+	const fields = filterFields(applicationFilterDeclarations, binding);
 	return (
 		<FilterFieldsLayout
-			chips={chips}
-			controls={<DateRangeFilter {...dateRange} />}
-			popovers={popovers}
+			chips={<DeclaredFilterChips binding={binding} declarations={applicationFilterDeclarations} />}
+			controls={fields.dates}
+			popovers={
+				<FilterGrid>
+					{fields.insecticides}
+					{fields.methods}
+					{fields.people}
+					{fields.regions}
+				</FilterGrid>
+			}
 			wide={wide}
 		/>
-	);
-}
-
-/**
- * One chip per filter that is set, each one clearing its own. The filter card
- * draws these under its controls, and the Chemical Applications summary draws
- * them above its groupings.
- */
-export function ApplicationFilterChips({
-	binding,
-}: {
-	readonly binding: FilterBinding<ApplicationFilters>;
-}) {
-	const { nameById: insecticideNameById } = useInsecticideOptions();
-	const { nameById: methodNameById } = useCatalogOptions(catalogs.applicationMethods);
-	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
-	const { nameById: regionNameById } = useRegionOptions();
-	const { filters, setFilters, reset, defaults } = binding;
-	return (
-		<ActiveFilterBar onClearAll={reset}>
-			<DateRangeChip defaults={defaults} range={filters} setRange={setFilters} />
-			{[...filters.insecticides].map((id) => (
-				<FilterChip
-					key={id}
-					label={insecticideName(id, insecticideNameById)}
-					onRemove={() => setFilters({ insecticides: toggle(filters.insecticides, id) })}
-				/>
-			))}
-			{[...filters.methods].map((id) => (
-				<FilterChip
-					key={id}
-					label={methodNameById.get(id) ?? 'Unknown method'}
-					onRemove={() => setFilters({ methods: toggle(filters.methods, id) })}
-				/>
-			))}
-			{[...filters.people].map((id) => (
-				<FilterChip
-					key={`person-${id}`}
-					label={personNameById.get(id) ?? 'Unknown person'}
-					onRemove={() => setFilters({ people: toggle(filters.people, id) })}
-				/>
-			))}
-			{[...filters.regions].map((id) => (
-				<FilterChip
-					key={`region-${id}`}
-					label={regionNameById.get(id) ?? 'Unknown region'}
-					onRemove={() => setFilters({ regions: toggle(filters.regions, id) })}
-				/>
-			))}
-		</ActiveFilterBar>
 	);
 }

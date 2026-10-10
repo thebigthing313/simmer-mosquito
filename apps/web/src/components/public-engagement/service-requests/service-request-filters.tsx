@@ -1,12 +1,11 @@
 /**
- * The Service Requests map's filter card and the chips that undo it. The card
+ * Each service request filter's control, chip and summary grouping, declared
+ * once for the Map and the Table, and the Map's filter card, which
  * holds the search, the Status control, the date range, the Tag and Region
- * pickers, and the chips; the chips are exported apart so the in-view summary
- * can draw them above its groupings. Both take the filter state the route
- * binds from the URL and the writes that change it.
+ * pickers, Overdue, and the chips. Takes the binding from
+ * `useRecordSetFilters`.
  */
 
-import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -25,238 +24,108 @@ import {
 import { CheckIcon, ChevronDownIcon, TagIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useState } from 'react';
-import type { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
-import type { useRegionOptions } from '../../../hooks/explorer/use-region-options';
-import type { Tag } from '../../../hooks/queries/tag-view';
-import { DateRangeFilter } from '../../date-range-filter';
+import type { RecordSetFilterBinding } from '../../../hooks/explorer/use-record-set-filters';
+import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
+import { FilterChip, FilterGrid, toggle } from '../../explorer';
+import { DeclaredFilterChips, filterFields } from '../../explorer/declared-filters';
 import {
-	ActiveFilterBar,
-	type DateRange,
-	DateRangeChip,
-	FilterChip,
-	FilterGrid,
-	MultiSelectFilter,
-	SegmentedFilter,
-	ToggleFilter,
-	toggle,
-} from '../../explorer';
+	defineFilterDeclarations,
+	REGION_FILTER,
+	TAG_SOURCE,
+} from '../../explorer/filter-declarations';
 import { TagBadge } from '../../tag-badge';
+import { SERVICE_REQUEST_STATUS_ORDER, serviceRequestStatusLabel } from './legend';
 import {
-	SERVICE_REQUEST_STATUS_ORDER,
-	type ServiceRequestStatusFilter,
-	serviceRequestStatusLabel,
-} from './legend';
+	type ServiceRequestFilters,
+	serviceRequestOverdueCutoffFor,
+	serviceRequestRecordSet,
+} from './service-requests-search';
 
-const STATUS_OPTIONS: readonly {
-	readonly value: ServiceRequestStatusFilter;
-	readonly label: string;
-}[] = [
-	{ value: 'all', label: 'All' },
-	...SERVICE_REQUEST_STATUS_ORDER.map((value) => ({
-		value,
-		label: serviceRequestStatusLabel(value),
-	})),
-];
+/**
+ * Each service request filter's control, chip and summary grouping, in chip
+ * order. Search, Tags and Region are the Map's alone, so the Table draws none
+ * of the three.
+ */
+export const serviceRequestFilterDeclarations = defineFilterDeclarations(serviceRequestRecordSet, [
+	{
+		kind: 'choice',
+		key: 'status',
+		label: 'Status',
+		options: [
+			{ value: 'all', label: 'All' },
+			...SERVICE_REQUEST_STATUS_ORDER.map((value) => ({
+				value,
+				label: serviceRequestStatusLabel(value),
+			})),
+		],
+		summary: {
+			grouping: 'status',
+			title: 'Status',
+			sides: SERVICE_REQUEST_STATUS_ORDER.map((value) => ({ value, match: value })),
+		},
+	},
+	{
+		kind: 'flag',
+		key: 'overdue',
+		label: 'Overdue',
+		// Off while the Organization's threshold is off, when it narrows nothing.
+		available: (context) => serviceRequestOverdueCutoffFor(context) !== null,
+	},
+	{ kind: 'dateRange' },
+	{
+		kind: 'text',
+		key: 'search',
+		label: 'Search service requests',
+		placeholder: 'Search requests…',
+	},
+	{
+		kind: 'idSet',
+		key: 'tags',
+		label: 'Tags',
+		empty: 'No tags found.',
+		options: TAG_SOURCE,
+		unknown: 'Unknown tag',
+		field: TagFilter,
+		chip: TagChip,
+		summary: { grouping: 'tagId', title: 'Tags' },
+	},
+	REGION_FILTER,
+]);
 
-/** The filter state the chips read, and the writes that undo each chip. */
-export interface ServiceRequestFilterChipProps {
-	readonly activeFilterCount: number;
-	readonly availableTags: readonly Tag[];
-	/** The date window the list is cut to, and the window it opens on. */
-	readonly dates: DateRange;
-	readonly dateDefaults: DateRange;
-	readonly onClearAll: () => void;
-	readonly regions: ReturnType<typeof useRegionOptions>;
-	readonly search: string;
-	readonly selectedRegionIds: ReadonlySet<string>;
-	readonly selectedTagIds: ReadonlySet<string>;
-	readonly setDates: (next: DateRange) => void;
-	readonly setSearch: (next: string) => void;
-	readonly setSelectedRegionIds: (next: ReadonlySet<string>) => void;
-	readonly setSelectedTagIds: (next: ReadonlySet<string>) => void;
-	readonly setStatus: (next: ServiceRequestStatusFilter) => void;
-	readonly status: ServiceRequestStatusFilter;
-	/**
-	 * Overdue requests only, and whether the Organization's threshold is on.
-	 * Off, the control and its chip are not drawn.
-	 */
-	readonly overdue: boolean;
-	readonly overdueAvailable: boolean;
-	readonly setOverdue: (next: boolean) => void;
-}
-
-/** The filter card's contents: the five controls and the chips that undo them. */
+/** The Map's filter card: the controls, and the chips that undo them. */
 export function ServiceRequestFilterFields({
-	dateRange,
-	onClearSearch,
-	...chips
-}: ServiceRequestFilterChipProps & {
-	readonly dateRange: ReturnType<typeof useDateRangeFilters>;
-	readonly onClearSearch: () => void;
+	binding,
+}: {
+	readonly binding: RecordSetFilterBinding<ServiceRequestFilters>;
 }) {
-	const {
-		availableTags,
-		regions,
-		search,
-		selectedRegionIds,
-		selectedTagIds,
-		setSearch,
-		setSelectedRegionIds,
-		setSelectedTagIds,
-		setStatus,
-		status,
-		overdue,
-		overdueAvailable,
-		setOverdue,
-	} = chips;
-	const hasTagFilter = availableTags.length > 0 || selectedTagIds.size > 0;
+	const fields = filterFields(serviceRequestFilterDeclarations, binding);
+	// No Tag control for an Organization with no Tags, unless the address names one.
+	const { options: tags } = useTagOptions();
+	const hasTagFilter = tags.length > 0 || binding.filters.tags.size > 0;
 	return (
 		<>
-			<SearchInput
-				label="Search service requests"
-				onChange={(event) => setSearch(event.target.value)}
-				onClear={onClearSearch}
-				placeholder="Search requests…"
-				value={search}
-			/>
-
-			<SegmentedFilter
-				label="Status"
-				onChange={setStatus}
-				options={STATUS_OPTIONS}
-				value={status}
-			/>
-
-			<DateRangeFilter {...dateRange} />
-
+			{fields.search}
+			{fields.status}
+			{fields.dates}
 			<FilterGrid>
-				{hasTagFilter ? (
-					<TagFilter
-						onChange={setSelectedTagIds}
-						options={availableTags}
-						selected={selectedTagIds}
-					/>
-				) : null}
-				<MultiSelectFilter
-					empty="No regions"
-					label="Region"
-					onChange={setSelectedRegionIds}
-					options={regions.options}
-					selected={selectedRegionIds}
-				/>
-				{overdueAvailable ? (
-					<ToggleFilter label="Overdue" onChange={setOverdue} value={overdue} />
-				) : null}
+				{hasTagFilter ? fields.tags : null}
+				{fields.regions}
+				{fields.overdue}
 			</FilterGrid>
-
-			<ServiceRequestFilterChips {...chips} />
+			<DeclaredFilterChips binding={binding} declarations={serviceRequestFilterDeclarations} />
 		</>
 	);
 }
 
-/** What is currently narrowing the list, each chip removing its own filter. */
-export function ServiceRequestFilterChips({
-	activeFilterCount,
-	availableTags,
-	dateDefaults,
-	dates,
-	onClearAll,
-	regions,
-	search,
-	selectedRegionIds,
-	selectedTagIds,
-	setDates,
-	setSearch,
-	setSelectedRegionIds,
-	setSelectedTagIds,
-	setStatus,
-	status,
-	overdue,
-	overdueAvailable,
-	setOverdue,
-}: ServiceRequestFilterChipProps) {
-	if (activeFilterCount === 0) {
-		return null;
-	}
-	return (
-		<ActiveFilterBar onClearAll={onClearAll}>
-			<StatusChip onReset={() => setStatus('all')} status={status} />
-			<OverdueChip
-				isAvailable={overdueAvailable}
-				isOn={overdue}
-				onRemove={() => setOverdue(false)}
-			/>
-			<DateRangeChip defaults={dateDefaults} range={dates} setRange={setDates} />
-			<SearchChip onClear={() => setSearch('')} search={search} />
-			{availableTags
-				.filter((tag) => selectedTagIds.has(tag.id))
-				.map((tag) => (
-					<RemovableTagChip
-						key={tag.id}
-						onRemove={() => setSelectedTagIds(toggle(selectedTagIds, tag.id))}
-						tag={tag}
-					/>
-				))}
-			{[...selectedRegionIds].map((id) => (
-				<FilterChip
-					key={`region-${id}`}
-					label={regions.nameById.get(id) ?? 'Unknown region'}
-					onRemove={() => setSelectedRegionIds(toggle(selectedRegionIds, id))}
-				/>
-			))}
-		</ActiveFilterBar>
-	);
-}
-
-/** All is the default, so only Open or Closed is worth a chip. */
-function StatusChip({
-	onReset,
-	status,
-}: {
-	readonly onReset: () => void;
-	readonly status: ServiceRequestStatusFilter;
-}) {
-	if (status === 'all') {
-		return null;
-	}
-	return <FilterChip label={`Status: ${serviceRequestStatusLabel(status)}`} onRemove={onReset} />;
-}
-
-/** Overdue, while it is on and the Organization's threshold is on. */
-function OverdueChip({
-	isAvailable,
-	isOn,
-	onRemove,
-}: {
-	readonly isAvailable: boolean;
-	readonly isOn: boolean;
-	readonly onRemove: () => void;
-}) {
-	return isAvailable && isOn ? <FilterChip label="Overdue" onRemove={onRemove} /> : null;
-}
-
-function SearchChip({
-	onClear,
-	search,
-}: {
-	readonly onClear: () => void;
-	readonly search: string;
-}) {
-	if (search.trim().length === 0) {
-		return null;
-	}
-	return <FilterChip label={`Search: ${search}`} onRemove={onClear} />;
-}
-
 function TagFilter({
-	options,
 	selected,
 	onChange,
 }: {
-	readonly options: readonly Tag[];
 	readonly selected: ReadonlySet<string>;
 	readonly onChange: (next: ReadonlySet<string>) => void;
 }) {
+	const { byId } = useTagOptions();
+	const options = [...byId.values()];
 	const [open, setOpen] = useState(false);
 	const count = selected.size;
 
@@ -317,7 +186,12 @@ function TagFilter({
 	);
 }
 
-function RemovableTagChip({ tag, onRemove }: { readonly tag: Tag; readonly onRemove: () => void }) {
+/** A Tag's chip, drawn as the Tag's own badge, or by name for a Tag the catalog does not hold. */
+function TagChip({ id, onRemove }: { readonly id: string; readonly onRemove: () => void }) {
+	const tag = useTagOptions().byId.get(id);
+	if (tag === undefined) {
+		return <FilterChip label="Unknown tag" onRemove={onRemove} />;
+	}
 	return (
 		<span className="inline-flex items-center gap-1">
 			<TagBadge tag={tag} />

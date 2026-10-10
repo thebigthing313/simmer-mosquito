@@ -17,14 +17,8 @@ import {
 	serviceRequestTitle,
 } from '../../../components/public-engagement/public-engagement-display';
 import { ServiceRequestMapCard } from '../../../components/public-engagement/service-request-map-card';
-import {
-	type ServiceRequestStatusFilter,
-	serviceRequestLegend,
-} from '../../../components/public-engagement/service-requests/legend';
-import {
-	type ServiceRequestFilterChipProps,
-	ServiceRequestFilterFields,
-} from '../../../components/public-engagement/service-requests/service-request-filters';
+import { serviceRequestLegend } from '../../../components/public-engagement/service-requests/legend';
+import { ServiceRequestFilterFields } from '../../../components/public-engagement/service-requests/service-request-filters';
 import type { ServiceRequestListing } from '../../../components/public-engagement/service-requests/service-request-listing';
 import { ServiceRequestSummaryPanel } from '../../../components/public-engagement/service-requests/service-request-summary-panel';
 import {
@@ -36,7 +30,6 @@ import {
 	serviceRequestRailOrderCodecs,
 	serviceRequestRecordSet,
 } from '../../../components/public-engagement/service-requests/service-requests-search';
-import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import {
@@ -44,7 +37,6 @@ import {
 	useExplorerResource,
 } from '../../../hooks/explorer/use-explorer-resource';
 import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
-import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import type { Address } from '../../../hooks/queries/address-view';
@@ -68,10 +60,9 @@ export const Route = createFileRoute('/public-engagement/service-requests/')({
 });
 
 function ServiceRequestsExplorerRoute() {
-	// The catalog drives both the filter options and the per-card chip labels.
+	// The catalog names the Tags the summary groups by.
 	const { byId: tagById } = useTagOptions();
-	const availableTags = [...tagById.values()];
-	const tagNameById = new Map(availableTags.map((tag) => [tag.id, tag.name]));
+	const tagNameById = new Map([...tagById.values()].map((tag) => [tag.id, tag.name]));
 
 	// The filter state lives in the URL, so a shared link and Back out of a
 	// request both land on the list the operator had narrowed to. An address with
@@ -80,29 +71,10 @@ function ServiceRequestsExplorerRoute() {
 		ORDER_DEFAULTS,
 		serviceRequestRailOrderCodecs,
 	);
-	const {
-		filters: query,
-		setFilters,
-		activeCount: activeFilterCount,
-		defaults,
-		today,
-		searchInput: search,
-		setSearchInput: setSearch,
-		clearSearch,
-		clearAll,
-		context,
-	} = useRecordSetFilters(serviceRequestRecordSet, 'map');
+	const binding = useRecordSetFilters(serviceRequestRecordSet, 'map');
+	const { filters: query, activeCount: activeFilterCount, today, clearAll, context } = binding;
 	const overdueCutoff = serviceRequestOverdueCutoffFor(context);
-	const overdueAvailable = overdueCutoff !== null;
-	const dateRange = useDateRangeFilters({ from: query.from, to: query.to, today, setFilters });
-	const status = query.status;
-	const selectedTagIds = query.tags;
-	const selectedRegionIds = query.regions;
-	const setStatus = (next: ServiceRequestStatusFilter) => setFilters({ status: next });
-	const setSelectedTagIds = (next: ReadonlySet<string>) => setFilters({ tags: next });
-	const setSelectedRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const routeSearch = Route.useSearch();
-	const regions = useRegionOptions();
 	const panel = useExplorerPanel();
 	const [clustered] = useMapClustering();
 
@@ -142,37 +114,13 @@ function ServiceRequestsExplorerRoute() {
 	);
 	const detailsLoading = !parties.isReady || !tagsByRequestId.isReady;
 
-	// What the filter card's chips read and write, which the summary draws too.
-	const chips: ServiceRequestFilterChipProps = {
-		activeFilterCount,
-		availableTags,
-		dateDefaults: defaults,
-		dates: query,
-		onClearAll: clearAll,
-		regions,
-		search,
-		selectedRegionIds,
-		selectedTagIds,
-		setDates: setFilters,
-		setSearch,
-		setSelectedRegionIds,
-		setSelectedTagIds,
-		setStatus,
-		status,
-		overdue: query.overdue,
-		overdueAvailable,
-		setOverdue: (next: boolean) => setFilters({ overdue: next }),
-	};
-
 	return (
 		<ExplorerMapPage
 			actions={
 				<RecordSetSwitch compact current="map" search={routeSearch} set={serviceRequestRecordSet} />
 			}
 			activeFilterCount={activeFilterCount}
-			filters={
-				<ServiceRequestFilterFields {...chips} dateRange={dateRange} onClearSearch={clearSearch} />
-			}
+			filters={<ServiceRequestFilterFields binding={binding} />}
 			heading={{
 				title: recordNoun('serviceRequest').titleMany,
 				icon: RequestIcon,
@@ -192,7 +140,7 @@ function ServiceRequestsExplorerRoute() {
 					contextMenu={{
 						create: [MAP_CREATE_TARGETS.serviceRequest, MAP_CREATE_TARGETS.outreach],
 					}}
-					legend={serviceRequestLegend(status, clustered)}
+					legend={serviceRequestLegend(query.status, clustered)}
 					panel={panel}
 				/>
 			}
@@ -214,13 +162,7 @@ function ServiceRequestsExplorerRoute() {
 				skeletonClassName: 'h-16',
 				// Over 100 in view the rows would not fit on one page, so the panel
 				// says what is in view instead (#1371).
-				summary: summarySlot({
-					chips,
-					filters: query,
-					setFilters,
-					state: summary,
-					tagNameById,
-				}),
+				summary: summarySlot({ binding, state: summary, tagNameById }),
 				renderRow: (request) => (
 					<RequestRowItem
 						address={parties.addressById.get(request.addressId) ?? null}
