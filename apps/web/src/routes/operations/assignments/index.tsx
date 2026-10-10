@@ -25,8 +25,8 @@ import {
 	RESULT_SKELETON_KEYS,
 	without,
 } from '../../../components/explorer';
+import { StopSequenceMap } from '../../../components/map/stop-sequence-map';
 import { AssignmentStatusBadge } from '../../../components/operations/assignments/assignment-display';
-import { WorklistMap } from '../../../components/operations/worklist-map';
 import { WriteOnly } from '../../../components/write-only';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
@@ -144,7 +144,7 @@ function AssignmentsIndexRoute() {
 	return (
 		<MapSplitPage
 			map={
-				<WorklistMap
+				<StopSequenceMap
 					features={features}
 					fitKey={selectedId ?? undefined}
 					highlightId={highlightId}
@@ -165,7 +165,7 @@ function AssignmentsIndexRoute() {
 							counts={counts}
 						/>
 					)}
-				</WorklistMap>
+				</StopSequenceMap>
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">

@@ -9,18 +9,20 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import type { RouteStopFeature } from '../../hooks/map/use-route-layer';
 import { type RecordType, recordNoun } from '../../lib/record-nouns';
-import { MapCanvas } from '../map';
-import { frameOnMap } from '../map/map-camera';
-import { MapControlButton, MapControlGroup } from '../map/map-control';
+import { frameOnMap } from './map-camera';
+import { MapCanvas } from './map-canvas';
+import { MapControlButton, MapControlGroup } from './map-control';
 
 /**
- * The worklist map: numbered stops in sequence, auto-framed when the worklist
- * changes, with a manual reframe control. Selection and hover flow both ways
- * between here and the stop list through the layer's feature-state. Both
- * ordered worklists render through it; the record type only reaches the
- * strings, through the noun register.
+ * The map for an ordered run of stops: a Route, a Mission or an Assignment.
+ * It draws the numbered stops in sequence, frames them once per `fitKey` after
+ * they resolve, and offers a control that frames them again. Selection and
+ * hover flow both ways between here and the stop list through the layer's
+ * feature-state. It takes the located stops as `features`, the count of every
+ * stop as `stopCount`, and the record type, which reaches only the strings
+ * through the noun register.
  */
-export function WorklistMap({
+export function StopSequenceMap({
 	features,
 	stopCount,
 	recordType,
@@ -34,21 +36,22 @@ export function WorklistMap({
 	readonly features: readonly RouteStopFeature[];
 	/** Total stops including unmapped ones, so "none mapped" can be told apart from "none". */
 	readonly stopCount: number;
-	/** Which worklist this is. Its noun comes from `lib/record-nouns.ts`. */
+	/** Which run this is: `route`, `mission` or `assignment`. Its noun comes from `lib/record-nouns.ts`. */
 	readonly recordType: RecordType;
 	readonly selectedId?: string | null | undefined;
 	readonly highlightId?: string | null | undefined;
 	readonly onSelectStop?: ((id: string | null) => void) | undefined;
 	readonly onHoverStop?: ((id: string | null) => void) | undefined;
-	/** Auto-fit once per value (the worklist id); changing it reframes the map. */
+	/** Auto-fit once per value (the run's id); changing it reframes the map. */
 	readonly fitKey?: string | undefined;
+	/** Floating content layered over the map, such as a Route summary card. */
 	readonly children?: ReactNode;
 }) {
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const lastFitRef = useRef<string | null>(null);
 
-	// Fit once per worklist, and only once coordinates have actually resolved —
-	// the targets stream in separately, so an early fit would frame an empty set.
+	// Fit once per run, and only once coordinates have resolved: the stops
+	// stream in separately, so an early fit would frame an empty set.
 	useEffect(() => {
 		const bounds = boundsOfFeatures(features);
 		if (map === null || bounds === null) {
