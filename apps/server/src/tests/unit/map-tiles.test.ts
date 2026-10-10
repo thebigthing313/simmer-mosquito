@@ -1034,7 +1034,7 @@ describe('registerMapTileRoutes — service request summary', () => {
 		const app = createApp({ summarizeServiceRequests, getServiceRequestDisplayRow });
 
 		const response = await app.request(
-			`/map/service-requests/summary?bbox=-91,35,-90,36&status=open&search=garage&tagId=${tagId}&regionId=${regionId}&dateFrom=2026-01-01&dateTo=2026-09-30&oldest=true`,
+			`/map/service-requests/summary?bbox=-91,35,-90,36&status=open&search=garage&tagId=${tagId}&regionId=${regionId}&dateFrom=2026-01-01&dateTo=2026-09-30&oldest=true&overdueBefore=2026-09-16`,
 		);
 
 		expect(response.status).toBe(200);
@@ -1050,6 +1050,7 @@ describe('registerMapTileRoutes — service request summary', () => {
 				dateFrom: '2026-01-01',
 				dateTo: '2026-09-30',
 				oldestFirst: true,
+				overdueBefore: '2026-09-16',
 			},
 		});
 		expect(getServiceRequestDisplayRow).not.toHaveBeenCalled();
@@ -1059,6 +1060,7 @@ describe('registerMapTileRoutes — service request summary', () => {
 		['a missing bbox', '?status=open'],
 		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
 		['a status that is not open or closed', '?bbox=-91,35,-90,36&status=maybe'],
+		['an overdue cut-off that is not a date', '?bbox=-91,35,-90,36&overdueBefore=14'],
 		['a param no service request filter admits', '?bbox=-91,35,-90,36&isWet=true'],
 	])('refuses %s before reading the service request summary', async (_case, query) => {
 		const summarizeServiceRequests = vi.fn();

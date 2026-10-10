@@ -53,6 +53,10 @@ export interface PublicSettingsFormValues {
 	readonly radiusUnitCode: string;
 	readonly daysBefore: number | null;
 	readonly daysAfter: number | null;
+	/** Whether an open request is ever marked overdue. */
+	readonly overdueOn: boolean;
+	/** How many days an open request may age first; read only while `overdueOn`. */
+	readonly overdueDays: number | null;
 }
 
 export interface ControlMethodListConfig {

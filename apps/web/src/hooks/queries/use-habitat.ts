@@ -7,7 +7,7 @@
  * the opposite; that is `use-habitat-suspense.ts`.
  */
 
-import { caseWhen, eq, isNull } from '@tanstack/react-db';
+import { coalesce, eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
@@ -46,9 +46,7 @@ export function useHabitat(
 					name: habitatNameSelect(habitat),
 					description: habitat.description,
 					typeId: habitat.habitat_type_id,
-					// Guarded on the Habitat's own column, so an unmatched join reads as
-					// `null` rather than as `undefined`.
-					typeName: caseWhen(isNull(habitat.habitat_type_id), null, type.name),
+					typeName: coalesce(type.name, null),
 					addressId: habitat.address_id,
 					isActive: habitat.is_active,
 					isInaccessible: habitat.is_inaccessible,

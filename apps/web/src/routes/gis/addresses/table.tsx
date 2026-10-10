@@ -2,15 +2,15 @@ import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { OutletSimpleLayout } from '../../../components/app-shell';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { AddressFilterFields } from '../../../components/gis/addresses/address-filters';
 import type { AddressListing } from '../../../components/gis/addresses/address-row-parts';
-import { AddressSurfaceSwitch } from '../../../components/gis/addresses/address-surface-switch';
 import {
 	addressFilterCodecs,
 	addressListParams,
+	addressRecordSet,
 	addressTileFilters,
-	sharedAddressSearch,
 } from '../../../components/gis/addresses/addresses-search';
 import { AddressesTable } from '../../../components/gis/addresses/addresses-table';
 import { RecordTableEmpty } from '../../../components/record/record-table-empty';
@@ -20,7 +20,7 @@ import {
 	usePagedMapResource,
 	WHOLE_WORLD_BBOX,
 } from '../../../hooks/explorer/use-paged-map-resource';
-import { useAddressFilterState } from '../../../hooks/gis/use-address-filter-state';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
@@ -37,9 +37,9 @@ const AddressIcon = iconRegistry.actions.searchCheck.icon;
  * box around the whole world, so the two surfaces list one set.
  */
 function AddressesTableRoute() {
-	const binding = useAddressFilterState();
+	const binding = useRecordSetFilters(addressRecordSet, 'table');
 	const { filters, activeCount, clearAll } = binding;
-	const carried = sharedAddressSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const params = mapQueryParams({
 		bbox: WHOLE_WORLD_BBOX,
@@ -56,7 +56,7 @@ function AddressesTableRoute() {
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
-				actions={<AddressSurfaceSwitch current="table" search={carried} />}
+				actions={<RecordSetSwitch current="table" search={routeSearch} set={addressRecordSet} />}
 				description="Every address in the book, by name."
 				icon={AddressIcon}
 				// The Map's title, for the reason its heading gives.

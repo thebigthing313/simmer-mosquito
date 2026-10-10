@@ -12,7 +12,7 @@
  * four round trips through React to assemble one row.
  */
 
-import { caseWhen, coalesce, eq, isNull } from '@tanstack/react-db';
+import { coalesce, eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { collection_lures } from '../../lib/collections/collection_lures';
 import { collection_methods } from '../../lib/collections/collection_methods';
@@ -59,13 +59,11 @@ export function useTrap(
 					trapCode: trap.trap_code,
 					description: trap.description,
 					methodId: trap.collection_method_id,
-					// `collection_method_id` is not nullable, so there is no absent case
-					// to carry — only the join not having resolved yet.
-					methodName: coalesce(method.name, 'Unknown method'),
+					// `collection_method_id` is not nullable, so a `null` name only ever
+					// means the method is not in the client.
+					methodName: coalesce(method.name, null),
 					lureId: trap.collection_lure_id,
-					// Guarded on the Trap's own column, so an unbaited trap reads as
-					// `null` rather than as the `undefined` an unmatched join yields.
-					lureName: caseWhen(isNull(trap.collection_lure_id), null, lure.name),
+					lureName: coalesce(lure.name, null),
 					addressId: trap.address_id,
 					isActive: trap.is_active,
 					latitude: trap.lat,

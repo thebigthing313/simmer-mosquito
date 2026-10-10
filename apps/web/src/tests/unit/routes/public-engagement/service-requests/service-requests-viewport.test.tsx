@@ -364,7 +364,7 @@ describe('the service requests explorer with nothing on the page', () => {
 		renderServiceRequests();
 
 		expect(await screen.findByText('No service requests yet')).toBeTruthy();
-		expect(screen.getByText('Create Service Request is in the More Actions menu.')).toBeTruthy();
+		expect(screen.getByText('Create Service Request is in the More actions menu.')).toBeTruthy();
 	});
 
 	// The sidebar entry, the header's menu item and the pointer read one string
@@ -380,7 +380,7 @@ describe('the service requests explorer with nothing on the page', () => {
 		expect(names).toEqual({
 			sidebar: 'Create Service Request',
 			header: 'Create Service Request',
-			pointer: 'Create Service Request is in the More Actions menu.',
+			pointer: 'Create Service Request is in the More actions menu.',
 		});
 	});
 
@@ -390,7 +390,7 @@ describe('the service requests explorer with nothing on the page', () => {
 		renderServiceRequests();
 
 		expect(await screen.findByText('No service requests yet')).toBeTruthy();
-		expect(screen.queryByText('Create Service Request is in the More Actions menu.')).toBeNull();
+		expect(screen.queryByText('Create Service Request is in the More actions menu.')).toBeNull();
 	});
 
 	// The route opens on this year, and the extent it sends says so. A null

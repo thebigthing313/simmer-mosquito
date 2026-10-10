@@ -565,6 +565,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 				readonly tagIds?: readonly string[];
 				readonly dateFrom?: string;
 				readonly dateTo?: string;
+				readonly overdueBefore?: string;
 			}) => {
 				const result = await MAP_SURFACES['service-requests'].listByBounds(db, {
 					organizationId: mapSurfaceOrganizationIds.own,
@@ -588,6 +589,10 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			expect(await read({ dateFrom: '2026-03-01', dateTo: '2026-03-31' })).toEqual(found);
 			expect(await read({ dateFrom: '2026-03-16' })).toEqual(nothing);
 			expect(await read({ dateTo: '2026-03-13' })).toEqual(nothing);
+			// Overdue is open and received before the cut-off, inside any window.
+			expect(await read({ overdueBefore: '2026-03-20' })).toEqual(found);
+			expect(await read({ overdueBefore: '2026-03-13' })).toEqual(nothing);
+			expect(await read({ overdueBefore: '2026-03-20', dateFrom: '2026-03-16' })).toEqual(nothing);
 
 			await db
 				.updateTable('service_requests')
@@ -597,6 +602,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 
 			expect(await read({ isOpen: true })).toEqual(nothing);
 			expect(await read({ isOpen: false })).toEqual(found);
+			expect(await read({ overdueBefore: '2026-03-20' })).toEqual(nothing);
 		});
 	});
 

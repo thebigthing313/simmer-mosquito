@@ -1,12 +1,15 @@
 import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
+import { addDaysToDateString } from '../../lib/local-date';
 import {
 	choiceParam,
 	choiceSetParam,
+	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
 	flagParam,
 	idSetParam,
 } from '../../lib/search-filters';
+import { defineRecordSet, type RecordSetSurface } from '../explorer/record-set';
 
 // The inspections explorer's URL filter contract, outside the route module so
 // the overview panels can build deep links from the same definition. Every
@@ -59,20 +62,52 @@ export type InspectionsSearch = {
 	readonly regions?: readonly string[];
 };
 
+/** How far back the Map opens, and what Clear all returns it to. */
+const MAP_WINDOW_DAYS = 30;
+
 /**
- * What a move between the two Inspections surfaces carries: the keys named
- * here and nothing else, because the Table's search adds its own sort and the
- * Map has nowhere to put one. It takes the surface's validated search, so a
- * filter at its default stays off the address bar and each surface keeps its
- * own opening window.
+ * What an inspection surface's address with no filter params means. The two
+ * surfaces open on different windows when the address names no dates: the Map
+ * on the last 30 days, because a season of inspections is a solid block of
+ * dots, and the Table on all time, because it shows a page of rows whatever
+ * the reach and says it holds every inspection.
  */
-export function sharedInspectionSearch(search: Record<string, unknown>): Record<string, unknown> {
-	const carried: Record<string, unknown> = {};
-	for (const key of Object.keys(inspectionFilterCodecs)) {
-		const value = search[key];
-		if (value !== undefined) {
-			carried[key] = value;
-		}
-	}
-	return carried;
+function inspectionFilterDefaults(today: string, surface: RecordSetSurface): InspectionFilters {
+	const allTime = surface === 'table';
+	return {
+		from: allTime ? '' : addDaysToDateString(today, -(MAP_WINDOW_DAYS - 1)),
+		to: allTime ? '' : today,
+		water: 'all',
+		density: new Set<LarvalDensity>(),
+		positive: false,
+		types: new Set<string>(),
+		inspectors: new Set<string>(),
+		regions: new Set<string>(),
+	};
 }
+
+/**
+ * The Inspections Map and Table. Both read `/map/inspections`. The Table has
+ * no Region control, so Region is the Map's alone and a switch to the Table
+ * leaves it behind.
+ */
+export const inspectionRecordSet = defineRecordSet({
+	recordType: 'inspection',
+	paths: {
+		map: '/larval-surveillance/inspections',
+		table: '/larval-surveillance/inspections/table',
+	},
+	codecs: inspectionFilterCodecs,
+	defaults: ({ today }, surface) => inspectionFilterDefaults(today, surface),
+	counting: DATE_RANGE_COUNTING,
+	applies: {
+		from: 'both',
+		to: 'both',
+		water: 'both',
+		density: 'both',
+		positive: 'both',
+		types: 'both',
+		inspectors: 'both',
+		regions: 'map',
+	},
+});

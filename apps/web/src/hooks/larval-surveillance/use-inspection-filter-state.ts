@@ -1,34 +1,29 @@
 import type { LarvalDensity } from '@simmer-mosquito/domain';
+import type { RecordSetSurface } from '../../components/explorer/record-set';
 import type {
 	InspectionFilterBinding,
 	InspectionFilterSetters,
 	InspectionFilterState,
-	InspectionOpeningWindow,
 } from '../../components/larval-surveillance/inspection-filters';
 import {
-	type InspectionFilters,
-	inspectionFilterCodecs,
+	inspectionRecordSet,
 	type WaterFilterValue,
 } from '../../components/larval-surveillance/inspections-search';
-import type { FilterCounting } from '../../lib/search-filters';
-import { useSearchFilters } from '../use-search-filters';
-import { useInspectionFilterDefaults } from './use-inspection-filter-defaults';
+import { useRecordSetFilters } from '../explorer/use-record-set-filters';
 
 /**
- * The inspection filter set, held on the URL, as a plain value and a setter
- * per filter.
+ * The inspection filters one surface reads, as a plain value and a setter per
+ * filter: the inspection filter bar's shape over `useRecordSetFilters`.
  */
-export function useInspectionFilterState(
-	counting: FilterCounting<InspectionFilters>,
-	opening: InspectionOpeningWindow,
-): InspectionFilterBinding {
-	const { defaults, today } = useInspectionFilterDefaults(opening);
+export function useInspectionFilterState(surface: RecordSetSurface): InspectionFilterBinding {
 	const {
 		filters: query,
 		setFilters,
 		reset,
 		activeCount,
-	} = useSearchFilters(defaults, inspectionFilterCodecs, counting);
+		defaults,
+		today,
+	} = useRecordSetFilters(inspectionRecordSet, surface);
 
 	const setWetness = (next: WaterFilterValue) => setFilters({ water: next });
 	const setDensities = (next: ReadonlySet<LarvalDensity>) => setFilters({ density: next });

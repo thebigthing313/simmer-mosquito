@@ -3,6 +3,8 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import {
 	type AssignmentListing,
+	assignmentDisplayName,
+	assignmentOwnName,
 	assignmentStatus,
 	formatAssignmentDate,
 	formatDueAt,
@@ -34,6 +36,7 @@ export function AssignmentRow({
 }) {
 	const timeZone = useOrganizationTimeZone();
 	const due = formatDueAt(assignment.dueAt, timeZone);
+	const name = assignmentDisplayName(assignment);
 
 	return (
 		<li
@@ -44,7 +47,7 @@ export function AssignmentRow({
 		>
 			{/* Full-card target selects on the map; the chevron opens the record. */}
 			<button
-				aria-label={`Show ${assignment.assignmentName ?? assignment.assignmentDate} on the map`}
+				aria-label={`Show ${name} on the map`}
 				className="absolute inset-0 z-0 cursor-pointer rounded-lg"
 				onClick={() => onSelect(assignment.id)}
 				type="button"
@@ -52,15 +55,13 @@ export function AssignmentRow({
 			<div className="pointer-events-none relative z-10 flex items-start gap-3 p-3">
 				<div className="min-w-0 flex-1">
 					<div className="flex flex-wrap items-center gap-2">
-						<span className="font-medium text-foreground text-sm">
-							{assignment.assignmentName?.trim() || formatAssignmentDate(assignment.assignmentDate)}
-						</span>
+						<span className="font-medium text-foreground text-sm">{name}</span>
 						<AssignmentStatusBadge status={assignmentStatus(assignment)} />
 					</div>
 					<p className="m-0 mt-1 text-muted-foreground text-xs">
-						{assignment.assignmentName?.trim()
-							? `${formatAssignmentDate(assignment.assignmentDate)} · `
-							: ''}
+						{assignmentOwnName(assignment) === null
+							? ''
+							: `${formatAssignmentDate(assignment.assignmentDate)} · `}
 						{assigneeName ?? 'Unassigned'}
 						{due === null ? '' : ` · due ${due}`}
 					</p>

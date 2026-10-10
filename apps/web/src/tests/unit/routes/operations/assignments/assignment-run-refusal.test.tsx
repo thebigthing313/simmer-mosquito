@@ -66,6 +66,8 @@ const page = vi.hoisted(() => ({
 	listeners: new Set<() => void>(),
 	/** The flags each delete carried, in order. */
 	removals: [] as Readonly<Record<string, boolean>>[],
+	/** The assignees the page can name, by profile id. */
+	names: new Map<string, string>(),
 }));
 
 vi.mock('sonner', async () => {
@@ -111,7 +113,7 @@ vi.mock('../../../../../hooks/operations/use-assignment-stops', () => ({
 }));
 
 vi.mock('../../../../../hooks/operations/use-assignee-options', () => ({
-	useAssigneeOptions: () => ({ options: [], nameById: new Map<string, string>() }),
+	useAssigneeOptions: () => ({ options: [], nameById: page.names }),
 }));
 
 vi.mock('../../../../../hooks/mutations/use-assignment-mutations', async () => {
@@ -172,6 +174,7 @@ beforeEach(() => {
 	resetRefusalHarness();
 	page.counts = { total: 0, completed: 0, skipped: 0, pending: 0, handled: 0 };
 	page.removals.length = 0;
+	page.names.clear();
 });
 
 afterEach(cleanup);
@@ -337,6 +340,17 @@ describe('the assignment run page header', () => {
 		expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
 	});
 
+	it('names an unnamed assignment by its formatted date, without the ISO date or the assignee', async () => {
+		const assignee = '22222222-2222-4222-8222-222222222222';
+		page.names.set(assignee, 'Rivera');
+		page.assignment = assignment({ assignmentName: null, assignedToProfileId: assignee });
+		await renderRefusalPage(AssignmentRun, 'Tue, Aug 4, 2026');
+
+		const title = screen.getByRole('heading', { level: 1 }).textContent ?? '';
+		expect(title).not.toContain('2026-08-04');
+		expect(title).not.toContain('Rivera');
+	});
+
 	it('offers Start and Cancel on an assignment not yet started, with Delete last', async () => {
 		await renderPage(readyAssignment());
 
@@ -398,7 +412,7 @@ describe('the assignment run page header', () => {
 		harness.role = 'collector';
 		await renderPage(completedAssignment());
 
-		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
 	});
 
 	it('draws no menu for a Viewer', async () => {
@@ -406,7 +420,7 @@ describe('the assignment run page header', () => {
 		await renderPage(runningAssignment());
 
 		expect(screen.queryByLabelText('Edit')).toBeNull();
-		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
 	});
 
 	it('deletes the assignment from the last item and lands on Assignment Not Found', async () => {
@@ -453,7 +467,7 @@ describe('Assignment Not Found', () => {
 
 		const back = screen.getByRole('link', { name: 'Back to Assignments' });
 		expect(back.getAttribute('href')).toBe('/operations/assignments');
-		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
 	});
 });
 

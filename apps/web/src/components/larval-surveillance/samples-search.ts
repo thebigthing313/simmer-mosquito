@@ -2,11 +2,13 @@ import type { MapQueryValue } from '../../hooks/explorer/use-paged-map-resource'
 import { addDaysToDateString } from '../../lib/local-date';
 import {
 	choiceParam,
+	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
 	flagParam,
 	idSetParam,
 } from '../../lib/search-filters';
+import { defineRecordSet } from '../explorer/record-set';
 import { whenAny, whenOn, whenText } from '../explorer/tile-filter-params';
 import type { SampleTileFilters } from '../map';
 
@@ -96,16 +98,20 @@ export function sampleListParams(filters: SampleTileFilters): Record<string, Map
 }
 
 /**
- * The params a move between the Map and the Table carries. That is every
- * filter, since both surfaces read the same list endpoint and apply each one.
+ * The Samples Map and Table. Both read `/map/samples` and apply every filter.
  */
-export function sharedSampleSearch(search: Record<string, unknown>): Record<string, unknown> {
-	const carried: Record<string, unknown> = {};
-	for (const key of Object.keys(sampleFilterCodecs)) {
-		const value = search[key];
-		if (value !== undefined) {
-			carried[key] = value;
-		}
-	}
-	return carried;
-}
+export const sampleRecordSet = defineRecordSet({
+	recordType: 'sample',
+	paths: { map: '/larval-surveillance/samples', table: '/larval-surveillance/samples/table' },
+	codecs: sampleFilterCodecs,
+	defaults: ({ today }) => sampleFilterDefaults(today),
+	counting: DATE_RANGE_COUNTING,
+	applies: {
+		from: 'both',
+		to: 'both',
+		status: 'both',
+		species: 'both',
+		nonMosquito: 'both',
+		regions: 'both',
+	},
+});

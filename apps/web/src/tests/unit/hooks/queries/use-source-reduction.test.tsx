@@ -8,8 +8,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useSourceReduction } from '../../../../hooks/queries/use-source-reduction';
 import { installMemoryCollections } from '../../lib/collections/memory-collections';
+import { readRecord } from './read-harness';
 import {
-	readRecord,
 	seedUnresolvedActions,
 	UNRESOLVED_TECHNICIAN_ACTION,
 } from './unresolved-performed-actions';

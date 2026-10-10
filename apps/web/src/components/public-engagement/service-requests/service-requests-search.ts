@@ -1,11 +1,16 @@
+import { serviceRequestOverdueCutoff } from '@simmer-mosquito/domain';
 import { startOfYear } from '../../../lib/date-presets';
 import {
 	choiceParam,
+	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
+	type FilterCounting,
+	flagParam,
 	idSetParam,
 	textParam,
 } from '../../../lib/search-filters';
+import { defineRecordSet, type RecordSetContext } from '../../explorer/record-set';
 import type { ServiceRequestStatusFilter } from './legend';
 
 // The service requests explorer's URL filter contract, outside the route module
@@ -24,6 +29,11 @@ export interface ServiceRequestFilters {
 	readonly from: string;
 	/** Inclusive end of the `request_date` window (`YYYY-MM-DD`), `''` for none. */
 	readonly to: string;
+	/**
+	 * Overdue requests only. Read only while the Organization's threshold is on;
+	 * with it off the flag narrows nothing and no control sets it.
+	 */
+	readonly overdue: boolean;
 }
 
 /**
@@ -38,7 +48,31 @@ export const serviceRequestFilterCodecs: FilterCodecs<ServiceRequestFilters> = {
 	regions: idSetParam,
 	from: dateParam,
 	to: dateParam,
+	overdue: flagParam,
 };
+
+/**
+ * The first request date that is not overdue under the Organization's
+ * threshold, or `null` while the threshold is off. Overdue turns over on the
+ * Organization's calendar rather than the browser's.
+ */
+export function serviceRequestOverdueCutoffFor({
+	today,
+	settings,
+}: RecordSetContext): string | null {
+	return serviceRequestOverdueCutoff(settings.publicEngagement.serviceRequestOverdueDays, today);
+}
+
+/**
+ * How a service request surface counts what is set. An Overdue left on the
+ * address while the Organization's threshold is off narrows nothing, so it is
+ * not counted.
+ */
+function serviceRequestCounting(context: RecordSetContext): FilterCounting<ServiceRequestFilters> {
+	return serviceRequestOverdueCutoffFor(context) === null
+		? { ...DATE_RANGE_COUNTING, uncounted: ['overdue'] }
+		: DATE_RANGE_COUNTING;
+}
 
 /** The order the Map's rail and the Table page in. */
 export type ServiceRequestRailOrder = 'newest' | 'oldest';
@@ -77,27 +111,34 @@ export function serviceRequestFilterDefaults(today: string): ServiceRequestFilte
 		regions: new Set<string>(),
 		from: startOfYear(today),
 		to: today,
+		overdue: false,
 	};
 }
 
 /**
- * The params a move between the Map and the Table carries: status and the date
- * window, which both surfaces read. Search, Tags and Regions stay behind,
- * because the Table has no control for them: one it carried would either sit
- * unapplied, leaving rows on screen the filter says are gone, or narrow the rows
- * with nothing on screen to show it or clear it.
+ * The Service Requests Map and Table. Both read `/map/service-requests`. The
+ * Table has controls for status, the date window and Overdue and none for
+ * Search, Tags or Region, so those three are the Map's alone and a switch to the Table
+ * leaves them behind. The `order` param is not a filter and stays on the
+ * surface that set it.
  */
-const SHARED_KEYS = ['status', 'from', 'to'] as const;
-
-export function sharedServiceRequestSearch(
-	search: Record<string, unknown>,
-): Record<string, unknown> {
-	const carried: Record<string, unknown> = {};
-	for (const key of SHARED_KEYS) {
-		const value = search[key];
-		if (value !== undefined) {
-			carried[key] = value;
-		}
-	}
-	return carried;
-}
+export const serviceRequestRecordSet = defineRecordSet({
+	recordType: 'serviceRequest',
+	paths: {
+		map: '/public-engagement/service-requests',
+		table: '/public-engagement/service-requests/table',
+	},
+	codecs: serviceRequestFilterCodecs,
+	defaults: ({ today }) => serviceRequestFilterDefaults(today),
+	counting: serviceRequestCounting,
+	textSearch: { key: 'search' },
+	applies: {
+		status: 'both',
+		search: 'map',
+		tags: 'map',
+		regions: 'map',
+		from: 'both',
+		to: 'both',
+		overdue: 'both',
+	},
+});
