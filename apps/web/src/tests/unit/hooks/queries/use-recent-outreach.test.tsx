@@ -85,11 +85,15 @@ describe('useRecentOutreachActions', () => {
 		expect(result.current.actions[0]?.technicianName).toBeNull();
 	});
 
-	it('keeps an action whose method was retired, under a stand-in name', async () => {
+	it('keeps an action whose method was retired, with a null name beside its id', async () => {
+		// The surface draws the stand-in; the hook only says the name did not
+		// resolve (#1501).
 		seedRows(outreach_actions, [action('a1', '2026-08-04', { outreach_method_id: 'gone' })]);
 
 		const { result } = await renderRead(() => useRecentOutreachActions(SINCE));
 
-		expect(result.current.actions.map((row) => row.methodName)).toEqual(['Unknown method']);
+		expect(
+			result.current.actions.map((row) => ({ id: row.methodId, name: row.methodName })),
+		).toEqual([{ id: 'gone', name: null }]);
 	});
 });

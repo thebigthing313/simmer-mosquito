@@ -130,7 +130,7 @@ function ApplicationDetailContent({
 	const habitatIds = application.habitatId === null ? [] : [application.habitatId];
 	const habitatNameById = useHabitatNames(habitatIds);
 
-	const productName = application.productName;
+	const productName = application.productName ?? 'Unknown product';
 	const amount = formatMeasure(application.amountApplied, application.unitAbbreviation);
 
 	useBreadcrumbLabel(application.id, productName);

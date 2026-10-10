@@ -91,7 +91,7 @@ function SourceReductionDetailContent({
 	const habitatIds = sourceReduction.habitatId === null ? [] : [sourceReduction.habitatId];
 	const habitatNameById = useHabitatNames(habitatIds);
 
-	const methodName = sourceReduction.methodName;
+	const methodName = sourceReduction.methodName ?? 'Unknown method';
 	const amountLabel = formatMeasure(
 		sourceReduction.sourcesEliminated,
 		sourceReduction.unitAbbreviation,

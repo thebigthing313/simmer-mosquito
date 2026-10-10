@@ -43,7 +43,7 @@ export function BiocontrolMapCard({
 			eyebrow={<MapCardEyebrow date={action.actionDate} recordType="biocontrolAction" />}
 			inset={inset}
 			onClose={onClose}
-			title={action.methodName}
+			title={action.methodName ?? 'Unknown method'}
 			viewDetailLink={(content) => (
 				<Link params={{ id: action.id }} to="/control-operations/biocontrol/$id">
 					{content}
