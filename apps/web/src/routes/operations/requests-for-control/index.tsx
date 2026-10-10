@@ -4,120 +4,37 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
-import { DateRangeFilter } from '../../../components/date-range-filter';
-import {
-	ActiveFilterBar,
-	DateRangeChip,
-	ExplorerMapPage,
-	ExplorerRow,
-	FilterChip,
-	FilterGrid,
-	type FilterOption,
-	MultiSelectFilter,
-	SegmentedFilter,
-	ToggleFilter,
-	without,
-} from '../../../components/explorer';
+import { ExplorerMapPage } from '../../../components/explorer';
 import { MapCanvas } from '../../../components/map';
-import { RequestStatusBadge } from '../../../components/request-status-badge';
+import { RequestControlFilters } from '../../../components/operations/requests-for-control/request-control-filters';
+import { RequestRow } from '../../../components/operations/requests-for-control/request-row';
 import { useControlMethodNames } from '../../../hooks/explorer/use-control-method-names';
-import {
-	type DateRangeBinding,
-	useDateRangeFilters,
-} from '../../../hooks/explorer/use-date-range-filters';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useFlyToSelection } from '../../../hooks/explorer/use-fly-to-selection';
 import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import {
-	CONTROL_TYPES,
-	controlTypeLabel,
-	formatRequestedAt,
-	type RequestListing,
-	requestDisplayName,
-	requestStatus,
-} from '../../../hooks/queries/operations-view';
+	type RequestFilters,
+	requestFilterCodecs,
+	useRequestForControlFilterState,
+} from '../../../hooks/operations/use-request-for-control-filter-state';
+import { type RequestListing, requestStatus } from '../../../hooks/queries/operations-view';
 import { useAssignedRequestIds } from '../../../hooks/queries/use-assigned-request-ids';
 import { useRequestedControlActions } from '../../../hooks/queries/use-requested-control-actions';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { useSearchFilters } from '../../../hooks/use-search-filters';
-import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
 import type { RecordType } from '../../../lib/record-nouns';
 import { recordNoun } from '../../../lib/record-nouns';
-import {
-	choiceParam,
-	DATE_RANGE_COUNTING,
-	dateParam,
-	type FilterCodecs,
-	flagParam,
-	idSetParam,
-	searchValidator,
-} from '../../../lib/search-filters';
+import { searchValidator } from '../../../lib/search-filters';
 
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
 const RECORD_TYPE: RecordType = 'requestedControlAction';
 
-type StatusFilter = 'all' | 'open' | 'resolved';
-
-const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: string }[] = [
-	{ value: 'all', label: 'All' },
-	{ value: 'open', label: 'Open' },
-	{ value: 'resolved', label: 'Resolved' },
-];
-
-const CONTROL_TYPE_OPTIONS: readonly FilterOption[] = CONTROL_TYPES.map((controlType) => ({
-	id: controlType,
-	label: controlTypeLabel(controlType),
-}));
-
-interface RequestFilters {
-	readonly from: string;
-	readonly to: string;
-	readonly status: StatusFilter;
-	readonly types: ReadonlySet<string>;
-	readonly people: ReadonlySet<string>;
-	/** Only requests no live stop on a scheduled or in-progress mission names. */
-	readonly unassigned: boolean;
-}
-
-// `open` is the default and so stays out of the URL: the queue is read to find
-// work that still needs doing, and a link that carries no status should land on
-// that rather than on everything ever raised.
-const FILTER_CODECS: FilterCodecs<RequestFilters> = {
-	from: dateParam,
-	to: dateParam,
-	status: choiceParam(['all', 'open', 'resolved'], 'open'),
-	types: idSetParam,
-	people: idSetParam,
-	unassigned: flagParam,
-};
-
 export const Route = createFileRoute('/operations/requests-for-control/')({
 	component: RequestsForControlRoute,
-	validateSearch: searchValidator(FILTER_CODECS),
+	validateSearch: searchValidator(requestFilterCodecs),
 });
 
-// A request queue is read backwards from today: the default window is the last
-// quarter, long enough that an unresolved request raised weeks ago is still in
-// view without the operator touching a filter.
-const DEFAULT_WINDOW_DAYS = 90;
-
 function RequestsForControlRoute() {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
-	const filterDefaults: RequestFilters = {
-		from: addCalendarDays(today, -(DEFAULT_WINDOW_DAYS - 1)),
-		to: today,
-		status: 'open',
-		types: new Set(),
-		people: new Set(),
-		unassigned: false,
-	};
-	const {
-		filters,
-		setFilters,
-		reset,
-		activeCount: activeFilterCount,
-	} = useSearchFilters(filterDefaults, FILTER_CODECS, DATE_RANGE_COUNTING);
+	const binding = useRequestForControlFilterState();
+	const { filters, reset, activeCount: activeFilterCount } = binding;
 
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -147,21 +64,14 @@ function RequestsForControlRoute() {
 		selectedId === null ? null : (visible.find((r) => r.id === selectedId) ?? null),
 	);
 
-	const dateRange = useDateRangeFilters({ from: filters.from, to: filters.to, today, setFilters });
-
 	return (
 		<ExplorerMapPage
 			activeFilterCount={activeFilterCount}
 			filters={
 				<RequestControlFilters
-					activeFilterCount={activeFilterCount}
-					dateRange={dateRange}
-					defaults={filterDefaults}
-					filters={filters}
+					binding={binding}
 					nameById={nameById}
-					onClearAll={reset}
 					personnelOptions={personnelOptions}
-					setFilters={setFilters}
 				/>
 			}
 			heading={{
@@ -210,11 +120,6 @@ function RequestsForControlRoute() {
 	);
 }
 
-/** A name from a catalog, for a column that may not point at one. */
-function lookup(names: ReadonlyMap<string, string>, id: string | null): string | null {
-	return id === null ? null : (names.get(id) ?? null);
-}
-
 /** The requests that have somewhere to be drawn. */
 function mappable(requests: readonly RequestListing[]): readonly RequestListing[] {
 	return requests.filter((request) => Number.isFinite(request.lat) && Number.isFinite(request.lng));
@@ -230,120 +135,6 @@ function requestFeatures(mapped: readonly RequestListing[]): GeoJSON.GeoJSON | n
 		}),
 	);
 	return features.length === 0 ? null : { type: 'FeatureCollection', features };
-}
-
-/** The filter card's contents, and the chips that undo what is set. */
-function RequestControlFilters({
-	activeFilterCount,
-	dateRange,
-	defaults,
-	filters,
-	nameById,
-	onClearAll,
-	personnelOptions,
-	setFilters,
-}: {
-	readonly activeFilterCount: number;
-	readonly dateRange: DateRangeBinding;
-	readonly defaults: RequestFilters;
-	readonly filters: RequestFilters;
-	readonly nameById: ReadonlyMap<string, string>;
-	readonly onClearAll: () => void;
-	readonly personnelOptions: ReturnType<typeof usePersonnelOptions>['options'];
-	readonly setFilters: (patch: Partial<RequestFilters>) => void;
-}) {
-	return (
-		<>
-			<DateRangeFilter {...dateRange} />
-
-			<SegmentedFilter
-				label="Status"
-				onChange={(next: StatusFilter) => setFilters({ status: next })}
-				options={STATUS_OPTIONS}
-				value={filters.status}
-			/>
-
-			<FilterGrid>
-				<MultiSelectFilter
-					empty="No control types"
-					label="Control type"
-					onChange={(next) => setFilters({ types: next })}
-					options={CONTROL_TYPE_OPTIONS}
-					selected={filters.types}
-				/>
-				<MultiSelectFilter
-					empty="No profiles"
-					label="Requested by"
-					onChange={(next) => setFilters({ people: next })}
-					options={personnelOptions}
-					selected={filters.people}
-				/>
-				<ToggleFilter
-					label="Not yet assigned"
-					onChange={(next) => setFilters({ unassigned: next })}
-					value={filters.unassigned}
-				/>
-			</FilterGrid>
-
-			<RequestControlChips
-				activeFilterCount={activeFilterCount}
-				defaults={defaults}
-				filters={filters}
-				nameById={nameById}
-				onClearAll={onClearAll}
-				setFilters={setFilters}
-			/>
-		</>
-	);
-}
-
-/** What is currently narrowing the list, each chip removing its own filter. */
-function RequestControlChips({
-	activeFilterCount,
-	defaults,
-	filters,
-	nameById,
-	onClearAll,
-	setFilters,
-}: {
-	readonly activeFilterCount: number;
-	readonly defaults: RequestFilters;
-	readonly filters: RequestFilters;
-	readonly nameById: ReadonlyMap<string, string>;
-	readonly onClearAll: () => void;
-	readonly setFilters: (patch: Partial<RequestFilters>) => void;
-}) {
-	if (activeFilterCount === 0) {
-		return null;
-	}
-	return (
-		<ActiveFilterBar onClearAll={onClearAll}>
-			{filters.status === 'open' ? null : (
-				<FilterChip
-					label={`Status: ${filters.status === 'all' ? 'All' : 'Resolved'}`}
-					onRemove={() => setFilters({ status: 'open' })}
-				/>
-			)}
-			<DateRangeChip defaults={defaults} range={filters} setRange={setFilters} />
-			{[...filters.types].map((id) => (
-				<FilterChip
-					key={`type-${id}`}
-					label={controlTypeLabel(id)}
-					onRemove={() => setFilters({ types: without(filters.types, id) })}
-				/>
-			))}
-			{[...filters.people].map((id) => (
-				<FilterChip
-					key={`person-${id}`}
-					label={nameById.get(id) ?? 'Unknown profile'}
-					onRemove={() => setFilters({ people: without(filters.people, id) })}
-				/>
-			))}
-			{filters.unassigned ? (
-				<FilterChip label="Not yet assigned" onRemove={() => setFilters({ unassigned: false })} />
-			) : null}
-		</ActiveFilterBar>
-	);
 }
 
 /**
@@ -373,46 +164,4 @@ function matchesRequester(request: RequestListing, people: ReadonlySet<string>):
 	}
 	const requester = request.requestedByProfileId;
 	return requester !== null && people.has(requester);
-}
-
-function RequestRow({
-	request,
-	methodNameById,
-	personNameById,
-	selectedId,
-	onSelect,
-}: {
-	readonly request: RequestListing;
-	readonly methodNameById: ReadonlyMap<string, string>;
-	readonly personNameById: ReadonlyMap<string, string>;
-	readonly selectedId: string | null;
-	readonly onSelect: (id: string) => void;
-}) {
-	const isSelected = request.id === selectedId;
-	const methodName = lookup(methodNameById, request.recommendedMethodId);
-	const requesterName = lookup(personNameById, request.requestedByProfileId);
-	const subject = requestDisplayName(request);
-	const timeZone = useOrganizationTimeZone();
-	const detail = [
-		controlTypeLabel(request.controlType),
-		methodName,
-		formatRequestedAt(request.requestedAt, timeZone),
-	]
-		.filter((part): part is string => part !== null)
-		.join(' · ');
-
-	return (
-		<ExplorerRow
-			badges={<RequestStatusBadge status={requestStatus(request)} />}
-			detailLabel="Open request"
-			detailLink={{ to: '/operations/requests-for-control/$id', params: { id: request.id } }}
-			isSelected={isSelected}
-			onSelect={() => onSelect(request.id)}
-			personnel={requesterName ?? 'No requester recorded'}
-			selectLabel={`Show ${subject} on the map`}
-			subtitle={detail}
-			title={subject}
-			titleLink={{ to: '/operations/requests-for-control/$id', params: { id: request.id } }}
-		/>
-	);
 }

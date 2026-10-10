@@ -933,6 +933,59 @@ Comments does, `MissionNotificationCount`, so a mission with nobody on the list
 reads as one before the click. The assignment page passes nothing and keeps
 exactly Stops and Comments.
 
+#### MissionFilterBar and AssignmentFilterBar
+
+The two worklists' filters, moved out of their index routes with the rest of
+what those routes declared (#1481). Each takes its page's filter binding and
+computes the date window's controls itself, on the schedule presets. The chip
+bar draws while `activeCount` is above zero, which counts a window moved off
+the default as one filter (#1453), and the Dates chip writes
+`binding.defaults` back rather than a range the route computed a second time.
+The two stay separate because the records share no status vocabulary, and
+Missions filters on control type where Assignments does not. One chip bar
+drawn from a filter declaration is #1421.
+
+#### MissionResults and AssignmentResults
+
+The empty state reads `hasFilters`, the set filters alone, and not the window.
+Its copy already says "in this date range", so a moved window with no set
+filter is still "No Missions Scheduled" with the create button, where a set
+filter turns it into "No Matching Missions" with none. The route computes
+`hasFilters` because the chip bar counts the window and this does not.
+
+#### MissionRow and AssignmentRow
+
+The whole card is a button that selects the record on the map, and the
+chevron is the only link into the record, so a click on the list never leaves
+the page by accident. The two rows read their stop summary from
+`stopSummary` in `operations-display.tsx`. The Assignments route used to
+carry a copy of it typed over `ProgressCounts`, which has the same fields as
+`MissionProgressCounts`.
+
+#### SelectedMissionCard and SelectedAssignmentCard
+
+The card floats over the worklist map for the selected record, so the map
+says which worklist its stops belong to. Only the assignment card carries
+Open and Edit buttons; the mission card leaves that to the row's chevron, as
+it did inside the route.
+
+#### RequestControlFilters
+
+The Requests for Control filter card and its chips, moved out of the index
+route (#1481). It takes the binding from `useRequestForControlFilterState`,
+and its Dates chip resets to `binding.defaults`. The route used to hand the
+card the defaults object it had built for `useSearchFilters`, which was the
+same object; the binding makes that one value by construction. The status
+chip is the only one whose default is not empty, so removing it writes
+`open` back rather than clearing the field.
+
+#### RequestRow
+
+An `ExplorerRow`, since this page is an explorer rather than a worklist: the
+title links to the request and the row selects it on the map. The subtitle
+drops the recommended method when the request names none, rather than
+drawing an empty slot between two separators.
+
 ### overview
 
 One page component at three grains, `OverviewPage`, drawn by `routes/today`,
