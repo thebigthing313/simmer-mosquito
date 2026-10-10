@@ -1,14 +1,10 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import type { MissionRun } from '../../../hooks/operations/use-mission-run';
-import {
-	controlTypeLabel,
-	formatScheduledStart,
-	missionDisplayName,
-} from '../../../hooks/queries/operations-view';
+import { controlTypeLabel, missionDisplayName } from '../../../hooks/queries/operations-view';
 import type { MissionRecord } from '../../../hooks/queries/use-mission';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { DetailPageHeader } from '../../record/detail-page-header';
 import { formatOperationalDate } from '../operations-data';
 import { MissionStatusBadge, StopProgressSummary, stopSummary } from '../operations-display';
@@ -38,10 +34,10 @@ export function MissionDetailHeader({
 	readonly run: MissionRun;
 	readonly askDelete: AskAcknowledged;
 }) {
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const missionWrites = useMissionMutations();
 	const phase = missionPhase(mission.status);
-	const name = missionDisplayName(mission, timeZone);
+	const name = missionDisplayName(mission, clock);
 
 	return (
 		<>
@@ -78,7 +74,7 @@ export function MissionDetailHeader({
 						<p className="m-0">
 							{controlTypeLabel(mission.controlType)}
 							{run.methodName === null ? '' : ` · ${run.methodName}`}
-							{` · ${formatScheduledStart(mission.scheduledStartAt, timeZone)}`}
+							{` · ${clock.formatInstant(mission.scheduledStartAt, 'dateTime')}`}
 						</p>
 						<p className="m-0">
 							{run.assigneeName ?? 'Unassigned'} · {stopSummary(run.counts)}

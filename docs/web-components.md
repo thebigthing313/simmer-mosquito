@@ -1071,7 +1071,7 @@ lands the page on Assignment Not Found.
 
 A due time fills an empty due date once and never follows a later
 `assignmentDate` change (#1005). Anchoring the pair to the browser's clock read
-back through `formatDueAt`, which shows the organization's, as a time nobody
+back through the clock's `dueAt` style, which shows the organization's, as a time nobody
 set; hydrating the time alone moved a deadline on another day onto the
 assignment date at the next save. The route copy's default name is
 `North loop, Sep 15, 2026` (#1007), a comma rather than a dash because

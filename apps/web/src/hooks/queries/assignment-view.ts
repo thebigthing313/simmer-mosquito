@@ -129,35 +129,3 @@ export function formatAssignmentDate(date: string): string {
 		year: 'numeric',
 	});
 }
-
-/**
- * A due time, shown only when one is set, on the organization's clock.
- *
- * `dueAt` is an instant; "due 4pm" is only a fact once a zone says which 4pm.
- * A worklist due at end of shift has to read the same to the crew working it
- * and to the supervisor checking on it from elsewhere.
- *
- * The opposite treatment to {@link formatAssignmentDate} directly above it, and
- * deliberately: `assignment_date` is a `date` column and names a day, `due_at` is
- * a `timestamptz` and names a moment. Naming a zone for the first would introduce
- * the shift that naming one for the second removes.
- */
-export function formatDueAt(
-	dueAt: Date | string | null,
-	timeZone: string | undefined,
-): string | null {
-	if (dueAt === null) {
-		return null;
-	}
-	const parsed = dueAt instanceof Date ? dueAt : new Date(dueAt);
-	if (Number.isNaN(parsed.getTime())) {
-		return null;
-	}
-	return parsed.toLocaleString('en-US', {
-		month: 'short',
-		day: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit',
-		...(timeZone === undefined ? {} : { timeZone }),
-	});
-}

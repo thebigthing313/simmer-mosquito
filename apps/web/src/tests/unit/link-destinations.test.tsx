@@ -1232,7 +1232,6 @@ describe('the Daily Work log', () => {
 				message={null}
 				onSelect={() => {}}
 				selectedKey={null}
-				timeZone={undefined}
 			/>,
 		);
 

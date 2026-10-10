@@ -12,7 +12,7 @@ import { useMissionItemMutations } from '../../../hooks/mutations/use-mission-it
 import { useMissionStopViews } from '../../../hooks/operations/use-mission-stop-views';
 import { missionDisplayName } from '../../../hooks/queries/operations-view';
 import type { MissionRecord } from '../../../hooks/queries/use-mission';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { LocationAddressField, LocationBand } from '../../forms/location-band';
 import { MapCanvas } from '../../map';
@@ -41,7 +41,7 @@ export function AddMissionStopForm({
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const stopWrites = useMissionItemMutations();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 
 	const [name, setName] = useState('');
 	const [addressId, setAddressId] = useState<string | null>(null);
@@ -102,7 +102,7 @@ export function AddMissionStopForm({
 			gap="tight"
 			header={{
 				title: 'Add a Stop',
-				description: addStopDescription(missionDisplayName(mission, timeZone)),
+				description: addStopDescription(missionDisplayName(mission, clock)),
 				backTo: '/operations/missions/$id',
 				backParams: { id: mission.id },
 				backLabel: 'Back to mission',

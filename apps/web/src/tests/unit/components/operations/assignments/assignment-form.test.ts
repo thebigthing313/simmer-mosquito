@@ -13,7 +13,7 @@ import {
 /**
  * A deadline is typed as a day and a wall time and stored as an instant, and
  * the two are only the same fact once a zone says which. The form wrote and
- * re-read that pair in the *browser's* zone while `formatDueAt` shows it in
+ * re-read that pair in the *browser's* zone while `formatInstant` shows it in
  * the *organization's*, so a dispatcher working from another zone set one time
  * and the crew read another. Then it read only the time back, so a deadline on
  * any day but the assignment date came back on the assignment date and the
