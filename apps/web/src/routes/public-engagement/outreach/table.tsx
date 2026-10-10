@@ -2,18 +2,18 @@ import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { OutletSimpleLayout } from '../../../components/app-shell';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
 	OUTREACH_WINDOW_DAYS,
 	outreachFilterCodecs,
 	outreachListParams,
+	outreachRecordSet,
 	outreachTileFilters,
-	sharedOutreachSearch,
 } from '../../../components/public-engagement/outreach/outreach-actions-search';
 import { OutreachActionsTable } from '../../../components/public-engagement/outreach/outreach-actions-table';
 import { OutreachFilterFields } from '../../../components/public-engagement/outreach/outreach-filters';
 import type { OutreachListRow } from '../../../components/public-engagement/outreach/outreach-row-parts';
-import { OutreachSurfaceSwitch } from '../../../components/public-engagement/outreach/outreach-surface-switch';
 import { RecordTableEmpty } from '../../../components/record/record-table-empty';
 import { RecordTableUnavailable } from '../../../components/record/record-table-unavailable';
 import {
@@ -41,7 +41,7 @@ const OutreachIcon = iconRegistry.entities.outreachAction.icon;
 function OutreachActionsTableRoute() {
 	const binding = useOutreachFilterState();
 	const { filters, activeCount, reset } = binding;
-	const carried = sharedOutreachSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const params = mapQueryParams({
 		bbox: WHOLE_WORLD_BBOX,
@@ -58,7 +58,7 @@ function OutreachActionsTableRoute() {
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
-				actions={<OutreachSurfaceSwitch current="table" search={carried} />}
+				actions={<RecordSetSwitch current="table" search={routeSearch} set={outreachRecordSet} />}
 				description="Outreach actions in the date window, newest first."
 				icon={OutreachIcon}
 				title={recordNoun('outreachAction').titleMany}

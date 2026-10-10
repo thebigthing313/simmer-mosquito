@@ -4,12 +4,13 @@ import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import {
 	outreachFilterCodecs,
 	outreachListParams,
+	outreachRecordSet,
 	outreachTileFilters,
-	sharedOutreachSearch,
 } from '../../../components/public-engagement/outreach/outreach-actions-search';
 import {
 	OutreachFilterChips,
@@ -21,7 +22,6 @@ import {
 	outreachTechnicianName,
 } from '../../../components/public-engagement/outreach/outreach-row-parts';
 import { outreachSummaryGroupings } from '../../../components/public-engagement/outreach/outreach-summary';
-import { OutreachSurfaceSwitch } from '../../../components/public-engagement/outreach/outreach-surface-switch';
 import { OutreachMapCard } from '../../../components/public-engagement/outreach-map-card';
 import { formatReach } from '../../../components/public-engagement/public-engagement-display';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
@@ -55,9 +55,7 @@ function OutreachExplorerRoute() {
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
 	const filters = outreachTileFilters(query);
-	// What a move to the Table takes with it: every filter, since the Table
-	// applies each one.
-	const carried = sharedOutreachSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 	const {
 		rows,
 		total,
@@ -81,7 +79,9 @@ function OutreachExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
-			actions={<OutreachSurfaceSwitch compact current="map" search={carried} />}
+			actions={
+				<RecordSetSwitch compact current="map" search={routeSearch} set={outreachRecordSet} />
+			}
 			activeFilterCount={activeFilterCount}
 			filters={<OutreachFilterFields binding={binding} />}
 			heading={{
