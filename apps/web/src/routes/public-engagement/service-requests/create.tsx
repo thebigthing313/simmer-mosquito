@@ -16,8 +16,7 @@ import { newRecordId } from '../../../hooks/mutations/shared';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
 import { useServiceRequestMutations } from '../../../hooks/mutations/use-service-request-mutations';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { todayInTimeZone } from '../../../lib/local-date';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { recordNoun } from '../../../lib/record-nouns';
 import {
 	addressSeedSearchSchema,
@@ -58,8 +57,8 @@ function CreateServiceRequestRoute() {
 	// The day the public reported it is an operational date, so it is the
 	// organization's day rather than the browser's — an intake taker keying in a
 	// call at 11pm files it under the day the organization is still working.
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 
 	const [requestId] = useState(() => newRecordId());
 	const [contactId] = useState(() => newRecordId());

@@ -13,8 +13,7 @@ import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useDashboard } from '../../hooks/dashboard/use-dashboard';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { todayInTimeZone } from '../../lib/local-date';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { ActivityStrip } from './activity-strip';
 import { OperationsBacklog, SurveillanceBacklog } from './dashboard-queues';
 import { PeopleTodayPanel } from './people-today-panel';
@@ -22,8 +21,7 @@ import { PeopleTodayPanel } from './people-today-panel';
 const HomeIcon = iconRegistry.generic.home.icon;
 
 export function DashboardPage() {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const today = useOrganizationClock().today();
 	const server = useDashboard();
 
 	return (
@@ -34,10 +32,10 @@ export function DashboardPage() {
 			)}
 		>
 			<PageHeader icon={HomeIcon} title="Dashboard" />
-			<ActivityStrip timeZone={timeZone} today={today} />
+			<ActivityStrip today={today} />
 			<div className="grid gap-5 @5xl:grid-cols-2">
-				<SurveillanceBacklog server={server} timeZone={timeZone} today={today} />
-				<OperationsBacklog server={server} timeZone={timeZone} today={today} />
+				<SurveillanceBacklog server={server} today={today} />
+				<OperationsBacklog server={server} today={today} />
 			</div>
 			<PeopleTodayPanel today={today} />
 		</div>

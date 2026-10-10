@@ -35,8 +35,8 @@ import { useDailyWorkDay } from '../../hooks/daily-work/use-daily-work-day';
 import { useCatalogOptions } from '../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../hooks/explorer/use-explorer-panel';
 import { catalogs } from '../../hooks/queries/catalog-register';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { formatLocalDate, parseLocalDate, todayInTimeZone } from '../../lib/local-date';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
+import { formatLocalDate, parseLocalDate } from '../../lib/local-date';
 import { searchValidator } from '../../lib/search-filters';
 
 /**
@@ -78,17 +78,17 @@ function DailyWorkRoute() {
 }
 
 function DailyWorkPage({ profileId, name }: { readonly profileId: string; readonly name: string }) {
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	// The organization's today, not the browser's. A supervisor two zones away
 	// opens the same day the collector on the road is filling in.
-	const today = todayInTimeZone(timeZone);
+	const today = clock.today();
 	const { day, setDay } = useDailyWorkDay(today);
 	const lookups = useActivityLookups();
 
 	// The whole Organization's day, filtered to this person: the same subsets
 	// the Dashboard's people table opens, so stepping between people costs
 	// nothing and a record moves here the moment it syncs.
-	const activity = useDayActivity(day, timeZone);
+	const activity = useDayActivity(day, clock.zone);
 	const items = activity.entries.filter((entry) => entry.profileId === profileId);
 	// Changing the day needs no explicit reset: the selection resolves by key
 	// against the entries on screen, so a key the new day does not contain is

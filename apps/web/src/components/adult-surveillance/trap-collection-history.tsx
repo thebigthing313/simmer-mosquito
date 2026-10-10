@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { TrapListing } from '../../hooks/queries/use-active-traps';
 import { useSpeciesNames } from '../../hooks/queries/use-species-names';
 import { useTrapCollections } from '../../hooks/queries/use-trap-collections';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { CollectionYears } from './collection-years';
 import { type DirectoryCollection, groupByYear } from './trap-directory-data';
 import { TrapHeader } from './trap-header';
@@ -17,11 +17,11 @@ const DEFAULT_SEASONS = 3;
 export function TrapCollectionHistory({ trap }: { readonly trap: TrapListing }) {
 	// Older seasons are asked for, not loaded up front, see DEFAULT_SEASONS.
 	const [allSeasons, setAllSeasons] = useState(false);
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 
 	const { collections, isReady, isError } = useTrapCollections(trap.id, {
 		seasons: allSeasons ? null : DEFAULT_SEASONS,
-		timeZone,
+		timeZone: clock.zone,
 	});
 
 	const years = groupByYear(collections as readonly DirectoryCollection[]);

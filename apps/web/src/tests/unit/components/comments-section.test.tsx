@@ -20,6 +20,13 @@ const SOMEONE_ELSE = 'profile-2';
 
 let role: SimmerRole = 'manager';
 let thread: RecordComment[] = [];
+// The Organization clock's now, pinned the way `TODAY_OVERRIDE` pins it. Null
+// leaves it on the device clock.
+let pinnedNow: Date | null = null;
+
+vi.mock('../../../lib/get-today', () => ({
+	getToday: () => pinnedNow ?? new Date(),
+}));
 
 vi.mock('../../../hooks/use-auth-snapshot', () => ({
 	useAuthSnapshot: () => signedInSnapshotAs(role, 'org-1', ME),
@@ -46,6 +53,7 @@ afterEach(() => {
 	cleanup();
 	role = 'manager';
 	thread = [];
+	pinnedNow = null;
 });
 
 function comment(overrides: Partial<RecordComment>): RecordComment {
@@ -118,6 +126,19 @@ describe('the controls on a comment', () => {
 		renderThread();
 
 		const row = within(rowFor('Old.'));
+		expect(row.queryByRole('button', { name: 'Edit comment' })).toBeNull();
+		expect(row.queryByRole('button', { name: 'Delete comment' })).toBeNull();
+	});
+
+	it('closes the window on the Organization clock rather than the device clock', () => {
+		role = 'collector';
+		const written = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+		// Two days old by the device, 31 by the Organization's clock.
+		pinnedNow = new Date(written.getTime() + 31 * 24 * 60 * 60 * 1000);
+		thread = [comment({ commentText: 'Mine.', commentedByProfileId: ME, commentedAt: written })];
+		renderThread();
+
+		const row = within(rowFor('Mine.'));
 		expect(row.queryByRole('button', { name: 'Edit comment' })).toBeNull();
 		expect(row.queryByRole('button', { name: 'Delete comment' })).toBeNull();
 	});

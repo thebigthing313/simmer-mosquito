@@ -31,8 +31,8 @@ import {
 	type ServiceRequestEventKind,
 	useServiceRequestFeed,
 } from '../../hooks/queries/use-service-request-feed';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../../lib/local-date';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
+import { addDaysToDateString, formatMonthDay } from '../../lib/local-date';
 
 export const Route = createFileRoute('/public-engagement/')({
 	component: PublicEngagementOverviewRoute,
@@ -60,8 +60,8 @@ const PREVIEW_COUNT = 6;
 const FEED_PREVIEW_COUNT = 20;
 
 function PublicEngagementOverviewRoute() {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const since = addDaysToDateString(today, -(OUTREACH_ACTIVITY_WINDOW_DAYS - 1));
 	const feedSince = addDaysToDateString(today, -(SERVICE_REQUEST_FEED_WINDOW_DAYS - 1));
 
@@ -284,8 +284,8 @@ function ServiceRequestActivityPanel({
 	readonly requests: ReturnType<typeof useOrganizationServiceRequests>;
 	readonly since: string;
 }) {
-	const timeZone = useOrganizationTimeZone();
-	const feed = useServiceRequestFeed(requests.requests, since, timeZone);
+	const clock = useOrganizationClock();
+	const feed = useServiceRequestFeed(requests.requests, since, clock.zone);
 	const profileNameById = useProfileNames();
 	const titleById = new Map(
 		requests.requests.map((request) => [request.id, serviceRequestTitle(request)] as const),

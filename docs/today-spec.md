@@ -489,7 +489,7 @@ and the interval are the cadence, one query is one timer. No Electric half,
 because actions and collections are on-demand and date-bounded and a five-year
 window cannot come off the sync path.
 
-The zone for `todayInTimeZone` comes from `useOrganizationTimeZone`, and the
+The client's today is `useOrganizationClock().today()`, and the
 response's `today` is what the picker's upper bound and the partial test read,
 so a client whose clock disagrees with the server draws the server's day.
 

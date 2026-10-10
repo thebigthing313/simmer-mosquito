@@ -14,7 +14,7 @@ import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import { collectionEffectiveDate } from '../../../hooks/queries/collection-day';
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { formatListDate } from '../../../lib/local-date';
 import { LinkedTableRow } from '../../record/linked-table-row';
 import {
@@ -32,7 +32,7 @@ export function CollectionsTable({ rows }: { readonly rows: readonly CollectionL
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
 	const trapNameById = useTrapNames();
 	const personnel = useCatalogOptions(catalogs.profiles);
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	return (
 		<div className="rounded-md border border-border/50">
 			<Table>
@@ -51,7 +51,7 @@ export function CollectionsTable({ rows }: { readonly rows: readonly CollectionL
 				<TableBody>
 					{rows.map((row) => (
 						<CollectionTableRow
-							effectiveDate={collectionEffectiveDate(row, timeZone)}
+							effectiveDate={collectionEffectiveDate(row, clock.zone)}
 							key={row.id}
 							label={collectionRowLabel(row, trapNameById)}
 							methodName={methodNameById.get(row.collectionMethodId) ?? 'Unknown method'}

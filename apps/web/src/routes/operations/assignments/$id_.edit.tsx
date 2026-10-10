@@ -66,7 +66,7 @@ import { assignmentDisplayName } from '../../../hooks/queries/assignment-view';
 import { useStopOrder } from '../../../hooks/stop-order/use-stop-order';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { ASSIGNMENT_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -98,7 +98,7 @@ export const Route = createFileRoute('/operations/assignments/$id_/edit')({
 function AssignmentPlanRoute() {
 	const { id } = Route.useParams();
 	const auth = useAuthSnapshot();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const identity = auth?.authenticated === true ? auth.localIdentity : null;
 	const organizationId = identity?.organizationId ?? null;
 
@@ -136,7 +136,7 @@ function AssignmentPlanRoute() {
 	const displayName = assignment === null ? null : assignmentDisplayName(assignment);
 	useBreadcrumbLabel(id, displayName);
 
-	const savedDetails = assignment === null ? null : toAssignmentDetails(assignment, timeZone);
+	const savedDetails = assignment === null ? null : toAssignmentDetails(assignment, clock.zone);
 	const values = detailDraft ?? savedDetails;
 	const isDirty =
 		detailDraft !== null &&
@@ -193,7 +193,7 @@ function AssignmentPlanRoute() {
 				assignmentName: assignmentNameOrNull(detailDraft),
 				assignmentDate: detailDraft.assignmentDate,
 				assignedToProfileId: assigneeOrNull(detailDraft),
-				dueAt: toDueAt(detailDraft, timeZone),
+				dueAt: toDueAt(detailDraft, clock.zone),
 			});
 			setDetailDraft(null);
 		} catch (cause) {

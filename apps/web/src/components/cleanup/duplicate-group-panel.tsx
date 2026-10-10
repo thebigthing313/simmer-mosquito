@@ -20,7 +20,7 @@ import type {
 	DuplicateRecord,
 	DuplicateRecordType,
 } from '../../hooks/merge-candidate-view';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { WriteOnly } from '../write-only';
 import { type MergeFieldValue, mergeFieldSummary } from './merge-field-plan';
 import {
@@ -149,7 +149,7 @@ function CandidateRow({
 }) {
 	const radioId = useId();
 	const facts = candidateFacts(recordType, record);
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 
 	return (
 		<Item size="sm" variant={isSurvivor ? 'muted' : 'default'}>
@@ -182,7 +182,7 @@ function CandidateRow({
 						))}
 					</dl>
 				)}
-				<ItemDescription>Added {addedOn(record.createdAt, timeZone)}</ItemDescription>
+				<ItemDescription>Added {addedOn(record.createdAt, clock.zone)}</ItemDescription>
 			</ItemContent>
 			<ItemActions className="self-start">
 				<Button asChild size="sm" variant="ghost">

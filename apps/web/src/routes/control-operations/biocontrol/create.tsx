@@ -17,7 +17,7 @@ import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useMissionStopExecution } from '../../../hooks/use-mission-stop-execution';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -49,7 +49,7 @@ function CreateBiocontrolActionRoute() {
 	// completes it in the same transaction.
 	const mission = useMissionStopExecution(search);
 	const navigate = useNavigate();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const methods = useCatalogRoster(catalogs.biocontrolMethods);
 	const { all: units } = useUnitLabels();
@@ -122,7 +122,7 @@ function CreateBiocontrolActionRoute() {
 				biocontrolMethods={methods}
 				canSubmit={canSubmit}
 				defaultValues={{
-					...defaultBiocontrolFormValues(timeZone),
+					...defaultBiocontrolFormValues(clock.zone),
 					...seededValues({ habitatId: search.habitatId }),
 				}}
 				header={{

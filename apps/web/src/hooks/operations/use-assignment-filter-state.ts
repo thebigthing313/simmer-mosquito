@@ -1,5 +1,4 @@
 import { datePresetRange, SCHEDULE_WINDOW } from '../../lib/date-presets';
-import { todayInTimeZone } from '../../lib/local-date';
 import {
 	choiceSetParam,
 	DATE_RANGE_COUNTING,
@@ -9,7 +8,7 @@ import {
 	idSetParam,
 } from '../../lib/search-filters';
 import { ASSIGNMENT_STATUSES, type AssignmentStatus } from '../queries/assignment-view';
-import { useOrganizationTimeZone } from '../use-organization-time-zone';
+import { useOrganizationClock } from '../use-organization-clock';
 import { useSearchFilters } from '../use-search-filters';
 
 /** The Assignments filter state, keyed by the param each field appears under. */
@@ -52,8 +51,8 @@ function assignmentFilterDefaults(today: string): AssignmentFilters {
  * one active filter.
  */
 export function useAssignmentFilterState(): FilterBinding<AssignmentFilters> {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const defaults = assignmentFilterDefaults(today);
 	const { filters, setFilters, reset, activeCount } = useSearchFilters(
 		defaults,

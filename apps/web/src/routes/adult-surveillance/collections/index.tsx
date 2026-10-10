@@ -36,7 +36,7 @@ import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import { collectionEffectiveDate } from '../../../hooks/queries/collection-day';
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
@@ -155,8 +155,8 @@ function CollectionListItem({
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
-	const timeZone = useOrganizationTimeZone();
-	const effectiveDate = collectionEffectiveDate(row, timeZone);
+	const clock = useOrganizationClock();
+	const effectiveDate = collectionEffectiveDate(row, clock.zone);
 	/*
 	 * Bycatch only. Trap out, Problem reported and Zero result are the
 	 * collection's status, which the dot at the left of the row draws in the

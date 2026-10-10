@@ -30,8 +30,8 @@ import { useOrganizationSettings } from '../../hooks/queries/use-organization-se
 import { useRecentBiocontrolActions } from '../../hooks/queries/use-recent-biocontrol-actions';
 import { useRecentSourceReductions } from '../../hooks/queries/use-recent-source-reductions';
 import { useUnitLabels } from '../../hooks/queries/use-unit-labels';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { addDaysToDateString, todayInTimeZone } from '../../lib/local-date';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
+import { addDaysToDateString } from '../../lib/local-date';
 import { recordNoun } from '../../lib/record-nouns';
 import { groupRows, type RowGroup } from '../../lib/row-groups';
 
@@ -55,8 +55,8 @@ export const Route = createFileRoute('/control-operations/')({
 });
 
 function ControlOperationsOverviewRoute() {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const since = addDaysToDateString(today, -(CONTROL_ACTIVITY_WINDOW_DAYS - 1));
 
 	// Which unit the organization wants each kind of quantity reported in. Falls

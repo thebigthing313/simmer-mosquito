@@ -49,12 +49,12 @@ import { useAssignmentStops } from '../../../hooks/operations/use-assignment-sto
 import { useCommandRunner } from '../../../hooks/operations/use-command-runner';
 import { assignmentDisplayName } from '../../../hooks/queries/assignment-view';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import {
 	ASSIGNMENT_DELETE_REFUSALS,
 	STOP_RECORD_REFUSALS,
 } from '../../../lib/acknowledgement-copy';
-import { operationalDayAsTimestamp, todayInTimeZone } from '../../../lib/local-date';
+import { operationalDayAsTimestamp } from '../../../lib/local-date';
 
 const AssignmentIcon = iconRegistry.entities.vehicle.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
@@ -411,7 +411,7 @@ function CollectStopButton({
 		askable: STOP_RECORD_REFUSALS,
 		ask: true,
 	});
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const { collect } = useCollectionMutations();
 
 	return (
@@ -420,11 +420,14 @@ function CollectStopButton({
 				Collect
 			</Button>
 			<CollectCollectionDialog
-				defaultDate={todayInTimeZone(timeZone)}
+				defaultDate={clock.today()}
 				onConfirm={(collectedAt) => {
 					setOpen(false);
-					void runAcknowledged((acknowledgements) =>
-						collect({
+					void runAcknowledged((acknowledgements) => {
+						// The Organization's now, because this stamp decides which day the
+						// collection counts on, and the clamp below measures against it.
+						const now = clock.now();
+						return collect({
 							acknowledgements,
 							// The stop this visit closes — which is what makes the write a
 							// `fieldWork.*` command rather than an ordinary collect.
@@ -432,10 +435,10 @@ function CollectStopButton({
 							// Midday on the organization's clock, clamped back to now on the
 							// same day — the same stamp the collection forms use, and the one
 							// every surface reads the day back with.
-							collectedAt: operationalDayAsTimestamp(collectedAt, timeZone) ?? new Date(),
+							collectedAt: operationalDayAsTimestamp(collectedAt, clock.zone, now) ?? now,
 							collectionId,
-						}),
-					);
+						});
+					});
 				}}
 				onOpenChange={setOpen}
 				open={open}
