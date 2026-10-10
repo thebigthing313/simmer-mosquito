@@ -1683,8 +1683,8 @@ selection, its fallback to the first visible row, the `Unassigned` assignee
 option and the status and assignee filter (#1432). The hook owns that much
 and stops there. The load call and the stops call stay at the route, because
 missions read stop views and assignments read features and counts together,
-and each route keeps its rows, its card and its filter bar, since the two
-records share no status vocabulary.
+and each page keeps its own rows, card and filter bar under
+`components/operations/`, since the two records share no status vocabulary.
 
 The selection is computed on read rather than held in an effect: a filter, a
 date change or a delete that takes the picked row out of the list leaves the
@@ -1693,6 +1693,42 @@ one is back. Status is matched over the loaded rows rather than in the query
 because both records derive it from three nullable timestamps. A filter one
 page has and the other does not, control type on Missions, goes in `matches`
 rather than in a third set the hook would have to name.
+
+#### useMissionFilterState
+
+The Missions index reads its filters off the URL through this, the way the
+date-windowed explorers read theirs through `useBiocontrolFilterState` and its
+neighbours (#1481). Before that the route built its defaults, called
+`useSearchFilters` itself and computed the default window a second time for
+the Dates chip, so the chip and the reset read two objects that agreed only by
+copy. The binding carries `defaults`, and the chip reads that.
+
+The page opens on `SCHEDULE_WINDOW`, the last week and the next two, since a
+worklist is a schedule rather than a history. The filter shape and its codecs
+sit in the hook's own module, because the route's `validateSearch` reads the
+same codec object the hook does. The status codec reads `MISSION_STATUSES`,
+which sits beside `MISSION_STATUS_LABELS` with `MissionStatus` derived from it,
+the shape #1466 gave Assignments, so the status popover narrows a selection
+against the list rather than casting it.
+
+There are three of these hooks and not one generic one because the pages open
+on different windows with different defaults. A generic record-set filter hook
+is #1419's question.
+
+#### useAssignmentFilterState
+
+The Assignments index's filters, for the reasons `useMissionFilterState`
+gives, over the same schedule window (#1481). The status codec reads
+`ASSIGNMENT_STATUSES` from `assignment-view.ts`, which #1466 put there.
+
+#### useRequestForControlFilterState
+
+The Requests for Control index's filters, for the reasons
+`useMissionFilterState` gives (#1481). This page opens on the last 90 days
+with the status on `open`, since the queue is read backwards from today to
+find work still waiting, and `open` stays out of the URL as the codec's
+fallback. The status vocabulary is a list with the type derived from it, as
+the two worklists' are.
 
 #### useMissionItemShapes
 
