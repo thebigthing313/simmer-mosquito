@@ -5,12 +5,14 @@ import type { ComponentProps, ReactNode } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow, SegmentedFilter } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS, SERVICE_REQUEST_STATUS_COLORS } from '../../../components/map';
 import {
 	contactDisplayName,
 	formatAddressLine,
 	isServiceRequestOpen,
 	requestAgeOrDate,
+	requestAgeTone,
 	serviceRequestTitle,
 } from '../../../components/public-engagement/public-engagement-display';
 import { ServiceRequestMapCard } from '../../../components/public-engagement/service-request-map-card';
@@ -29,14 +31,14 @@ import {
 	serviceRequestTileFilters,
 } from '../../../components/public-engagement/service-requests/service-request-listing';
 import { ServiceRequestSummaryPanel } from '../../../components/public-engagement/service-requests/service-request-summary-panel';
-import { ServiceRequestSurfaceSwitch } from '../../../components/public-engagement/service-requests/service-request-surface-switch';
 import {
+	countedServiceRequestFilters,
 	SERVICE_REQUEST_ORDER_OPTIONS,
 	type ServiceRequestRailOrder,
 	type ServiceRequestRailSearch,
 	serviceRequestFilterCodecs,
 	serviceRequestRailOrderCodecs,
-	sharedServiceRequestSearch,
+	serviceRequestRecordSet,
 } from '../../../components/public-engagement/service-requests/service-requests-search';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
@@ -77,7 +79,8 @@ function ServiceRequestsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a
 	// request both land on the list the operator had narrowed to. An address with
 	// no params opens on every request received this year, open or closed.
-	const { defaults, today } = useServiceRequestFilterDefaults();
+	const { defaults, today, overdueCutoff } = useServiceRequestFilterDefaults();
+	const overdueAvailable = overdueCutoff !== null;
 	const { filters: railOrder, setFilters: setRailOrder } = useSearchFilters(
 		ORDER_DEFAULTS,
 		serviceRequestRailOrderCodecs,
@@ -86,8 +89,13 @@ function ServiceRequestsExplorerRoute() {
 		filters: query,
 		setFilters,
 		reset,
-		activeCount: activeFilterCount,
+		activeCount: urlFilterCount,
 	} = useSearchFilters(defaults, serviceRequestFilterCodecs, DATE_RANGE_COUNTING);
+	const activeFilterCount = countedServiceRequestFilters(
+		urlFilterCount,
+		query.overdue,
+		overdueAvailable,
+	);
 	const dateRange = useDateRangeFilters({ from: query.from, to: query.to, today, setFilters });
 	const status = query.status;
 	const selectedTagIds = query.tags;
@@ -114,8 +122,7 @@ function ServiceRequestsExplorerRoute() {
 		clearSearchInput();
 		reset();
 	};
-	// What a move to the Table takes with it: status and the date window.
-	const carried = sharedServiceRequestSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 	const regions = useRegionOptions();
 	const panel = useExplorerPanel();
 	const [clustered] = useMapClustering();
@@ -124,7 +131,7 @@ function ServiceRequestsExplorerRoute() {
 	// the map and the rail stay in lockstep. The rail used to filter and page the
 	// whole Organization's requests out of the sync collection and draw them as a
 	// GeoJSON overlay, 1,180 rows in the prod clone over three years (#963).
-	const filters = serviceRequestTileFilters(query);
+	const filters = serviceRequestTileFilters(query, overdueCutoff);
 	const {
 		rows,
 		total,
@@ -175,11 +182,16 @@ function ServiceRequestsExplorerRoute() {
 		setSelectedTagIds,
 		setStatus,
 		status,
+		overdue: query.overdue,
+		overdueAvailable,
+		setOverdue: (next: boolean) => setFilters({ overdue: next }),
 	};
 
 	return (
 		<ExplorerMapPage
-			actions={<ServiceRequestSurfaceSwitch compact current="map" search={carried} />}
+			actions={
+				<RecordSetSwitch compact current="map" search={routeSearch} set={serviceRequestRecordSet} />
+			}
 			activeFilterCount={activeFilterCount}
 			filters={
 				<ServiceRequestFilterFields {...chips} dateRange={dateRange} onClearSearch={clearSearch} />
@@ -240,6 +252,7 @@ function ServiceRequestsExplorerRoute() {
 						isFocused={request.id === selectedId}
 						key={request.id}
 						onFocus={() => setSelectedId(request.id)}
+						overdueCutoff={overdueCutoff}
 						request={request}
 						tags={tagsByRequestId.byId.get(request.id) ?? EMPTY_TAGS}
 						today={today}
@@ -273,6 +286,7 @@ function RequestRowItem({
 	detailsLoading,
 	isFocused,
 	onFocus,
+	overdueCutoff,
 	today,
 }: {
 	readonly request: ServiceRequestListing;
@@ -282,6 +296,8 @@ function RequestRowItem({
 	readonly detailsLoading: boolean;
 	readonly isFocused: boolean;
 	readonly onFocus: () => void;
+	/** The first request date that is not overdue, or `null` with the threshold off. */
+	readonly overdueCutoff: string | null;
 	/** The Organization's today, which an open request's age is counted to. */
 	readonly today: string;
 }) {
@@ -292,6 +308,7 @@ function RequestRowItem({
 		<ExplorerRow
 			// How long an open request has waited, or the day a closed one came in.
 			date={requestAgeOrDate(request, today)}
+			dateWarning={requestAgeTone(request, overdueCutoff) === 'warning' ? 'Overdue' : undefined}
 			detailLabel={`View ${title}`}
 			detailLink={{
 				to: '/public-engagement/service-requests/$id',

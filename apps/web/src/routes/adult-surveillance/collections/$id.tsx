@@ -157,7 +157,7 @@ function CollectionDetailContent({
 	const mutations = useCollectionMutations();
 	const [collectOpen, setCollectOpen] = useState(false);
 
-	const { methodName } = collection;
+	const methodName = collection.methodName ?? 'Unknown method';
 	// Guarded on the collection's own column rather than the joined name: a
 	// collection set without a lure reads as no lure, while one whose lure has
 	// since been deleted reads as an unknown one, and collapsing those would

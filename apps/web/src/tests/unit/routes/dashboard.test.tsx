@@ -268,6 +268,11 @@ describe('the Dashboard', () => {
 		// Operations backlog: the split, the unassigned count, an empty row, an overdue mission.
 		expect(queueLine('Open service requests').textContent).toContain('2 new · 1 in progress');
 		expect(queueLine('Open service requests').textContent).toContain('112 days');
+		// The default threshold is 14 days, so only the request from May is overdue,
+		// and the pill does not count it a second time.
+		expect(queueLine('Overdue service requests').textContent).toContain('older than 14 days');
+		expect(queueLine('Overdue service requests').textContent).toContain('112 days');
+		expect(queueLine('Overdue service requests').textContent).toMatch(/1$/);
 		expect(queueLine('Requests for Control not yet assigned').textContent).toContain('4 days');
 		expect(queueLine('Assignments started and not finished').className).toContain(
 			'text-muted-foreground',
@@ -321,6 +326,24 @@ describe('the Dashboard', () => {
 		expect(stripCell('Samples').textContent).toBe('00Samples');
 		expect(screen.queryByLabelText(/^(Up|Down)$/)).toBeNull();
 		expect(screen.getByText('Nothing logged yet today.')).toBeTruthy();
+	});
+
+	it('draws no overdue line while the threshold is off', async () => {
+		installMemoryCollections();
+		seedRows(organizations, [
+			{
+				id: 'org-1',
+				name: 'Test Mosquito Control',
+				settings: { publicEngagement: { serviceRequestOverdueDays: 'off' } },
+			},
+		]);
+		seedRows(service_requests, [{ id: 'sr-old', request_date: '2026-05-26', closed_at: null }]);
+		renderDashboard();
+		await waitFor(() => expect(harness.pending).toHaveLength(1));
+		answer(SERVER);
+
+		await waitFor(() => expect(screen.getByText('Open service requests')));
+		expect(screen.queryByText('Overdue service requests')).toBeNull();
 	});
 
 	it('opens the strip on the change mode this browser last picked', async () => {

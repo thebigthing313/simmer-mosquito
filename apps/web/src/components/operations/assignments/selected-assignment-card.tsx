@@ -2,8 +2,8 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Link } from '@tanstack/react-router';
 import {
 	type AssignmentListing,
+	assignmentDisplayName,
 	assignmentStatus,
-	formatAssignmentDate,
 	type ProgressCounts,
 } from '../../../hooks/queries/assignment-view';
 import { WriteOnly } from '../../write-only';
@@ -31,7 +31,7 @@ export function SelectedAssignmentCard({
 				<div className="flex items-start justify-between gap-3">
 					<div className="min-w-0">
 						<h2 className="truncate font-semibold text-foreground text-sm leading-tight">
-							{assignment.assignmentName?.trim() || formatAssignmentDate(assignment.assignmentDate)}
+							{assignmentDisplayName(assignment)}
 						</h2>
 						<p className="m-0 text-muted-foreground text-xs">
 							{assigneeName ?? 'Unassigned'} · {stopSummary(counts)}

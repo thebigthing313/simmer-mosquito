@@ -30,10 +30,10 @@ import {
 	ACROSS_BLOCK,
 	BLOCK,
 	ESCAPING_POND,
-	FIRST_SQUARE,
+	FIRST_TRIANGLE,
 	POND,
 	polygon,
-	SECOND_SQUARE,
+	SECOND_TRIANGLE,
 } from './draw-fixtures';
 
 /*
@@ -141,7 +141,7 @@ describe('continuationProblem', () => {
 
 	it('has nothing to say about a draw that is not a continuation', () => {
 		expect(
-			continuationProblem(polygon(FIRST_SQUARE), drawing({ kind: 'replace' }), null),
+			continuationProblem(polygon(FIRST_TRIANGLE), drawing({ kind: 'replace' }), null),
 		).toBeNull();
 	});
 });
@@ -185,7 +185,7 @@ describe('editProblem', () => {
 	});
 
 	it('refuses an edit that pushes a hole out of its outline', () => {
-		expect(editProblem(editing({ rings: [[...FIRST_SQUARE], [...POND]] }))).toBe('holesEscape');
+		expect(editProblem(editing({ rings: [[...FIRST_TRIANGLE], [...POND]] }))).toBe('holesEscape');
 	});
 
 	it('refuses a reshape line that never crosses the boundary twice', () => {
@@ -303,7 +303,7 @@ describe('drawParts', () => {
 	it('takes a multi shape apart and puts it back', () => {
 		const multi: DrawGeometry = {
 			type: 'MultiPolygon',
-			coordinates: [[closeRing(FIRST_SQUARE)], [closeRing(SECOND_SQUARE)]],
+			coordinates: [[closeRing(FIRST_TRIANGLE)], [closeRing(SECOND_TRIANGLE)]],
 		};
 
 		const parts = drawParts(multi);
@@ -339,7 +339,7 @@ describe('drawHoles', () => {
 
 describe('toDrawGeometry', () => {
 	it('reads a stored multi shape back, now that pieces can be edited', () => {
-		const multi = { type: 'MultiPolygon', coordinates: [[closeRing(FIRST_SQUARE)]] };
+		const multi = { type: 'MultiPolygon', coordinates: [[closeRing(FIRST_TRIANGLE)]] };
 
 		expect(toDrawGeometry(multi)).toEqual(multi);
 	});
@@ -350,7 +350,7 @@ describe('toDrawGeometry', () => {
 });
 
 describe('withParts', () => {
-	const existing = [polygon(FIRST_SQUARE), polygon(SECOND_SQUARE)];
+	const existing = [polygon(FIRST_TRIANGLE), polygon(SECOND_TRIANGLE)];
 	const drawn = polygon(BLOCK);
 
 	it('throws the committed pieces away for a replace', () => {
@@ -430,7 +430,7 @@ describe('dedupeTrailing', () => {
 	});
 
 	it('leaves a ring whose last two corners differ', () => {
-		const ring: readonly PlanarPosition[] = [...FIRST_SQUARE];
+		const ring: readonly PlanarPosition[] = [...FIRST_TRIANGLE];
 
 		expect(dedupeTrailing(ring)).toEqual(ring);
 	});
@@ -471,7 +471,7 @@ describe('finishedParts', () => {
 	it('says where a finished draw goes and what it commits', () => {
 		const target: DrawTarget = { kind: 'part' };
 
-		expect(finishedParts(drawing(target), polygon(FIRST_SQUARE), [...BLOCK])).toEqual({
+		expect(finishedParts(drawing(target), polygon(FIRST_TRIANGLE), [...BLOCK])).toEqual({
 			target,
 			parts: [polygon(BLOCK)],
 		});
@@ -496,7 +496,7 @@ describe('draftProgress', () => {
 	it('counts the vertices placed and offers Finish once they make a shape', () => {
 		const mode = drawing({ kind: 'replace' });
 
-		expect(draftProgress(mode, null, [...FIRST_SQUARE])).toEqual({
+		expect(draftProgress(mode, null, [...FIRST_TRIANGLE])).toEqual({
 			drawType: 'Polygon',
 			vertexCount: 3,
 			canFinish: true,

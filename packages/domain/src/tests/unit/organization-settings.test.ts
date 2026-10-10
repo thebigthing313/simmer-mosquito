@@ -246,6 +246,7 @@ describe('organization settings resolution', () => {
 					radius: { amount: 0.5, unitCode: 'mile' },
 					timeWindow: { daysBefore: 7, daysAfter: 21 },
 				},
+				serviceRequestOverdueDays: 14,
 			},
 		});
 	});

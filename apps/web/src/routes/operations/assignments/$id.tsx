@@ -101,7 +101,7 @@ function AssignmentRunRoute() {
 		assignment?.assignedToProfileId == null
 			? null
 			: (nameById.get(assignment.assignedToProfileId) ?? null);
-	const displayName = assignment === null ? null : assignmentDisplayName(assignment, assigneeName);
+	const displayName = assignment === null ? null : assignmentDisplayName(assignment);
 	useBreadcrumbLabel(id, displayName);
 
 	const itemAction = (stop: AssignmentStopView, action: ItemAction) => {

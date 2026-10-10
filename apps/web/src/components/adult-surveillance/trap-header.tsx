@@ -16,7 +16,7 @@ export function TrapHeader({ trap }: { readonly trap: TrapListing }) {
 					{trapDisplayName(trap)}
 				</h2>
 				<p className="m-0 flex items-center gap-2 text-muted-foreground text-sm">
-					{trap.methodName}
+					{trap.methodName ?? 'Unknown method'}
 					<span aria-hidden="true">·</span>
 					<span className="inline-flex items-center gap-1">
 						{trap.isActive ? (

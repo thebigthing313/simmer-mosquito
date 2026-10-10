@@ -15,6 +15,7 @@
 
 import { type RenderHookResult, renderHook, waitFor } from '@testing-library/react';
 import { type ReactNode, Suspense } from 'react';
+import { expect } from 'vitest';
 
 /**
  * Render a read hook and wait for its first non-suspended result.
@@ -51,4 +52,24 @@ export function plain<TRow extends object>(row: TRow): Record<string, unknown> {
 		string,
 		unknown
 	>;
+}
+
+/** Wait for a single-record hook to resolve, then hand back the record. */
+export async function readRecord<TRecord>(
+	hook: () => { readonly isReady: boolean; readonly record: TRecord | undefined },
+): Promise<TRecord> {
+	const { result } = await renderRead(hook);
+	await expect.poll(() => result.current.isReady).toBe(true);
+	const record = result.current.record;
+	if (record === undefined) throw new Error('the record did not come back');
+	return record;
+}
+
+/** Wait for a list hook to hold rows, then hand them back. */
+export async function readList<TRow>(
+	hook: () => { readonly isReady: boolean; readonly rows: readonly TRow[] },
+): Promise<readonly TRow[]> {
+	const { result } = await renderRead(hook);
+	await expect.poll(() => result.current.isReady && result.current.rows.length > 0).toBe(true);
+	return result.current.rows;
 }

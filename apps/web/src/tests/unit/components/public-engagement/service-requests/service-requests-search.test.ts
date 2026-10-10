@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
 	serviceRequestFilterCodecs,
 	serviceRequestFilterDefaults,
-	sharedServiceRequestSearch,
 } from '../../../../../components/public-engagement/service-requests/service-requests-search';
 import { resolveFilters, searchValidator } from '../../../../../lib/search-filters';
 
@@ -32,17 +31,15 @@ describe('the service requests filter contract', () => {
 		expect(validate({ status: 'open' })).toEqual({ status: 'open' });
 	});
 
-	it('carries status and dates between the two surfaces and nothing else', () => {
-		expect(
-			sharedServiceRequestSearch({
-				status: 'closed',
-				search: 'garage',
-				tags: ['tag-1'],
-				regions: ['region-1'],
-				from: '2026-08-01',
-				to: 'any',
-				sort: 'number',
-			}),
-		).toEqual({ status: 'closed', from: '2026-08-01', to: 'any' });
+	it('opens with Overdue off and keeps it off the address bar until it is on', () => {
+		const defaults = serviceRequestFilterDefaults('2026-09-15');
+		const validate = searchValidator(serviceRequestFilterCodecs);
+
+		expect(defaults.overdue).toBe(false);
+		expect(validate({ overdue: false })).toEqual({});
+		expect(validate({ overdue: true })).toEqual({ overdue: true });
+		expect(resolveFilters(defaults, serviceRequestFilterCodecs, { overdue: 'true' })).toMatchObject(
+			{ overdue: true },
+		);
 	});
 });

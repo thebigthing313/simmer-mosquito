@@ -2,6 +2,7 @@ import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { OutletSimpleLayout } from '../../../components/app-shell';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { INSPECTION_TABLE_COUNTING } from '../../../components/larval-surveillance/inspection-filters';
 import {
@@ -10,11 +11,10 @@ import {
 	inspectionQueryParams,
 	inspectionTileFilters,
 } from '../../../components/larval-surveillance/inspection-listing';
-import { InspectionSurfaceSwitch } from '../../../components/larval-surveillance/inspection-surface-switch';
 import { InspectionsFilterBar } from '../../../components/larval-surveillance/inspections-filter-bar';
 import {
 	inspectionFilterCodecs,
-	sharedInspectionSearch,
+	inspectionRecordSet,
 } from '../../../components/larval-surveillance/inspections-search';
 import { InspectionsTable } from '../../../components/larval-surveillance/inspections-table';
 import { RecordTableEmpty } from '../../../components/record/record-table-empty';
@@ -34,9 +34,7 @@ import { searchValidator } from '../../../lib/search-filters';
  *
  * `searchValidator` keeps what its codecs name and drops the rest, so the
  * filters have to be here or a link from the map would arrive with them stripped
- * before the page read them. `regions` is among them and no control here writes
- * it: carrying the param is what lets a reader go Map to Table and back without
- * losing their region selection.
+ * before the page read them.
  */
 export const Route = createFileRoute('/larval-surveillance/inspections/table')({
 	component: InspectionsTableRoute,
@@ -62,15 +60,15 @@ const InspectionIcon = iconRegistry.entities.inspection.icon;
  *
  * The bar above the rows reads and writes the params the explorer reads and
  * writes, through the same codecs, so a link built on one surface opens the same
- * set on the other. Six of the explorer's seven filters are here. Region is
- * carried and not applied, because no control here shows or clears it.
+ * set on the other. Six of the explorer's seven filters are here. Region is not,
+ * and `inspectionRecordSet` leaves it behind on the way here.
  */
 function InspectionsTableRoute() {
 	// `all-time` is where the two surfaces part: this page says it holds every
 	// inspection, so an address with no dates on it opens on every inspection.
 	const binding = useInspectionFilterState(INSPECTION_TABLE_COUNTING, 'all-time');
 	const catalogs = useInspectionCatalogs();
-	const carried = sharedInspectionSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const params = mapQueryParams({
 		bbox: WHOLE_WORLD_BBOX,
@@ -89,7 +87,7 @@ function InspectionsTableRoute() {
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
-				actions={<InspectionSurfaceSwitch current="table" search={carried} />}
+				actions={<RecordSetSwitch current="table" search={routeSearch} set={inspectionRecordSet} />}
 				icon={InspectionIcon}
 				title={recordNoun('inspection').titleMany}
 			/>
