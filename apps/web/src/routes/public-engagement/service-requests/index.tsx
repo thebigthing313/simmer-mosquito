@@ -1,12 +1,11 @@
 import { toDbEntityType } from '@simmer-mosquito/domain';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ComponentProps, type ReactNode, useState } from 'react';
-import { getServerUrl } from '../../../auth';
+import type { ComponentProps, ReactNode } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow, SegmentedFilter } from '../../../components/explorer';
-import { type MapTileLayer, SERVICE_REQUEST_STATUS_COLORS } from '../../../components/map';
+import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
+import { MAP_CREATE_TARGETS, SERVICE_REQUEST_STATUS_COLORS } from '../../../components/map';
 import {
 	contactDisplayName,
 	formatAddressLine,
@@ -16,7 +15,10 @@ import {
 	serviceRequestTitle,
 } from '../../../components/public-engagement/public-engagement-display';
 import { ServiceRequestMapCard } from '../../../components/public-engagement/service-request-map-card';
-import type { ServiceRequestStatusFilter } from '../../../components/public-engagement/service-requests/legend';
+import {
+	type ServiceRequestStatusFilter,
+	serviceRequestLegend,
+} from '../../../components/public-engagement/service-requests/legend';
 import {
 	type ServiceRequestFilterChipProps,
 	ServiceRequestFilterFields,
@@ -29,7 +31,6 @@ import {
 } from '../../../components/public-engagement/service-requests/service-request-listing';
 import { ServiceRequestSummaryPanel } from '../../../components/public-engagement/service-requests/service-request-summary-panel';
 import { ServiceRequestSurfaceSwitch } from '../../../components/public-engagement/service-requests/service-request-surface-switch';
-import { ServiceRequestsMapCanvas } from '../../../components/public-engagement/service-requests/service-requests-map-canvas';
 import {
 	countedServiceRequestFilters,
 	SERVICE_REQUEST_ORDER_OPTIONS,
@@ -45,6 +46,7 @@ import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
+import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { useServiceRequestFilterDefaults } from '../../../hooks/public-engagement/use-service-request-filter-defaults';
 import type { Address } from '../../../hooks/queries/address-view';
 import type { ContactSummary } from '../../../hooks/queries/contact-view';
@@ -123,37 +125,37 @@ function ServiceRequestsExplorerRoute() {
 	// What a move to the Table takes with it: status and the date window.
 	const carried = sharedServiceRequestSearch(Route.useSearch());
 	const regions = useRegionOptions();
-	const [selectedId, setSelectedId] = useState<string | null>(null);
-	const [map, setMap] = useState<MapboxMap | null>(null);
 	const panel = useExplorerPanel();
+	const [clustered] = useMapClustering();
 
 	// The tiles and the page read one filter shape off one server predicate, so
 	// the map and the rail stay in lockstep. The rail used to filter and page the
 	// whole Organization's requests out of the sync collection and draw them as a
 	// GeoJSON overlay, 1,180 rows in the prod clone over three years (#963).
 	const filters = serviceRequestTileFilters(query, overdueCutoff);
-	const layer: MapTileLayer = {
-		kind: 'service-requests',
-		serverUrl: getServerUrl(),
-		filters,
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		empty,
+		summary,
+		canvas,
 		selectedId,
-		onSelectFeature: setSelectedId,
-	};
-	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
-		useExplorerResource<ServiceRequestListing>({
-			path: SERVICE_REQUESTS_PATH,
-			rowsKey: 'serviceRequests',
-			rowKey: 'serviceRequest',
-			recordType: RECORD_TYPE,
-			params: serviceRequestPageParams(filters, railOrder.order),
-			layer,
-			map,
-			selectedId,
-			// A pick moves the map to the record and leaves the list as it was, so
-			// the reader working down the queue does not lose their place.
-			holdRailOnSelect: true,
-			summarize: true,
-		});
+		setSelectedId,
+	} = useExplorerResource<ServiceRequestListing>({
+		path: SERVICE_REQUESTS_PATH,
+		rowsKey: 'serviceRequests',
+		rowKey: 'serviceRequest',
+		recordType: RECORD_TYPE,
+		params: serviceRequestPageParams(filters, railOrder.order),
+		tiles: { kind: 'service-requests', filters },
+		// A pick moves the map to the record and leaves the list as it was, so
+		// the reader working down the queue does not lose their place.
+		holdRailOnSelect: true,
+		summarize: true,
+	});
 
 	// Resolve the related on-demand rows for the page alone, a subset of at most
 	// a hundred ids that loads reliably, instead of one join over the whole request set.
@@ -206,22 +208,15 @@ function ServiceRequestsExplorerRoute() {
 			}}
 			onResetFilters={clearAll}
 			map={
-				<>
-					<ServiceRequestsMapCanvas
-						inset={panel.inset}
-						layers={layers}
-						onMapReady={setMap}
-						searchWidth={panel.width}
-						status={status}
-					/>
-					{selected === null ? null : (
-						<ServiceRequestMapCard
-							id={selected.id}
-							inset={panel.inset}
-							onClose={() => setSelectedId(null)}
-						/>
-					)}
-				</>
+				<ExplorerCanvas
+					canvas={canvas}
+					card={(props) => <ServiceRequestMapCard {...props} />}
+					contextMenu={{
+						create: [MAP_CREATE_TARGETS.serviceRequest, MAP_CREATE_TARGETS.outreach],
+					}}
+					legend={serviceRequestLegend(status, clustered)}
+					panel={panel}
+				/>
 			}
 			panel={panel}
 			toolbar={

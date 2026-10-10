@@ -1,8 +1,5 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useState } from 'react';
-import { getServerUrl } from '../../../auth';
 import { TrapMapCard } from '../../../components/adult-surveillance/trap-map-card';
 import { trapLegend } from '../../../components/adult-surveillance/traps/legend';
 import {
@@ -19,13 +16,9 @@ import {
 } from '../../../components/adult-surveillance/traps/traps-search';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
-import {
-	MAP_CREATE_TARGETS,
-	MapCanvas,
-	type MapTileLayer,
-	TRAP_STATUS_COLORS,
-} from '../../../components/map';
+import { MAP_CREATE_TARGETS, TRAP_STATUS_COLORS } from '../../../components/map';
 import { useTrapFilterState } from '../../../hooks/adult-surveillance/use-trap-filter-state';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
@@ -62,8 +55,6 @@ function TrapsExplorerRoute() {
 	// both land on the list the operator had narrowed to.
 	const binding = useTrapFilterState();
 	const { filters: query, activeCount: activeFilterCount, clearAll, setFilters } = binding;
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
@@ -76,27 +67,26 @@ function TrapsExplorerRoute() {
 	const carried = sharedTrapSearch(Route.useSearch());
 	const [clustered] = useMapClustering();
 	const legend = trapLegend(query.status, clustered);
-	const layer: MapTileLayer = {
-		kind: 'traps',
-		serverUrl: getServerUrl(),
-		filters,
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		empty,
+		summary,
+		canvas,
 		selectedId,
-		onSelectFeature: setSelectedId,
-	};
-	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
-		useExplorerResource<TrapRow>({
-			path: PATH,
-			rowsKey: 'traps',
-			rowKey: 'trap',
-			recordType: 'trap',
-			params: trapListParams(filters),
-			layer,
-			map,
-			selectedId,
-			summarize: true,
-		});
-
-	const handleMapReady = (instance: MapboxMap) => setMap(instance);
+		setSelectedId,
+	} = useExplorerResource<TrapRow>({
+		path: PATH,
+		rowsKey: 'traps',
+		rowKey: 'trap',
+		recordType: 'trap',
+		params: trapListParams(filters),
+		tiles: { kind: 'traps', filters },
+		summarize: true,
+	});
 
 	return (
 		<ExplorerMapPage
@@ -116,22 +106,13 @@ function TrapsExplorerRoute() {
 			}}
 			onResetFilters={clearAll}
 			map={
-				<>
-					<MapCanvas
-						contextMenu={{ create: [MAP_CREATE_TARGETS.trap] }}
-						controls={{ measure: true, readout: true }}
-						fitToData
-						rememberCamera
-						inset={panel.inset}
-						layers={layers}
-						legend={legend}
-						onMapReady={handleMapReady}
-						searchWidth={panel.width}
-					/>
-					{selected === null ? null : (
-						<TrapMapCard id={selected.id} inset={panel.inset} onClose={() => setSelectedId(null)} />
-					)}
-				</>
+				<ExplorerCanvas
+					canvas={canvas}
+					card={(props) => <TrapMapCard {...props} />}
+					contextMenu={{ create: [MAP_CREATE_TARGETS.trap] }}
+					legend={legend}
+					panel={panel}
+				/>
 			}
 			panel={panel}
 			results={{

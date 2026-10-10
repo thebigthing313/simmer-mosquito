@@ -21,6 +21,7 @@ import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { CollectCollectionDialog } from '../../../components/collect-collection-dialog';
+import { StopSequenceMap } from '../../../components/map/stop-sequence-map';
 import {
 	type AssignmentStopView,
 	assignmentStopTone,
@@ -35,7 +36,6 @@ import {
 	TargetLink,
 	TargetTypePill,
 } from '../../../components/operations/assignments/assignment-display';
-import { WorklistMap } from '../../../components/operations/worklist-map';
 import { WorklistTabs } from '../../../components/operations/worklist-tabs';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { DetailPageHeaderSkeleton } from '../../../components/record/detail-page-header';
@@ -154,7 +154,7 @@ function AssignmentRunRoute() {
 		<>
 			<MapSplitPage
 				map={
-					<WorklistMap
+					<StopSequenceMap
 						features={features}
 						fitKey={id}
 						highlightId={highlightId}
