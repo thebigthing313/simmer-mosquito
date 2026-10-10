@@ -22,7 +22,11 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { act, type ReactNode, useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getServerUrl } from '../../../../auth';
-import type { RecordSet, RecordSetContext } from '../../../../components/explorer/record-set';
+import type {
+	RecordSet,
+	RecordSetContext,
+	RecordSetTiles,
+} from '../../../../components/explorer/record-set';
 import type { MapTileLayer } from '../../../../components/map/tile-layers';
 import type { ExplorerResource } from '../../../../hooks/explorer/use-explorer-resource';
 import type { MapQueryValue } from '../../../../lib/map-query-params';
@@ -66,14 +70,6 @@ const { outreachRecordSet } = await import(
 	'../../../../components/public-engagement/outreach/outreach-actions-search'
 );
 
-/** A tileset an explorer draws. Regions is not one. */
-type SurfaceKind = Exclude<MapTileLayer['kind'], 'regions'>;
-
-/** A tileset and the filters it draws under, paired by kind. */
-type SurfaceTiles = {
-	[TKind in SurfaceKind]: Pick<Extract<MapTileLayer, { readonly kind: TKind }>, 'kind' | 'filters'>;
-}[SurfaceKind];
-
 /** What a set's conversions read besides the filters. No case here reads it. */
 const CONTEXT: RecordSetContext = {
 	today: '2026-01-31',
@@ -90,7 +86,7 @@ interface ResourceOptions {
 	readonly rowKey: string;
 	readonly recordType: RecordType;
 	readonly params: Readonly<Record<string, MapQueryValue>>;
-	readonly tiles: SurfaceTiles;
+	readonly tiles: RecordSetTiles;
 	readonly normalizeRow?: (row: Row) => Row;
 	readonly holdRailOnSelect?: boolean;
 	readonly summarize?: boolean;
@@ -164,7 +160,7 @@ function useResourceOnCanvas({
  * extent read beside it. The server URL is the one the hook reads, so the two
  * reads share one query the way they do under `MapCanvas`.
  */
-function layerOf(tiles: SurfaceTiles): MapTileLayer {
+function layerOf(tiles: RecordSetTiles): MapTileLayer {
 	return { ...tiles, serverUrl: getServerUrl() };
 }
 
@@ -246,7 +242,7 @@ interface SurfaceCase {
 	readonly params: Readonly<Record<string, MapQueryValue>>;
 	readonly search: string;
 	/** The tileset the route draws, whose extent the empty state reads. */
-	readonly kind: SurfaceTiles['kind'];
+	readonly kind: RecordSetTiles['kind'];
 }
 
 const SURFACES: readonly SurfaceCase[] = [
@@ -900,11 +896,11 @@ describe('useExplorerResource: why the rail is empty', () => {
 	}
 
 	/** The tiles a first-run habitats route draws: nothing narrowed. */
-	const UNFILTERED: SurfaceTiles = { kind: 'habitats' };
+	const UNFILTERED: RecordSetTiles = { kind: 'habitats' };
 	/** The same tiles with a search term, so the extent request carries a filter. */
-	const FILTERED: SurfaceTiles = { kind: 'habitats', filters: { search: 'pond' } };
+	const FILTERED: RecordSetTiles = { kind: 'habitats', filters: { search: 'pond' } };
 
-	function renderRail(tiles: SurfaceTiles, map: MapboxMap | null) {
+	function renderRail(tiles: RecordSetTiles, map: MapboxMap | null) {
 		return renderHook(
 			() => ({
 				rail: useResourceOnCanvas({
@@ -1032,7 +1028,7 @@ describe('useExplorerResource: a filter change', () => {
 	 */
 
 	/** Tiles carrying the surface's filters, so their extent URL changes with them. */
-	function tilesFor(search: string): SurfaceTiles {
+	function tilesFor(search: string): RecordSetTiles {
 		return search === '' ? { kind: 'habitats' } : { kind: 'habitats', filters: { search } };
 	}
 

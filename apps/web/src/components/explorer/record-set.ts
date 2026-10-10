@@ -90,6 +90,19 @@ type TileFiltersOf<TKind extends RecordSetTileKind> = NonNullable<
 	Extract<MapTileLayer, { readonly kind: TKind }>['filters']
 >;
 
+/**
+ * A record set's tileset and the filters it draws under, paired by kind and
+ * carrying nothing else. The explorer asserts a set's `tileset` and
+ * `tileFilters` to this, because a generic `TTile` cannot be followed into the
+ * `MapTileLayer` union, and the rest of the layer is checked by assignment.
+ */
+export type RecordSetTiles = {
+	[TKind in RecordSetTileKind]: Pick<
+		Extract<MapTileLayer, { readonly kind: TKind }>,
+		'kind' | 'filters'
+	>;
+}[RecordSetTileKind];
+
 /** True when `A` and `B` are one type, rather than each assignable to the other. */
 type Same<A, B> =
 	(<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;

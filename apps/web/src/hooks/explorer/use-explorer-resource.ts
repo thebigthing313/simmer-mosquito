@@ -5,7 +5,7 @@ import type {
 	ExplorerEmptiness,
 	ExplorerEmptyReason,
 } from '../../components/explorer/explorer-empty-state';
-import type { RecordSet } from '../../components/explorer/record-set';
+import type { RecordSet, RecordSetTiles } from '../../components/explorer/record-set';
 import { type MapTileLayer, tileLayerExtentUrl } from '../../components/map/tile-layers';
 import { type MapQueryValue, mapQueryParams } from '../../lib/map-query-params';
 import { type MapExtent, useMapExtent } from '../map/use-map-extent';
@@ -134,14 +134,15 @@ export function useExplorerResource<TRow extends ExplorerRowShape, TFilters, TTi
 	// Computed once, so the tiles and the page cannot read different filters.
 	const tileFilters = set.tileFilters(binding.filters, binding.context);
 	// `defineRecordSet` pairs the tileset with these filters, which TypeScript
-	// cannot follow from a generic `TTile` into the union.
-	const layer = {
-		kind: set.tileset,
-		filters: tileFilters,
+	// cannot follow from a generic `TTile` into the union. Only that pair is
+	// asserted, so `tsc` still checks every other field of the layer.
+	const tiles = { kind: set.tileset, filters: tileFilters } as RecordSetTiles;
+	const layer: MapTileLayer = {
+		...tiles,
 		serverUrl: getServerUrl(),
 		selectedId,
 		onSelectFeature: setSelectedId,
-	} as MapTileLayer;
+	};
 	const bbox = useMapBoundsParam(map);
 	// Spread rather than passed, because the workspace is on
 	// `exactOptionalPropertyTypes` and an explicit `undefined` is not an absent key.
