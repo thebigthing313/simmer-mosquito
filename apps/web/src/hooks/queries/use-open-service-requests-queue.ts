@@ -7,15 +7,9 @@
  * assignment in any state; a comment is not progress. **New** is every other
  * open request.
  *
- * Two subsets rather than a joined query, because the count needs the
- * requests that have no stop, and a `left` join's nullable side gets no
- * pushdown. The requests subset is the open ones and the stops subset is the
- * ones naming a request, each narrowing its own shape; the split is a set
- * lookup over the rows that arrived.
- *
- * The overdue line (#1246) reads the same open rows rather than a third
- * subset: it is the open requests the domain's `isServiceRequestOverdue` says
- * are overdue against `overdueCutoff`, and `null` while the threshold is off.
+ * The overdue line (#1246) is the open requests the domain's
+ * `isServiceRequestOverdue` says are overdue against `overdueCutoff`, and
+ * `null` while the threshold is off.
  */
 
 import { isServiceRequestOverdue } from '@simmer-mosquito/domain';
