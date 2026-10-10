@@ -19,6 +19,7 @@ import {
 	DomainValidationError,
 	endMembershipCommand,
 	inviteCommand,
+	normalizeOrganizationBillingContact,
 	normalizeOrganizationContactDetails,
 	reinviteCommand,
 	updateOrganizationDetailsCommand,
@@ -204,6 +205,59 @@ describe('normalizeOrganizationContactDetails', () => {
 			{ path: 'mailingCountry', message: 'mailingCountry must be US.' },
 			{ path: 'mailingRegion', message: 'mailingRegion must be a US state code.' },
 			{ path: 'mainContactEmail', message: 'mainContactEmail must be a valid email address.' },
+		]);
+	});
+});
+
+describe('normalizeOrganizationBillingContact', () => {
+	/** A valid address exactly `length` characters long. */
+	const emailOfLength = (length: number) =>
+		`${'a'.repeat(length - '@example.org'.length)}@example.org`;
+
+	it('leaves an absent field out and turns a blank one into null', () => {
+		expect(normalizeOrganizationBillingContact({ billingContactName: '  ' })).toEqual({
+			contact: { billingContactName: null },
+			issues: [],
+		});
+		expect(normalizeOrganizationBillingContact({})).toEqual({ contact: {}, issues: [] });
+	});
+
+	it('keeps a name of 200 characters and an address of 320, trimmed', () => {
+		const name = 'N'.repeat(200);
+		const email = emailOfLength(320);
+
+		expect(
+			normalizeOrganizationBillingContact({
+				billingContactName: ` ${name} `,
+				billingContactEmail: ` ${email} `,
+			}),
+		).toEqual({ contact: { billingContactName: name, billingContactEmail: email }, issues: [] });
+	});
+
+	it('returns a name of 201 characters and an address of 321 as issues rather than throwing', () => {
+		expect(
+			normalizeOrganizationBillingContact({
+				billingContactName: 'N'.repeat(201),
+				billingContactEmail: emailOfLength(321),
+			}).issues,
+		).toEqual([
+			{
+				path: 'billingContactName',
+				message: 'billingContactName must be 200 characters or fewer.',
+			},
+			{
+				path: 'billingContactEmail',
+				message: 'billingContactEmail must be 320 characters or fewer.',
+			},
+		]);
+	});
+
+	it("refuses an address that is not one with the message the Main contact's email gets", () => {
+		expect(normalizeOrganizationBillingContact({ billingContactEmail: 'billing' }).issues).toEqual([
+			{
+				path: 'billingContactEmail',
+				message: 'billingContactEmail must be a valid email address.',
+			},
 		]);
 	});
 });

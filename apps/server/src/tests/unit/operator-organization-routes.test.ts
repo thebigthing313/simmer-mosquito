@@ -79,6 +79,12 @@ describe('POST /admin/organizations', () => {
 		['phoneNumber', '5'.repeat(51), 'phoneNumber must be 50 characters or fewer.'],
 		['mailingPostalCode', '0'.repeat(21), 'mailingPostalCode'],
 		['billingContactEmail', 'billing', 'billingContactEmail must be a valid email address.'],
+		[
+			'billingContactEmail',
+			emailOfLength(321),
+			'billingContactEmail must be 320 characters or fewer.',
+		],
+		['billingContactName', 'N'.repeat(201), 'billingContactName must be 200 characters or fewer.'],
 	])('refuses %s %j before WorkOS is called', async (field, value, reason) => {
 		const auth = createFakeAuth();
 		const response = await postOrganization(auth, { name: 'County Mosquito', [field]: value });
@@ -297,6 +303,23 @@ describe('POST /admin/organizations', () => {
 		);
 	});
 
+	it('creates with a billing contact name of 200 characters and an address of 320', async () => {
+		const auth = createFakeAuth();
+		const billingContactName = 'N'.repeat(200);
+		const billingContactEmail = emailOfLength(320);
+		const response = await postOrganization(auth, {
+			name: 'County Mosquito',
+			billingContactName,
+			billingContactEmail,
+		});
+
+		expect(response.status).toBe(201);
+		expect(dbMock.upsertOperatorOrganization).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ billingContactName, billingContactEmail }),
+		);
+	});
+
 	it('stores valid contact details as they arrived, trimmed', async () => {
 		const auth = createFakeAuth();
 		const response = await postOrganization(auth, {
@@ -319,6 +342,11 @@ describe('POST /admin/organizations', () => {
 		);
 	});
 });
+
+/** A valid address exactly `length` characters long. */
+function emailOfLength(length: number): string {
+	return `${'a'.repeat(length - '@example.org'.length)}@example.org`;
+}
 
 type FakeOrganizationAuth = OperatorOrganizationAuth & {
 	readonly createOrganization: ReturnType<typeof vi.fn>;

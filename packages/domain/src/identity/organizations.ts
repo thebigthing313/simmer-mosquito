@@ -246,12 +246,7 @@ export function normalizeOrganizationContactDetails(input: OrganizationContactDe
 	readonly issues: readonly DomainValidationIssue[];
 } {
 	const issues = createIssues();
-	const details: { [K in OrganizationContactDetailKey]?: string | null } = {};
-	for (const key of NULLABLE_DETAIL_KEYS) {
-		if (input[key] !== undefined) {
-			details[key] = normalizeNullableText(input[key], key, issues, NULLABLE_DETAIL_LIMITS[key]);
-		}
-	}
+	const details = normalizeLimitedText(input, NULLABLE_DETAIL_LIMITS, issues);
 	for (const { key, isAllowed, message } of CODED_DETAILS) {
 		const value = details[key];
 		// Absent leaves the column alone and `null` clears it. An organization that
@@ -266,16 +261,86 @@ export function normalizeOrganizationContactDetails(input: OrganizationContactDe
 		}
 		details[key] = code;
 	}
-	// Absent leaves the column alone and `null` clears it, so only a string is
-	// checked. Its case is kept: lowercasing a stored Main contact is a decision
-	// of its own.
-	if (typeof details.mainContactEmail === 'string' && !isEmailAddress(details.mainContactEmail)) {
-		issues.push({
-			path: 'mainContactEmail',
-			message: 'mainContactEmail must be a valid email address.',
-		});
-	}
+	// Its case is kept: lowercasing a stored Main contact is a decision of its own.
+	checkEmailAddress(details.mainContactEmail, 'mainContactEmail', issues);
 	return { details, issues };
+}
+
+/**
+ * Who an organization's invoices go to, and how long each half may be.
+ *
+ * A table of its own rather than two more rows in `NULLABLE_DETAIL_LIMITS`,
+ * because `updateOrganizationDetailsCommand` reads that table and does not carry
+ * the billing contact. The email takes the Main contact's limit, being the same
+ * kind of value, and the name takes the limit an Organization's name is held to.
+ */
+const BILLING_CONTACT_LIMITS = {
+	billingContactName: 200,
+	billingContactEmail: 320,
+} as const;
+
+/** The two billing contact fields an Organization create carries. */
+export type OrganizationBillingContactKey = keyof typeof BILLING_CONTACT_LIMITS;
+
+/** A billing contact as a caller sent it: absent, `null`, or text not yet checked. */
+export type OrganizationBillingContact = {
+	readonly [K in OrganizationBillingContactKey]?: string | null;
+};
+
+/**
+ * The billing contact fields that arrived, normalized and checked against their
+ * rules.
+ *
+ * The same shape as {@link normalizeOrganizationContactDetails}: an absent key
+ * stays out of `contact`, blank text comes back as `null`, each field is
+ * trimmed and held to its length, the email must be an address, and a refusal
+ * is an entry in `issues` rather than a throw. The operator console's
+ * Organization create is the only writer of these columns.
+ */
+export function normalizeOrganizationBillingContact(input: OrganizationBillingContact): {
+	readonly contact: { [K in OrganizationBillingContactKey]?: string | null };
+	readonly issues: readonly DomainValidationIssue[];
+} {
+	const issues = createIssues();
+	const contact = normalizeLimitedText(input, BILLING_CONTACT_LIMITS, issues);
+	checkEmailAddress(contact.billingContactEmail, 'billingContactEmail', issues);
+	return { contact, issues };
+}
+
+/**
+ * Each key of `limits` that arrived in `input`, trimmed and held to its limit.
+ *
+ * A key left out stays out, and blank text comes back as `null`.
+ */
+function normalizeLimitedText<K extends string>(
+	input: { readonly [P in K]?: string | null },
+	limits: Readonly<Record<K, number>>,
+	issues: DomainValidationIssue[],
+): { [P in K]?: string | null } {
+	const normalized: { [P in K]?: string | null } = {};
+	for (const key of Object.keys(limits) as K[]) {
+		if (input[key] !== undefined) {
+			normalized[key] = normalizeNullableText(input[key], key, issues, limits[key]);
+		}
+	}
+	return normalized;
+}
+
+/**
+ * Refuses a stored email that is not an address, in the one wording every
+ * organization email shares.
+ *
+ * Absent leaves the column alone and `null` clears it, so only a string is
+ * checked.
+ */
+function checkEmailAddress(
+	value: string | null | undefined,
+	path: OrganizationContactDetailKey | OrganizationBillingContactKey,
+	issues: DomainValidationIssue[],
+): void {
+	if (typeof value === 'string' && !isEmailAddress(value)) {
+		issues.push({ path, message: `${path} must be a valid email address.` });
+	}
 }
 
 /**
