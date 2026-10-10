@@ -26,6 +26,7 @@ import { useOrganizationWorkspace } from '../../../hooks/use-organization-worksp
 import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
+import { addSamplesInFormOrder } from '../../../lib/inspection-samples';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -153,16 +154,9 @@ function CreateInspectionRoute() {
 			// Samples reference the inspection, so they follow it. Best-effort like
 			// the crew rows: a sample that fails to land is reported rather than
 			// failing a save that already succeeded.
-			await attachLinksBestEffort('the samples', async () => {
-				for (const sample of values.samples) {
-					const label = sample.label.trim();
-					await sampleMutations.add({
-						sampleId: sample.id,
-						inspectionId,
-						displayName: label === '' ? null : label,
-					});
-				}
-			});
+			await attachLinksBestEffort('the samples', () =>
+				addSamplesInFormOrder(sampleMutations.add, inspectionId, values.samples),
+			);
 
 			// Crew rows reference the inspection, so they can only be written once it
 			// exists.
