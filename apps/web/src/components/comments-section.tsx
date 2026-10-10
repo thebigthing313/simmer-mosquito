@@ -467,7 +467,7 @@ function CommentItem({
 							aria-label="Edit comment"
 							onClick={startEdit}
 							size="icon-xs"
-							title="Edit Comment"
+							title="Edit comment"
 							variant="ghost"
 						>
 							<EditIcon aria-hidden="true" />
@@ -479,7 +479,7 @@ function CommentItem({
 							className="text-muted-foreground hover:text-destructive"
 							onClick={() => setMode('confirm-delete')}
 							size="icon-xs"
-							title="Delete Comment"
+							title="Delete comment"
 							variant="ghost"
 						>
 							<DeleteIcon aria-hidden="true" />
