@@ -16,10 +16,8 @@ function MyOrganizationKeyBindingsRoute() {
 		<OrganizationWorkspaceShell canManage={workspace.canManage} role={workspace.role}>
 			<DomainSection
 				canManage={workspace.canManage}
-				fields={[]}
 				id="key-bindings"
 				meta="Keys for tallying species during adult and larval identification"
-				setupItems={[]}
 				title="Key Bindings"
 			>
 				<KeyBindingsSettings canManage={workspace.canManage} settings={workspace.settings} />

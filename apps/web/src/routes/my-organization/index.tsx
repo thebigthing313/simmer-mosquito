@@ -1,16 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import {
-	US_STATE_SELECT_OPTIONS,
-	US_TIMEZONE_OPTIONS,
-} from '../../components/my-organization/constants';
 import { GeneralOrganizationSection } from '../../components/my-organization/general';
-import {
-	selectField,
-	textField,
-	unitDefaultFields,
-} from '../../components/my-organization/helpers';
+import { unitDefaultFields } from '../../components/my-organization/helpers';
 import { OrganizationWorkspaceShell } from '../../components/my-organization/layout/organization-workspace-shell';
-import type { SettingField } from '../../components/my-organization/types';
 import { useUnitLabels } from '../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 
@@ -22,28 +13,11 @@ function MyOrganizationGeneralRoute() {
 	const { auth } = Route.useRouteContext();
 	const workspace = useOrganizationWorkspace(auth.snapshot);
 	const { all: units } = useUnitLabels();
-	const organizationFields: readonly SettingField[] = [
-		textField('Organization name', workspace.organization.name),
-		textField('Slug', workspace.organization.slug ?? '', {
-			editable: false,
-		}),
-		textField('Main contact', workspace.organization.main_contact_email ?? '', {
-			inputType: 'email',
-		}),
-		textField('Phone', workspace.organization.phone_number ?? '', { inputType: 'tel' }),
-		textField('Street address', workspace.organization.mailing_address_line_1 ?? ''),
-		textField('Apt, suite, etc.', workspace.organization.mailing_address_line_2 ?? ''),
-		textField('City', workspace.organization.mailing_locality ?? ''),
-		selectField('State', workspace.organization.mailing_region ?? '', US_STATE_SELECT_OPTIONS),
-		textField('ZIP code', workspace.organization.mailing_postal_code ?? ''),
-		selectField('Timezone', workspace.settings.timezone, US_TIMEZONE_OPTIONS),
-	];
 	const unitFields = unitDefaultFields(workspace.settings.unitDefaults, units);
 
 	return (
 		<OrganizationWorkspaceShell canManage={workspace.canManage} role={workspace.role}>
 			<GeneralOrganizationSection
-				organizationFields={organizationFields}
 				canManage={workspace.canManage}
 				canManageTags={workspace.canManageOperational}
 				organization={workspace.organization}

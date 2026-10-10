@@ -74,6 +74,21 @@ describe('collectionEffectiveDate', () => {
 			zone: 'America/New_York',
 			day: '2026-12-31',
 		},
+		{
+			name: 'an empty day with no instant is pending',
+			row: { collectedAt: null, collectionDate: '' },
+			day: null,
+		},
+		{
+			name: 'an empty instant with no day is pending',
+			row: { collectedAt: '', collectionDate: null },
+			day: null,
+		},
+		{
+			name: 'an empty instant falls through to the day',
+			row: { collectedAt: '', collectionDate: '2026-09-15' },
+			day: '2026-09-15',
+		},
 	];
 
 	for (const { name, row, zone, day } of cases) {

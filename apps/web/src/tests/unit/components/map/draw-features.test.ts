@@ -1,13 +1,13 @@
-import type { PlanarPath, PlanarPosition } from '@simmer-mosquito/mapping';
+import { closeRing, type PlanarPath } from '@simmer-mosquito/mapping';
 import { describe, expect, it } from 'vitest';
 import { buildFeatures } from '../../../../components/map/draw-features';
 import type {
 	DrawGeometry,
-	DrawPartGeometry,
 	DrawTarget,
 	EditMode,
 	Mode,
 } from '../../../../components/map/draw-parts';
+import { BLOCK, ESCAPING_POND, POND, polygon } from './draw-fixtures';
 
 /*
  * What the draw control puts in its source, asserted from a mode and a shape
@@ -16,40 +16,11 @@ import type {
  * features back.
  */
 
-/** A four-corner area with room inside it, so a hole has somewhere to go. */
-const BLOCK = [
-	[-91, 34],
-	[-91, 37],
-	[-88, 37],
-	[-88, 34],
-] as const;
-/** Well inside {@link BLOCK}. */
-const POND = [
-	[-90, 35],
-	[-90, 36],
-	[-89, 36],
-	[-89, 35],
-] as const;
-/** Two corners inside {@link BLOCK} and two outside its eastern edge. */
-const ESCAPING_POND = [
-	[-89, 35],
-	[-89, 36],
-	[-85, 36],
-	[-85, 35],
-] as const;
 const FAR_SQUARE = [
 	[-80, 35],
 	[-80, 36],
 	[-79, 36],
 ] as const;
-
-function closed(ring: readonly (readonly [number, number])[]): PlanarPath {
-	return [...ring, ring[0] as PlanarPosition];
-}
-
-function polygon(...rings: readonly (readonly (readonly [number, number])[])[]): DrawPartGeometry {
-	return { type: 'Polygon', coordinates: rings.map(closed) };
-}
 
 function drawing(target: DrawTarget, type: 'Point' | 'LineString' | 'Polygon' = 'Polygon'): Mode {
 	return { kind: 'draw', type, target };
@@ -119,7 +90,7 @@ describe('buildFeatures', () => {
 	it('marks only the highlighted piece', () => {
 		const committed: DrawGeometry = {
 			type: 'MultiPolygon',
-			coordinates: [[closed(BLOCK)], [closed(FAR_SQUARE)]],
+			coordinates: [[closeRing(BLOCK)], [closeRing(FAR_SQUARE)]],
 		};
 
 		const drawn = features({ committed, highlighted: 1 });
@@ -159,7 +130,7 @@ describe('buildFeatures', () => {
 			type: 'Polygon',
 			coordinates: [
 				[
-					...closed([
+					...closeRing([
 						[-91, 34],
 						[-91, 37],
 						[-88, 37],
