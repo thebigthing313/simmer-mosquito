@@ -1174,7 +1174,8 @@ describe('next, driven the way a form drives it', () => {
 			);
 
 			expect(view(run).editedPart?.selected).toEqual({ ring: 0, vertex: 2 });
-			expect(run.state.mode).toMatchObject({ rings: [BLOCK], history: [] });
+			expect(view(run).vertexCount).toBe(BLOCK.length);
+			expect(view(run).canUndo).toBe(false);
 		});
 
 		it('inserts a vertex on the edge a click landed on and picks the new one', () => {
@@ -1185,7 +1186,10 @@ describe('next, driven the way a form drives it', () => {
 			);
 
 			expect(view(run).editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
-			expect(run.state.mode).toMatchObject({ rings: [BLOCK_WITH_EDGE_VERTEX] });
+			expect(drive(run, FINISH).value).toEqual({
+				type: 'Polygon',
+				coordinates: [closeRing(BLOCK_WITH_EDGE_VERTEX)],
+			});
 		});
 
 		// The vertex layer draws over the edge it ends, so a click on a corner is
@@ -1199,7 +1203,27 @@ describe('next, driven the way a form drives it', () => {
 
 			expect(view(run).editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
 			expect(view(run).vertexCount).toBe(BLOCK.length);
-			expect(run.state.mode).toMatchObject({ rings: [BLOCK], history: [] });
+			expect(view(run).canUndo).toBe(false);
+		});
+
+		it('drops the pick on a click over nothing', () => {
+			const picked = drive(
+				begin(COMMITTED),
+				{ type: 'editPart', partIndex: 0 },
+				{ type: 'selectVertex', vertex: { ring: 0, vertex: 1 } },
+			);
+			expect(view(picked).editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
+
+			const run = drive(picked, {
+				type: 'editClick',
+				position: [-89.5, 35.5],
+				vertex: null,
+				overEdge: false,
+			});
+
+			expect(view(run).editedPart?.selected).toBeNull();
+			expect(view(run).vertexCount).toBe(BLOCK.length);
+			expect(view(run).canUndo).toBe(false);
 		});
 
 		// Three corners on one line are three corners and no area. #495 refused it

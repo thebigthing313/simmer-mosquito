@@ -10,11 +10,13 @@ import { useMapDraw } from '../../../../hooks/map/use-map-draw';
 import {
 	BLOCK,
 	BLOCK_WITH_EDGE_VERTEX,
+	BLOCK_WITH_PULLED_CORNER,
 	BULGED_BLOCK,
 	FIRST_SQUARE,
 	ON_WEST_EDGE,
 	OUTSIDE_SKETCH,
 	POND,
+	PULLED_CORNER,
 } from '../../components/map/draw-fixtures';
 import type { FakeMap } from '../../components/map/fake-map';
 import {
@@ -916,6 +918,7 @@ describe('useMapDraw', () => {
 		act(() => {
 			result.current.draw.selectVertex({ ring: 0, vertex: 1 });
 		});
+		expect(result.current.draw.editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
 
 		act(() => {
 			fake.click(-89.5, 35.5);
@@ -936,8 +939,9 @@ describe('useMapDraw', () => {
 		act(() => {
 			pressed = fake.press(-88, 37);
 		});
+		const [longitude, latitude] = PULLED_CORNER;
 		act(() => {
-			fake.move(-87, 38);
+			fake.move(longitude, latitude);
 		});
 		act(() => {
 			fake.releaseButton();
@@ -949,14 +953,7 @@ describe('useMapDraw', () => {
 		expect(pressed.defaultPrevented).toBe(true);
 		expect(result.current.value).toEqual({
 			type: 'Polygon',
-			coordinates: [
-				closeRing([
-					[-91, 34],
-					[-91, 37],
-					[-87, 38],
-					[-88, 34],
-				]),
-			],
+			coordinates: [closeRing(BLOCK_WITH_PULLED_CORNER)],
 		});
 	});
 
