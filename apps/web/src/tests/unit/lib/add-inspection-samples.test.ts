@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { addSamplesInFormOrder } from '../../../lib/inspection-samples';
+import { addSamplesInFormOrder } from '../../../lib/add-inspection-samples';
 
 /** A promise whose settling the test decides. */
 function deferred(): { promise: Promise<void>; resolve: () => void } {
