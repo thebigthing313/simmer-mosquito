@@ -15,9 +15,9 @@
  *
  * The router is `routerStandIn` handed `setSearch`, so its navigation writes
  * the search back to the stand-in URL and tells the mounted hooks, and a
- * removed chip is read back off the URL it wrote. The data hooks
- * hand back no rows, the split page renders its children and the worklist map
- * is nothing, since Mapbox GL has no jsdom.
+ * removed chip is read back off the URL it wrote. The data hooks hand back no
+ * rows, the split page renders its children and the worklist map is nothing,
+ * since Mapbox GL has no jsdom.
  */
 
 import { act, cleanup, fireEvent, screen } from '@testing-library/react';

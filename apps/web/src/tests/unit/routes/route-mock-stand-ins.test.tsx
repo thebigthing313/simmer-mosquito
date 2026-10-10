@@ -98,7 +98,7 @@ describe('routerStandIn navigation', () => {
 
 	it('keeps the current search when none is passed', async () => {
 		const { store, standIn } = standInOver({ tab: 'details' });
-		await standIn.useNavigate()({ to: '/operations/missions' });
+		await standIn.useNavigate()({ replace: true });
 		expect(store.search).toEqual({ tab: 'details' });
 	});
 

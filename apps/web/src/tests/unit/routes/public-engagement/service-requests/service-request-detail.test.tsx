@@ -30,10 +30,10 @@
  * page's context map calls `setCenter` on the instance it is handed and Mapbox
  * GL has no jsdom. The stand-in is handed `setSearch`, so its navigation
  * writes the search back and tells the hooks, because the tab is controlled by
- * the URL and a click that wrote nothing would leave the strip where it was. The mutation hook is a recorder
- * rather than the real one, since what the write does is
- * `use-service-request-mutations.test.ts`'s question and this file's is what
- * the page hands it. The component is preloaded first, since the split build's
+ * the URL and a click that wrote nothing would leave the strip where it was.
+ * The mutation hook is a recorder rather than the real one, since what the
+ * write does is `use-service-request-mutations.test.ts`'s question and this
+ * file's is what the page hands it. The component is preloaded first, since the split build's
  * lazy stand-in would otherwise overrun the test timeout while it imports.
  */
 
