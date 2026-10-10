@@ -298,11 +298,6 @@
         "count": 1
       }
     },
-    "apps/web/src/components/operations/missions/mission-stop-row.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/components/pickers/new-address-form.tsx": {
       "complexity_moderate": {
         "count": 1

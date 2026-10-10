@@ -111,16 +111,21 @@ function RouteEditRoute() {
 		commit: commitMove,
 	});
 
-	const features: RouteStopFeature[] = orderedStops
-		.map((stop, index) => ({ stop, ordinal: index + 1 }))
-		.filter((entry) => entry.stop.hasLocation)
-		.map((entry) => ({
-			id: entry.stop.routeItemId,
-			lng: entry.stop.lng as number,
-			lat: entry.stop.lat as number,
-			ordinal: entry.ordinal,
-			tone: stopTone(entry.stop),
-		}));
+	// A resolving stop has no location either, so skipping it changes nothing on
+	// the map; testing `isResolving` is what lets `stopTone` read the status.
+	const features: RouteStopFeature[] = orderedStops.flatMap((stop, index) =>
+		stop.isResolving || !stop.hasLocation
+			? []
+			: [
+					{
+						id: stop.routeItemId,
+						lng: stop.lng as number,
+						lat: stop.lat as number,
+						ordinal: index + 1,
+						tone: stopTone(stop),
+					},
+				],
+	);
 
 	const existingHabitatIds = new Set(stops.map((stop) => stop.habitatId));
 
@@ -486,19 +491,20 @@ function EditStopList({
 			{stops.map((stop, index) => (
 				<EditStopRow
 					canSubmit={canSubmit}
+					count={stops.length}
+					focus={{
+						selected: stop.routeItemId === selectedStopId,
+						highlighted: stop.routeItemId === highlightId,
+						onSelect,
+						onHover,
+					}}
 					index={index}
-					isFirst={index === 0}
-					isHighlighted={stop.routeItemId === highlightId}
-					isLast={index === stops.length - 1}
-					isSelected={stop.routeItemId === selectedStopId}
 					key={stop.routeItemId}
 					onEditAddress={onEditAddress}
-					onHover={onHover}
 					onMove={onMove}
 					onRemove={onRemove}
 					onSaveDescription={onSaveDescription}
 					onSaveDirections={onSaveDirections}
-					onSelect={onSelect}
 					ordinal={index + 1}
 					sameAddressAsPrev={
 						index > 0 && stop.addressId !== null && stops[index - 1]?.addressId === stop.addressId

@@ -11,29 +11,18 @@ import {
 	AlertDialogTitle,
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { TrapPicker } from '../../../../components/adult-surveillance/adult-pickers';
+import { trapStopTone } from '../../../../components/adult-surveillance/traps/trap-route-data';
+import { TrapRouteStopEditor } from '../../../../components/adult-surveillance/traps/trap-route-stop-editor';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import { StopSequenceMap } from '../../../../components/map/stop-sequence-map';
 import { EditFormSkeleton, RecordEditFrame } from '../../../../components/record';
-import {
-	type MoveAction,
-	type MovePlan,
-	OrdinalBadge,
-	StopReorderControls,
-} from '../../../../components/stop-order';
+import type { MoveAction, MovePlan } from '../../../../components/stop-order';
 import {
 	type TrapRouteStopView,
 	useTrapRouteStops,
@@ -99,16 +88,21 @@ function EditTrapRouteRoute() {
 
 	// Numbered off the displayed order, so the map renumbers with the list while a
 	// move is still in flight rather than showing the last synced sequence.
-	const features: readonly RouteStopFeature[] = orderedStops
-		.map((stop, index) => ({ stop, ordinal: index + 1 }))
-		.filter((entry) => entry.stop.hasLocation)
-		.map((entry) => ({
-			id: entry.stop.routeItemId,
-			lat: entry.stop.lat as number,
-			lng: entry.stop.lng as number,
-			ordinal: entry.ordinal,
-			tone: entry.stop.isActive ? ('default' as const) : ('inactive' as const),
-		}));
+	// A resolving stop has no location either, so skipping it changes nothing on
+	// the map; testing `isResolving` is what lets the tone read `isActive`.
+	const features: readonly RouteStopFeature[] = orderedStops.flatMap((stop, index) =>
+		stop.isResolving || !stop.hasLocation
+			? []
+			: [
+					{
+						id: stop.routeItemId,
+						lat: stop.lat as number,
+						lng: stop.lng as number,
+						ordinal: index + 1,
+						tone: trapStopTone(stop),
+					},
+				],
+	);
 
 	const onRoute = new Set(stops.map((stop) => stop.trapId));
 	const availableTraps = traps.filter((trap) => !onRoute.has(trap.id));
@@ -188,7 +182,7 @@ function EditTrapRouteRoute() {
 								</div>
 							) : null}
 
-							<StopEditor
+							<TrapRouteStopEditor
 								canSubmit={canSubmit}
 								isLoading={isLoading}
 								onMove={move}
@@ -320,91 +314,5 @@ function DeleteRouteDialog({
 				</AlertDialogFooter>
 			</AlertDialogContent>
 		</AlertDialog>
-	);
-}
-
-function StopEditor({
-	stops,
-	canSubmit,
-	isLoading,
-	onMove,
-	onRemove,
-	onSetDirections,
-}: {
-	readonly stops: readonly TrapRouteStopView[];
-	readonly canSubmit: boolean;
-	readonly isLoading: boolean;
-	readonly onMove: (index: number, action: MoveAction) => void;
-	readonly onRemove: (routeItemId: string) => void;
-	readonly onSetDirections: (routeItemId: string, value: string) => void;
-}) {
-	if (isLoading && stops.length === 0) {
-		return (
-			<div className="grid gap-2">
-				{['sk-1', 'sk-2', 'sk-3'].map((key) => (
-					<Skeleton className="h-16 rounded-lg" key={key} />
-				))}
-			</div>
-		);
-	}
-
-	if (stops.length === 0) {
-		return (
-			<Empty className="min-h-[160px] border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyTitle>No Stops Yet</EmptyTitle>
-					<EmptyDescription>Add traps above to build this route.</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
-		);
-	}
-
-	return (
-		<ol className="grid gap-2">
-			{stops.map((stop, index) => (
-				<li
-					className="grid gap-2 rounded-lg border border-border/50 bg-card p-3"
-					key={stop.routeItemId}
-				>
-					<div className="flex items-center gap-3">
-						<OrdinalBadge ordinal={index + 1} tone={stop.isActive ? 'default' : 'inactive'} />
-						<span className="min-w-0 flex-1 truncate font-medium text-foreground text-sm">
-							{stop.name}
-						</span>
-						{/* The badge's grey fill is hidden from assistive technology, so the word carries it. */}
-						{stop.isActive ? null : (
-							<span className="shrink-0 text-muted-foreground text-xs">Inactive</span>
-						)}
-						{canSubmit ? (
-							<StopReorderControls
-								extraActions={
-									<DropdownMenuItem
-										onClick={() => onRemove(stop.routeItemId)}
-										variant="destructive"
-									>
-										Remove from route
-									</DropdownMenuItem>
-								}
-								index={index}
-								isFirst={index === 0}
-								isLast={index === stops.length - 1}
-								onMove={onMove}
-							/>
-						) : null}
-					</div>
-					{index < stops.length - 1 ? (
-						<Input
-							aria-label={`Directions from ${stop.name} to the next stop`}
-							className="h-8 text-xs"
-							defaultValue={stop.directionsToNextItem ?? ''}
-							disabled={!canSubmit}
-							key={stop.routeItemId}
-							onBlur={(event) => onSetDirections(stop.routeItemId, event.target.value)}
-							placeholder="Directions to the next stop"
-						/>
-					) : null}
-				</li>
-			))}
-		</ol>
 	);
 }

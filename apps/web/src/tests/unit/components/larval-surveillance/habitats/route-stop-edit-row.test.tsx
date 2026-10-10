@@ -12,6 +12,10 @@ import { EditStopRow } from '../../../../../components/larval-surveillance/habit
  * Habitat has not streamed the stop has no description to show, and before
  * #1565 the editor opened on an empty one that a save wrote over the real
  * text. The directions are the Route item's own column, so they stay editable.
+ *
+ * The badge and the status word are the Habitat's too. Until #1600 a stop whose
+ * Habitat had not arrived drew the active tone and no status, so it read as an
+ * active stop; it draws the resolving tone and `Loading…` now.
  */
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
@@ -40,8 +44,10 @@ const RESOLVED: RouteStopView = {
 	isResolving: false,
 };
 
+const { isActive: _isActive, isInaccessible: _isInaccessible, ...SHARED } = RESOLVED;
+
 const RESOLVING: RouteStopView = {
-	...RESOLVED,
+	...SHARED,
 	name: 'Habitat 1a2b3c4d',
 	description: null,
 	lat: null,
@@ -62,6 +68,23 @@ const _resolvedWithoutDescription: RouteStopView = { ...RESOLVED, description: n
 void _resolvingWithDescription;
 void _resolvedWithoutDescription;
 
+/*
+ * The status is the Habitat's, so a stop carries it only once narrowed to
+ * resolved: reading it off the union is a `tsc` error.
+ */
+function _statusOf(stop: RouteStopView) {
+	// @ts-expect-error A resolving stop has no `isActive` to read.
+	void stop.isActive;
+	// @ts-expect-error A resolving stop has no `isInaccessible` to read.
+	void stop.isInaccessible;
+	return stop.isResolving ? null : stop.isActive;
+}
+void _statusOf;
+
+function badgeTone(): string | null {
+	return document.querySelector('[data-tone]')?.getAttribute('data-tone') ?? null;
+}
+
 function renderRow(stop: RouteStopView) {
 	const noop = () => {};
 	render(
@@ -69,18 +92,14 @@ function renderRow(stop: RouteStopView) {
 			<ul>
 				<EditStopRow
 					canSubmit
+					count={1}
+					focus={{ selected: false, highlighted: false, onSelect: noop, onHover: noop }}
 					index={0}
-					isFirst
-					isHighlighted={false}
-					isLast
-					isSelected={false}
 					onEditAddress={noop}
-					onHover={noop}
 					onMove={noop}
 					onRemove={noop}
 					onSaveDescription={noop}
 					onSaveDirections={noop}
-					onSelect={noop}
 					ordinal={1}
 					sameAddressAsPrev={false}
 					stop={stop}
@@ -105,5 +124,20 @@ describe('EditStopRow', () => {
 
 		expect(screen.queryByRole('button', { name: 'Add a description' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Add directions to the next stop' })).toBeTruthy();
+	});
+
+	it('draws a resolving stop with the resolving badge and Loading…', () => {
+		renderRow(RESOLVING);
+
+		expect(badgeTone()).toBe('resolving');
+		expect(screen.getByText('Loading…')).toBeTruthy();
+	});
+
+	it('draws an arrived stop in its tone with its status badge', () => {
+		renderRow({ ...RESOLVED, isActive: false });
+
+		expect(badgeTone()).toBe('inactive');
+		expect(screen.getByText('Inactive')).toBeTruthy();
+		expect(screen.queryByText('Loading…')).toBeNull();
 	});
 });

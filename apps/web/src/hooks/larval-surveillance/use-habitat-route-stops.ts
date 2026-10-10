@@ -1,4 +1,4 @@
-import { and, coalesce, eq, useLiveQuery } from '@tanstack/react-db';
+import { and, eq, useLiveQuery } from '@tanstack/react-db';
 import {
 	type RouteStopCluster,
 	type RouteStopResolution,
@@ -62,17 +62,18 @@ export function useHabitatRouteStops(routeId: string | null): {
 					// `null` while the Habitat has not arrived, so the id fallback below
 					// is reachable rather than a bare `, ` from `concat` over nothing.
 					name: joinedHabitatNameSelect(habitat),
-					// `undefined` while the Habitat has not arrived, which is not the
-					// same answer as a Habitat with no description: the column is never
-					// null, so a resolved one reads `''`. Left raw rather than through
-					// `joinedOrNull`, because the raw column's `string | undefined` is what
+					// These three are `undefined` while the Habitat has not arrived,
+					// which is not the same answer as a Habitat with no description or
+					// one that is inactive: each column is never null, so a resolved one
+					// reads `''` or a boolean. Left raw rather than through `joinedOrNull`
+					// or a `coalesce` default, because the raw `| undefined` is what
 					// `stopResolution` below reads as the joined row's presence.
 					description: habitat.description,
+					isActive: habitat.is_active,
+					isInaccessible: habitat.is_inaccessible,
 					habitatTypeId: joinedOrNull(habitat.habitat_type_id),
 					lat: joinedOrNull(habitat.lat),
 					lng: joinedOrNull(habitat.lng),
-					isActive: coalesce(habitat.is_active, true),
-					isInaccessible: coalesce(habitat.is_inaccessible, false),
 
 					addressId: joinedOrNull(habitat.address_id),
 					addressLabel: joinedOrNull(address.display_name),
@@ -85,25 +86,33 @@ export function useHabitatRouteStops(routeId: string | null): {
 	// place in the ordered result, and a projection sees a row rather than the
 	// sequence. `position` is the stored sort key and can have gaps, so it is
 	// not the number a crew reads off the list.
-	const stops: RouteStopView[] = rows.map(({ description, ...row }, index) => ({
-		...row,
-		...stopResolution(description),
-		ordinal: index + 1,
-		name: row.name ?? `Habitat ${row.habitatId.slice(0, 8)}`,
-		hasLocation: row.lat !== null && row.lng !== null,
-	}));
+	const stops: RouteStopView[] = rows.map(
+		({ description, isActive, isInaccessible, ...row }, index) => ({
+			...row,
+			...stopResolution({ description, isActive, isInaccessible }),
+			ordinal: index + 1,
+			name: row.name ?? `Habitat ${row.habitatId.slice(0, 8)}`,
+			hasLocation: row.lat !== null && row.lng !== null,
+		}),
+	);
 
 	const clusters = clusterByAddress(stops);
 
-	const features: RouteStopFeature[] = stops
-		.filter((stop) => stop.hasLocation)
-		.map((stop) => ({
-			id: stop.routeItemId,
-			lng: stop.lng as number,
-			lat: stop.lat as number,
-			ordinal: stop.ordinal,
-			tone: stopTone(stop),
-		}));
+	// A resolving stop has no location either, so skipping it changes nothing on
+	// the map; testing `isResolving` is what lets `stopTone` read the status.
+	const features: RouteStopFeature[] = stops.flatMap((stop) =>
+		stop.isResolving || !stop.hasLocation
+			? []
+			: [
+					{
+						id: stop.routeItemId,
+						lng: stop.lng as number,
+						lat: stop.lat as number,
+						ordinal: stop.ordinal,
+						tone: stopTone(stop),
+					},
+				],
+	);
 
 	return {
 		stops,
@@ -115,15 +124,23 @@ export function useHabitatRouteStops(routeId: string | null): {
 }
 
 /**
- * A stop's description and `isResolving` from the one column that decides
- * both, so the two cannot disagree: the joined description is `undefined`
- * exactly when the Habitat has not arrived. The parameter takes no `null`, so
- * a nullable column would fail `tsc` here rather than read as resolving.
+ * A stop's `isResolving`, description and status from the joined Habitat's
+ * columns. All three are one row's and never null, so each is `undefined`
+ * exactly when the Habitat has not arrived and they are `undefined` together.
+ * Testing each one rather than only the description is what lets `tsc` narrow
+ * all three without an assertion, and it gives the same answer. The parameter
+ * takes no `null`, so a nullable column would fail `tsc` here rather than read
+ * as resolving.
  */
-function stopResolution(description: string | undefined): RouteStopResolution {
-	return description === undefined
+function stopResolution(joined: {
+	readonly description: string | undefined;
+	readonly isActive: boolean | undefined;
+	readonly isInaccessible: boolean | undefined;
+}): RouteStopResolution {
+	const { description, isActive, isInaccessible } = joined;
+	return description === undefined || isActive === undefined || isInaccessible === undefined
 		? { isResolving: true, description: null }
-		: { isResolving: false, description };
+		: { isResolving: false, description, isActive, isInaccessible };
 }
 
 /** Group consecutive stops that share a non-null address into one cluster. */

@@ -137,6 +137,22 @@ is what an operator is looking for. Duplicate species/sex/status rows in
 `collection_species` (the table has no uniqueness constraint) are keyed off the
 earliest row and the rest left alone rather than folded together.
 
+#### TrapRouteStopList and TrapRouteStopEditor
+
+The stop lists on the Trap Route detail and edit pages, moved out of the two
+route modules in #1600 so a suite could render them without loading a route.
+A stop whose Trap has not streamed in draws the `resolving` tone and
+`Loading…` where the `Inactive` word goes; before #1600 it read `isActive`
+from a `coalesce(trap.is_active, true)` default and drew as an active stop.
+
+The detail list draws its ordinal in a 28px circle of its own rather than
+`OrdinalBadge`, and fills an inactive stop with `bg-muted` where the badge
+uses `bg-muted-foreground`. That predates #1600, which left the resolved
+stops drawing exactly what they drew and took only `resolvingToneClass` from
+the badge, so the resolving state looks the same on all four Route pages.
+Moving this list onto the badge would change how a resolved stop looks, and
+is a decision of its own.
+
 ### app-shell
 
 #### WorkspaceChromeFallback
@@ -1572,6 +1588,59 @@ set up for this record type. With text in the box the line does not apply, so an
 empty section drops out, and when both drop out one line says nothing matches.
 
 `docs/tag-relevance-spec.md` is the rest.
+
+### stop-order
+
+#### StopCardFrame
+
+The card around one stop on a list that sits beside a map. Four rows draw
+through it: `EditStopRow` on the habitat Route edit page, `MissionStopRow` on
+the Mission detail page, and `PlanStopRow` and `RunStopRow` on the two
+Assignment pages. Each used to write the same `<li>`, the same hover handlers,
+the same full-card select button and the same `pointer-events-none` body, and
+each took the selection as four loose props (#1578).
+
+The select button sits under the body rather than wrapping it, because the
+body holds links, menus and inline editors, and a button may not contain
+another interactive element. So the body ignores the pointer and anything in
+it a person should reach opts back in with `pointer-events-auto`. A child that
+forgets the class draws but cannot be clicked, and that is the first thing to
+check when a new control in a stop card does nothing.
+
+The four values that describe the stop against the map travel as one
+`StopFocus`. A row reads none of them; it hands the object to the frame, which
+is what kept `EditStopRow` at 14 props once the frame took them over. The
+label stays the caller's because the rows name a stop two ways: the habitat
+Route says `Show {name} on the map`, and the Mission and Assignment rows say
+`Show stop {ordinal} on the map`.
+
+The Trap Route edit page and the habitat Route detail page do not use it. The
+first has no map selection, so its stops stay plain `<li>` cards, and the
+second selects through a button that is the whole row rather than a layer
+under it.
+
+#### OrdinalBadge
+
+`tone` takes `OrdinalTone`, which is the map layer's `StopTone` plus
+`resolving`. The map has no `resolving` because a stop is resolving only
+while the record behind it has not streamed in, and until then it has no
+location, so it never reaches the map. Widening `StopTone` instead would have
+put a value into the layer's colour expression that no feature can carry
+(#1600).
+
+`resolving` is an outline with no fill, in `text-muted-foreground`, so it is
+told apart from `inactive`, which fills the circle with that colour. A
+resolving stop also draws `ResolvingStatus` where its status badge goes,
+which is `Loading…`, the word `TargetLink` draws on an assignment stop in the
+same state. The badge is `aria-hidden`, so the word is what a screen reader
+gets. The tone is written to `data-tone` for the suites.
+
+#### StopReorderControls
+
+Takes the stop's `index` and the list's `count` and works out the ends itself.
+Every caller used to derive `isFirst` and `isLast` from those same two numbers
+and pass both in, on all four pages that reorder stops, and a caller that got one wrong would leave
+a move button live at the end of the list (#1578).
 
 ## packages/ui-web
 
