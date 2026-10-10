@@ -155,8 +155,11 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-/** Render the route, wait for the form, and save it with `change` applied. */
-async function saveWith(change: Partial<InspectionFormValues>): Promise<void> {
+/** Render the route and wait for the form, which hands back what it was given. */
+async function renderForm(): Promise<{
+	readonly onSave: OnSave;
+	readonly defaultValues: InspectionFormValues;
+}> {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	render(
 		<QueryClientProvider client={client}>
@@ -166,7 +169,12 @@ async function saveWith(change: Partial<InspectionFormValues>): Promise<void> {
 		</QueryClientProvider>,
 	);
 	await screen.findByText('inspection form');
-	const form = harness.form as { onSave: OnSave; defaultValues: InspectionFormValues };
+	return harness.form as { onSave: OnSave; defaultValues: InspectionFormValues };
+}
+
+/** Render the route and save the form with `change` applied. */
+async function saveWith(change: Partial<InspectionFormValues>): Promise<void> {
+	const form = await renderForm();
 	await act(() =>
 		form.onSave({
 			values: { ...form.defaultValues, ...change },
@@ -183,9 +191,8 @@ const INSPECTION_PAGE = {
 
 describe('inspection edit, when a link write fails after the save', () => {
 	it('opens on the crew row the fixture puts on the inspection', async () => {
-		await saveWith({});
-		const values = (harness.form as { defaultValues: InspectionFormValues }).defaultValues;
-		expect(values.additionalPersonnelIds).toHaveLength(1);
+		const { defaultValues } = await renderForm();
+		expect(defaultValues.additionalPersonnelIds).toHaveLength(1);
 	});
 
 	it('reports a failed crew removal as a change to retry from the edit form', async () => {

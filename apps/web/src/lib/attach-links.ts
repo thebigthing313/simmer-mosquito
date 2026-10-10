@@ -7,7 +7,7 @@ import { errorMessageForSave } from './save-error';
  * new ones. Its miss can be a removal, and the place to retry it is the edit
  * form, so it is reported in those words.
  */
-export interface LinkChange {
+interface LinkChange {
 	readonly write: 'change';
 	/** The record the links hang off, named from the register in the description. */
 	readonly recordType: RecordType;
