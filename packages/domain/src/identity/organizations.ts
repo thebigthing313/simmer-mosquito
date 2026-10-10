@@ -162,13 +162,7 @@ export type OrganizationContactDetails = {
 	readonly [K in OrganizationContactDetailKey]?: string | null;
 };
 
-/**
- * The contact details, in the order the limits table writes them.
- *
- * The operator console's Organization create reads, checks and stores the
- * details by walking this list, so a detail added to the table reaches the
- * create with no edit to the route.
- */
+/** The contact details, in the order the limits table writes them. */
 export const ORGANIZATION_CONTACT_DETAIL_KEYS = Object.keys(
 	NULLABLE_DETAIL_LIMITS,
 ) as readonly OrganizationContactDetailKey[];

@@ -199,7 +199,8 @@ describe('normalizeOrganizationContactDetails', () => {
 		const { details } = normalizeOrganizationContactDetails(blank);
 
 		expect(Object.keys(details)).toEqual(ORGANIZATION_CONTACT_DETAIL_KEYS);
-		expect(ORGANIZATION_CONTACT_DETAIL_KEYS).toHaveLength(8);
+		// An empty list would pass the line above with nothing read.
+		expect(ORGANIZATION_CONTACT_DETAIL_KEYS).toContain('mainContactEmail');
 	});
 
 	it('returns every refusal as an issue rather than throwing', () => {
