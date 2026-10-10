@@ -53,9 +53,12 @@ export interface MutationHandlerConfig {
  * returned `{ txid }`, which `electric-db-collection` 0.5 deprecated. Whether
  * to wait is whether anything is watching, and `awaitConfirmation` says why.
  *
- * It does not promise the txid will arrive: a live stream whose loaded subset
- * excludes the new row still will not carry it. So a caller treats a
- * confirmation timeout as lag rather than failure, which `settleWrite` does.
+ * Which rows a live query has loaded does not decide whether the txid arrives:
+ * on `electric-db-collection` 0.5.8 the stream records `headers.txids` before
+ * it matches the row against any subset. What can still hold it up is the
+ * stream, slow, reconnecting, or paused while the write is in flight. So a
+ * caller treats a confirmation timeout as lag rather than failure, which
+ * `settleWrite` does.
  */
 
 function send(request: CommandRequest): Promise<number> {
