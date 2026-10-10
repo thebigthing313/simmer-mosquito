@@ -16,15 +16,23 @@ export interface RouteHabitat {
 	readonly isInaccessible: boolean;
 }
 
-/** One resolved stop: a route item joined to its habitat, in route order. */
-export interface RouteStopView {
+/**
+ * One stop: a route item joined to its habitat, in route order.
+ *
+ * A union on `isResolving`, because the description is the Habitat's and the
+ * stop draws before the Habitat arrives. A resolved stop carries a string,
+ * `''` when the Habitat has none, and a resolving one carries `null`, so a
+ * reader that narrows on `isResolving` knows which it holds.
+ */
+export type RouteStopView = RouteStopFields & RouteStopResolution;
+
+/** Every field of a stop that both members of {@link RouteStopView} share. */
+interface RouteStopFields {
 	readonly routeItemId: string;
 	readonly habitatId: string;
 	readonly ordinal: number;
 	readonly position: number;
 	readonly name: string;
-	/** `null` while the Habitat behind this stop is still resolving. */
-	readonly description: string | null;
 	readonly habitatTypeId: string | null;
 	readonly addressId: string | null;
 	readonly addressLabel: string | null;
@@ -34,9 +42,12 @@ export interface RouteStopView {
 	readonly isInaccessible: boolean;
 	readonly directionsToNextItem: string | null;
 	readonly hasLocation: boolean;
-	/** True while the habitat row behind this stop is still resolving. */
-	readonly isResolving: boolean;
 }
+
+/** Whether the Habitat behind a stop has arrived, and its description if so. */
+export type RouteStopResolution =
+	| { readonly isResolving: false; readonly description: string }
+	| { readonly isResolving: true; readonly description: null };
 
 /** A run of consecutive stops that share one address (the grouping cue). */
 export interface RouteStopCluster {

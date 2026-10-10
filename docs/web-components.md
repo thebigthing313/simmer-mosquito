@@ -692,11 +692,14 @@ know which. The server refuses an intent whatever either side says.
 #### EditStopRow
 
 One stop on the habitat Route edit page. Its description editor saves to the
-Habitat behind the stop, not to the Route item, so it is read-only while
+Habitat behind the stop, not to the Route item, so it is not drawn while
 `isResolving` is true: the stop has no description to show then, and an
 editor opened on an empty one would save over the Habitat's real text
-(#1565). The directions editor writes the Route item's own column and stays
-open to a writer either way.
+(#1565). Skipping the field draws what a disabled one with an empty value
+did, which is nothing, and since `RouteStopView` is a union on `isResolving`
+the resolved branch hands the editor a string with no `?? ''` (#1579). The
+directions editor writes the Route item's own column and stays open to a
+writer either way.
 
 #### Inspection filters
 

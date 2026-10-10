@@ -23,8 +23,9 @@ import { StopStatus, StopTagChips, StopTypePill } from './route-stop-list';
  * editors, the Habitat's description and the directions to the next stop.
  *
  * Takes the stop, whether the viewer may write, its place in the list, and a
- * callback per control. The description editor is read-only while the stop's
- * Habitat is still resolving, because its save writes the Habitat.
+ * callback per control. The description editor is not drawn while the stop's
+ * Habitat is still resolving, because its save writes the Habitat and the stop
+ * has no description to open it on.
  */
 export function EditStopRow({
 	stop,
@@ -146,19 +147,21 @@ export function EditStopRow({
 					<StopTagChips tags={tags} />
 
 					<div className="mt-2 grid gap-1.5">
-						<InlineEditField
-							ariaLabel={`Description for ${stop.name}`}
-							disabled={!canSubmit || stop.isResolving}
-							emptyLabel="Add a description"
-							onSave={(value) => onSaveDescription(stop.habitatId, value)}
-							renderValue={(value) => (
-								<span className="block whitespace-pre-wrap text-foreground/80 text-xs leading-snug">
-									{value}
-								</span>
-							)}
-							textareaPlaceholder="What crews should know about this habitat…"
-							value={stop.description ?? ''}
-						/>
+						{stop.isResolving ? null : (
+							<InlineEditField
+								ariaLabel={`Description for ${stop.name}`}
+								disabled={!canSubmit}
+								emptyLabel="Add a description"
+								onSave={(value) => onSaveDescription(stop.habitatId, value)}
+								renderValue={(value) => (
+									<span className="block whitespace-pre-wrap text-foreground/80 text-xs leading-snug">
+										{value}
+									</span>
+								)}
+								textareaPlaceholder="What crews should know about this habitat…"
+								value={stop.description}
+							/>
+						)}
 						<InlineEditField
 							ariaLabel={`Directions after ${stop.name}`}
 							disabled={!canSubmit}

@@ -50,6 +50,18 @@ const RESOLVING: RouteStopView = {
 	isResolving: true,
 };
 
+/*
+ * The pairing the editor narrows on is the type's, not the hook's: a stop is
+ * resolving exactly when it has no description, so each of the other two
+ * combinations is a literal `tsc` refuses.
+ */
+// @ts-expect-error A resolving stop has no description to carry.
+const _resolvingWithDescription: RouteStopView = { ...RESOLVING, description: 'Behind the pump.' };
+// @ts-expect-error A resolved stop reads `''` for an empty description, never `null`.
+const _resolvedWithoutDescription: RouteStopView = { ...RESOLVED, description: null };
+void _resolvingWithDescription;
+void _resolvedWithoutDescription;
+
 function renderRow(stop: RouteStopView) {
 	const noop = () => {};
 	render(
