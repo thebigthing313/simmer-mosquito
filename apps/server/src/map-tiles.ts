@@ -1289,6 +1289,9 @@ export const parseServiceRequestMapFilters = defineFilters<ServiceRequestMapFilt
 		{ param: 'tagId', as: 'tagIds', kind: 'uuidList' },
 		// The rail's order. The tiles and the extent take it and ignore it.
 		{ param: 'oldest', as: 'oldestFirst', kind: 'trueOnly' },
+		// The Overdue filter: the first request date that is not overdue, which
+		// the client computes from the Organization's threshold (#1246).
+		{ param: 'overdueBefore', kind: 'date' },
 		regionField,
 		...dateFields,
 	],

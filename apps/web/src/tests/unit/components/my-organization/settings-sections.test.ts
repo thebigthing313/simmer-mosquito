@@ -21,6 +21,7 @@ const SETTINGS = {
 			radius: { amount: 0.5, unitCode: 'mi' },
 			timeWindow: { daysBefore: 7, daysAfter: 14 },
 		},
+		serviceRequestOverdueDays: 21,
 	},
 } as unknown as OrganizationSettings;
 
@@ -29,6 +30,7 @@ function fakeMutations() {
 		setAdultCollectionTimingMode: vi.fn().mockResolvedValue(undefined),
 		setInsecticideBatchTracking: vi.fn().mockResolvedValue(undefined),
 		setServiceRequestContext: vi.fn().mockResolvedValue(undefined),
+		setServiceRequestOverdueDays: vi.fn().mockResolvedValue(undefined),
 	};
 }
 
@@ -75,22 +77,37 @@ describe('batchTrackingSection', () => {
 });
 
 describe('serviceRequestContextSection', () => {
-	it('opens on the saved radius and day window', () => {
+	it('opens on the saved radius, day window and overdue threshold', () => {
 		expect(serviceRequestContextSection.read(SETTINGS)).toEqual({
 			radiusAmount: 0.5,
 			radiusUnitCode: 'mi',
 			daysBefore: 7,
 			daysAfter: 14,
+			overdueOn: true,
+			overdueDays: 21,
 		});
 	});
 
-	it('saves the context the values describe', async () => {
+	it('opens a threshold that is off with the switch off and the default days', () => {
+		const off = {
+			...SETTINGS,
+			publicEngagement: { ...SETTINGS.publicEngagement, serviceRequestOverdueDays: 'off' },
+		} as OrganizationSettings;
+		expect(serviceRequestContextSection.read(off)).toMatchObject({
+			overdueOn: false,
+			overdueDays: 14,
+		});
+	});
+
+	it('saves the context and then the threshold the values describe', async () => {
 		const mutations = fakeMutations();
 		const payload = serviceRequestContextSection.convert({
 			radiusAmount: 2,
 			radiusUnitCode: ' km ',
 			daysBefore: 0,
 			daysAfter: 3,
+			overdueOn: true,
+			overdueDays: 30,
 		});
 		await serviceRequestContextSection.save(asMutations(mutations), payload);
 
@@ -98,6 +115,28 @@ describe('serviceRequestContextSection', () => {
 			radius: { amount: 2, unitCode: 'km' },
 			timeWindow: { daysBefore: 0, daysAfter: 3 },
 		});
+		expect(mutations.setServiceRequestOverdueDays).toHaveBeenCalledWith(30);
+		expect(mutations.setServiceRequestContext.mock.invocationCallOrder[0]).toBeLessThan(
+			mutations.setServiceRequestOverdueDays.mock.invocationCallOrder[0] ?? 0,
+		);
+	});
+
+	it('saves off with the switch off, whatever the days input holds', () => {
+		const values = serviceRequestContextSection.read(SETTINGS);
+		expect(
+			serviceRequestContextSection.convert({ ...values, overdueOn: false, overdueDays: null })
+				.serviceRequestOverdueDays,
+		).toBe('off');
+	});
+
+	it.each([
+		[0, 'Overdue after (days) must be a whole number from 1 to 365.'],
+		[2.5, 'Overdue after (days) must be a whole number from 1 to 365.'],
+		[366, 'Overdue after (days) must be a whole number from 1 to 365.'],
+		[null, 'Overdue after (days) is required.'],
+	])('refuses %s days with the switch on', (overdueDays, message) => {
+		const values = serviceRequestContextSection.read(SETTINGS);
+		expect(() => serviceRequestContextSection.convert({ ...values, overdueDays })).toThrow(message);
 	});
 
 	it('refuses an emptied field, naming it', () => {

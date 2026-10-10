@@ -694,6 +694,7 @@ const ORGANIZATION_SETTINGS_PERMISSIONS: Record<
 	'organizationSettings.updateLarvalInspectionEntryPolicy': ADMIN,
 	'organizationSettings.updateInsecticideBatchTracking': ADMIN,
 	'organizationSettings.updateServiceRequestContext': ADMIN,
+	'organizationSettings.updateServiceRequestOverdueDays': ADMIN,
 	'organizationSettings.updateSpeciesKeyBindings': ADMIN,
 };
 

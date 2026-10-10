@@ -32,7 +32,7 @@ describe('the service requests filter contract', () => {
 		expect(validate({ status: 'open' })).toEqual({ status: 'open' });
 	});
 
-	it('carries status and dates between the two surfaces and nothing else', () => {
+	it('carries status, dates and Overdue between the two surfaces and nothing else', () => {
 		expect(
 			sharedServiceRequestSearch({
 				status: 'closed',
@@ -41,8 +41,21 @@ describe('the service requests filter contract', () => {
 				regions: ['region-1'],
 				from: '2026-08-01',
 				to: 'any',
+				overdue: true,
 				sort: 'number',
 			}),
-		).toEqual({ status: 'closed', from: '2026-08-01', to: 'any' });
+		).toEqual({ status: 'closed', from: '2026-08-01', to: 'any', overdue: true });
+	});
+
+	it('opens with Overdue off and keeps it off the address bar until it is on', () => {
+		const defaults = serviceRequestFilterDefaults('2026-09-15');
+		const validate = searchValidator(serviceRequestFilterCodecs);
+
+		expect(defaults.overdue).toBe(false);
+		expect(validate({ overdue: false })).toEqual({});
+		expect(validate({ overdue: true })).toEqual({ overdue: true });
+		expect(resolveFilters(defaults, serviceRequestFilterCodecs, { overdue: 'true' })).toMatchObject(
+			{ overdue: true },
+		);
 	});
 });

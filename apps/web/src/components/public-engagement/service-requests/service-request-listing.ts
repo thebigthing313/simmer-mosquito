@@ -33,11 +33,16 @@ export const SERVICE_REQUESTS_PATH = '/map/service-requests';
 
 /**
  * What the reader has narrowed by, as the tile layer wants it. The Table has no
- * search, Tags or Regions control, so it passes only the three it has.
+ * search, Tags or Regions control, so it passes only the four it has.
+ *
+ * `overdueCutoff` is the Organization's, from `useServiceRequestFilterDefaults`,
+ * and `null` while its threshold is off: Overdue then narrows nothing, whatever
+ * the address says.
  */
 export function serviceRequestTileFilters(
-	query: Pick<ServiceRequestFilters, 'status' | 'from' | 'to'> &
+	query: Pick<ServiceRequestFilters, 'status' | 'from' | 'to' | 'overdue'> &
 		Partial<Pick<ServiceRequestFilters, 'search' | 'tags' | 'regions'>>,
+	overdueCutoff: string | null,
 ): ServiceRequestTileFilters {
 	return {
 		...(query.status === 'all' ? {} : { isOpen: query.status === 'open' }),
@@ -46,6 +51,7 @@ export function serviceRequestTileFilters(
 		...whenAny('regionIds', query.regions ?? new Set<string>()),
 		...whenText('dateFrom', query.from),
 		...whenText('dateTo', query.to),
+		...whenText('overdueBefore', query.overdue ? (overdueCutoff ?? '') : ''),
 	};
 }
 
@@ -57,6 +63,7 @@ function serviceRequestQueryParams(filters: ServiceRequestTileFilters): {
 	readonly regionId: readonly string[] | undefined;
 	readonly dateFrom: string | undefined;
 	readonly dateTo: string | undefined;
+	readonly overdueBefore: string | undefined;
 } {
 	return {
 		status: filters.isOpen === undefined ? undefined : filters.isOpen ? 'open' : 'closed',
@@ -65,6 +72,7 @@ function serviceRequestQueryParams(filters: ServiceRequestTileFilters): {
 		regionId: filters.regionIds,
 		dateFrom: filters.dateFrom,
 		dateTo: filters.dateTo,
+		overdueBefore: filters.overdueBefore,
 	};
 }
 

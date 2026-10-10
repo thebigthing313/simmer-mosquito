@@ -30,6 +30,7 @@ import type { DescribedCatalogRecord } from '../../hooks/queries/catalog-record-
 import { catalogs } from '../../hooks/queries/catalog-register';
 import { useCatalogRecords } from '../../hooks/queries/use-catalog-records';
 import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
+import { countPhrase } from '../../lib/format-count';
 import {
 	type CatalogFormValues,
 	catalogFields,
@@ -56,6 +57,7 @@ export function PublicEngagementSettings({
 	return (
 		<div className="grid gap-3">
 			<ServiceRequestContextGuide settings={settings} />
+			<ServiceRequestOverdueGuide settings={settings} />
 			<div className="grid gap-2">
 				<h3 className={eyebrow({ tone: 'primary', className: 'mt-0.5' })}>Setup Lists</h3>
 				<div className="grid gap-3">
@@ -100,6 +102,19 @@ function ServiceRequestContextGuide({ settings }: { readonly settings: Organizat
 					value={String(context.timeWindow.daysAfter)}
 				/>
 			</div>
+		</section>
+	);
+}
+
+function ServiceRequestOverdueGuide({ settings }: { readonly settings: OrganizationSettings }) {
+	const days = settings.publicEngagement.serviceRequestOverdueDays;
+	return (
+		<section className="grid gap-2 rounded-md border border-border/30 bg-muted/30 p-2.5">
+			<PublicSettingTile
+				detail="An open service request older than this is marked overdue on the map, the table and the dashboard."
+				label="Overdue after"
+				value={days === 'off' ? 'Off' : countPhrase(days, { one: 'day', many: 'days' })}
+			/>
 		</section>
 	);
 }
