@@ -164,9 +164,8 @@ export function useGeoJsonLayer(
 		},
 		selection: {
 			layerId: POINT_SELECTED_LAYER_ID,
-			// A feature id is never empty, so the empty string can stand for none.
-			key: interaction?.selectedId ?? '',
-			filter: (key) => selectedPointFilter(key === '' ? null : key),
+			key: interaction?.selectedId ?? null,
+			filter: selectedPointFilter,
 		},
 	});
 }

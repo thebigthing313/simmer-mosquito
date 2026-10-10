@@ -2,6 +2,7 @@ import { Loader2Icon, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/regi
 import type { Map as MapboxMap, Marker } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
 import { type GeolocationCoords, useGeolocation } from '../../hooks/map/use-geolocation';
+import { focusOnMap } from './map-camera';
 import { MapControlButton, MapControlGroup } from './map-control';
 import { loadMapboxGl } from './mapbox-gl-loader';
 
@@ -17,12 +18,7 @@ export function GeolocateControl({ map }: { readonly map: MapboxMap | null }) {
 		if (map === null) {
 			return;
 		}
-		map.flyTo({
-			center: [coords.longitude, coords.latitude],
-			zoom: Math.max(map.getZoom(), 15),
-			duration: 1100,
-			// Not `essential`: under reduced motion Mapbox jumps instead of flying.
-		});
+		focusOnMap(map, { lng: coords.longitude, lat: coords.latitude }, { purpose: 'place' });
 
 		// This control only renders alongside a live map, so the runtime is
 		// already resolved and this awaits a settled promise rather than a fetch.
