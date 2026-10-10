@@ -230,16 +230,19 @@ A surface reads the set's codecs through `surfaceCodecs`, so a key it does not
 apply resolves to its default, counts nothing and leaves the address when
 written. That is what took `INSPECTION_TABLE_COUNTING` and the Table's
 `regionIds: new Set()` override out: neither had anything left to suppress.
-The counting is the set's too, and the service requests one reads the
-Organization's settings, since an Overdue left on the address while the
-threshold is off narrows nothing and is not counted.
+The counting is the set's too, and leaves out the filters the set calls
+`inert`, which for service requests reads the Organization's settings, since
+an Overdue left on the address while the threshold is off narrows nothing and
+is not counted.
 
 The binding carries the context it resolved in, the Organization's today and
 settings, because the set's `tileFilters` reads it. The Service Requests
 routes read the overdue cut-off off it too, for the Overdue control and every
-row, through the same `serviceRequestOverdueCutoffFor` the counting rule and
-the tile conversion call, so the count, the request and the rows cannot
-disagree about whether Overdue is on. That took out
+row, through the same `serviceRequestOverdueCutoffFor` the set's `inert` rule
+and the tile conversion call, so the count, the request and the rows cannot
+disagree about whether Overdue is on. The binding also carries the set's
+`inert` filters in that context, which the declarations read to draw no
+control and no chip for them (#1612). That took out
 `useServiceRequestOverdueCutoff`, which read the settings a second time.
 
 The search box half is for a set that names a `textSearch` key, which is

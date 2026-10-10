@@ -3,6 +3,7 @@ import {
 	type RecordSetContext,
 	type RecordSetSurface,
 	recordSetCounting,
+	recordSetInert,
 	surfaceApplies,
 	surfaceCodecs,
 } from '../../components/explorer/record-set';
@@ -24,11 +25,16 @@ export interface TextSearchBinding {
 }
 
 /**
- * A record set's filters on one surface, with its search box beside them, and
- * the context they were resolved in, which the set's tile conversion reads.
+ * A record set's filters on one surface, with its search box beside them, the
+ * context they were resolved in, which the set's tile conversion reads, and
+ * the filters the set calls inert in that context, which the declarations draw
+ * nothing for.
  */
 export type RecordSetFilterBinding<TFilters> = FilterBinding<TFilters> &
-	TextSearchBinding & { readonly context: RecordSetContext };
+	TextSearchBinding & {
+		readonly context: RecordSetContext;
+		readonly inert: ReadonlySet<keyof TFilters & string>;
+	};
 
 /**
  * The filters one surface of a record set reads and writes, held on the URL
@@ -94,5 +100,6 @@ export function useRecordSetFilters<TFilters extends object, TTile>(
 		clearSearch,
 		clearAll,
 		context,
+		inert: recordSetInert(set, context),
 	};
 }

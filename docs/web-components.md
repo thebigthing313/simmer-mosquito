@@ -484,10 +484,19 @@ stays a pure function under the component. A summary module is left only
 where the surface draws text figures no filter selects, and it now exports the
 figures alone, which `DeclaredSummary` draws after the declared groupings.
 
-`available` is a declaration's say in whether it draws at all in this
-Organization. Overdue is the one that needs it: with the Organization's
-threshold off it draws no control and no chip, and the set's counting leaves
-it uncounted to match. A Tag chip on Service Requests is drawn for every id
+Whether a filter narrows anything in this Organization is the record set's to
+say, not the declaration's. The set names its `inert` filters as a function of
+the context, the counting leaves them uncounted, and the binding hands them to
+the declarations, which draw no control and no chip for them (#1612). Overdue
+on Service Requests is the one that needs it: with the Organization's
+threshold off it narrows nothing. That rule used to be written twice, as an
+`available` on the Overdue declaration and as an `uncounted` in the set's
+counting, joined only by a sentence asking the two to agree, and a disagreement
+was a chip row holding only "Clear all" or a chip for a filter that counted
+nothing. It sits on the record set because the overview panels import the set
+for deep links and a declaration can import components, so the set cannot read
+the declarations. `uncounted` stays what it was, a page control that is not a
+filter, such as the detail page's `tab`. A Tag chip on Service Requests is drawn for every id
 the address holds, an unknown one included, where the old chip row drew only
 Tags the catalog knew and so could undercount what the panel reported.
 
@@ -496,9 +505,10 @@ sets: `MissionFilterBar`, `AssignmentFilterBar` and `RequestControlFilters`
 (#1610). So what the declarations are written against is the codecs alone,
 `FilterSet`, which a record set satisfies by being one, and the binding the
 controls and chips read is a plain `FilterBinding` with the record set's
-search box half and `context` optional. A page passing the plain binding
-declares no `text` filter and no `available`, since both read a half it does
-not have, and the drawing code throws rather than guess if one does. "Clear
+search box half and `inert` optional. A page passing the plain binding
+declares no `text` filter, since that reads a half it does not have, and the
+drawing code throws rather than guess if one does; with no `inert` it has
+nothing inert. "Clear
 all" is the binding's `reset` there. An id set whose options the page builds
 at render time, such as the assignees over the worklist rows it loaded, takes
 `suppliedSource(options)`, and the declarations are then built per render

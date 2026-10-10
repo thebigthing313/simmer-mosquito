@@ -16,7 +16,10 @@ import { trapFilterDeclarations } from '../../../../components/adult-surveillanc
 import { biocontrolFilterDeclarations } from '../../../../components/control-operations/biocontrol/biocontrol-filters';
 import { applicationFilterDeclarations } from '../../../../components/control-operations/chemical/application-filters';
 import { sourceReductionFilterDeclarations } from '../../../../components/control-operations/source-reduction/source-reduction-filters';
-import { DeclaredFilterChips } from '../../../../components/explorer/declared-filters';
+import {
+	DeclaredFilterChips,
+	filterFields,
+} from '../../../../components/explorer/declared-filters';
 import {
 	declaredKeys,
 	type FilterDeclarations,
@@ -212,5 +215,31 @@ describe('the Overdue chip', () => {
 
 		expect(binding.activeCount).toBe(0);
 		expect(screen.queryByText('Overdue')).toBeNull();
+	});
+
+	it('is left out of a chip row another filter keeps up while the threshold is off', () => {
+		const binding = recordSetBinding(
+			set,
+			'map',
+			{ overdue: true, status: 'open' },
+			recordSetContext('off'),
+		);
+		render(<DeclaredFilterChips binding={binding} declarations={declarations} />);
+
+		expect(binding.activeCount).toBe(1);
+		expect(removeButtons().map((button) => button.getAttribute('aria-label'))).toEqual([
+			'Remove Status: Open filter',
+		]);
+	});
+
+	it('draws no control while the threshold is off, and one while it is on', () => {
+		const off = filterFields(
+			declarations,
+			recordSetBinding(set, 'map', {}, recordSetContext('off')),
+		);
+		const on = filterFields(declarations, recordSetBinding(set, 'map', {}, recordSetContext(14)));
+
+		expect(off.overdue).toBeNull();
+		expect(on.overdue).not.toBeNull();
 	});
 });
