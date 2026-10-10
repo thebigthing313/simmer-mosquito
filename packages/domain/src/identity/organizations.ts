@@ -231,11 +231,12 @@ export function updateOrganizationDetailsCommand(
 }
 
 /**
- * The contact details that arrived, trimmed, coded, and checked.
+ * The contact details that arrived, normalized and checked against their rules.
  *
  * A key left out stays out of `details`, and blank text comes back as `null`.
- * The two codes are upper-cased, the Main contact must be an email address, and
- * each detail is held to its length. Nothing is thrown: a refusal is an entry
+ * Each detail is trimmed and held to its length, the country and region are
+ * upper-cased and must be US codes, and the Main contact must be an email
+ * address. Nothing is thrown: a refusal is an entry
  * in `issues`, so a caller that answers before writing to a second system can
  * refuse without catching. `updateOrganizationDetailsCommand` and the operator
  * console's Organization create both read their rules from here.
