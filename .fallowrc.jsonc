@@ -75,11 +75,11 @@
 	"ignoreFindings": ["packages/ui-web/src/components/ui/**"],
 
 	// The duplication ratchet. CI runs `fallow dupes` with no flags, so this is
-	// what makes it a gate: 4.48% is where the workspace sits, and 4.6 leaves a
+	// what makes it a gate: 4.47% is where the workspace sits, and 4.6 leaves a
 	// tenth of a point of slack so an ordinary change does not fail on rounding.
 	// Read the ratio off `pnpm fallow dupes --format json`, whose
-	// `duplication_percentage` is at full precision: the line fallow prints cuts
-	// it to one decimal rather than rounding it, so 4.48% prints as 4.5%.
+	// `duplication_percentage` is at full precision: the line fallow prints
+	// rounds it to one decimal, so 4.47% prints as 4.5%.
 	//
 	// It was 4.9 against 4.77% when three refactors merged on one day. #1470
 	// (#1425) moved 72 cases out of `use-map-draw.test.tsx` onto the draw
@@ -88,8 +88,8 @@
 	// module for their shapes. 18,006 duplicated lines on the merge before
 	// #1470 became 17,383 after it, 17,296 after #1471 and 17,168
 	// after #1485, across 517 files rather than 520. The triage brief estimated
-	// 4.56% from CI's printed figures and proposed 4.7; measured at full
-	// precision the ratio is 4.48%, where 4.7 would leave over a fifth of a point
+	// 4.56% from CI's one-decimal figures and proposed 4.7; measured at full
+	// precision the ratio was 4.48%, where 4.7 would leave over a fifth of a point
 	// and 4.6 leaves the tenth this gate has always kept.
 	//
 	// It was 5.0 against 4.91% when #1405 moved the components the eleven record
@@ -113,7 +113,7 @@
 	// **The gesture scripts in `use-map-draw.test.tsx` and
 	// `use-map-measure.test.tsx` are accepted duplication and were deliberately
 	// left alone**. They were 1,922 of the lines above; after #1470 took most of
-	// the draw suite's cases out they are 644 of 17,168, 357 in the draw suite
+	// the draw suite's cases out they are 644 of 17,162, 357 in the draw suite
 	// and 287 in the measure suite. Each duplicated block there is one
 	// case's own sequence of pointer events, and a case that reached for a shared
 	// gesture would no longer say which gesture it ran. They are the second and
