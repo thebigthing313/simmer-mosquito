@@ -14,7 +14,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { usePeopleToday } from '../../hooks/dashboard/use-people-today';
 import { useProfileNames } from '../../hooks/queries/use-profile-names';
-import { formatActivityTime } from '../activity/activity-data';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
 
 const PeopleIcon = iconRegistry.entities.contact.icon;
 const PEOPLE_UNAVAILABLE = 'Activity is unavailable right now.';
@@ -27,15 +27,10 @@ const PEOPLE_UNAVAILABLE = 'Activity is unavailable right now.';
  * whole row is a target for a pointer and one link for a screen reader; the
  * time reads on the same clock and in the same shape as the Monitor's rows.
  */
-export function PeopleTodayPanel({
-	timeZone,
-	today,
-}: {
-	readonly timeZone: string;
-	readonly today: string;
-}) {
+export function PeopleTodayPanel({ today }: { readonly today: string }) {
+	const clock = useOrganizationClock();
 	const nameById = useProfileNames();
-	const { people, isReady, isError } = usePeopleToday(today, timeZone);
+	const { people, isReady, isError } = usePeopleToday(today, clock.zone);
 
 	return (
 		<Panel
@@ -78,7 +73,7 @@ export function PeopleTodayPanel({
 									</TableCell>
 									<TableCell className="text-right tabular-nums">{person.records}</TableCell>
 									<TableCell className="text-right text-muted-foreground tabular-nums">
-										{formatActivityTime(person.lastAt, timeZone)}
+										{clock.formatInstant(person.lastAt, 'time')}
 									</TableCell>
 								</TableRow>
 							))}

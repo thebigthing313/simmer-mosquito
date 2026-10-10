@@ -3,7 +3,7 @@ import { useControlMethodNames } from '../explorer/use-control-method-names';
 import { catalogs } from '../queries/catalog-register';
 import { missionDisplayName } from '../queries/operations-view';
 import type { MissionRecord } from '../queries/use-mission';
-import { useOrganizationTimeZone } from '../use-organization-time-zone';
+import { useOrganizationClock } from '../use-organization-clock';
 
 export interface MissionLabels {
 	readonly displayName: string | null;
@@ -18,10 +18,10 @@ export interface MissionLabels {
 export function useMissionLabels(mission: MissionRecord | null): MissionLabels {
 	const { nameById } = useCatalogOptions(catalogs.profiles);
 	const methodNameById = useControlMethodNames();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 
 	return {
-		displayName: mission === null ? null : missionDisplayName(mission, timeZone),
+		displayName: mission === null ? null : missionDisplayName(mission, clock),
 		assigneeName: lookup(nameById, mission?.assignedToProfileId),
 		methodName: lookup(methodNameById, mission?.plannedMethodId),
 	};

@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { addStopDescription } from '../../../../components/operations/operations-display';
 import { missionDisplayName } from '../../../../hooks/queries/operations-view';
+import { createOrganizationClock } from '../../../../lib/organization-clock';
 
 describe('addStopDescription', () => {
 	const scheduledStartAt = new Date('2026-08-04T15:00:00Z');
-	const timeZone = 'America/New_York';
+	const clock = createOrganizationClock('America/New_York');
 
 	it('reads as one sentence for a mission with a name', () => {
 		const name = missionDisplayName(
 			{ missionName: 'Evening Fogging', controlType: 'application', scheduledStartAt },
-			timeZone,
+			clock,
 		);
 
 		expect(addStopDescription(name)).toBe(
@@ -23,7 +24,7 @@ describe('addStopDescription', () => {
 		// "has to go on" and read it as a continuation of its own sentence (#676).
 		const name = missionDisplayName(
 			{ missionName: null, controlType: 'source_reduction', scheduledStartAt },
-			timeZone,
+			clock,
 		);
 
 		const description = addStopDescription(name);

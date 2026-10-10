@@ -21,6 +21,7 @@
  */
 
 import { CONTROL_TYPES, type ControlType } from '@simmer-mosquito/domain';
+import type { OrganizationClock } from '../../lib/organization-clock';
 import type { LinkedAddress } from './address-view';
 
 export { CONTROL_TYPES };
@@ -207,19 +208,22 @@ export function missionDisplayName(
 		readonly controlType: string;
 		readonly scheduledStartAt: Date | string;
 	},
-	timeZone: string | undefined,
+	clock: OrganizationClock,
 ): string {
 	const name = row.missionName?.trim();
 	if (name) {
 		return name;
 	}
-	// An unnamed mission is named by when it runs, so the fallback carries the
-	// same zone the scheduled start is read in everywhere else. A start that will
-	// not parse formats as '', and joining that leaves a dangling "on", so the
-	// half that survives is the whole name.
+	// An unnamed mission is named by when it runs, read on the Organization's
+	// clock like the scheduled start everywhere else. A start that will not read
+	// leaves the label, which is a whole name: `formatInstant` would echo it, and
+	// `Application on Invalid Date` is a name nobody gave the mission. The start
+	// is still echoed, with its warning, wherever the page prints it on its own.
 	const label = controlTypeLabel(row.controlType);
-	const start = formatScheduledStart(row.scheduledStartAt, timeZone);
-	return start === '' ? label : `${label} on ${start}`;
+	const start = new Date(row.scheduledStartAt);
+	return Number.isNaN(start.getTime())
+		? label
+		: `${label} on ${clock.formatInstant(start, 'dateTime')}`;
 }
 
 /**
@@ -297,58 +301,4 @@ export interface MissionProgressCounts {
 	readonly pending: number;
 	/** Completed or skipped — the two ways a stop is done being worked. */
 	readonly handled: number;
-}
-
-// --- formatting -------------------------------------------------------------
-
-/**
- * When a mission is due to start, on the organization's clock.
- *
- * `scheduledStartAt` is an instant, and an instant has no time of day until a
- * zone is named. A dispatcher two zones from the yard has to read the same 6am
- * muster as the crew standing in it, so the zone is the organization's.
- *
- * A string is still accepted: the write surfaces read raw Electric rows, where
- * the column arrives unparsed.
- */
-export function formatScheduledStart(value: Date | string, timeZone: string | undefined): string {
-	const parsed = asInstant(value);
-	if (parsed === null) {
-		return typeof value === 'string' ? value : '';
-	}
-	return parsed.toLocaleString('en-US', {
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit',
-		...(timeZone === undefined ? {} : { timeZone }),
-	});
-}
-
-/** The day a request came in, on the organization's calendar. See {@link formatScheduledStart}. */
-export function formatRequestedAt(value: Date | string, timeZone: string | undefined): string {
-	const parsed = asInstant(value);
-	if (parsed === null) {
-		return typeof value === 'string' ? value : '';
-	}
-	return parsed.toLocaleDateString('en-US', {
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric',
-		...(timeZone === undefined ? {} : { timeZone }),
-	});
-}
-
-/**
- * A column value as the instant it names, or null if it names none.
- *
- * The one place the two forms of a `timestamptz` meet: parsed to a `Date` on a
- * collection with a row schema, still a string on one without. An unreadable
- * string is null rather than an Invalid Date, so a caller prints what it was
- * given instead of "Invalid Date".
- */
-function asInstant(value: Date | string): Date | null {
-	const parsed = value instanceof Date ? value : new Date(value);
-	return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
