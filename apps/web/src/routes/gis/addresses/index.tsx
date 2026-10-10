@@ -4,6 +4,7 @@ import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import {
 	AddressFilterChips,
 	AddressFilterFields,
@@ -15,12 +16,11 @@ import {
 	fullAddress,
 } from '../../../components/gis/addresses/address-row-parts';
 import { addressSummaryGroupings } from '../../../components/gis/addresses/address-summary';
-import { AddressSurfaceSwitch } from '../../../components/gis/addresses/address-surface-switch';
 import {
 	addressFilterCodecs,
 	addressListParams,
+	addressRecordSet,
 	addressTileFilters,
-	sharedAddressSearch,
 } from '../../../components/gis/addresses/addresses-search';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
@@ -48,9 +48,7 @@ function AddressesExplorerRoute() {
 	// whole address book out of the sync collection beside a map drawing one
 	// viewport, so the two showed different sets (#962).
 	const filters = addressTileFilters(binding.filters);
-	// What a move to the Table takes with it: every filter, since the Table
-	// applies each one.
-	const carried = sharedAddressSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 	const {
 		rows,
 		total,
@@ -74,7 +72,9 @@ function AddressesExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
-			actions={<AddressSurfaceSwitch compact current="map" search={carried} />}
+			actions={
+				<RecordSetSwitch compact current="map" search={routeSearch} set={addressRecordSet} />
+			}
 			activeFilterCount={activeFilterCount}
 			filters={<AddressFilterFields binding={binding} />}
 			heading={{

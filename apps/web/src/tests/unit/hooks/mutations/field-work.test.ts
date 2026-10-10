@@ -313,8 +313,8 @@ describe('an assignment write', () => {
 	it('sends the route-copied name as the stored column and not as a display fallback', async () => {
 		// The create form writes `<route name>, <date>` into the Name field, and
 		// the assignment carries it wherever it is shown only if the save sends
-		// it (#1007). `assignmentDisplayName` would draw a date and an assignee
-		// for a null name, which is the shape this asserts against.
+		// it (#1007). `assignmentDisplayName` would draw the formatted date for a
+		// null name, which is the shape this asserts against.
 		const { result } = renderHook(() => useAssignmentMutations());
 		const generated = routeAssignmentName('North loop', '2026-08-03');
 

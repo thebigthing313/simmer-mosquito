@@ -1365,6 +1365,52 @@ share `activityBranches` on the server for the same reason, and now they share
 the subsets. A person's `records` counts entries, not rows, so a collection
 one person set and collected is two, which is what the Monitor lists for them.
 
+#### useOpenServiceRequestsQueue
+
+Two `useLiveQuery` subsets rather than one joined query. The split into new
+and in progress needs the open requests that no stop names, and those are the
+rows on a `left` join's nullable side, which gets no pushdown. So the requests
+subset is the open ones and the stops subset is the `assignment_items` rows
+naming a request, each narrowing its own shape, and the split is a set lookup
+over the rows that arrived.
+
+The overdue line (#1246) reads the same open rows rather than a third subset.
+It counts the open requests that the domain's `isServiceRequestOverdue` calls
+overdue against `overdueCutoff`. Its oldest date is the open queue's oldest whenever any request
+is overdue, because the oldest open request is then overdue too.
+
+#### useDueMissionsQueue
+
+No lower bound. A mission scheduled for last month and never started is
+overdue, and the oldest date is what says how overdue. An in-progress mission
+is on no queue, because someone is doing it, and the `started_at` predicate is
+what says so.
+
+The upper bound is the start of tomorrow, so a mission due at any hour of
+today is inside it. It is an instant from `localDayStartAsInstant` rather than
+a `YYYY-MM-DD`, because `scheduled_start_at` is a `timestamptz`, and
+`useMissions` widens its window to the start of the next day the same way.
+
+#### useInProgressAssignmentsQueue
+
+Two aggregates, a `count` and a `min`, rather than the rows. The page wants a
+count and one date, and an aggregate emits one changed number when an
+assignment finishes rather than a new array of every open one. All three
+predicates are the table's own columns, so the subset is the in-progress rows
+and nothing else.
+
+#### useProblemCollectionsQueue
+
+The one windowed queue of the four, at 14 days, because `has_problem` never
+clears and an all-time count would only grow. The window is `collectedSince`
+from `hooks/queries/collection-day.ts`, so the subset is the recent rows
+rather than every collection the Organization has written.
+
+The oldest is folded over the rows after the query rather than taken as `min`
+inside it. The effective date is a `Date` reduced to the Organization's day
+under exact timestamps and a string under date plus duration, and a `min` over
+a column holding both is not a minimum.
+
 ### overview
 
 #### useOverview
@@ -1421,6 +1467,15 @@ the last 90 days and ends on the Organization's today rather than the
 browser's. It sits under `hooks/public-engagement` rather than beside the
 control operations hooks because Outreach lives at `/public-engagement/outreach`,
 although its commands are `controlOperations.*`.
+
+#### useServiceRequestFilterDefaults
+
+The window opens on the first day of this year in the Organization's zone, so
+the year turns over on the Organization's calendar rather than the browser's.
+The overdue cut-off comes out of the same hook for the same reason. It is
+`serviceRequestOverdueCutoff` over that same today, so the day a request
+becomes overdue turns over on the Organization's calendar too, and the map and
+the table, which both call this hook, draw overdue from one day.
 
 ### adult-surveillance
 
@@ -1557,9 +1612,11 @@ hard to find among the JSX. The rules themselves and the metric inputs live
 in `components/gis/weather/weather-summary-form.ts`, shared with the dialog.
 
 `onWriteYear` is called before the write, not after. The card lists one year
-at a time, and a write into a year its live query does not cover waits out a
-txid that never arrives on that subset: `settleWrite` swallows the
-adapter's timeout, so the dialog closes late over a row the user cannot see.
+at a time, so without it a save into another year closes the dialog over a
+list missing the row just saved. Calling it first starts the written year
+loading while the save waits for confirmation. The written year is not what
+lets the save confirm: `docs/sync.md` has why a txid arrives whatever a live
+query has loaded.
 
 #### useActiveYear
 

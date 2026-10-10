@@ -242,7 +242,11 @@ which reads the same collection.
 - `useOpenServiceRequestsQueue`: `service_requests` where `closed_at` is null,
   plus `assignment_items` where `entity_type = 'service_request'`, joined on
   the client for the split. Two subsets rather than a joined query, because
-  the count needs the requests that have no stop.
+  the count needs the requests that have no stop. The overdue line (#1246)
+  reads the same open rows through `isServiceRequestOverdue` against the
+  Organization's threshold, so it is one table's own columns and stays on
+  Electric. It is a subset of the open line and is left out of the panel's
+  total, and it is not drawn while the threshold is off.
 - `useInProgressAssignmentsQueue`: `assignments` where `started_at` is set and
   `completed_at` and `cancelled_at` are null.
 - `useDueMissionsQueue`: `missions` where `started_at`, `completed_at` and

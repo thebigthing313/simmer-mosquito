@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { SampleMapCard } from '../../../components/larval-surveillance/sample-map-card';
 import { sampleLegend } from '../../../components/larval-surveillance/samples/legend';
 import {
@@ -16,12 +17,11 @@ import {
 	sampleSwatch,
 } from '../../../components/larval-surveillance/samples/sample-row-parts';
 import { sampleSummaryGroupings } from '../../../components/larval-surveillance/samples/sample-summary';
-import { SampleSurfaceSwitch } from '../../../components/larval-surveillance/samples/sample-surface-switch';
 import {
 	sampleFilterCodecs,
 	sampleListParams,
+	sampleRecordSet,
 	sampleTileFilters,
-	sharedSampleSearch,
 } from '../../../components/larval-surveillance/samples-search';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
@@ -56,9 +56,7 @@ function SamplesExplorerRoute() {
 	const { nameById } = useSpeciesOptions();
 
 	const filters = sampleTileFilters(query);
-	// What a move to the Table takes with it: every filter, since the Table
-	// applies each one.
-	const carried = sharedSampleSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const {
 		rows,
@@ -86,7 +84,7 @@ function SamplesExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
-			actions={<SampleSurfaceSwitch compact current="map" search={carried} />}
+			actions={<RecordSetSwitch compact current="map" search={routeSearch} set={sampleRecordSet} />}
 			activeFilterCount={activeFilterCount}
 			filters={<SampleFilterFields binding={binding} />}
 			heading={{

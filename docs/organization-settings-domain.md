@@ -61,7 +61,8 @@ missing legacy version data.
         daysBefore: 14,
         daysAfter: 14
       }
-    }
+    },
+    serviceRequestOverdueDays: 14
   }
 }
 ```
@@ -84,6 +85,7 @@ Missing settings resolve to defaults instead of blocking workflows.
 - `publicEngagement.serviceRequestContext.radius`: `0.25 mile`
 - `publicEngagement.serviceRequestContext.timeWindow`: 14 days before the
   request date and at least 14 days after it
+- `publicEngagement.serviceRequestOverdueDays`: `14`
 
 The East Coast timezone default is intentional for the first customer segment.
 Date-only domain rules use organization timezone to resolve "today" and
@@ -102,8 +104,9 @@ stored JSON because legacy imports or manual edits should not break field entry.
 Settings-specific builder checks include `expectedUpdatedAt` shape, timezone
 support/canonicalization through `Intl`, unit-default completeness, larval
 policy and density-range shape, adult collection timing mode, boolean
-batch-tracking setting, positive service request radius, and nonnegative service
-request day windows.
+batch-tracking setting, positive service request radius, nonnegative service
+request day windows, and a service request overdue threshold that is `'off'` or
+a whole number of days from 1 to 365.
 
 The owner/admin floor is declared in `apps/server/src/command-permissions.ts`
 alongside every other organization command, and read from there before the
@@ -124,6 +127,7 @@ V1 settings commands are narrow, explicit, web-management workflows:
 - `organizationSettings.updateLarvalInspectionEntryPolicy`
 - `organizationSettings.updateInsecticideBatchTracking`
 - `organizationSettings.updateServiceRequestContext`
+- `organizationSettings.updateServiceRequestOverdueDays`
 - `organizationSettings.updateSpeciesKeyBindings`
 
 Every command payload includes:
@@ -169,6 +173,27 @@ The membership is deactivated rather than deleted, in SIMMER and in WorkOS
 alike, and the profile is untouched. It stays assignable as field history and
 goes on naming whoever recorded the work. Reinstating somebody is a new
 invitation. ADR 0011 has the reasoning; #129 built it.
+
+### Service request overdue threshold
+
+`publicEngagement.serviceRequestOverdueDays` is how many whole days an open
+service request may age before it is overdue, or `'off'` (#1246). There is one
+number per Organization because a service request has no type to key a second
+one on: `intake_type` records how a request arrived, not what it is about.
+
+`'off'` is a value of its own rather than `0`, because a missing value resolves
+to 14, so turning the threshold off has to be stored. A stored value the
+resolver cannot read also resolves to 14, with an issue.
+
+A request is overdue when it is open, the threshold is on, and its age is
+greater than the threshold, where age is whole days from `request_date` to the
+Organization's today. With 14, a request 15 days old is overdue and one 14 days
+old is not. `isServiceRequestOverdue` and `serviceRequestOverdueCutoff` in
+`packages/domain` are that rule, written once. The cut-off is the first request
+date that is not overdue, and the explorer and the Table send it to
+`/map/service-requests` and the service request tiles as `overdueBefore`, which
+the server reads as `closed_at is null and request_date < overdueBefore` inside
+the Organization's scope and any date window the reader set.
 
 ## Merge behavior
 

@@ -7,13 +7,12 @@
  * assignment in any state; a comment is not progress. **New** is every other
  * open request.
  *
- * Two subsets rather than a joined query, because the count needs the
- * requests that have no stop, and a `left` join's nullable side gets no
- * pushdown. The requests subset is the open ones and the stops subset is the
- * ones naming a request, each narrowing its own shape; the split is a set
- * lookup over the rows that arrived.
+ * The overdue line (#1246) is the open requests the domain's
+ * `isServiceRequestOverdue` says are overdue against `overdueCutoff`, and
+ * `null` while the threshold is off.
  */
 
+import { isServiceRequestOverdue } from '@simmer-mosquito/domain';
 import { eq, isNull, useLiveQuery } from '@tanstack/react-db';
 import { assignment_items } from '../../lib/collections/assignment_items';
 import { service_requests } from '../../lib/collections/service_requests';
@@ -24,12 +23,20 @@ export interface OpenServiceRequestsQueue extends ElectricQueue {
 	readonly newCount: number;
 	/** Open and named by a live stop on an assignment. */
 	readonly inProgressCount: number;
+	/** The overdue ones and the oldest of them, or `null` with the threshold off. */
+	readonly overdue: { readonly count: number; readonly oldest: string | null } | null;
 }
 
 /** The `entity_type` an assignment stop stores for a Service Request. */
 const SERVICE_REQUEST_ENTITY_TYPE = 'service_request';
 
-export function useOpenServiceRequestsQueue(): OpenServiceRequestsQueue {
+/**
+ * `overdueCutoff` is the first request date that is not overdue, from
+ * `serviceRequestOverdueCutoff`, or `null` while the threshold is off.
+ */
+export function useOpenServiceRequestsQueue(
+	overdueCutoff: string | null,
+): OpenServiceRequestsQueue {
 	const open = useLiveQuery({
 		gcTime: activityGcTimeMs,
 		query: (query) =>
@@ -51,12 +58,16 @@ export function useOpenServiceRequestsQueue(): OpenServiceRequestsQueue {
 	const inProgressIds = new Set(stops.data.map((stop) => stop.requestId));
 	let inProgressCount = 0;
 	let oldest: string | null = null;
+	let overdueCount = 0;
 	for (const request of open.data) {
 		if (inProgressIds.has(request.id)) {
 			inProgressCount += 1;
 		}
 		if (oldest === null || request.requestDate < oldest) {
 			oldest = request.requestDate;
+		}
+		if (isServiceRequestOverdue({ ...request, closedAt: null }, overdueCutoff)) {
+			overdueCount += 1;
 		}
 	}
 
@@ -65,6 +76,11 @@ export function useOpenServiceRequestsQueue(): OpenServiceRequestsQueue {
 		newCount: open.data.length - inProgressCount,
 		inProgressCount,
 		oldest,
+		// The oldest open request is the oldest overdue one whenever any is overdue.
+		overdue:
+			overdueCutoff === null
+				? null
+				: { count: overdueCount, oldest: overdueCount === 0 ? null : oldest },
 		isReady: open.isReady && stops.isReady,
 		isError: open.isError || stops.isError,
 	};

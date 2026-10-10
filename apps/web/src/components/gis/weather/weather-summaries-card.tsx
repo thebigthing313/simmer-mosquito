@@ -18,10 +18,8 @@ import { WeatherSummaryDialog } from './weather-summary-dialog';
 /**
  * A station's readings, a year at a time, and the three ways to change them.
  * The tabs are the years the station has readings in, newest first. The tab
- * follows a write, because `weather_summaries` is on-demand and a write into
- * a subset the live query does not cover waits out a txid that never arrives;
- * that is also why the dialog is mounted here, since the card is what keeps
- * the station's subset queried.
+ * follows a write, so the list the dialog closes over shows the row the user
+ * just saved.
  */
 export function WeatherSummariesCard({
 	stationId,

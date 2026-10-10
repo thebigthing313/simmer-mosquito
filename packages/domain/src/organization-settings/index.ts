@@ -1,6 +1,7 @@
 export * from './larval-inspection-policy.js';
 export * from './proximity-search.js';
 export * from './service-request-context-query.js';
+export * from './service-request-overdue.js';
 export * from './settings-commands.js';
 export * from './settings-resolution.js';
 export * from './species-key-bindings.js';
