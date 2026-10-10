@@ -15,6 +15,7 @@ import {
 import { RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type {
 	CatalogListing,
 	SchemaCatalogListing,
@@ -23,8 +24,7 @@ import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
 } from '../../../hooks/queries/use-additional-personnel';
-import { useCollectionLureRoster } from '../../../hooks/queries/use-collection-lure-roster';
-import { useCollectionMethodRoster } from '../../../hooks/queries/use-collection-method-roster';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import {
 	type CollectionRecord,
 	useCollectionRecord,
@@ -51,8 +51,8 @@ export const Route = createFileRoute('/adult-surveillance/collections/$id_/edit'
 });
 
 function EditCollectionRoute() {
-	const methods = useCollectionMethodRoster();
-	const lures = useCollectionLureRoster();
+	const methods = useCatalogRoster(catalogs.collectionMethods);
+	const lures = useCatalogRoster(catalogs.collectionLures);
 	const profiles = useProfileRoster();
 	const { all: units } = useUnitLabels();
 	const { id } = Route.useParams();

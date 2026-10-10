@@ -15,9 +15,7 @@ import {
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
 import { useServiceRequestMutations } from '../../../hooks/mutations/use-service-request-mutations';
-import { useContact } from '../../../hooks/queries/use-contact-record';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import { useServiceRequestRecord } from '../../../hooks/queries/use-service-request-record';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -63,14 +61,8 @@ function CreateServiceRequestRoute() {
 	const timeZone = useOrganizationTimeZone();
 	const today = todayInTimeZone(timeZone);
 
-	// Both ids are minted up front and both rows are queried before either exists:
-	// `contacts` and `service_requests` are on-demand, and a write into a
-	// collection nothing is querying waits out a txid confirmation that never
-	// arrives — which reads as a frozen save rather than a slow one.
 	const [requestId] = useState(() => newRecordId());
 	const [contactId] = useState(() => newRecordId());
-	useServiceRequestRecord(requestId);
-	useContact(contactId);
 
 	const onSave = async ({ values, geometry }: ServiceRequestSaveInput) => {
 		if (geometry === null || !isOwnedGeometry('serviceRequest', geometry)) {

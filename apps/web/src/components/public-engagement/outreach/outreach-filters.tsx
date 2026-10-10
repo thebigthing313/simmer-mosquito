@@ -5,11 +5,11 @@
  * them in its own frame. Takes the binding from `useOutreachFilterState`.
  */
 
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
-import { useOutreachMethodOptions } from '../../../hooks/explorer/use-outreach-method-options';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import type { OutreachFilterBinding } from '../../../hooks/public-engagement/use-outreach-filter-state';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
@@ -31,8 +31,8 @@ export function OutreachFilterFields({
 }) {
 	const { filters, setFilters, activeCount, today } = binding;
 	const dateRange = useDateRangeFilters({ from: filters.from, to: filters.to, today, setFilters });
-	const { options: methods } = useOutreachMethodOptions();
-	const personnel = usePersonnelOptions();
+	const { options: methods } = useCatalogOptions(catalogs.outreachMethods);
+	const personnel = useCatalogOptions(catalogs.profiles);
 	const regions = useRegionOptions();
 
 	const popovers = (
@@ -79,8 +79,8 @@ export function OutreachFilterFields({
  * above its groupings.
  */
 export function OutreachFilterChips({ binding }: { readonly binding: OutreachFilterBinding }) {
-	const { nameById: methodNameById } = useOutreachMethodOptions();
-	const { nameById: personNameById } = usePersonnelOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.outreachMethods);
+	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const { nameById: regionNameById } = useRegionOptions();
 	const { filters, setFilters, reset, defaults } = binding;
 	return (

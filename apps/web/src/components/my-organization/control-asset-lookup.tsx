@@ -29,9 +29,9 @@ import type {
 import { useEquipmentMutations } from '../../hooks/mutations/use-equipment-mutations';
 import { useVehicleMutations } from '../../hooks/mutations/use-vehicle-mutations';
 import type { CatalogRecords } from '../../hooks/queries/catalog-record-view';
+import { catalogs } from '../../hooks/queries/catalog-register';
 import type { ControlAssetRecord } from '../../hooks/queries/control-asset-record-view';
-import { useEquipmentRecords } from '../../hooks/queries/use-equipment-records';
-import { useVehicleRecords } from '../../hooks/queries/use-vehicle-records';
+import { useCatalogRecords } from '../../hooks/queries/use-catalog-records';
 import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 import { EQUIPMENT_SAVE_REFUSALS, VEHICLE_SAVE_REFUSALS } from '../../lib/acknowledgement-copy';
 import { hasMetadata } from '../../lib/record-display';
@@ -46,7 +46,7 @@ export function VehicleLookupList({ canManage }: { readonly canManage: boolean }
 			canManage={canManage}
 			collectionKey="vehicles"
 			mutations={useVehicleMutations()}
-			records={useVehicleRecords()}
+			records={useCatalogRecords(catalogs.vehicles)}
 		/>
 	);
 }
@@ -57,7 +57,7 @@ export function EquipmentLookupList({ canManage }: { readonly canManage: boolean
 			canManage={canManage}
 			collectionKey="equipment"
 			mutations={useEquipmentMutations()}
-			records={useEquipmentRecords()}
+			records={useCatalogRecords(catalogs.equipment)}
 		/>
 	);
 }

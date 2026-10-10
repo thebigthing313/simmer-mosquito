@@ -26,21 +26,22 @@ import {
 	RESULT_SKELETON_KEYS,
 	without,
 } from '../../../components/explorer';
+import { StopSequenceMap } from '../../../components/map/stop-sequence-map';
 import {
 	MissionStatusBadge,
 	missionStopFeatures,
 	stopSummary,
 } from '../../../components/operations/operations-display';
-import { WorklistMap } from '../../../components/operations/worklist-map';
 import { WriteOnly } from '../../../components/write-only';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useControlMethodNames } from '../../../hooks/explorer/use-control-method-names';
 import {
 	type DateRangeBinding,
 	useDateRangeFilters,
 } from '../../../hooks/explorer/use-date-range-filters';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useMissionStopViews } from '../../../hooks/operations/use-mission-stop-views';
 import { useWorklistIndex } from '../../../hooks/operations/use-worklist-index';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import {
 	CONTROL_TYPES,
 	controlTypeLabel,
@@ -134,7 +135,7 @@ function MissionsRoute() {
 	});
 
 	const { missions, isLoading } = useMissions(filters.from, filters.to);
-	const personnel = usePersonnelOptions();
+	const personnel = useCatalogOptions(catalogs.profiles);
 	const { nameById } = personnel;
 	const methodNameById = useControlMethodNames();
 
@@ -177,7 +178,7 @@ function MissionsRoute() {
 	return (
 		<MapSplitPage
 			map={
-				<WorklistMap
+				<StopSequenceMap
 					features={features}
 					fitKey={selectedId ?? undefined}
 					highlightId={highlightId}
@@ -198,7 +199,7 @@ function MissionsRoute() {
 							mission={selected}
 						/>
 					)}
-				</WorklistMap>
+				</StopSequenceMap>
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">

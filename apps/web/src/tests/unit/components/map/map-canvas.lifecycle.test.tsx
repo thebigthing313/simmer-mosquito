@@ -89,6 +89,10 @@ class FakeMap {
 	getBounds() {
 		return null;
 	}
+	// Read when a stop map frames its stops, which it does on load once any is located.
+	getPadding() {
+		return { top: 0, right: 0, bottom: 0, left: 0 };
+	}
 	zoomIn() {}
 	zoomOut() {}
 	rotateTo() {}
@@ -152,7 +156,7 @@ vi.mock('../../../../components/map/mapbox-gl-loader', () => ({
 
 vi.stubEnv('VITE_MAPBOX_ACCESS_TOKEN', 'pk.test');
 
-const { RouteMap } = await import('../../../../components/route-planning/route-map');
+const { StopSequenceMap } = await import('../../../../components/map/stop-sequence-map');
 const { MapCanvas } = await import('../../../../components/map/map-canvas');
 const { mapClustering } = await import('../../../../lib/map-clustering');
 const { installMemoryCollections, seedRows } = await import(
@@ -249,9 +253,16 @@ const STOPS = [
 	{ id: 'stop-2', lng: -90.2, lat: 35.2, ordinal: 2, tone: 'default' as const },
 ];
 
-describe('RouteMap lifecycle (issue #132)', () => {
+describe('StopSequenceMap lifecycle (issue #132)', () => {
 	it('creates exactly one map and draws the route', async () => {
-		mount(<RouteMap features={STOPS} fitKey="route-1" stops={[]} />);
+		mount(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-1"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
 		await loadRuntime();
 		act(() => {
 			latest().fire('load');
@@ -264,8 +275,17 @@ describe('RouteMap lifecycle (issue #132)', () => {
 	// The page renders before the on-demand route-item + habitat subsets resolve,
 	// so the stop set arrives while the GL runtime is still being fetched.
 	it('survives stops arriving while the runtime is still loading', async () => {
-		const handle = mount(<RouteMap features={[]} fitKey="route-1" stops={[]} />);
-		handle.rerender(<RouteMap features={STOPS} fitKey="route-1" stops={[]} />);
+		const handle = mount(
+			<StopSequenceMap features={[]} fitKey="route-1" recordType="route" stopCount={0} />,
+		);
+		handle.rerender(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-1"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
 		await loadRuntime();
 		act(() => {
 			latest().fire('load');
@@ -275,18 +295,39 @@ describe('RouteMap lifecycle (issue #132)', () => {
 	});
 
 	it('survives unmount at every point in the load', async () => {
-		const beforeRuntime = mount(<RouteMap features={STOPS} fitKey="route-1" stops={[]} />);
+		const beforeRuntime = mount(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-1"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
 		expect(() => {
 			beforeRuntime.unmount();
 		}).not.toThrow();
 
-		const beforeStyle = mount(<RouteMap features={STOPS} fitKey="route-2" stops={[]} />);
+		const beforeStyle = mount(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-2"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
 		await loadRuntime();
 		expect(() => {
 			beforeStyle.unmount();
 		}).not.toThrow();
 
-		const afterStyle = mount(<RouteMap features={STOPS} fitKey="route-3" stops={[]} />);
+		const afterStyle = mount(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-3"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
 		await flush();
 		act(() => {
 			latest().fire('load');
@@ -322,7 +363,12 @@ describe('RouteMap lifecycle (issue #132)', () => {
 		function Page({ withSibling }: { readonly withSibling: boolean }) {
 			return (
 				<Suspense fallback={<p>loading</p>}>
-					<RouteMap features={STOPS} fitKey="route-1" stops={[]} />
+					<StopSequenceMap
+						features={STOPS}
+						fitKey="route-1"
+						recordType="route"
+						stopCount={STOPS.length}
+					/>
 					{withSibling ? <SuspendingSibling /> : null}
 				</Suspense>
 			);
@@ -359,20 +405,72 @@ describe('RouteMap lifecycle (issue #132)', () => {
 	// RouteDetailPage swaps the whole map away for "Route Not Found" the moment the
 	// route set reports ready without the row, then swaps it back when it arrives.
 	it('survives being swapped away and back mid-load', async () => {
-		const handle = mount(<RouteMap features={STOPS} fitKey="route-1" stops={[]} />);
+		const handle = mount(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-1"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
 		await loadRuntime();
 		act(() => {
 			latest().fire('load');
 		});
 
 		handle.rerender(<div />);
-		handle.rerender(<RouteMap features={STOPS} fitKey="route-1" stops={[]} />);
+		handle.rerender(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-1"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
 		await flush();
 		act(() => {
 			latest().fire('load');
 		});
 
 		expect(latest().removed).toBe(false);
+	});
+});
+
+/*
+ * The four Route surfaces render this map with the `route` record type, and
+ * read the same zoom control and empty pill they drew as `RouteMap` (#1491).
+ */
+describe('StopSequenceMap copy for a Route', () => {
+	it('labels the zoom control with the Route noun once a stop is located', () => {
+		const handle = mount(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-1"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
+
+		expect(handle.container.querySelector('[aria-label="Zoom to route"]')).not.toBeNull();
+		expect(handle.container.textContent).not.toContain('No mapped stops');
+	});
+
+	it('says so when the Route has stops and none is located', () => {
+		const handle = mount(
+			<StopSequenceMap features={[]} fitKey="route-1" recordType="route" stopCount={2} />,
+		);
+
+		expect(handle.container.textContent).toContain('No mapped stops on this route yet');
+		expect(handle.container.querySelector('[aria-label="Zoom to route"]')).toBeNull();
+	});
+
+	it('draws neither when the Route has no stops', () => {
+		const handle = mount(
+			<StopSequenceMap features={[]} fitKey="route-1" recordType="route" stopCount={0} />,
+		);
+
+		expect(handle.container.textContent).not.toContain('No mapped stops');
+		expect(handle.container.querySelector('[aria-label="Zoom to route"]')).toBeNull();
 	});
 });
 

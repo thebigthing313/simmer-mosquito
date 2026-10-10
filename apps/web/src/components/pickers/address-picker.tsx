@@ -6,6 +6,7 @@ import { ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useDeferredValue, useState } from 'react';
 import { useSearchPicker } from '../../hooks/pickers/use-search-picker';
 import { useSelectedRowLabel } from '../../hooks/pickers/use-selected-row-label';
+import { activityGcTimeMs } from '../../hooks/queries/shared';
 import { addressPrimaryLabel, addressSecondaryLabel } from '../../lib/address-format';
 import { addresses } from '../../lib/collections/addresses';
 import { OptionRow, PickerFallback, PickerFrame } from './entity-picker';
@@ -15,8 +16,6 @@ import { NewAddressForm, type RequestMapPoint } from './new-address-form';
 // `ilike` across the name and the postal fields) rather than a client-side filter
 // over an eager set. Every row reads the same way: the address's name on top, its
 // full postal line beneath.
-
-const searchGcTimeMs = 30_000;
 
 /**
  * Enables the inline "Create address" path. Every form that links an address
@@ -111,7 +110,7 @@ function AddressResults({
 	const normalized = search.trim();
 	const pattern = `%${normalized}%`;
 	const { data, isReady, isError } = useLiveQuery({
-		gcTime: searchGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) => {
 			// No organization predicate: the shape is scoped to the organization
 			// server-side, so re-stating it here is redundant — and a stale column

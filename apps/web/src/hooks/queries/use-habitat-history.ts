@@ -67,11 +67,9 @@ import { source_reductions } from '../../lib/collections/source_reductions';
 import { species as speciesCatalog } from '../../lib/collections/species';
 import { units } from '../../lib/collections/units';
 import { PERFORMED_ACTIONS } from './performed-action-reads';
+import { activityGcTimeMs } from './shared';
 
 const { applications: applicationReads, sourceReductions: reductionReads } = PERFORMED_ACTIONS;
-
-/** How long a habitat's history stays warm after the page leaves it. */
-const historyGcTimeMs = 30_000;
 
 /** One species count under a sample. */
 export interface HabitatHistorySpecies {
@@ -198,7 +196,7 @@ export interface HabitatHistory {
 
 export function useHabitatHistory(habitatId: string): HabitatHistory {
 	const inspectionResult = useLiveQuery({
-		gcTime: historyGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ inspection: inspections() })
@@ -257,7 +255,7 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 	});
 
 	const applicationResult = useLiveQuery({
-		gcTime: historyGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ application: applications() })
@@ -302,7 +300,7 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 	});
 
 	const sourceReductionResult = useLiveQuery({
-		gcTime: historyGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ reduction: source_reductions() })
@@ -340,7 +338,7 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 	});
 
 	const requestResult = useLiveQuery({
-		gcTime: historyGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
 				.from({ request: requested_control_actions() })

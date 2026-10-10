@@ -1,8 +1,8 @@
 /**
  * The organization's people, as the record forms need them.
  *
- * Distinct from `usePersonnelOptions`, which the explorers use: that one drops
- * `is_active` and returns options already sorted, because a filter offers a flat
+ * Distinct from `useCatalogOptions(catalogs.profiles)`, which the explorers use:
+ * that one drops `is_active` and returns options already sorted, because a filter offers a flat
  * list of everyone who has ever done the work. A form has to say more. A
  * deactivated Profile stays selectable — the same forms are where past seasons
  * get keyed in, and the person who did that work in 2024 may have left since — so

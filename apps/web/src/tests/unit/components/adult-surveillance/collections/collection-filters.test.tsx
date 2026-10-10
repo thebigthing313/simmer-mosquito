@@ -10,8 +10,8 @@ import type { CollectionFilterBinding } from '../../../../../hooks/adult-surveil
 import { countActiveFilters, DATE_RANGE_COUNTING } from '../../../../../lib/search-filters';
 
 // The option lists are catalog reads; the chips only need a name for each id.
-vi.mock('../../../../../hooks/explorer/use-collection-method-options', () => ({
-	useCollectionMethodOptions: () => ({ options: [], nameById: new Map() }),
+vi.mock('../../../../../hooks/explorer/use-catalog-options', () => ({
+	useCatalogOptions: () => ({ options: [], nameById: new Map() }),
 }));
 vi.mock('../../../../../hooks/explorer/use-region-options', () => ({
 	useRegionOptions: () => ({

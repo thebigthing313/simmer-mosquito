@@ -29,11 +29,11 @@ import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
 import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
 import { useCollectionFilterState } from '../../../hooks/adult-surveillance/use-collection-filter-state';
-import { useCollectionMethodOptions } from '../../../hooks/explorer/use-collection-method-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { collectionEffectiveDate } from '../../../hooks/queries/collection-day';
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -59,9 +59,9 @@ function CollectionsExplorerRoute() {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
-	const { nameById: methodNameById } = useCollectionMethodOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
 	const trapNameById = useTrapNames();
-	const personnel = usePersonnelOptions();
+	const personnel = useCatalogOptions(catalogs.profiles);
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.

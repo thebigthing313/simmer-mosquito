@@ -45,8 +45,8 @@ import {
 	StopTagChips,
 	StopTypePill,
 } from '../../../../components/larval-surveillance/habitats/route-stop-list';
+import { StopSequenceMap } from '../../../../components/map/stop-sequence-map';
 import { EditFormSkeleton, RecordEditFrame } from '../../../../components/record';
-import { RouteMap } from '../../../../components/route-planning';
 import {
 	InlineEditField,
 	type MoveAction,
@@ -234,14 +234,15 @@ function RouteEditRoute() {
 		<>
 			<MapSplitPage
 				map={
-					<RouteMap
+					<StopSequenceMap
 						features={features}
 						fitKey={id}
 						highlightId={highlightId}
 						onHoverStop={setHighlightId}
 						onSelectStop={setSelectedStopId}
+						recordType="route"
 						selectedId={selectedStopId}
-						stops={orderedStops}
+						stopCount={itemCount}
 					/>
 				}
 			>
