@@ -62,11 +62,17 @@ export const unmatchableId = '00000000-0000-0000-0000-000000000000';
  * How long a live query's result stays loaded after its last reader unmounts.
  *
  * It is a `useLiveQuery` option, and `useRecordById` applies it for every hook
- * built on that factory. A bare `useLiveQuery` call passes it explicitly, because
- * a call that passes nothing gets TanStack DB's own five seconds. Over an
- * on-demand collection the result it keeps is the subset Electric loaded for the
- * query; over an eager one it is the query's own result, since the collection
- * stays loaded either way.
+ * built on that factory. A call that passes nothing gets the React hook's default
+ * rather than TanStack DB's: `@tanstack/react-db` sets 1 ms for `useLiveQuery` and
+ * five seconds for `useLiveSuspenseQuery`, and either one wins over the five
+ * seconds `@tanstack/db` would otherwise apply. So a `useLiveQuery` with no
+ * `gcTime` drops its result as soon as its last reader unmounts.
+ *
+ * A read over an on-demand collection must pass this, because the result it
+ * keeps is the subset Electric loaded for the query, and dropping it means the
+ * next mount asks Electric for the whole subset again (#1628). A read over an
+ * eager collection may leave it out: the collection stays loaded either way, so
+ * all a remount costs is rebuilding the query in memory.
  *
  * Thirty seconds, which covers the two cases it was written for: a user opening a
  * map card, closing it and opening it again, and an overview browsed back and forth
