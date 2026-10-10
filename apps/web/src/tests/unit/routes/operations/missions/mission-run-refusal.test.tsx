@@ -399,7 +399,7 @@ describe('the mission page header', () => {
 		harness.role = 'collector';
 		await renderPage(completedMission());
 
-		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
 	});
 
 	it('draws no menu for a Viewer', async () => {
@@ -407,7 +407,7 @@ describe('the mission page header', () => {
 		await renderPage(runningMission());
 
 		expect(screen.queryByLabelText('Edit')).toBeNull();
-		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
 	});
 
 	it('deletes the mission from the last item and lands on Mission Not Found', async () => {
@@ -461,7 +461,7 @@ describe('Mission Not Found', () => {
 
 		const back = screen.getByRole('link', { name: 'Back to Missions' });
 		expect(back.getAttribute('href')).toBe('/operations/missions');
-		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
 	});
 });
 

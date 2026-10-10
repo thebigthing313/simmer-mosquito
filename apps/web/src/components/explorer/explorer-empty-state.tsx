@@ -126,7 +126,7 @@ function CreatePointer({ create }: { readonly create: ExplorerCreateAction }) {
 	return (
 		<WriteOnly minimum={create.minimum ?? 'collector'}>
 			<p className="max-w-[34ch] text-muted-foreground text-sm">
-				{create.label} is in the More Actions menu.
+				{create.label} is in the More actions menu.
 			</p>
 		</WriteOnly>
 	);

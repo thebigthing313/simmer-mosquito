@@ -412,7 +412,7 @@ describe('the assignment run page header', () => {
 		harness.role = 'collector';
 		await renderPage(completedAssignment());
 
-		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
 	});
 
 	it('draws no menu for a Viewer', async () => {
@@ -420,7 +420,7 @@ describe('the assignment run page header', () => {
 		await renderPage(runningAssignment());
 
 		expect(screen.queryByLabelText('Edit')).toBeNull();
-		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
 	});
 
 	it('deletes the assignment from the last item and lands on Assignment Not Found', async () => {
@@ -467,7 +467,7 @@ describe('Assignment Not Found', () => {
 
 		const back = screen.getByRole('link', { name: 'Back to Assignments' });
 		expect(back.getAttribute('href')).toBe('/operations/assignments');
-		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
 	});
 });
 

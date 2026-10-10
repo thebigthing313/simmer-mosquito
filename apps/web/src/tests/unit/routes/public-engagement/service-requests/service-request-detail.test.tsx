@@ -265,7 +265,7 @@ async function renderPage(closedAt: Date | null = null) {
 
 async function openMenu(): Promise<readonly string[]> {
 	fireEvent.pointerDown(
-		screen.getByRole('button', { name: 'More Actions' }),
+		screen.getByRole('button', { name: 'More actions' }),
 		new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
 	);
 	await screen.findAllByRole('menuitem');
@@ -398,7 +398,7 @@ describe('the service request detail page header', () => {
 
 		expect(await screen.findByText('Priority')).toBeTruthy();
 		expect(screen.queryByLabelText('Edit')).toBeNull();
-		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
 	});
 });
 
