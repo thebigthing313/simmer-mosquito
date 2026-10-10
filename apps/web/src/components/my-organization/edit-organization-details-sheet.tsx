@@ -1,6 +1,6 @@
 import { useOrganizationSettingsMutations } from '../../hooks/mutations/use-organization-settings-mutations';
 import { US_STATE_SELECT_OPTIONS, US_TIMEZONE_OPTIONS } from './constants';
-import { organizationDetailsFieldsFrom, validateEmail } from './helpers';
+import { organizationDetailsFieldsFrom } from './helpers';
 import { SettingsSheet } from './layout/settings-sheet';
 import type { OrganizationDetailsFormValues } from './types';
 
@@ -14,11 +14,10 @@ export function EditOrganizationDetailsSheet({
 	readonly description?: string | undefined;
 	readonly title: string;
 }) {
-	const { canWrite, saveOrganizationDetails } = useOrganizationSettingsMutations();
+	const { saveOrganizationDetails } = useOrganizationSettingsMutations();
 
 	return (
 		<SettingsSheet
-			canSave={canWrite}
 			convert={organizationDetailsFieldsFrom}
 			description={description}
 			failureMessage="Unable to save organization details."
@@ -28,16 +27,10 @@ export function EditOrganizationDetailsSheet({
 		>
 			{(form) => (
 				<>
-					<form.AppField
-						name="name"
-						validators={{
-							onSubmit: ({ value }) =>
-								value.trim().length === 0 ? 'Organization name is required.' : undefined,
-						}}
-					>
+					<form.AppField name="name">
 						{(field) => <field.TextField label="Organization name" />}
 					</form.AppField>
-					<form.AppField name="mainContactEmail" validators={{ onSubmit: validateEmail }}>
+					<form.AppField name="mainContactEmail">
 						{(field) => <field.TextField label="Main contact" type="email" />}
 					</form.AppField>
 					<form.AppField name="phoneNumber">
@@ -64,13 +57,7 @@ export function EditOrganizationDetailsSheet({
 					<form.AppField name="mailingPostalCode">
 						{(field) => <field.TextField label="ZIP code" />}
 					</form.AppField>
-					<form.AppField
-						name="timezone"
-						validators={{
-							onSubmit: ({ value }) =>
-								value.trim().length === 0 ? 'Timezone is required.' : undefined,
-						}}
-					>
+					<form.AppField name="timezone">
 						{(field) => <field.SelectField label="Timezone" options={US_TIMEZONE_OPTIONS} />}
 					</form.AppField>
 				</>

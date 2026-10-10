@@ -77,16 +77,20 @@ export function createFakeMap() {
 	// carrying a padding leaves it on the map afterwards unless the call says
 	// `retainPadding: false`.
 	let padding: Padding = { top: 0, right: 0, bottom: 0, left: 0 };
+	// What `getZoom` answers. Nothing here moves it; a suite asking how a call
+	// reads the current zoom sets it with `setZoom`.
+	let zoom = 10;
 
 	function record(
 		kind: CameraCall['kind'],
 		options: CameraOptions | undefined,
-		eventData?: object,
+		extra: { readonly eventData?: object | undefined; readonly bounds?: unknown } = {},
 	) {
 		cameraCalls.push({
 			kind,
 			...readCamera(options),
-			...(kind === 'flyTo' ? { eventData } : {}),
+			...(kind === 'flyTo' ? { eventData: extra.eventData } : {}),
+			...(kind === 'fitBounds' ? { bounds: extra.bounds } : {}),
 		});
 		if (options?.padding !== undefined && options.retainPadding !== false) {
 			padding = toPadding(options.padding);
@@ -162,7 +166,7 @@ export function createFakeMap() {
 		getCanvas: () => canvas,
 		getCanvasContainer: () => canvasContainer,
 		getContainer: () => container,
-		getZoom: () => 10,
+		getZoom: () => zoom,
 		unproject([x, y]: [number, number]) {
 			assertLive();
 			return { lng: origin.lng + x * DEGREES_PER_PIXEL, lat: origin.lat - y * DEGREES_PER_PIXEL };
@@ -182,15 +186,15 @@ export function createFakeMap() {
 		getPadding: () => ({ ...padding }),
 		flyTo(options: CameraOptions, eventData?: object) {
 			assertLive();
-			record('flyTo', options, eventData);
+			record('flyTo', options, { eventData });
 		},
 		easeTo(options: CameraOptions) {
 			assertLive();
 			record('easeTo', options);
 		},
-		fitBounds(_bounds: unknown, options: CameraOptions) {
+		fitBounds(bounds: unknown, options: CameraOptions) {
 			assertLive();
-			record('fitBounds', options);
+			record('fitBounds', options, { bounds });
 		},
 		queryRenderedFeatures: vi.fn(() => [] as unknown[]),
 		doubleClickZoom: {
@@ -282,6 +286,10 @@ export function createFakeMap() {
 				preventDefault: () => {},
 			});
 		},
+		/** Put the map at `next`, which is what `getZoom` answers from then on. */
+		setZoom(next: number) {
+			zoom = next;
+		},
 		/** What a basemap switch does before it fires `style.load`. */
 		wipeStyle() {
 			sources.clear();
@@ -300,7 +308,9 @@ type Padding = { top: number; right: number; bottom: number; left: number };
 type CameraOptions = {
 	readonly padding?: number | Partial<Padding>;
 	readonly retainPadding?: boolean;
+	readonly center?: unknown;
 	readonly zoom?: number;
+	readonly maxZoom?: number;
 	readonly duration?: number;
 };
 
@@ -313,24 +323,33 @@ function toPadding(value: number | Partial<Padding>): Padding {
 }
 
 /**
- * One camera move, reduced to what a test asks about: which call it was and the
- * padding it carried. Padding is the interesting half — it is how a map with
+ * One camera move, reduced to what a test asks about: which call it was, where
+ * it was going, and the padding it carried. Padding is the interesting half — it is how a map with
  * chrome floating over it puts a record where the reader can see it.
  */
 interface CameraCall {
 	readonly kind: 'flyTo' | 'easeTo' | 'fitBounds';
 	readonly padding: unknown;
+	readonly center: unknown;
 	readonly zoom: number | undefined;
+	readonly maxZoom: number | undefined;
+	/** Absent when the call left the duration to mapbox. */
+	readonly duration: number | undefined;
 	/** False when the call asked mapbox not to keep its padding on the map afterwards. */
 	readonly retainPadding: boolean | undefined;
 	/** What a `flyTo` hands its events, which is how a flight tells a listener to skip it. */
 	readonly eventData?: object | undefined;
+	/** The box a `fitBounds` was asked to frame. */
+	readonly bounds?: unknown;
 }
 
 function readCamera(options: CameraOptions | undefined): Omit<CameraCall, 'kind'> {
 	return {
 		padding: options?.padding,
+		center: options?.center,
 		zoom: options?.zoom,
+		maxZoom: options?.maxZoom,
+		duration: options?.duration,
 		retainPadding: options?.retainPadding,
 	};
 }

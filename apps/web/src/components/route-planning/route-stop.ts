@@ -1,3 +1,5 @@
+import { type BoundingBox, extendBounds } from '@simmer-mosquito/mapping';
+
 /**
  * What route planning needs to know about a stop, whatever the stop is.
  *
@@ -19,35 +21,17 @@ export interface RouteStop {
 
 /**
  * The bounding box of every stop that has resolved to a point, or null when
- * none has — which callers read as "leave the camera where it is" rather than
+ * none has, which callers read as "leave the camera where it is" rather than
  * framing an empty world.
  */
-export function boundsOfStops(
-	stops: readonly RouteStop[],
-): [[number, number], [number, number]] | null {
-	let west = Number.POSITIVE_INFINITY;
-	let south = Number.POSITIVE_INFINITY;
-	let east = Number.NEGATIVE_INFINITY;
-	let north = Number.NEGATIVE_INFINITY;
-	let count = 0;
-
+export function boundsOfStops(stops: readonly RouteStop[]): BoundingBox | null {
+	let box: BoundingBox | null = null;
 	for (const stop of stops) {
-		if (stop.lat === null || stop.lng === null) {
-			continue;
+		if (stop.lat !== null && stop.lng !== null) {
+			box = extendBounds(box, { lng: stop.lng, lat: stop.lat });
 		}
-		west = Math.min(west, stop.lng);
-		south = Math.min(south, stop.lat);
-		east = Math.max(east, stop.lng);
-		north = Math.max(north, stop.lat);
-		count += 1;
 	}
-
-	return count === 0
-		? null
-		: [
-				[west, south],
-				[east, north],
-			];
+	return box;
 }
 
 /** `1 stop` / `n stops`. */
