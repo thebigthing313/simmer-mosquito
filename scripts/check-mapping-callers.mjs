@@ -69,10 +69,13 @@
  * every other name it contributes to the barrel rides along. That is how
  * `extendBounds`, `isLngLat`, `ringPerimeterMeters`, `containsLngLat` and
  * `parseBoundingBox` stayed published with no caller outside, and running this
- * rule the first time found three more the issue's search had missed (#1553).
+ * rule the first time found three more the issue's search had missed,
+ * `normalizeGeomType`, `ringAreaMeters` and `sketchCrossings` (#1553).
  * So a second rule reads the barrel name by name: every name in a value
  * re-export clause, `export { a } from`, must be named by an import outside
  * `packages/mapping/src`, read off the same scan that feeds the module rule.
+ * That scan leaves out this package's own suites and keeps a suite in another
+ * package, so the two rules agree on what a caller is.
  * A name published as `a as b` is looked for as `b`, since that is what a
  * caller imports.
  *
@@ -229,7 +232,7 @@ function assertItReadsNames() {
 	);
 	if (wrong.length > 0) {
 		fail(
-			`the name rule no longer reads ${count(wrong.length, 'source')} of the ${PROBES.length} in PROBES as expected, the first being: ${wrong[0].barrel} A run in this state reads every barrel name the same wrong way, so it refuses rather than passing. Fix VALUE_REEXPORT, publishedValues or namesAskedIn in scripts/check-mapping-callers.mjs, and change a probe only alongside the rule it states.`,
+			`the name rule no longer reads ${count(wrong.length, 'source')} of the ${PROBES.length} in PROBES as expected, the first being: ${wrong[0].barrel}. A run in this state reads every barrel name the same wrong way, so it refuses rather than passing. Fix VALUE_REEXPORT, publishedValues or namesAskedIn in scripts/check-mapping-callers.mjs, and change a probe only alongside the rule it states.`,
 		);
 	}
 }
@@ -311,12 +314,11 @@ const publishedValues = (clause) =>
 		.split(',')
 		.map((each) => each.trim())
 		.filter((each) => each.length > 0 && !/^type\s/.test(each))
-		.map(
-			(each) =>
-				each
-					.split(/\s+as\s+/)
-					.at(-1)
-					?.trim() ?? each,
+		.map((each) =>
+			each
+				.split(/\s+as\s+/)
+				.pop()
+				.trim(),
 		);
 
 /**
@@ -496,31 +498,26 @@ function report(dead, uncalled) {
 function reportDeadModules(dead) {
 	if (dead.length === 0) return;
 	console.error(
-		`${GATE}: ${count(dead.length, 'module')} in packages/mapping/src ${isOrAre(dead)} reached by nothing outside the package. fallow reports them as live because the barrel re-exports them, which is why this gate exists.
-`,
+		`${GATE}: ${count(dead.length, 'module')} in packages/mapping/src ${isOrAre(dead)} reached by nothing outside the package. fallow reports them as live because the barrel re-exports them, which is why this gate exists.\n`,
 	);
 	for (const file of dead) {
 		console.error(`  ${pathFrom(workspaceRoot, file)}`);
 	}
 	console.error(
-		`
-Delete the module and its names from packages/mapping/src/index.ts, along with any suite covering it. If it is meant to have a caller, write the caller in the same branch: a module a barrel publishes and nothing imports is what #621 found four of.
-`,
+		`\nDelete the module and its names from packages/mapping/src/index.ts, along with any suite covering it. If it is meant to have a caller, write the caller in the same branch: a module a barrel publishes and nothing imports is what #621 found four of.`,
 	);
 }
 
 function reportUncalledNames(uncalled) {
 	if (uncalled.length === 0) return;
 	console.error(
-		`${GATE}: ${count(uncalled.length, 'value name')} the barrel publishes ${isOrAre(uncalled)} imported by nothing outside the package. The module behind each is live because another of its names is asked for, so the module rule cannot see these.
-`,
+		`${GATE}: ${count(uncalled.length, 'value name')} the barrel publishes ${isOrAre(uncalled)} imported by nothing outside the package. The module behind each is live because another of its names is asked for, so the module rule cannot see these.\n`,
 	);
 	for (const { name, module } of uncalled) {
 		console.error(`  ${name} from ${pathFrom(workspaceRoot, module)}`);
 	}
 	console.error(
-		`
-Take the name out of packages/mapping/src/index.ts. If its own module still calls it, leave it there as a private helper; if nothing calls it, delete it and its unit cases. If it is meant to have a caller, write the caller in the same branch.`,
+		`\nTake the name out of packages/mapping/src/index.ts. If its own module still calls it, leave it there as a private helper; if nothing calls it, delete it and its unit cases. If it is meant to have a caller, write the caller in the same branch.`,
 	);
 }
 
