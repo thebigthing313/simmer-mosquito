@@ -18,7 +18,7 @@ const AddressIcon = iconRegistry.actions.searchCheck.icon;
 
 /**
  * Every Address as a table, by name, narrowed by the same filters as the
- * Addresses Map.
+ * Address Book Map.
  */
 function AddressesTableRoute() {
 	const binding = useRecordSetFilters(addressRecordSet, 'table');
@@ -37,6 +37,8 @@ function AddressesTableRoute() {
 			search={search}
 			set={addressRecordSet}
 			table={(rows: readonly AddressListing[]) => <AddressesTable rows={rows} />}
+			// The Map's title, for the reason its heading gives.
+			title="Address Book"
 		/>
 	);
 }

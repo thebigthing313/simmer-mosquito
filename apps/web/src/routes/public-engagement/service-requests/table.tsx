@@ -4,6 +4,7 @@ import { surfaceCodecs } from '../../../components/explorer/record-set';
 import { RecordSetTablePage } from '../../../components/explorer/record-set-table-page';
 import type { ServiceRequestListing } from '../../../components/public-engagement/service-requests/service-request-listing';
 import { ServiceRequestsFilterBar } from '../../../components/public-engagement/service-requests/service-requests-filter-bar';
+import { ServiceRequestsPageTable } from '../../../components/public-engagement/service-requests/service-requests-page-table';
 import {
 	type ServiceRequestRailSearch,
 	serviceRequestOrderParams,
@@ -11,10 +12,7 @@ import {
 	serviceRequestRailOrderCodecs,
 	serviceRequestRecordSet,
 } from '../../../components/public-engagement/service-requests/service-requests-search';
-import { ServiceRequestsTable } from '../../../components/public-engagement/service-requests/service-requests-table';
 import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
-import { useProfileNames } from '../../../hooks/queries/use-profile-names';
-import { useRequestParties } from '../../../hooks/queries/use-request-parties';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { searchValidator } from '../../../lib/search-filters';
 
@@ -57,7 +55,7 @@ function ServiceRequestsTableRoute() {
 					activeCount={binding.activeCount}
 					defaults={binding.defaults}
 					filters={binding.filters}
-					onClearAll={binding.reset}
+					onClearAll={binding.clearAll}
 					onOrderChange={(next) => setOrder({ order: next })}
 					order={order.order}
 					overdueAvailable={overdueCutoff !== null}
@@ -70,35 +68,8 @@ function ServiceRequestsTableRoute() {
 			search={search}
 			set={serviceRequestRecordSet}
 			table={(rows: readonly ServiceRequestListing[]) => (
-				<ServiceRequestRows overdueCutoff={overdueCutoff} rows={rows} today={binding.today} />
+				<ServiceRequestsPageTable overdueCutoff={overdueCutoff} rows={rows} today={binding.today} />
 			)}
-		/>
-	);
-}
-
-/**
- * The page's rows, with the contact and the address resolved for the page
- * alone, at most a hundred ids, the way the Map's rail resolves them.
- */
-function ServiceRequestRows({
-	overdueCutoff,
-	rows,
-	today,
-}: {
-	readonly overdueCutoff: string | null;
-	readonly rows: readonly ServiceRequestListing[];
-	readonly today: string;
-}) {
-	const parties = useRequestParties(rows);
-	const profileNames = useProfileNames();
-	return (
-		<ServiceRequestsTable
-			addressById={parties.addressById}
-			contactById={parties.contactById}
-			overdueCutoff={overdueCutoff}
-			profileNames={profileNames}
-			rows={rows}
-			today={today}
 		/>
 	);
 }

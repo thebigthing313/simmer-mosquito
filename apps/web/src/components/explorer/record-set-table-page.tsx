@@ -25,7 +25,7 @@ import { type RecordSet, recordSetListParams } from './record-set';
 import { RecordSetSwitch } from './record-set-switch';
 
 /** What the empty state says, with nothing set and with filters set. */
-export interface RecordSetTableEmpty {
+export interface RecordSetTableEmptyCopy {
 	readonly emptyDescription: string;
 	readonly filteredDescription: string;
 	readonly scope: RecordTableScope;
@@ -42,6 +42,7 @@ export function RecordSetTablePage<TFilters, TTile, TRow>({
 	search,
 	set,
 	table,
+	title,
 }: {
 	readonly set: RecordSet<TFilters, TTile>;
 	/** The Table's binding, from `useRecordSetFilters(set, 'table')`. */
@@ -49,12 +50,14 @@ export function RecordSetTablePage<TFilters, TTile, TRow>({
 	/** The route's validated search, which the switch carries from. */
 	readonly search: Record<string, unknown>;
 	readonly icon: RegistryIcon;
+	/** The heading, where the surface is named for more than its records. Left out, the register's plural. */
+	readonly title?: string;
 	readonly description?: string;
 	/** The filter controls, drawn in the panel above the rows. */
 	readonly filters: ReactNode;
 	/** A page of rows, drawn by the kind's table. */
 	readonly table: (rows: readonly TRow[]) => ReactNode;
-	readonly empty: RecordSetTableEmpty;
+	readonly empty: RecordSetTableEmptyCopy;
 	/** Params the page request sends beside the filters, such as an order. */
 	readonly params?: Readonly<Record<string, MapQueryValue>>;
 	/** Defaults a row's newer fields, where a deployed server may not send them. */
@@ -82,7 +85,7 @@ export function RecordSetTablePage<TFilters, TTile, TRow>({
 				actions={<RecordSetSwitch current="table" search={search} set={set} />}
 				description={description}
 				icon={icon}
-				title={noun.titleMany}
+				title={title ?? noun.titleMany}
 			/>
 			<div className="grid gap-4 rounded-md border border-border/50 bg-muted/20 p-4">{filters}</div>
 			{isError ? <RecordTableUnavailable onRetry={retry} recordType={set.recordType} /> : null}
