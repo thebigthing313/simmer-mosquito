@@ -36,7 +36,7 @@ import {
 	validateOrganizationBase,
 	validateOrganizationIdCommand,
 } from '../command-validation.js';
-import type { DomainId, DomainValidationIssue } from '../shared.js';
+import { type DomainId, type DomainValidationIssue, isEmailAddress } from '../shared.js';
 import type {
 	IdentityDomainCommand,
 	OrganizationIdentityCommandInput,
@@ -211,17 +211,20 @@ export function endMembershipCommand(input: EndMembershipCommandInput): EndMembe
 /**
  * An address, lower-cased.
  *
- * The shape check is one `@` with something either side, which is as far as a
- * context-free rule can honestly go — whether the mailbox exists is answered by
- * whether the invitation arrives. Lower-casing is here rather than in the writer
- * because the uniqueness rule the schema owns is on `lower(invited_email)`, and
- * a command that carried the address in one case and matched it in another would
- * refuse a race it should swallow.
+ * The shape check is `isEmailAddress`: no whitespace, one `@`, and a dot after
+ * it. An address without that dot passes a one-`@` rule and still cannot be
+ * delivered to, and the writer stages the Membership before WorkOS is asked to
+ * send, so the check belongs here, ahead of the row (#1525). Whether the mailbox
+ * exists is answered by whether the invitation arrives.
+ *
+ * Lower-casing is here rather than in the writer because the uniqueness rule
+ * the schema owns is on `lower(invited_email)`, and a command that carried the
+ * address in one case and matched it in another would refuse a race it should
+ * swallow.
  */
 function validateEmail(value: string | undefined, issues: DomainValidationIssue[]): string {
 	const text = requiredText(value, 'invitedEmail', issues, 320);
-	const at = text.indexOf('@');
-	if (text !== '' && (at <= 0 || at === text.length - 1)) {
+	if (text !== '' && !isEmailAddress(text)) {
 		issues.push({ path: 'invitedEmail', message: 'invitedEmail must be an email address.' });
 	}
 	return text.toLowerCase();
