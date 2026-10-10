@@ -2,8 +2,7 @@ import type { SampleMutations } from '../hooks/mutations/use-sample-mutations';
 
 /**
  * Add samples to an inspection, new or existing, one write after another in the
- * order the form lists them. Inspection create and inspection edit both call it.
- * A blank label adds an unlabeled sample.
+ * order the form lists them. A blank label adds an unlabeled sample.
  */
 export async function addSamplesInFormOrder(
 	add: SampleMutations['add'],
