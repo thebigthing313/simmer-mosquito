@@ -28,9 +28,10 @@ interface LinkRetry {
  * already changed. On create it is worse, since the id was minted before the
  * form submitted and the only retry collides on it.
  *
- * They cannot be silent either: what the user selected is not on the record. So
- * the save completes and the miss is reported, naming the record page as the
- * place to put it right. Every link is editable from there.
+ * They cannot be silent either, since what the user selected is not on the
+ * record. So the save completes and the miss is reported with the place to try
+ * again, which `retry.write` decides. An `add` or a `change` is retried from the
+ * record's edit form, and a `comment` from the thread on its detail page.
  */
 export async function attachLinksBestEffort(
 	/** What failed to attach, as a noun phrase: "the additional personnel". */
