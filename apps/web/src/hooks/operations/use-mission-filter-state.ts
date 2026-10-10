@@ -38,7 +38,7 @@ export const missionFilterCodecs: FilterCodecs<MissionFilters> = {
  * is a schedule, not a history, so it opens on that window rather than on the
  * last few months.
  */
-export function missionFilterDefaults(today: string): MissionFilters {
+function missionFilterDefaults(today: string): MissionFilters {
 	const range = datePresetRange(SCHEDULE_WINDOW, today);
 	return {
 		from: range.from,

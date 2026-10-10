@@ -35,7 +35,7 @@ export const assignmentFilterCodecs: FilterCodecs<AssignmentFilters> = {
  * schedule, not a history, so it opens on that window rather than on the last
  * few months.
  */
-export function assignmentFilterDefaults(today: string): AssignmentFilters {
+function assignmentFilterDefaults(today: string): AssignmentFilters {
 	const range = datePresetRange(SCHEDULE_WINDOW, today);
 	return {
 		from: range.from,
