@@ -6,6 +6,7 @@ import {
 	throwIfIssues,
 	validateOrganizationBase,
 } from '../command-validation.js';
+import { isEmailAddress } from '../shared.js';
 import type {
 	IdentityDomainCommand,
 	OrganizationIdentityCommandInput,
@@ -226,6 +227,15 @@ export function updateOrganizationDetailsCommand(
 			issues.push({ path: key, message });
 		}
 		changes[key] = code;
+	}
+	// Absent leaves the column alone and `null` clears it, so only a string is
+	// checked. Its case is kept: lowercasing a stored Main contact is a decision
+	// of its own.
+	if (typeof changes.mainContactEmail === 'string' && !isEmailAddress(changes.mainContactEmail)) {
+		issues.push({
+			path: 'mainContactEmail',
+			message: 'mainContactEmail must be a valid email address.',
+		});
 	}
 	Object.assign(changes, mapCenterChanges(input, issues));
 

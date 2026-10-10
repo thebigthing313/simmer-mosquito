@@ -8,6 +8,7 @@ import {
 	getMultipartGeometryType,
 	getOwnedGeometryBaseTypes,
 	getOwnedGeometryPolicy,
+	isEmailAddress,
 	isOwnedGeometry,
 	normalizeOwnedGeometry,
 	OWNED_GEOMETRY_POLICIES,
@@ -596,5 +597,25 @@ describe('covering ground', () => {
 		expect(geometryCoversGround(null)).toBe(true);
 		expect(geometryCoversGround({ type: 'GeometryCollection', geometries: [] })).toBe(true);
 		expect(geometryCoversGround({ type: 'Polygon' })).toBe(true);
+	});
+});
+
+describe('isEmailAddress', () => {
+	it('accepts a name, an @, and a domain with a dot in it', () => {
+		expect(isEmailAddress('a@b.co')).toBe(true);
+	});
+
+	it('refuses an address with no @', () => {
+		expect(isEmailAddress('not-an-email')).toBe(false);
+	});
+
+	it('refuses an address with no dot after the @', () => {
+		expect(isEmailAddress('a@localhost')).toBe(false);
+	});
+
+	/** It trims nothing of its own, so a caller that forgot to trim is refused. */
+	it('refuses an address holding whitespace', () => {
+		expect(isEmailAddress('a b@c.co')).toBe(false);
+		expect(isEmailAddress(' a@b.co')).toBe(false);
 	});
 });
