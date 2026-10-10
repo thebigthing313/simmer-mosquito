@@ -69,18 +69,14 @@ function renderRow(stop: RouteStopView) {
 			<ul>
 				<EditStopRow
 					canSubmit
+					count={1}
+					focus={{ selected: false, highlighted: false, onSelect: noop, onHover: noop }}
 					index={0}
-					isFirst
-					isHighlighted={false}
-					isLast
-					isSelected={false}
 					onEditAddress={noop}
-					onHover={noop}
 					onMove={noop}
 					onRemove={noop}
 					onSaveDescription={noop}
 					onSaveDirections={noop}
-					onSelect={noop}
 					ordinal={1}
 					sameAddressAsPrev={false}
 					stop={stop}

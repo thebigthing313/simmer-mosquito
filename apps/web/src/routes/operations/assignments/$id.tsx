@@ -15,7 +15,6 @@ import {
 	iconRegistry,
 	MapPinnedIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -39,7 +38,7 @@ import {
 import { WorklistTabs } from '../../../components/operations/worklist-tabs';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { DetailPageHeaderSkeleton } from '../../../components/record/detail-page-header';
-import { OrdinalBadge } from '../../../components/stop-order';
+import { OrdinalBadge, StopCardFrame, type StopFocus } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
 import { useAssignmentItemMutations } from '../../../hooks/mutations/use-assignment-item-mutations';
 import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
@@ -299,12 +298,14 @@ function RunStopList({
 						assignmentId={assignmentId}
 						enabled={enabled}
 						recordEnabled={recordEnabled}
-						isHighlighted={stop.assignmentItemId === highlightId}
-						isSelected={stop.assignmentItemId === selectedStopId}
+						focus={{
+							selected: stop.assignmentItemId === selectedStopId,
+							highlighted: stop.assignmentItemId === highlightId,
+							onSelect,
+							onHover,
+						}}
 						key={stop.assignmentItemId}
 						onAction={onAction}
-						onHover={onHover}
-						onSelect={onSelect}
 						stop={stop}
 					/>
 				))}
@@ -449,103 +450,77 @@ function RunStopRow({
 	assignmentId,
 	enabled,
 	recordEnabled,
-	isSelected,
-	isHighlighted,
+	focus,
 	onAction,
-	onSelect,
-	onHover,
 }: {
 	readonly stop: AssignmentStopView;
 	readonly assignmentId: string;
 	readonly enabled: boolean;
 	readonly recordEnabled: boolean;
-	readonly isSelected: boolean;
-	readonly isHighlighted: boolean;
+	readonly focus: StopFocus;
 	readonly onAction: (stop: AssignmentStopView, action: ItemAction) => void;
-	readonly onSelect: (id: string | null) => void;
-	readonly onHover: (id: string | null) => void;
 }) {
 	const actions = itemActionsFor(stop.progress);
 
 	return (
-		<li
-			className={cn(
-				'relative rounded-lg border bg-card transition-colors',
-				isSelected || isHighlighted
-					? 'border-primary/40 ring-1 ring-primary/25'
-					: 'border-border/60',
-			)}
-			onMouseEnter={() => onHover(stop.assignmentItemId)}
-			onMouseLeave={() => onHover(null)}
+		<StopCardFrame
+			focus={focus}
+			id={stop.assignmentItemId}
+			label={`Show stop ${stop.ordinal} on the map`}
 		>
-			{/* Full-card target selects the stop on the map; interactive bits opt back in. */}
-			<button
-				aria-label={`Show stop ${stop.ordinal} on the map`}
-				aria-pressed={isSelected}
-				className={cn(
-					'absolute inset-0 size-full rounded-lg transition-colors',
-					isSelected ? 'bg-primary/5' : 'hover:bg-muted/40',
-				)}
-				onClick={() => onSelect(isSelected ? null : stop.assignmentItemId)}
-				type="button"
-			/>
-			<div className="pointer-events-none relative flex items-start gap-3 p-3">
-				<OrdinalBadge ordinal={stop.ordinal} tone={assignmentStopTone(stop)} />
+			<OrdinalBadge ordinal={stop.ordinal} tone={assignmentStopTone(stop)} />
 
-				<div className="min-w-0 flex-1">
-					<div className="flex flex-wrap items-center gap-2">
-						<span className="pointer-events-auto min-w-0">
-							<TargetLink isResolving={stop.isResolving} target={stop.target} />
-						</span>
-						<TargetTypePill type={stop.entityType} />
-						<ItemProgressBadge progress={stop.progress} />
-					</div>
-
-					{stop.target?.secondary == null ? null : (
-						<p className="m-0 mt-1 truncate text-muted-foreground text-xs">
-							{stop.target.secondary}
-						</p>
-					)}
-
-					{stop.skipReason === null ? null : (
-						<p className="m-0 mt-1 text-muted-foreground text-xs">Skipped: {stop.skipReason}</p>
-					)}
-
-					{stop.directionsToNextItem === null ? null : (
-						<p className="m-0 mt-1 flex items-start gap-1.5 text-muted-foreground text-xs">
-							<ChevronRightIcon
-								aria-hidden="true"
-								className="mt-px size-3 shrink-0 rotate-90 text-muted-foreground/70"
-							/>
-							<span className="min-w-0 whitespace-pre-wrap">{stop.directionsToNextItem}</span>
-						</p>
-					)}
-
-					<WriteOnly>
-						<div className="pointer-events-auto mt-2 flex flex-wrap gap-2">
-							{stop.progress === 'pending' ? (
-								<RecordStopWorkButton
-									assignmentId={assignmentId}
-									enabled={recordEnabled}
-									stop={stop}
-								/>
-							) : null}
-							{actions.map((action) => (
-								<Button
-									disabled={!enabled}
-									key={action}
-									onClick={() => onAction(stop, action)}
-									size="sm"
-									variant="outline"
-								>
-									{ACTION_LABELS[action]}
-								</Button>
-							))}
-						</div>
-					</WriteOnly>
+			<div className="min-w-0 flex-1">
+				<div className="flex flex-wrap items-center gap-2">
+					<span className="pointer-events-auto min-w-0">
+						<TargetLink isResolving={stop.isResolving} target={stop.target} />
+					</span>
+					<TargetTypePill type={stop.entityType} />
+					<ItemProgressBadge progress={stop.progress} />
 				</div>
+
+				{stop.target?.secondary == null ? null : (
+					<p className="m-0 mt-1 truncate text-muted-foreground text-xs">{stop.target.secondary}</p>
+				)}
+
+				{stop.skipReason === null ? null : (
+					<p className="m-0 mt-1 text-muted-foreground text-xs">Skipped: {stop.skipReason}</p>
+				)}
+
+				{stop.directionsToNextItem === null ? null : (
+					<p className="m-0 mt-1 flex items-start gap-1.5 text-muted-foreground text-xs">
+						<ChevronRightIcon
+							aria-hidden="true"
+							className="mt-px size-3 shrink-0 rotate-90 text-muted-foreground/70"
+						/>
+						<span className="min-w-0 whitespace-pre-wrap">{stop.directionsToNextItem}</span>
+					</p>
+				)}
+
+				<WriteOnly>
+					<div className="pointer-events-auto mt-2 flex flex-wrap gap-2">
+						{stop.progress === 'pending' ? (
+							<RecordStopWorkButton
+								assignmentId={assignmentId}
+								enabled={recordEnabled}
+								stop={stop}
+							/>
+						) : null}
+						{actions.map((action) => (
+							<Button
+								disabled={!enabled}
+								key={action}
+								onClick={() => onAction(stop, action)}
+								size="sm"
+								variant="outline"
+							>
+								{ACTION_LABELS[action]}
+							</Button>
+						))}
+					</div>
+				</WriteOnly>
 			</div>
-		</li>
+		</StopCardFrame>
 	);
 }
 
