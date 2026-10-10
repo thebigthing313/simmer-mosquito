@@ -137,6 +137,22 @@ is what an operator is looking for. Duplicate species/sex/status rows in
 `collection_species` (the table has no uniqueness constraint) are keyed off the
 earliest row and the rest left alone rather than folded together.
 
+#### TrapRouteStopList and TrapRouteStopEditor
+
+The stop lists on the Trap Route detail and edit pages, moved out of the two
+route modules in #1600 so a suite could render them without loading a route.
+A stop whose Trap has not streamed in draws the `resolving` tone and
+`Loading…` where the `Inactive` word goes; before #1600 it read `isActive`
+from a `coalesce(trap.is_active, true)` default and drew as an active stop.
+
+The detail list draws its ordinal in a 28px circle of its own rather than
+`OrdinalBadge`, and fills an inactive stop with `bg-muted` where the badge
+uses `bg-muted-foreground`. That predates #1600, which left the resolved
+stops drawing exactly what they drew and took only `resolvingToneClass` from
+the badge, so the resolving state looks the same on all four Route pages.
+Moving this list onto the badge would change how a resolved stop looks, and
+is a decision of its own.
+
 ### app-shell
 
 #### WorkspaceChromeFallback
@@ -1602,6 +1618,22 @@ The Trap Route edit page and the habitat Route detail page do not use it. The
 first has no map selection, so its stops stay plain `<li>` cards, and the
 second selects through a button that is the whole row rather than a layer
 under it.
+
+#### OrdinalBadge
+
+`tone` takes `OrdinalTone`, which is the map layer's `StopTone` plus
+`resolving`. The map has no `resolving` because a stop is resolving only
+while the record behind it has not streamed in, and until then it has no
+location, so it never reaches the map. Widening `StopTone` instead would have
+put a value into the layer's colour expression that no feature can carry
+(#1600).
+
+`resolving` is an outline with no fill, in `text-muted-foreground`, so it is
+told apart from `inactive`, which fills the circle with that colour. A
+resolving stop also draws `ResolvingStatus` where its status badge goes,
+which is `Loading…`, the word `TargetLink` draws on an assignment stop in the
+same state. The badge is `aria-hidden`, so the word is what a screen reader
+gets. The tone is written to `data-tone` for the suites.
 
 #### StopReorderControls
 

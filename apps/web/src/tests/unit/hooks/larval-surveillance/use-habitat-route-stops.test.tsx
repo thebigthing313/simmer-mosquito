@@ -8,7 +8,9 @@
  * `undefined`, `concat` over three of those answers `, `, and `coalesce` over an
  * absent description with a `''` fallback answers `''`. So before #1565 such a
  * stop was titled with a bare comma and offered an empty description that a save
- * would write over the Habitat's real one.
+ * would write over the Habitat's real one. Until #1600 the same stop read
+ * `isActive: true` and `isInaccessible: false` out of two `coalesce` defaults,
+ * so it drew as an active stop before anything was known about it.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -33,6 +35,8 @@ const ITEM = {
 function habitat(overrides: {
 	readonly habitat_name?: string | null;
 	readonly description?: string;
+	readonly is_active?: boolean;
+	readonly is_inaccessible?: boolean;
 }) {
 	return {
 		id: HABITAT,
@@ -50,10 +54,14 @@ function habitat(overrides: {
 	};
 }
 
-async function readStop() {
+async function readRoute() {
 	const { result } = await renderRead(() => useHabitatRouteStops(ROUTE));
 	await expect.poll(() => result.current.stops.length).toBe(1);
-	const stop = result.current.stops[0];
+	return result.current;
+}
+
+async function readStop() {
+	const stop = (await readRoute()).stops[0];
 	if (stop === undefined) throw new Error('the stop did not come back');
 	return stop;
 }
@@ -95,5 +103,29 @@ describe('useHabitatRouteStops', () => {
 			description: '',
 			isResolving: false,
 		});
+	});
+
+	it('carries no status on a stop whose Habitat is not in the client, and puts nothing on the map', async () => {
+		seedRows(route_items, [ITEM]);
+
+		const { stops, features } = await readRoute();
+
+		expect(stops[0]).not.toHaveProperty('isActive');
+		expect(stops[0]).not.toHaveProperty('isInaccessible');
+		expect(features).toEqual([]);
+	});
+
+	it("reads a resolved Habitat's status off its row, and draws its pin in that tone", async () => {
+		seedRows(habitats, [habitat({ is_active: false, is_inaccessible: true })]);
+		seedRows(route_items, [ITEM]);
+
+		const { stops, features } = await readRoute();
+
+		expect(stops[0]).toMatchObject({
+			isResolving: false,
+			isActive: false,
+			isInaccessible: true,
+		});
+		expect(features).toMatchObject([{ id: 'i1', ordinal: 1, tone: 'inaccessible' }]);
 	});
 });

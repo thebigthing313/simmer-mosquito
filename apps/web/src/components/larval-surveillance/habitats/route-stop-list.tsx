@@ -12,9 +12,9 @@ import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useStopMeta } from '../../../hooks/larval-surveillance/use-stop-meta';
 import type { Tag } from '../../../hooks/queries/tag-view';
-import { OrdinalBadge } from '../../stop-order';
+import { OrdinalBadge, ResolvingStatus } from '../../stop-order';
 import { TagChipRow } from '../../tag-chip';
-import { type RouteStopCluster, type RouteStopView, stopTone } from './route-data';
+import { type RouteStopCluster, type RouteStopView, stopBadgeTone } from './route-data';
 
 const NO_TAGS: readonly Tag[] = [];
 
@@ -123,7 +123,7 @@ function StopRow({
 				type="button"
 			/>
 			<div className="pointer-events-none relative flex items-start gap-3 px-3 py-2.5">
-				<OrdinalBadge ordinal={stop.ordinal} tone={stopTone(stop)} />
+				<OrdinalBadge ordinal={stop.ordinal} tone={stopBadgeTone(stop)} />
 				<span className="min-w-0 flex-1">
 					<span className="flex items-center gap-2">
 						<Link
@@ -177,7 +177,14 @@ export function StopTagChips({ tags }: { readonly tags: readonly Tag[] }) {
 	return <TagChipRow className="mt-1" tags={tags} />;
 }
 
+/**
+ * The stop's status badge beside its name: `Loading…` while the Habitat has
+ * not arrived, then `Inaccessible`, `Inactive`, or nothing for an active stop.
+ */
 export function StopStatus({ stop }: { readonly stop: RouteStopView }) {
+	if (stop.isResolving) {
+		return <ResolvingStatus />;
+	}
 	if (stop.isInaccessible) {
 		return (
 			<Badge className="shrink-0" tone="danger" variant="outline">
