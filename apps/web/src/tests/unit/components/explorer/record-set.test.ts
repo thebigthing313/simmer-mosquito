@@ -16,13 +16,16 @@ import {
 	recordSetListParams,
 	surfaceCodecs,
 } from '../../../../components/explorer/record-set';
-import { addressRecordSet } from '../../../../components/gis/addresses/addresses-search';
+import {
+	type AddressFilters,
+	addressRecordSet,
+} from '../../../../components/gis/addresses/addresses-search';
 import { habitatRecordSet } from '../../../../components/larval-surveillance/habitats/habitats-search';
 import { inspectionRecordSet } from '../../../../components/larval-surveillance/inspections-search';
 import { sampleRecordSet } from '../../../../components/larval-surveillance/samples-search';
 import { outreachRecordSet } from '../../../../components/public-engagement/outreach/outreach-actions-search';
 import { serviceRequestRecordSet } from '../../../../components/public-engagement/service-requests/service-requests-search';
-import { mapQueryParams } from '../../../../hooks/explorer/use-paged-map-resource';
+import { mapQueryParams } from '../../../../lib/map-query-params';
 import {
 	countActiveFilters,
 	resolveFilters,
@@ -236,6 +239,13 @@ describe('a record set definition', () => {
 		});
 
 		expect(set.textSearch?.key).toBe('regions');
+	});
+
+	it('does not widen to a set over any tile', () => {
+		// @ts-expect-error: `listParams` reads address tile filters, so it cannot take any value.
+		const widened: RecordSet<AddressFilters, unknown> = addressRecordSet;
+
+		expect(widened).toBe(addressRecordSet);
 	});
 });
 

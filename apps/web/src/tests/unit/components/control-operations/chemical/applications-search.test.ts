@@ -4,7 +4,7 @@ import {
 	applicationListParams,
 	applicationTileFilters,
 } from '../../../../../components/control-operations/chemical/applications-search';
-import { mapQueryParams } from '../../../../../hooks/explorer/use-paged-map-resource';
+import { mapQueryParams } from '../../../../../lib/map-query-params';
 
 /**
  * The Map and the Table send one filter set to `/map/chemical`, so this is the

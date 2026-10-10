@@ -4,7 +4,7 @@ import {
 	biocontrolListParams,
 	biocontrolTileFilters,
 } from '../../../../../components/control-operations/biocontrol/biocontrol-actions-search';
-import { mapQueryParams } from '../../../../../hooks/explorer/use-paged-map-resource';
+import { mapQueryParams } from '../../../../../lib/map-query-params';
 
 /**
  * The Map and the Table send one filter set to `/map/biocontrol`, so this is
