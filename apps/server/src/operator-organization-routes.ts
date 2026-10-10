@@ -165,11 +165,11 @@ async function readCreateOrganizationPayload(request: {
 		};
 	}
 
-	const nonText = findNonTextField(raw, ['name', ...OPTIONAL_TEXT_FIELDS]);
-	if (nonText !== null) {
+	const wrongType = findWrongTypeField(raw);
+	if (wrongType !== null) {
 		return {
 			ok: false,
-			reason: `${nonText} must be text.`,
+			reason: wrongType,
 		};
 	}
 
@@ -178,14 +178,6 @@ async function readCreateOrganizationPayload(request: {
 		return {
 			ok: false,
 			reason: 'name is required.',
-		};
-	}
-
-	const linkRequesterAsOwner = readOptionalFlag(raw.linkRequesterAsOwner);
-	if (linkRequesterAsOwner === null) {
-		return {
-			ok: false,
-			reason: 'linkRequesterAsOwner must be true or false.',
 		};
 	}
 
@@ -220,20 +212,14 @@ async function readCreateOrganizationPayload(request: {
 			billingContactEmail: contact.billingContactEmail,
 			subscriptionNotes: readOptionalText(raw.subscriptionNotes),
 			contact: contact.contact,
-			linkRequesterAsOwner,
+			linkRequesterAsOwner: raw.linkRequesterAsOwner === true,
 		},
 	};
 }
 
-/**
- * The optional fields a create reads as text.
- *
- * Each is checked by `findNonTextField` before anything reads it, because
- * `readOptionalText` answers `null` for a missing value and for a value of the
- * wrong type alike, and a create used to store `mailingCountry: 123` as no
- * country and answer 201 (#1549).
- */
-const OPTIONAL_TEXT_FIELDS = [
+/** The fields a create reads as text, `name` first. */
+const TEXT_FIELDS = [
+	'name',
 	'slug',
 	'billingMode',
 	'billingContactName',
@@ -249,22 +235,30 @@ const OPTIONAL_TEXT_FIELDS = [
 	'mailingPostalCode',
 ] as const;
 
-/** The first field present with a value that is not a string, or `null`. */
-function findNonTextField(raw: Record<string, unknown>, fields: readonly string[]): string | null {
-	const field = fields.find((name) => {
-		const value = raw[name];
-		return value !== undefined && value !== null && typeof value !== 'string';
-	});
-	return field ?? null;
-}
-
-/** `true` or `false` as sent, `false` when absent, `null` for anything else. */
-function readOptionalFlag(value: unknown): boolean | null {
-	if (value === undefined || value === null) {
-		return false;
+/**
+ * The refusal for the first field present with a value of the wrong type, or
+ * `null` when every field is absent or of its type.
+ *
+ * It runs before anything reads the body, because `readOptionalText` answers
+ * `null` for a missing value and for a value of the wrong type alike, and a
+ * create used to store `mailingCountry: 123` as no country and answer 201
+ * (#1549). `undefined` and `null` are absent for every field, the flag
+ * included, so once this passes the flag is `true` or not sent.
+ */
+function findWrongTypeField(raw: Record<string, unknown>): string | null {
+	const text = TEXT_FIELDS.find((field) => isPresent(raw[field]) && typeof raw[field] !== 'string');
+	if (text !== undefined) {
+		return `${text} must be text.`;
 	}
 
-	return typeof value === 'boolean' ? value : null;
+	const flag = raw.linkRequesterAsOwner;
+	return isPresent(flag) && typeof flag !== 'boolean'
+		? 'linkRequesterAsOwner must be true or false.'
+		: null;
+}
+
+function isPresent(value: unknown): boolean {
+	return value !== undefined && value !== null;
 }
 
 /** Every contact detail a create carries, `null` until one arrives. */
