@@ -28,6 +28,7 @@ import {
 	SOURCE_REDUCTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
+import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { noTechnicianValue } from '../../../lib/no-technician';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -138,11 +139,19 @@ function EditSourceReductionLoader({
 						},
 					}),
 		});
-		await setPersonnel({
-			target: { type: 'sourceReduction', id: sourceReduction.id },
-			existing: personnel.rows,
-			profileIds: values.additionalPersonnelIds,
-		});
+		// The update has landed by now, so a crew miss is reported rather than
+		// thrown (see attachLinksBestEffort). The crew can lose rows here as well as
+		// gain them, so the report is a change to retry from this form.
+		await attachLinksBestEffort(
+			'the additional personnel',
+			() =>
+				setPersonnel({
+					target: { type: 'sourceReduction', id: sourceReduction.id },
+					existing: personnel.rows,
+					profileIds: values.additionalPersonnelIds,
+				}),
+			{ write: 'change', recordType: 'sourceReduction' },
+		);
 		await navigate({
 			to: '/control-operations/source-reduction/$id',
 			params: { id: sourceReduction.id },

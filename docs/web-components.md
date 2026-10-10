@@ -1235,11 +1235,12 @@ the binding makes it one value.
 Its controls and chips come from filter declarations (#1610), which replaced
 a private `RequestControlChips`. Status is a `choice` whose default is `open`,
 so its chip draws for `All` and `Resolved` and removing it writes `open` back.
-Requested by reads the profiles catalog through `TECHNICIAN_FILTER`'s source
-and unknown name, so a profile the catalog does not hold reads Unknown person
-here as it does on every record set. It read Unknown profile before. The
-Status chip draws ahead of the Dates chip, which is the order the hand-written
-row had.
+Requested by reads the profiles catalog through `TECHNICIAN_FILTER`'s source,
+and names a profile the catalog does not hold `PROFILE_UNKNOWN`, Unknown
+profile, the way the Missions and Assignments chips do. The record sets'
+Technician filter says Unknown person, and which wording the app settles on is
+#1538. The Status chip draws ahead of the Dates chip, which is the order the
+hand-written row had.
 
 #### RequestRow
 

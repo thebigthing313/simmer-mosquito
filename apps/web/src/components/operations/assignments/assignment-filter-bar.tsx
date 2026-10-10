@@ -22,7 +22,7 @@ import {
 	type FilterDeclarations,
 	suppliedSource,
 } from '../../explorer/filter-declarations';
-import { ASSIGNEE_UNKNOWN } from '../operations-filters';
+import { PROFILE_UNKNOWN } from '../operations-filters';
 
 /** The Assignments filters, in the order their chips draw. */
 function assignmentFilterDeclarations(
@@ -36,7 +36,7 @@ function assignmentFilterDeclarations(
 			label: 'Assigned to',
 			empty: 'No profiles',
 			options: suppliedSource(assigneeOptions),
-			unknown: ASSIGNEE_UNKNOWN,
+			unknown: PROFILE_UNKNOWN,
 		},
 		{
 			kind: 'choiceSet',

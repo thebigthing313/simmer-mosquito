@@ -33,6 +33,7 @@ import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/us
 import { useTrapOptions } from '../../../hooks/queries/use-trap-options';
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -130,11 +131,19 @@ function EditCollectionLoader({
 							},
 						},
 		});
-		await setPersonnel({
-			target: { type: 'collection', id: collection.id },
-			existing: personnel.rows,
-			profileIds: values.additionalPersonnelIds,
-		});
+		// The update has landed by now, so a crew miss is reported rather than
+		// thrown (see attachLinksBestEffort). The crew can lose rows here as well as
+		// gain them, so the report is a change to retry from this form.
+		await attachLinksBestEffort(
+			'the additional personnel',
+			() =>
+				setPersonnel({
+					target: { type: 'collection', id: collection.id },
+					existing: personnel.rows,
+					profileIds: values.additionalPersonnelIds,
+				}),
+			{ write: 'change', recordType: 'collection' },
+		);
 		await navigate({
 			to: '/adult-surveillance/collections/$id',
 			params: { id: collection.id },
