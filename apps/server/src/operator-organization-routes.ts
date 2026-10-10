@@ -165,11 +165,27 @@ async function readCreateOrganizationPayload(request: {
 		};
 	}
 
+	const nonText = findNonTextField(raw, ['name', ...OPTIONAL_TEXT_FIELDS]);
+	if (nonText !== null) {
+		return {
+			ok: false,
+			reason: `${nonText} must be text.`,
+		};
+	}
+
 	const name = readRequiredText(raw.name);
 	if (name === null) {
 		return {
 			ok: false,
 			reason: 'name is required.',
+		};
+	}
+
+	const linkRequesterAsOwner = readOptionalFlag(raw.linkRequesterAsOwner);
+	if (linkRequesterAsOwner === null) {
+		return {
+			ok: false,
+			reason: 'linkRequesterAsOwner must be true or false.',
 		};
 	}
 
@@ -204,9 +220,51 @@ async function readCreateOrganizationPayload(request: {
 			billingContactEmail: contact.billingContactEmail,
 			subscriptionNotes: readOptionalText(raw.subscriptionNotes),
 			contact: contact.contact,
-			linkRequesterAsOwner: raw.linkRequesterAsOwner === true,
+			linkRequesterAsOwner,
 		},
 	};
+}
+
+/**
+ * The optional fields a create reads as text.
+ *
+ * Each is checked by `findNonTextField` before anything reads it, because
+ * `readOptionalText` answers `null` for a missing value and for a value of the
+ * wrong type alike, and a create used to store `mailingCountry: 123` as no
+ * country and answer 201 (#1549).
+ */
+const OPTIONAL_TEXT_FIELDS = [
+	'slug',
+	'billingMode',
+	'billingContactName',
+	'billingContactEmail',
+	'subscriptionNotes',
+	'mainContactEmail',
+	'phoneNumber',
+	'mailingCountry',
+	'mailingAddressLine1',
+	'mailingAddressLine2',
+	'mailingLocality',
+	'mailingRegion',
+	'mailingPostalCode',
+] as const;
+
+/** The first field present with a value that is not a string, or `null`. */
+function findNonTextField(raw: Record<string, unknown>, fields: readonly string[]): string | null {
+	const field = fields.find((name) => {
+		const value = raw[name];
+		return value !== undefined && value !== null && typeof value !== 'string';
+	});
+	return field ?? null;
+}
+
+/** `true` or `false` as sent, `false` when absent, `null` for anything else. */
+function readOptionalFlag(value: unknown): boolean | null {
+	if (value === undefined || value === null) {
+		return false;
+	}
+
+	return typeof value === 'boolean' ? value : null;
 }
 
 /** Every contact detail a create carries, `null` until one arrives. */
