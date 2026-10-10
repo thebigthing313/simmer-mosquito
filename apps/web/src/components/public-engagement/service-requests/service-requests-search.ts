@@ -1,6 +1,6 @@
 import { serviceRequestOverdueCutoff } from '@simmer-mosquito/domain';
-import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
 import { startOfYear } from '../../../lib/date-presets';
+import type { MapQueryValue } from '../../../lib/map-query-params';
 import {
 	choiceParam,
 	DATE_RANGE_COUNTING,

@@ -43,8 +43,30 @@ export function SettingsSectionSheet<Values, Payload>({
 	);
 }
 
-/** One descriptor field, drawn as the form kit input its kind names. */
+/**
+ * One descriptor field, drawn while its `when` holds over the values as they
+ * stand. A hidden field keeps its value, so `convert` still reads it.
+ */
 function SettingsFieldInput<Values>({
+	field,
+	form,
+}: {
+	readonly field: SettingsSectionField<Values>;
+	readonly form: SettingsSheetForm<Values>;
+}) {
+	const { when } = field;
+	if (when === undefined) {
+		return <SettingsFieldControl field={field} form={form} />;
+	}
+	return (
+		<form.Subscribe selector={(state) => when(state.values)}>
+			{(shown) => (shown ? <SettingsFieldControl field={field} form={form} /> : null)}
+		</form.Subscribe>
+	);
+}
+
+/** One descriptor field, drawn as the form kit input its kind names. */
+function SettingsFieldControl<Values>({
 	field,
 	form,
 }: {

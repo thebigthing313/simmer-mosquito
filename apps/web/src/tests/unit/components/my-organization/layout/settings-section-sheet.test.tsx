@@ -2,6 +2,7 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SettingsSection } from '../../../../../components/my-organization/types';
 
 /**
  * The settings sheet frame, through the descriptors it draws: it opens on the
@@ -208,6 +209,69 @@ describe('SettingsSectionSheet', () => {
 		expect(setServiceRequestOverdueDays).not.toHaveBeenCalled();
 	});
 
+	// #1557: the days input is drawn only while the switch is on.
+	it('draws no days input while the stored threshold is off, and 14 once switched on', () => {
+		openContextSheet(OFF_SETTINGS);
+
+		expect(screen.queryByLabelText('Overdue after (days)')).toBeNull();
+
+		fireEvent.click(screen.getByRole('switch', { name: 'Mark overdue requests' }));
+
+		expect(inputValue('Overdue after (days)')).toBe('14');
+	});
+
+	it('keeps a typed number of days across switching off and back on', () => {
+		openContextSheet(OFF_SETTINGS);
+		const overdueSwitch = screen.getByRole('switch', { name: 'Mark overdue requests' });
+		fireEvent.click(overdueSwitch);
+		fireEvent.change(screen.getByLabelText('Overdue after (days)'), { target: { value: '20' } });
+
+		fireEvent.click(overdueSwitch);
+		expect(screen.queryByLabelText('Overdue after (days)')).toBeNull();
+
+		fireEvent.click(overdueSwitch);
+		expect(inputValue('Overdue after (days)')).toBe('20');
+	});
+
+	it('saves off over an emptied days input once the switch is off', async () => {
+		openContextSheet();
+		fireEvent.change(screen.getByLabelText('Overdue after (days)'), { target: { value: '' } });
+		fireEvent.click(screen.getByRole('switch', { name: 'Mark overdue requests' }));
+		save();
+
+		await vi.waitFor(() => expect(setServiceRequestOverdueDays).toHaveBeenCalledWith('off'));
+	});
+
+	it('draws a field with a predicate while it holds and drops it while it does not, sheet open', async () => {
+		const write = vi.fn().mockResolvedValue(undefined);
+		const section: SettingsSection<ConditionalValues, ConditionalValues> = {
+			title: 'Edit Conditional',
+			read: () => ({ shown: false, note: 'kept' }),
+			fields: [
+				{ kind: 'switch', key: 'shown', label: 'Show note' },
+				{ kind: 'text', key: 'note', label: 'Note', when: (values) => values.shown },
+			],
+			convert: (values) => values,
+			save: (_mutations, payload) => write(payload),
+			failureMessage: 'Unable to save.',
+		};
+		render(<SettingsSectionSheet section={section} settings={SETTINGS} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+		expect(screen.queryByLabelText('Note')).toBeNull();
+
+		fireEvent.click(screen.getByRole('switch', { name: 'Show note' }));
+		expect(inputValue('Note')).toBe('kept');
+		expect(screen.getByRole('dialog')).toBeTruthy();
+
+		fireEvent.click(screen.getByRole('switch', { name: 'Show note' }));
+		expect(screen.queryByLabelText('Note')).toBeNull();
+		expect(screen.getByRole('dialog')).toBeTruthy();
+
+		save();
+		await vi.waitFor(() => expect(write).toHaveBeenCalledWith({ shown: false, note: 'kept' }));
+	});
+
 	it('moves the active collection timing card as the select changes', async () => {
 		render(<SettingsSectionSheet section={collectionTimingSection} settings={SETTINGS} />);
 		fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
@@ -228,8 +292,18 @@ describe('SettingsSectionSheet', () => {
 	});
 });
 
-function openContextSheet(): void {
-	render(<SettingsSectionSheet section={serviceRequestContextSection} settings={SETTINGS} />);
+interface ConditionalValues {
+	readonly shown: boolean;
+	readonly note: string;
+}
+
+const OFF_SETTINGS = {
+	...SETTINGS,
+	publicEngagement: { ...SETTINGS.publicEngagement, serviceRequestOverdueDays: 'off' },
+} as unknown as OrganizationSettings;
+
+function openContextSheet(settings: OrganizationSettings = SETTINGS): void {
+	render(<SettingsSectionSheet section={serviceRequestContextSection} settings={settings} />);
 	fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 }
 

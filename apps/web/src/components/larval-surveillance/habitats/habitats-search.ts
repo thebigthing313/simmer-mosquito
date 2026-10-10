@@ -1,4 +1,4 @@
-import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
+import type { MapQueryValue } from '../../../lib/map-query-params';
 import {
 	choiceParam,
 	type FilterCodecs,

@@ -6,17 +6,13 @@ import type {
 	ExplorerEmptyReason,
 } from '../../components/explorer/explorer-empty-state';
 import { type MapTileLayer, tileLayerExtentUrl } from '../../components/map/tile-layers';
+import { type MapQueryValue, mapQueryParams } from '../../lib/map-query-params';
 import type { RecordType } from '../../lib/record-nouns';
 import { type MapExtent, useMapExtent } from '../map/use-map-extent';
 import { type ExplorerSummaryState, useExplorerSummary } from './use-explorer-summary';
 import { useFlyToSelection } from './use-fly-to-selection';
 import { useMapBoundsParam } from './use-map-bounds-param';
-import {
-	type MapQueryValue,
-	mapQueryParams,
-	type PagedMapResource,
-	usePagedMapResource,
-} from './use-paged-map-resource';
+import { type PagedMapResource, usePagedMapResource } from './use-paged-map-resource';
 import { useSelectedMapRecord } from './use-selected-map-record';
 /**
  * What every explorer rail needs of a row: which record it is, and where on the

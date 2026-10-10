@@ -1,6 +1,6 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
 import type { LinkProps } from '@tanstack/react-router';
-import type { MapQueryValue } from '../../hooks/explorer/use-paged-map-resource';
+import type { MapQueryValue } from '../../lib/map-query-params';
 import type { RecordType } from '../../lib/record-nouns';
 import type { FilterCodecs, FilterCounting, SearchCodec } from '../../lib/search-filters';
 
@@ -94,10 +94,14 @@ export interface RecordSet<TFilters, TTile = unknown> extends RecordSetLinks<TFi
 	 * The filters as the tile layer reads them, with an unset filter absent.
 	 * The Map draws its tiles from this and both surfaces build their list
 	 * request from it, so the two cannot send different filters.
+	 *
+	 * Both conversions are properties rather than methods, because TypeScript
+	 * checks a method's parameters bivariantly and a set over one tile type
+	 * would then pass where a set over any tile is asked for (#1588).
 	 */
-	tileFilters(filters: TFilters, context: RecordSetContext): TTile;
+	readonly tileFilters: (filters: TFilters, context: RecordSetContext) => TTile;
 	/** The tile filters as the list endpoint's query params. */
-	listParams(tile: TTile): Readonly<Record<string, MapQueryValue>>;
+	readonly listParams: (tile: TTile) => Readonly<Record<string, MapQueryValue>>;
 }
 
 /**
@@ -168,7 +172,7 @@ export function recordSetListParams<TFilters, TTile>(
 
 /** The set's counting rule in `context`, or none for a set that states none. */
 export function recordSetCounting<TFilters>(
-	set: RecordSet<TFilters>,
+	set: Pick<RecordSet<TFilters>, 'counting'>,
 	context: RecordSetContext,
 ): FilterCounting<TFilters> | undefined {
 	return typeof set.counting === 'function' ? set.counting(context) : set.counting;

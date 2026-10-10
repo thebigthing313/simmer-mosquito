@@ -26,7 +26,7 @@ import type {
 	ExplorerResource,
 	ExplorerTiles,
 } from '../../../../hooks/explorer/use-explorer-resource';
-import type { MapQueryValue } from '../../../../hooks/explorer/use-paged-map-resource';
+import type { MapQueryValue } from '../../../../lib/map-query-params';
 import type { RecordType } from '../../../../lib/record-nouns';
 import { cleanupRenderedHooks, createFakeMap, type FakeMap } from '../../components/map/fake-map';
 

@@ -7,7 +7,7 @@ import {
 	serviceRequestOrderParams,
 	serviceRequestTileFilters,
 } from '../../../../../components/public-engagement/service-requests/service-requests-search';
-import { mapQueryParams } from '../../../../../hooks/explorer/use-paged-map-resource';
+import { mapQueryParams } from '../../../../../lib/map-query-params';
 import { resolveFilters, searchValidator } from '../../../../../lib/search-filters';
 
 describe('the service requests filter contract', () => {

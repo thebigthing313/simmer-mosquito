@@ -1,5 +1,5 @@
-import type { MapQueryValue } from '../../hooks/explorer/use-paged-map-resource';
 import { addDaysToDateString } from '../../lib/local-date';
+import type { MapQueryValue } from '../../lib/map-query-params';
 import {
 	choiceParam,
 	DATE_RANGE_COUNTING,
