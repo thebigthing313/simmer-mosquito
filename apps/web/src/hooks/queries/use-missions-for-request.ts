@@ -52,7 +52,7 @@ import { mission_items } from '../../lib/collections/mission_items';
 import { missions } from '../../lib/collections/missions';
 import type { MissionListing, MissionStatus } from './operations-view';
 import { missionStatus } from './operations-view';
-import { activityGcTimeMs, unmatchableId } from './shared';
+import { liveQueryGcTimeMs, unmatchableId } from './shared';
 
 /**
  * Whether the joined side of a row arrived.
@@ -76,7 +76,7 @@ export function useMissionsForRequest(requestId: string | null): {
 	readonly isReady: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: mission_items() })

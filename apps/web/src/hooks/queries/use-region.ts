@@ -11,14 +11,14 @@ import { regions } from '../../lib/collections/regions';
 import type { Region } from './region-view';
 import { joinedOrNull, useRecordById } from './shared';
 
-export function useRegion(
-	regionId: string | null,
-	options?: { readonly gcTime?: number },
-): { readonly region: Region | undefined; readonly isReady: boolean; readonly isError: boolean } {
+export function useRegion(regionId: string | null): {
+	readonly region: Region | undefined;
+	readonly isReady: boolean;
+	readonly isError: boolean;
+} {
 	const result = useRecordById({
 		collection: regions(),
 		id: regionId,
-		gcTime: options?.gcTime,
 		query: (query) =>
 			query
 				// `left`: a Region need not sit in a folder, and an `inner` join would

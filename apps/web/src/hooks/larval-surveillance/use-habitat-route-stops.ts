@@ -10,7 +10,7 @@ import { habitats } from '../../lib/collections/habitats';
 import { route_items } from '../../lib/collections/route_items';
 import type { RouteStopFeature } from '../map/use-route-layer';
 import { joinedHabitatNameSelect } from '../queries/habitat-view';
-import { activityGcTimeMs, joinedOrNull, unmatchableId } from '../queries/shared';
+import { joinedOrNull, liveQueryGcTimeMs, unmatchableId } from '../queries/shared';
 
 /**
  * The composed itinerary for a habitat route, in one join: ordered stops,
@@ -26,7 +26,7 @@ export function useHabitatRouteStops(routeId: string | null): {
 	readonly isLoading: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: route_items() })

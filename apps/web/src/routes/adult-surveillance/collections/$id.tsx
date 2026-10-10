@@ -69,7 +69,6 @@ import {
 } from '../../../hooks/mutations/use-collection-species-mutations';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { AdultCollection } from '../../../hooks/queries/collection-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { collectionPlaceLabel, trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useAdultCollection } from '../../../hooks/queries/use-adult-collection';
 import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
@@ -119,7 +118,7 @@ function RouteComponent() {
 	const snapshot = auth.snapshot?.authenticated === true ? auth.snapshot : null;
 	const role = snapshot?.localIdentity.role ?? null;
 	const canEdit = snapshot !== null && !(role !== null && READ_ONLY_ROLES.has(role));
-	const { collection, isReady, isError } = useAdultCollection(id, { gcTime: activityGcTimeMs });
+	const { collection, isReady, isError } = useAdultCollection(id);
 
 	return (
 		<RecordDetailPage

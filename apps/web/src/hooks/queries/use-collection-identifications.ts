@@ -20,7 +20,7 @@
 import type { CollectionSpecies } from '@simmer-mosquito/sync';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { collection_species } from '../../lib/collections/collection_species';
-import { activityGcTimeMs } from './shared';
+import { liveQueryGcTimeMs } from './shared';
 
 /** One identification under a collection. */
 export interface CollectionIdentification {
@@ -40,7 +40,7 @@ export function useCollectionIdentifications(collectionId: string): {
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ identification: collection_species() })

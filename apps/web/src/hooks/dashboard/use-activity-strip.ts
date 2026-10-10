@@ -28,7 +28,7 @@ import { service_requests } from '../../lib/collections/service_requests';
 import { source_reductions } from '../../lib/collections/source_reductions';
 import { addCalendarDays } from '../../lib/local-date';
 import { ACTIVITY_DATES } from '../queries/activity-dates';
-import { activityGcTimeMs } from '../queries/shared';
+import { liveQueryGcTimeMs } from '../queries/shared';
 
 /** The strip's window: today and the six days before it. */
 const ACTIVITY_WINDOW_DAYS = 7;
@@ -61,7 +61,7 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 	const since = priorWindow.from;
 
 	const inspectionRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ inspection: inspections() })
@@ -81,7 +81,7 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 	});
 
 	const collectionRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ collection: collections() })
@@ -94,7 +94,7 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 	});
 
 	const applicationRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ application: applications() })
@@ -106,7 +106,7 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 	});
 
 	const sourceReductionRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ reduction: source_reductions() })
@@ -118,7 +118,7 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 	});
 
 	const releaseRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ release: biocontrol_actions() })
@@ -130,7 +130,7 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 	});
 
 	const serviceRequestRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ request: service_requests() })
@@ -142,7 +142,7 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 	});
 
 	const outreachRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ outreach: outreach_actions() })

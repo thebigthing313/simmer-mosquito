@@ -6,7 +6,7 @@ import { ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useDeferredValue, useState } from 'react';
 import { useSearchPicker } from '../../hooks/pickers/use-search-picker';
 import { useSelectedRowLabel } from '../../hooks/pickers/use-selected-row-label';
-import { activityGcTimeMs } from '../../hooks/queries/shared';
+import { liveQueryGcTimeMs } from '../../hooks/queries/shared';
 import { addressPrimaryLabel, addressSecondaryLabel } from '../../lib/address-format';
 import { addresses } from '../../lib/collections/addresses';
 import { OptionRow, PickerFallback, PickerFrame } from './entity-picker';
@@ -110,7 +110,7 @@ function AddressResults({
 	const normalized = search.trim();
 	const pattern = `%${normalized}%`;
 	const { data, isReady, isError } = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) => {
 			// No organization predicate: the shape is scoped to the organization
 			// server-side, so re-stating it here is redundant — and a stale column

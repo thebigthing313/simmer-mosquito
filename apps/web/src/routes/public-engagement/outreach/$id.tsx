@@ -25,7 +25,6 @@ import {
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { OutreachAction } from '../../../hooks/queries/outreach-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useOutreachAction } from '../../../hooks/queries/use-outreach-action';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
@@ -49,7 +48,7 @@ function RouteComponent() {
 	// One query for the action, its method, technician and address — the lookups
 	// this page used to do for itself. `outreach_actions` is on-demand, so this is
 	// status-gated rather than suspending; see the hook.
-	const { action, isReady, isError } = useOutreachAction(id, { gcTime: activityGcTimeMs });
+	const { action, isReady, isError } = useOutreachAction(id);
 
 	return (
 		<RecordDetailPage

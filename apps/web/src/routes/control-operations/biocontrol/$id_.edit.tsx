@@ -14,7 +14,6 @@ import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-bioco
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
@@ -51,7 +50,7 @@ function EditBiocontrolActionRoute() {
 	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
 
-	const { action, isReady, isError } = useBiocontrolAction(id, { gcTime: activityGcTimeMs });
+	const { action, isReady, isError } = useBiocontrolAction(id);
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;

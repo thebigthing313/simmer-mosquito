@@ -17,7 +17,6 @@ import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { InsecticideListing, RigListing } from '../../../hooks/queries/chemical-roster-view';
 import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
@@ -65,7 +64,7 @@ function EditApplicationRoute() {
 
 	// One query for the application and everything named on it. `applications` is
 	// on-demand, so this is status-gated rather than suspending; see the hook.
-	const { application, isReady, isError } = useApplication(id, { gcTime: activityGcTimeMs });
+	const { application, isReady, isError } = useApplication(id);
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;

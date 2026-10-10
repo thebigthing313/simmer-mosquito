@@ -24,7 +24,7 @@ import type { SpeciesSex } from '@simmer-mosquito/domain';
 import { gte, useLiveQuery } from '@tanstack/react-db';
 import type { SpeciesTotal } from '../../components/species-composition-panel';
 import { collection_species } from '../../lib/collections/collection_species';
-import { activityGcTimeMs } from './shared';
+import { liveQueryGcTimeMs } from './shared';
 import { useSpeciesNames } from './use-species-names';
 
 export function useAdultSpeciesComposition(
@@ -39,7 +39,7 @@ export function useAdultSpeciesComposition(
 	const nameById = useSpeciesNames();
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ identification: collection_species() })

@@ -16,7 +16,7 @@ import { type CommentTargetType, toDbEntityType } from '@simmer-mosquito/domain'
 import { and, eq, useLiveQuery } from '@tanstack/react-db';
 import { comments } from '../../lib/collections/comments';
 import { profiles } from '../../lib/collections/profiles';
-import { activityGcTimeMs, joinedOrNull } from './shared';
+import { joinedOrNull, liveQueryGcTimeMs } from './shared';
 
 /** The record a thread is attached to. */
 export interface CommentTarget {
@@ -58,7 +58,7 @@ export function useComments(target: CommentTarget): CommentsResult {
 	const entityType = toDbEntityType(target.type);
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ comment: comments() })

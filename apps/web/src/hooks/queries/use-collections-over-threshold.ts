@@ -42,7 +42,7 @@ import { traps } from '../../lib/collections/traps';
 import type { LinkedAddress } from './address-view';
 import { collectedSince, collectionEffectiveDate } from './collection-day';
 import { compareByCollectionDateDesc } from './collection-view';
-import { activityGcTimeMs, addressSelect, joinedOrNull } from './shared';
+import { addressSelect, joinedOrNull, liveQueryGcTimeMs } from './shared';
 
 /** One collection that reached its method's action threshold. */
 export interface OverThresholdCollection {
@@ -102,7 +102,7 @@ export function useCollectionsOverThreshold(
 	const methodIds = methodsWithThresholds.data.map((method) => method.id);
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ collection: collections() })

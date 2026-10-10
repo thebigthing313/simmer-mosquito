@@ -28,7 +28,6 @@ import {
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useSourceReduction } from '../../../hooks/queries/use-source-reduction';
@@ -57,11 +56,7 @@ function RouteComponent() {
 	// One query for the action, its method, unit, technician and address — the four
 	// lookups this page used to do for itself. `sourceReductions` is on-demand, so
 	// this is status-gated rather than suspending; see the hook.
-	const {
-		action: sourceReduction,
-		isReady,
-		isError,
-	} = useSourceReduction(id, { gcTime: activityGcTimeMs });
+	const { action: sourceReduction, isReady, isError } = useSourceReduction(id);
 
 	return (
 		<RecordDetailPage

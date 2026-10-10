@@ -1,6 +1,6 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { route_items } from '../../lib/collections/route_items';
-import { activityGcTimeMs } from '../queries/shared';
+import { liveQueryGcTimeMs } from '../queries/shared';
 
 /** How many stops each route id holds, over the rows the subset returned. */
 function countStopsByRouteId(
@@ -22,7 +22,7 @@ export function useHabitatRouteStopCounts(): {
 	readonly isLoading: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: route_items() })

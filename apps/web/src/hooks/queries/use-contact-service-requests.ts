@@ -8,7 +8,7 @@
 
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { service_requests } from '../../lib/collections/service_requests';
-import { activityGcTimeMs, unmatchableId } from './shared';
+import { liveQueryGcTimeMs, unmatchableId } from './shared';
 
 /** A Service Request as a contact's page lists one. */
 export interface ContactRequestListing {
@@ -27,7 +27,7 @@ export function useContactServiceRequests(contactId: string | null | undefined):
 	const id = contactId ?? unmatchableId;
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ request: service_requests() })

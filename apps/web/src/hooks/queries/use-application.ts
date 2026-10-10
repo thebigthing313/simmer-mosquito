@@ -32,10 +32,7 @@ import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
 const applicationReads = PERFORMED_ACTIONS.applications;
 
-export function useApplication(
-	applicationId: string | null,
-	options?: { readonly gcTime?: number },
-): {
+export function useApplication(applicationId: string | null): {
 	readonly application: ChemicalApplication | undefined;
 	readonly isReady: boolean;
 	readonly isError: boolean;
@@ -43,7 +40,6 @@ export function useApplication(
 	const result = useRecordById({
 		collection: applications(),
 		id: applicationId,
-		gcTime: options?.gcTime,
 		query: (query) =>
 			query
 				// `left` throughout: an application need not name a method or an

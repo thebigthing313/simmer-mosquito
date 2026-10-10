@@ -7,7 +7,7 @@ import { and, eq, useLiveQuery } from '@tanstack/react-db';
 import { collections } from '../../lib/collections/collections';
 import { addCalendarDays } from '../../lib/local-date';
 import { collectedSince, collectionEffectiveDate } from './collection-day';
-import { activityGcTimeMs, type ElectricQueue } from './shared';
+import { type ElectricQueue, liveQueryGcTimeMs } from './shared';
 
 /** The window, inclusive of today: today and the 13 days before it. */
 const PROBLEM_COLLECTIONS_WINDOW_DAYS = 14;
@@ -16,7 +16,7 @@ export function useProblemCollectionsQueue(today: string, timeZone: string): Ele
 	const since = addCalendarDays(today, -(PROBLEM_COLLECTIONS_WINDOW_DAYS - 1));
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ collection: collections() })

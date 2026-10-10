@@ -8,13 +8,13 @@
 import { and, count, isNull, lt, min, useLiveQuery } from '@tanstack/react-db';
 import { missions } from '../../lib/collections/missions';
 import { addCalendarDays, localCalendarDay, localDayStartAsInstant } from '../../lib/local-date';
-import { activityGcTimeMs, type ElectricQueue } from './shared';
+import { type ElectricQueue, liveQueryGcTimeMs } from './shared';
 
 export function useDueMissionsQueue(today: string, timeZone: string): ElectricQueue {
 	const endOfToday = localDayStartAsInstant(addCalendarDays(today, 1), timeZone);
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ mission: missions() })

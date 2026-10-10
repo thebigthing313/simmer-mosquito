@@ -16,7 +16,7 @@
 import { type AdditionalPersonnelTargetType, toDbEntityType } from '@simmer-mosquito/domain';
 import { and, eq, useLiveQuery } from '@tanstack/react-db';
 import { additional_personnel } from '../../lib/collections/additional_personnel';
-import { activityGcTimeMs } from './shared';
+import { liveQueryGcTimeMs } from './shared';
 
 /** The record the crew is attached to. */
 export interface AdditionalPersonnelTarget {
@@ -45,7 +45,7 @@ export function useAdditionalPersonnel(
 	const entityType = toDbEntityType(target.type);
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ personnel: additional_personnel() })

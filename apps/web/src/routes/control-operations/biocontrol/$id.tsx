@@ -30,7 +30,6 @@ import {
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { useBiocontrolAction } from '../../../hooks/queries/use-biocontrol-action';
 import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
@@ -56,7 +55,7 @@ function RouteComponent() {
 	// One query for the release, its method, unit, technician and address — the
 	// lookups this page used to do for itself. `biocontrol_actions` is on-demand,
 	// so this is status-gated rather than suspending; see the hook.
-	const { action, isReady, isError } = useBiocontrolAction(id, { gcTime: activityGcTimeMs });
+	const { action, isReady, isError } = useBiocontrolAction(id);
 
 	return (
 		<RecordDetailPage

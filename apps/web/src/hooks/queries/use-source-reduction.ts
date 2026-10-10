@@ -19,10 +19,7 @@ import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
 const reductionReads = PERFORMED_ACTIONS.sourceReductions;
 
-export function useSourceReduction(
-	actionId: string | null,
-	options?: { readonly gcTime?: number },
-): {
+export function useSourceReduction(actionId: string | null): {
 	readonly action: SourceReduction | undefined;
 	readonly isReady: boolean;
 	/**
@@ -35,7 +32,6 @@ export function useSourceReduction(
 	const result = useRecordById({
 		collection: source_reductions(),
 		id: actionId,
-		gcTime: options?.gcTime,
 		query: (query) =>
 			query
 				// `left` throughout: a source reduction need not record a technician and

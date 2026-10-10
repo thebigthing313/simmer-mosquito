@@ -50,7 +50,7 @@ import { source_reduction_methods } from '../../lib/collections/source_reduction
 import { source_reductions } from '../../lib/collections/source_reductions';
 import { units } from '../../lib/collections/units';
 import { PERFORMED_ACTIONS } from './performed-action-reads';
-import { activityGcTimeMs, joinedOrNull } from './shared';
+import { joinedOrNull, liveQueryGcTimeMs } from './shared';
 
 const {
 	applications: applicationReads,
@@ -113,7 +113,7 @@ export function useLinkedControlActions(inspectionId: string): {
 	readonly isError: boolean;
 } {
 	const applicationResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ application: applications() })
@@ -148,7 +148,7 @@ export function useLinkedControlActions(inspectionId: string): {
 	});
 
 	const sourceReductionResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ sourceReduction: source_reductions() })
@@ -183,7 +183,7 @@ export function useLinkedControlActions(inspectionId: string): {
 	});
 
 	const outreachResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ outreachAction: outreach_actions() })
@@ -212,7 +212,7 @@ export function useLinkedControlActions(inspectionId: string): {
 	});
 
 	const biocontrolResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ biocontrolAction: biocontrol_actions() })
@@ -247,7 +247,7 @@ export function useLinkedControlActions(inspectionId: string): {
 	});
 
 	const requestedResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ requestedControlAction: requested_control_actions() })

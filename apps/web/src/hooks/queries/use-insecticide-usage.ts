@@ -16,7 +16,7 @@ import { gte, useLiveQuery } from '@tanstack/react-db';
 import { applications } from '../../lib/collections/applications';
 import { insecticides } from '../../lib/collections/insecticides';
 import { PERFORMED_ACTIONS } from './performed-action-reads';
-import { activityGcTimeMs, joinedOrNull } from './shared';
+import { joinedOrNull, liveQueryGcTimeMs } from './shared';
 
 const applicationReads = PERFORMED_ACTIONS.applications;
 
@@ -35,7 +35,7 @@ export function useInsecticideUsage(sinceDate: string): {
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ application: applications() })

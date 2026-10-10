@@ -19,7 +19,7 @@ import { traps } from '../../lib/collections/traps';
 import type { LinkedAddress } from './address-view';
 import { collectedSince, collectionEffectiveDate } from './collection-day';
 import { compareByCollectionDateDesc } from './collection-view';
-import { activityGcTimeMs, addressSelect, joinedOrNull } from './shared';
+import { addressSelect, joinedOrNull, liveQueryGcTimeMs } from './shared';
 
 /** One collection waiting on identification, as the overview lists it. */
 export interface AwaitingCollection {
@@ -52,7 +52,7 @@ export function useCollectionsAwaitingIdentification(
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ collection: collections() })

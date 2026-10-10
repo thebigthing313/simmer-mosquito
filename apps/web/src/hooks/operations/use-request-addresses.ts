@@ -1,6 +1,6 @@
 import { inArray, useLiveQuery } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
-import { activityGcTimeMs, unmatchableId } from '../queries/shared';
+import { liveQueryGcTimeMs, unmatchableId } from '../queries/shared';
 import type { OpenServiceRequest } from './use-open-service-requests';
 
 /**
@@ -13,7 +13,7 @@ export function useRequestAddresses(
 	const addressIds = [...new Set(requests.map((request) => request.addressId))];
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ address: addresses() })
