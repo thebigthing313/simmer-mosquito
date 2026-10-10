@@ -21,9 +21,9 @@ import {
 	type CollectionPlacement,
 	useCollectionMutations,
 } from '../../../hooks/mutations/use-collection-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
-import { useCollectionLureRoster } from '../../../hooks/queries/use-collection-lure-roster';
-import { useCollectionMethodRoster } from '../../../hooks/queries/use-collection-method-roster';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useTrapOptions } from '../../../hooks/queries/use-trap-options';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
@@ -90,8 +90,8 @@ function CreateCollectionRoute() {
 	const navigate = useNavigate();
 	const { settings } = useOrganizationWorkspace(auth.snapshot);
 	const { traps, isReady: trapsReady } = useTrapOptions();
-	const methods = useCollectionMethodRoster();
-	const lures = useCollectionLureRoster();
+	const methods = useCatalogRoster(catalogs.collectionMethods);
+	const lures = useCatalogRoster(catalogs.collectionLures);
 	const profiles = useProfileRoster();
 	const { all: units } = useUnitLabels();
 	const mutations = useCollectionMutations();

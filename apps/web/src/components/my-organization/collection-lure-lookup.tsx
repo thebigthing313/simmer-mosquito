@@ -24,14 +24,17 @@ import { useState } from 'react';
 import type { CatalogMutations } from '../../hooks/mutations/catalog-fields';
 import { useCollectionLureMutations } from '../../hooks/mutations/use-collection-lure-mutations';
 import type { DescribedCatalogRecord } from '../../hooks/queries/catalog-record-view';
-import { useCollectionLureRecords } from '../../hooks/queries/use-collection-lure-records';
+import { catalogs } from '../../hooks/queries/catalog-register';
+import { useCatalogRecords } from '../../hooks/queries/use-catalog-records';
 import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../catalog';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import { LookupListFrame } from './layout/lookup-list-frame';
 
 export function CollectionLureLookupList({ canManage }: { readonly canManage: boolean }) {
-	const { activeRecords: activeLures, inactiveRecords: inactiveLures } = useCollectionLureRecords();
+	const { activeRecords: activeLures, inactiveRecords: inactiveLures } = useCatalogRecords(
+		catalogs.collectionLures,
+	);
 	const mutations = useCollectionLureMutations();
 
 	return (

@@ -10,8 +10,8 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
-import { useBiocontrolMethodOptions } from '../../../hooks/explorer/use-biocontrol-method-options';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { formatListDate } from '../../../lib/local-date';
@@ -29,8 +29,8 @@ import {
  * the rows the route read.
  */
 export function BiocontrolActionsTable({ rows }: { readonly rows: readonly BiocontrolListRow[] }) {
-	const { nameById: methodNameById } = useBiocontrolMethodOptions();
-	const { nameById: personNameById } = usePersonnelOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.biocontrolMethods);
+	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const unitById = useUnitLabels().byId;
 	// `habitats` syncs on demand, so resolve only the referenced ids.
 	const habitatNameById = useHabitatNames(linkedHabitatIds(rows));

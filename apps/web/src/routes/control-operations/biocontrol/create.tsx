@@ -12,8 +12,9 @@ import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
-import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-biocontrol-method-roster';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useMissionStopExecution } from '../../../hooks/use-mission-stop-execution';
@@ -51,7 +52,7 @@ function CreateBiocontrolActionRoute() {
 	const navigate = useNavigate();
 	const timeZone = useOrganizationTimeZone();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const methods = useBiocontrolMethodRoster();
+	const methods = useCatalogRoster(catalogs.biocontrolMethods);
 	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
 

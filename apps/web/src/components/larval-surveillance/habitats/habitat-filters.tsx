@@ -6,10 +6,11 @@
  */
 
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
-import { useHabitatTypeOptions } from '../../../hooks/explorer/use-habitat-type-options';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
 import type { HabitatFilterBinding } from '../../../hooks/larval-surveillance/use-habitat-filter-state';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import {
 	ActiveFilterBar,
 	FilterChip,
@@ -44,7 +45,7 @@ export function HabitatFilterFields({
 	readonly wide?: boolean;
 }) {
 	const { filters, setFilters, activeCount, searchInput, setSearchInput, clearSearch } = binding;
-	const { options: habitatTypes } = useHabitatTypeOptions();
+	const { options: habitatTypes } = useCatalogOptions(catalogs.habitatTypes);
 	const { options: tags } = useTagOptions();
 	const regions = useRegionOptions();
 
@@ -124,7 +125,7 @@ export function HabitatFilterFields({
  * its groupings.
  */
 export function HabitatFilterChips({ binding }: { readonly binding: HabitatFilterBinding }) {
-	const { nameById: typeNameById } = useHabitatTypeOptions();
+	const { nameById: typeNameById } = useCatalogOptions(catalogs.habitatTypes);
 	const { byId: tagById } = useTagOptions();
 	const { nameById: regionNameById } = useRegionOptions();
 	const { filters, setFilters, clearSearch, clearAll } = binding;

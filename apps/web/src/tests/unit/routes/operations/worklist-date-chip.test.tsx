@@ -61,8 +61,9 @@ vi.mock('../../../../hooks/use-organization-time-zone', () => ({
 	useOrganizationTimeZone: () => url.timeZone,
 }));
 
-vi.mock('../../../../hooks/explorer/use-personnel-options', () => ({
-	usePersonnelOptions: () => ({ options: [], nameById: new Map() }),
+vi.mock('../../../../hooks/explorer/use-catalog-options', async (original) => ({
+	...(await original<typeof import('../../../../hooks/explorer/use-catalog-options')>()),
+	useCatalogOptions: () => ({ options: [], nameById: new Map() }),
 }));
 
 vi.mock('../../../../hooks/explorer/use-control-method-names', () => ({
