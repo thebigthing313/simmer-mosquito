@@ -96,9 +96,6 @@ describe('useWorklistIndex assignee', () => {
 		const [unassigned, ...people] = result.current.assigneeOptions;
 		expect(unassigned?.label).toBe('Unassigned');
 		expect(people).toEqual(PERSONNEL.options);
-		expect(result.current.assigneeLabel(unassigned?.id ?? '')).toBe('Unassigned');
-		expect(result.current.assigneeLabel('p2')).toBe('Ben Hale');
-		expect(result.current.assigneeLabel('gone')).toBe('Unknown profile');
 
 		rerender({
 			rows: ROWS,

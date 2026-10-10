@@ -18,7 +18,7 @@ export {
 	without,
 } from './filter-chips';
 export { FilterFieldsLayout, FilterGrid } from './filter-layout';
-export { type FilterOption, MultiSelectFilter, toggle } from './multi-select-filter';
+export { type FilterOption, toggle } from './multi-select-filter';
 export { RESULT_SKELETON_KEYS } from './result-skeleton';
 export { SegmentedFilter } from './segmented-filter';
 export { ToggleFilter } from './toggle-filter';

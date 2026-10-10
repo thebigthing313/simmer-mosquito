@@ -46,7 +46,7 @@ function RequestsForControlRoute() {
 	// window stays pushed down; the hook's header says why. Applied in memory
 	// after the window, the way `status` is.
 	const { assignedRequestIds, isReady: assignedReady } = useAssignedRequestIds();
-	const { options: personnelOptions, nameById } = useCatalogOptions(catalogs.profiles);
+	const { nameById } = useCatalogOptions(catalogs.profiles);
 	const methodNameById = useControlMethodNames();
 
 	const visible = requests.filter((request) =>
@@ -68,13 +68,7 @@ function RequestsForControlRoute() {
 	return (
 		<ExplorerMapPage
 			activeFilterCount={activeFilterCount}
-			filters={
-				<RequestControlFilters
-					binding={binding}
-					nameById={nameById}
-					personnelOptions={personnelOptions}
-				/>
-			}
+			filters={<RequestControlFilters binding={binding} />}
 			heading={{
 				title: recordNoun('requestedControlAction').titleMany,
 				icon: RequestIcon,

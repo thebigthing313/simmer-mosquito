@@ -22,6 +22,11 @@ import type { FilterBinding } from '../../../../../lib/search-filters';
 
 const TODAY = '2026-10-09';
 
+vi.mock('../../../../../hooks/explorer/use-catalog-options', async (importOriginal) => ({
+	...(await importOriginal<object>()),
+	useCatalogOptions: () => ({ options: [], nameById: new Map() }),
+}));
+
 afterEach(cleanup);
 
 function renderWith(
@@ -40,8 +45,6 @@ function renderWith(
 				defaults,
 				today: TODAY,
 			}}
-			nameById={new Map()}
-			personnelOptions={[]}
 		/>,
 	);
 	return setFilters;
