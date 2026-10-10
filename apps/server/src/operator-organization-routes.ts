@@ -10,6 +10,8 @@
  * organization and `upsertOperatorOrganization` records it here. WorkOS goes
  * first, because its id is what the SIMMER row is keyed by, and a WorkOS
  * organization with no SIMMER row is a state an operator can see and retry from.
+ * Every payload rule is checked before WorkOS is called, so a detail the insert
+ * or the details builder would refuse never leaves that state behind (#1524).
  */
 
 import type { WorkOsIdentityWrites } from '@simmer-mosquito/auth';
@@ -24,7 +26,11 @@ import {
 	type SimmerDatabase,
 	upsertOperatorOrganization,
 } from '@simmer-mosquito/db';
-import { ORGANIZATION_SUBSCRIPTION_STATUSES } from '@simmer-mosquito/domain';
+import {
+	isEmailAddress,
+	normalizeOrganizationContactDetails,
+	ORGANIZATION_SUBSCRIPTION_STATUSES,
+} from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
@@ -183,6 +189,11 @@ async function readCreateOrganizationPayload(request: {
 		};
 	}
 
+	const contact = readContactPayload(raw);
+	if (!contact.ok) {
+		return contact;
+	}
+
 	return {
 		ok: true,
 		payload: {
@@ -190,21 +201,62 @@ async function readCreateOrganizationPayload(request: {
 			slug: readOptionalText(raw.slug),
 			subscriptionStatus,
 			billingContactName: readOptionalText(raw.billingContactName),
-			billingContactEmail: readOptionalText(raw.billingContactEmail),
+			billingContactEmail: contact.billingContactEmail,
 			subscriptionNotes: readOptionalText(raw.subscriptionNotes),
-			contact: {
-				mainContactEmail: readOptionalText(raw.mainContactEmail),
-				phoneNumber: readOptionalText(raw.phoneNumber),
-				mailingCountry: readOptionalText(raw.mailingCountry)?.toUpperCase() ?? null,
-				mailingAddressLine1: readOptionalText(raw.mailingAddressLine1),
-				mailingAddressLine2: readOptionalText(raw.mailingAddressLine2),
-				mailingLocality: readOptionalText(raw.mailingLocality),
-				mailingRegion: readOptionalText(raw.mailingRegion),
-				mailingPostalCode: readOptionalText(raw.mailingPostalCode),
-			},
+			contact: contact.contact,
 			linkRequesterAsOwner: raw.linkRequesterAsOwner === true,
 		},
 	};
+}
+
+/** Every contact detail a create carries, `null` until one arrives. */
+const NO_CONTACT: CreateOrganizationPayload['contact'] = {
+	mainContactEmail: null,
+	phoneNumber: null,
+	mailingCountry: null,
+	mailingAddressLine1: null,
+	mailingAddressLine2: null,
+	mailingLocality: null,
+	mailingRegion: null,
+	mailingPostalCode: null,
+};
+
+/**
+ * The eight contact details and the billing contact email, checked.
+ *
+ * The details are held to the details builder's rules, read from the domain
+ * rather than written again, so a create cannot store what an edit would
+ * refuse. The billing email is not a detail that builder carries, so it is
+ * checked here against the same email rule. Refusing at this point is what
+ * keeps WorkOS from being asked first for a row the insert would reject.
+ */
+function readContactPayload(raw: Record<string, unknown>):
+	| {
+			readonly ok: true;
+			readonly contact: CreateOrganizationPayload['contact'];
+			readonly billingContactEmail: string | null;
+	  }
+	| { readonly ok: false; readonly reason: string } {
+	const { details, issues } = normalizeOrganizationContactDetails({
+		mainContactEmail: readOptionalText(raw.mainContactEmail),
+		phoneNumber: readOptionalText(raw.phoneNumber),
+		mailingCountry: readOptionalText(raw.mailingCountry),
+		mailingAddressLine1: readOptionalText(raw.mailingAddressLine1),
+		mailingAddressLine2: readOptionalText(raw.mailingAddressLine2),
+		mailingLocality: readOptionalText(raw.mailingLocality),
+		mailingRegion: readOptionalText(raw.mailingRegion),
+		mailingPostalCode: readOptionalText(raw.mailingPostalCode),
+	});
+	if (issues.length > 0) {
+		return { ok: false, reason: issues.map((issue) => issue.message).join(' ') };
+	}
+
+	const billingContactEmail = readOptionalText(raw.billingContactEmail);
+	if (billingContactEmail !== null && !isEmailAddress(billingContactEmail)) {
+		return { ok: false, reason: 'billingContactEmail must be a valid email address.' };
+	}
+
+	return { ok: true, contact: { ...NO_CONTACT, ...details }, billingContactEmail };
 }
 
 function readSubscriptionStatus(value: unknown): OrganizationSubscriptionStatus | null {
