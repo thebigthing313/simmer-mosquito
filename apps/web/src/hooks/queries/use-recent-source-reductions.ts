@@ -1,4 +1,4 @@
-import { caseWhen, coalesce, gte, isNull, useLiveQuery } from '@tanstack/react-db';
+import { coalesce, gte, useLiveQuery } from '@tanstack/react-db';
 import { profiles } from '../../lib/collections/profiles';
 import { source_reduction_methods } from '../../lib/collections/source_reduction_methods';
 import { source_reductions } from '../../lib/collections/source_reductions';
@@ -39,13 +39,9 @@ export function useRecentSourceReductions(sinceDate: string): RecentResult {
 						id: action.id,
 						actionDate: reductionReads.date(action),
 						methodId: measured.methodId,
-						methodName: coalesce(method.name, 'Unknown method'),
+						methodName: coalesce(method.name, null),
 						technicianProfileId: measured.performerProfileId,
-						technicianName: caseWhen(
-							isNull(measured.performerProfileId),
-							null,
-							technician.display_name,
-						),
+						technicianName: coalesce(technician.display_name, null),
 						amount: measured.amount,
 						unitAbbreviation: coalesce(unit.abbreviation, null),
 						habitatId: action.habitat_id,
