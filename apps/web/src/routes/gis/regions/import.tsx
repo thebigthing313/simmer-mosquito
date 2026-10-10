@@ -24,7 +24,6 @@ import {
 	PlusIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useRef, useState } from 'react';
@@ -46,7 +45,6 @@ import { framingPadding } from '../../../components/map/map-inset';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
-import { regions } from '../../../lib/collections/regions';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -97,17 +95,6 @@ function ImportRegionsRoute() {
 	const navigate = useNavigate();
 	const { folders } = useRegionFolders();
 	const mutations = useRegionMutations();
-
-	// Keep the on-demand `regions` shape stream warm for the whole time the user is
-	// on this page. A region write confirms only when its txid is observed on the
-	// live shape stream; that stream opens at `offset:'now'`, so if it is cold when
-	// the import fires (the collection is GC'd ~30s after the regions list unmounts —
-	// well within the time it takes to upload and review a file) the concurrent
-	// inserts race a fresh subscription and their txids can commit before it
-	// connects, forcing a deterministic per-row confirmation timeout. Subscribing
-	// here guarantees the stream is connected and up-to-date before the first insert.
-	// The rows themselves are unused; we only need the subscription.
-	useLiveQuery({ query: (query) => query.from({ region: regions() }) });
 
 	const [items, setItems] = useState<readonly ImportItem[]>([]);
 	const [skipped, setSkipped] = useState(0);

@@ -9,7 +9,6 @@ import {
 import { ContactFormPage } from '../../../components/public-engagement/contacts/contact-form';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
-import { useContact } from '../../../hooks/queries/use-contact-record';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
@@ -26,11 +25,7 @@ function CreateContactRoute() {
 	const navigate = useNavigate();
 	const mutations = useContactMutations();
 
-	// Minted up front, and queried before it exists: `contacts` is on-demand, and
-	// a write into a collection nothing is querying waits out a txid confirmation
-	// that never arrives — which reads as a frozen save rather than a slow one.
 	const [contactId] = useState(() => newRecordId());
-	useContact(contactId);
 
 	const onSave = async (values: ContactFormValues) => {
 		await mutations.create(contactId, contactFieldsFromValues(values));

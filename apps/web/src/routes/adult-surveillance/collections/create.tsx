@@ -21,7 +21,6 @@ import {
 	type CollectionPlacement,
 	useCollectionMutations,
 } from '../../../hooks/mutations/use-collection-mutations';
-import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useCollectionLureRoster } from '../../../hooks/queries/use-collection-lure-roster';
 import { useCollectionMethodRoster } from '../../../hooks/queries/use-collection-method-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
@@ -100,9 +99,8 @@ function CreateCollectionRoute() {
 	const today = todayInTimeZone(timeZone);
 
 	// Minted up front so the crew rows can be written the moment the collection
-	// lands — and so their on-demand stream is already warm when the save fires.
+	// lands.
 	const [collectionId] = useState(() => newRecordId());
-	useAdditionalPersonnel({ type: 'collection', id: collectionId });
 	const recordExtras = useRecordExtras();
 
 	// The whole save re-runs on a confirmed acknowledgement, crew rows included;

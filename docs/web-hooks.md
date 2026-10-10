@@ -1105,9 +1105,13 @@ A geometry still exactly the stop's is sent as no geometry, and the server
 copies the stop's stored shape. The copy the form holds came through
 `st_asgeojson`, which keeps nine decimal places, and a rounded copy need not
 cover the stored shape, so sending it would put the coverage acknowledgement
-to a crew that changed nothing. Subscribing to the stop's row warms the
-on-demand stream the page is about to write against, which is what keeps the
-write's txid confirmation from timing out; nothing reads the row itself.
+to a crew that changed nothing.
+
+The hook used to subscribe to the stop's row with nothing reading it, on the
+belief that a write into an unwatched on-demand collection waits out a txid
+that never arrives. `awaitConfirmation` skips the wait when nothing is
+subscribed, so the subscription turned a skipped wait into a real one, and
+#1429 deleted it with the other create-page anchors.
 
 ### forms
 
@@ -1609,9 +1613,10 @@ again.
 #### useNewInspectionDraft
 
 The id is minted up front so the samples, crew and comment can be written
-the moment the inspection lands, and so their streams are live before the
-save fires: a write against a cold stream times out waiting for its txid
-confirmation.
+the moment the inspection lands. It subscribes to nothing: the samples and
+crew subscriptions it used to hold were only there to keep their streams
+open for the save, and `awaitConfirmation` already answers a write into an
+unwatched collection without waiting (#1429).
 
 #### useSampleGeoContext
 
@@ -1712,8 +1717,7 @@ which timestamp moved. What is left is composition, the stops joined to the
 records they send a crew to, which is a page's question rather than a
 table's.
 
-`useAssignment` is also the warm-stream anchor on pages that write before
-reading. `useAssignmentItems` is unfiltered by `entityType` on purpose:
+`useAssignmentItems` is unfiltered by `entityType` on purpose:
 unlike a route, an assignment mixes traps, habitats and service requests in
 one worklist by design.
 
@@ -1727,9 +1731,7 @@ table depending on `entity_type`, so there is no column to join on.
 `usePendingTrapCollections` exists because a trap stop means one of two
 visits, set the trap or come back and empty it, and only the data says
 which. The subset is keyed on the stops' own trap ids rather than reading
-every collection, and the live query doubles as the thing that keeps the
-on-demand collections stream warm: the Collect write lands on this page, and
-a write to a cold stream times out waiting for its txid.
+every collection.
 
 `useAssigneeOptions` puts "Unassigned" first because planning drafts may
 carry nobody, and Radix Select forbids an empty-string item value, so
