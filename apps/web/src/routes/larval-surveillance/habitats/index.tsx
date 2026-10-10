@@ -4,18 +4,18 @@ import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import {
 	HabitatFilterChips,
 	HabitatFilterFields,
 } from '../../../components/larval-surveillance/habitats/habitat-filters';
 import { HabitatMapCard } from '../../../components/larval-surveillance/habitats/habitat-map-card';
 import { habitatSummaryGroupings } from '../../../components/larval-surveillance/habitats/habitat-summary';
-import { HabitatSurfaceSwitch } from '../../../components/larval-surveillance/habitats/habitat-surface-switch';
 import {
 	habitatFilterCodecs,
 	habitatListParams,
+	habitatRecordSet,
 	habitatTileFilters,
-	sharedHabitatSearch,
 } from '../../../components/larval-surveillance/habitats/habitats-search';
 import { habitatLegend } from '../../../components/larval-surveillance/habitats/legend';
 import { HABITAT_STATUS_COLORS, MAP_CREATE_TARGETS } from '../../../components/map';
@@ -71,9 +71,7 @@ function HabitatsExplorerRoute() {
 	const filters = habitatTileFilters(query);
 	const [clustered] = useMapClustering();
 	const legend = habitatLegend(query.status, query.access, clustered);
-	// What a move to the Table takes with it: every filter, since the Table
-	// applies each one.
-	const carried = sharedHabitatSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
 	const {
 		rows,
@@ -102,7 +100,9 @@ function HabitatsExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
-			actions={<HabitatSurfaceSwitch compact current="map" search={carried} />}
+			actions={
+				<RecordSetSwitch compact current="map" search={routeSearch} set={habitatRecordSet} />
+			}
 			activeFilterCount={activeFilterCount}
 			filters={<HabitatFilterFields binding={binding} />}
 			heading={{

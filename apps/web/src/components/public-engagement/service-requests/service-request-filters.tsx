@@ -37,6 +37,7 @@ import {
 	FilterGrid,
 	MultiSelectFilter,
 	SegmentedFilter,
+	ToggleFilter,
 	toggle,
 } from '../../explorer';
 import { TagBadge } from '../../tag-badge';
@@ -75,6 +76,13 @@ export interface ServiceRequestFilterChipProps {
 	readonly setSelectedTagIds: (next: ReadonlySet<string>) => void;
 	readonly setStatus: (next: ServiceRequestStatusFilter) => void;
 	readonly status: ServiceRequestStatusFilter;
+	/**
+	 * Overdue requests only, and whether the Organization's threshold is on.
+	 * Off, the control and its chip are not drawn.
+	 */
+	readonly overdue: boolean;
+	readonly overdueAvailable: boolean;
+	readonly setOverdue: (next: boolean) => void;
 }
 
 /** The filter card's contents: the five controls and the chips that undo them. */
@@ -97,6 +105,9 @@ export function ServiceRequestFilterFields({
 		setSelectedTagIds,
 		setStatus,
 		status,
+		overdue,
+		overdueAvailable,
+		setOverdue,
 	} = chips;
 	const hasTagFilter = availableTags.length > 0 || selectedTagIds.size > 0;
 	return (
@@ -133,6 +144,9 @@ export function ServiceRequestFilterFields({
 					options={regions.options}
 					selected={selectedRegionIds}
 				/>
+				{overdueAvailable ? (
+					<ToggleFilter label="Overdue" onChange={setOverdue} value={overdue} />
+				) : null}
 			</FilterGrid>
 
 			<ServiceRequestFilterChips {...chips} />
@@ -157,6 +171,9 @@ export function ServiceRequestFilterChips({
 	setSelectedTagIds,
 	setStatus,
 	status,
+	overdue,
+	overdueAvailable,
+	setOverdue,
 }: ServiceRequestFilterChipProps) {
 	if (activeFilterCount === 0) {
 		return null;
@@ -164,6 +181,11 @@ export function ServiceRequestFilterChips({
 	return (
 		<ActiveFilterBar onClearAll={onClearAll}>
 			<StatusChip onReset={() => setStatus('all')} status={status} />
+			<OverdueChip
+				isAvailable={overdueAvailable}
+				isOn={overdue}
+				onRemove={() => setOverdue(false)}
+			/>
 			<DateRangeChip defaults={dateDefaults} range={dates} setRange={setDates} />
 			<SearchChip onClear={() => setSearch('')} search={search} />
 			{availableTags
@@ -198,6 +220,19 @@ function StatusChip({
 		return null;
 	}
 	return <FilterChip label={`Status: ${serviceRequestStatusLabel(status)}`} onRemove={onReset} />;
+}
+
+/** Overdue, while it is on and the Organization's threshold is on. */
+function OverdueChip({
+	isAvailable,
+	isOn,
+	onRemove,
+}: {
+	readonly isAvailable: boolean;
+	readonly isOn: boolean;
+	readonly onRemove: () => void;
+}) {
+	return isAvailable && isOn ? <FilterChip label="Overdue" onRemove={onRemove} /> : null;
 }
 
 function SearchChip({

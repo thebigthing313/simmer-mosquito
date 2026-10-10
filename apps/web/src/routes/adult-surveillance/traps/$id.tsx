@@ -106,7 +106,7 @@ function TrapDetailContent({
 	// own column, not the joined name: an unbaited trap has no lure, while one
 	// whose lure was deleted has a lure nothing can name, and the two read
 	// differently.
-	const { methodName } = trap;
+	const methodName = trap.methodName ?? 'Unknown method';
 	const lureName = trap.lureId === null ? null : (trap.lureName ?? 'Unknown lure');
 
 	return (

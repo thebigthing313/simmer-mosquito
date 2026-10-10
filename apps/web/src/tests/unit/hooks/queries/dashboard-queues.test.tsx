@@ -114,7 +114,7 @@ describe('useOpenServiceRequestsQueue', () => {
 			{ id: 'stop-3', assignment_id: 'a1', entity_type: 'habitat', entity_id: 'sr-new' },
 		]);
 
-		const { result } = await renderRead(() => useOpenServiceRequestsQueue());
+		const { result } = await renderRead(() => useOpenServiceRequestsQueue(null));
 
 		expect(result.current).toMatchObject({
 			count: 3,
@@ -125,8 +125,31 @@ describe('useOpenServiceRequestsQueue', () => {
 		});
 	});
 
+	// #1246: the overdue line counts the open requests received before the
+	// cut-off, 15 days old and older under a 14-day threshold on the 15th.
+	it('counts the overdue requests among the open ones, oldest first', async () => {
+		seedRows(service_requests, [
+			{ id: 'sr-15-days', request_date: '2026-08-31', closed_at: null },
+			{ id: 'sr-14-days', request_date: '2026-09-01', closed_at: null },
+			{ id: 'sr-old', request_date: '2026-05-26', closed_at: null },
+			{ id: 'sr-closed', request_date: '2026-01-01', closed_at: new Date('2026-09-01T12:00:00Z') },
+		]);
+
+		const { result } = await renderRead(() => useOpenServiceRequestsQueue('2026-09-01'));
+
+		expect(result.current.overdue).toEqual({ count: 2, oldest: '2026-05-26' });
+	});
+
+	it('has no overdue line with the threshold off', async () => {
+		seedRows(service_requests, [{ id: 'sr-old', request_date: '2020-01-01', closed_at: null }]);
+
+		const { result } = await renderRead(() => useOpenServiceRequestsQueue(null));
+
+		expect(result.current.overdue).toBeNull();
+	});
+
 	it('narrows both shapes rather than reading every request and every stop', async () => {
-		await renderRead(() => useOpenServiceRequestsQueue());
+		await renderRead(() => useOpenServiceRequestsQueue(null));
 
 		const requests = subsetRequests(service_requests).map(subsetPredicate);
 		const stops = subsetRequests(assignment_items).map(subsetPredicate);

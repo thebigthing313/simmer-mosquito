@@ -1,6 +1,7 @@
 import {
 	ALL_METHODS,
 	type DirectoryFilters,
+	type MethodTab,
 	type TrapDirectory,
 } from '../../components/adult-surveillance/trap-directory-data';
 import { trapDisplayName } from '../queries/trap-view';
@@ -22,15 +23,21 @@ import { useActiveTraps } from '../queries/use-active-traps';
  * which is why the tabs are built from the traps rather than from the catalog.
  */
 function methodTabsFor(
-	activeTraps: readonly { readonly methodId: string; readonly methodName: string }[],
-): readonly { readonly id: string; readonly label: string }[] {
-	const byId = new Map<string, string>();
+	activeTraps: readonly { readonly methodId: string; readonly methodName: string | null }[],
+): readonly MethodTab[] {
+	const byId = new Map<string, string | null>();
 	for (const trap of activeTraps) {
 		byId.set(trap.methodId, trap.methodName);
 	}
+	// A method not in the client has no name to sort by, so its tab goes last.
 	return [...byId.entries()]
 		.map(([id, label]) => ({ id, label }))
-		.sort((first, second) => first.label.localeCompare(second.label));
+		.sort((first, second) => {
+			if (first.label === null || second.label === null) {
+				return Number(first.label === null) - Number(second.label === null);
+			}
+			return first.label.localeCompare(second.label);
+		});
 }
 
 /**

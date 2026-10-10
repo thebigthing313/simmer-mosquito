@@ -13,6 +13,17 @@ import { drawFeatureFlag, drawFeatureIs, readDrawFeatureProperty } from './draw-
 
 export const SOURCE_ID = 'habitat-draw';
 
+// The ids of the three layers the pointer hit-test asks Mapbox about, each
+// written once. `drawLayers` draws under these and `vertexUnder` and
+// `isOverEdge` query them, so the layer drawn and the layer asked about cannot
+// drift: a layer asked about that was never drawn answers an empty list, and the
+// click does nothing with no error.
+const OUTLINE_LAYER = `${SOURCE_ID}-outline`;
+const LINE_LAYER = `${SOURCE_ID}-line`;
+export const VERTEX_LAYER = `${SOURCE_ID}-vertex`;
+/** The layers a part's own boundary draws on, which is where an edge is clicked. */
+export const EDGE_LAYERS = [OUTLINE_LAYER, LINE_LAYER] as const;
+
 // Amber draft styling, deliberately distinct from the green reference habitats
 // (vector tiles) and the blue detail overlay, so "the new/edited site" reads as
 // its own active layer at a glance.
@@ -74,7 +85,7 @@ export function drawLayers(): (
 			},
 		},
 		{
-			id: `${SOURCE_ID}-outline`,
+			id: OUTLINE_LAYER,
 			type: 'line',
 			source: SOURCE_ID,
 			filter: isPolygon,
@@ -85,7 +96,7 @@ export function drawLayers(): (
 			},
 		},
 		{
-			id: `${SOURCE_ID}-line`,
+			id: LINE_LAYER,
 			type: 'line',
 			source: SOURCE_ID,
 			filter: isLine,
@@ -97,7 +108,7 @@ export function drawLayers(): (
 			},
 		},
 		{
-			id: `${SOURCE_ID}-vertex`,
+			id: VERTEX_LAYER,
 			type: 'circle',
 			source: SOURCE_ID,
 			filter: isVertex,
@@ -133,10 +144,6 @@ export function drawLayers(): (
  */
 const HIT_TOLERANCE = 8;
 
-export const VERTEX_LAYER = `${SOURCE_ID}-vertex`;
-/** The layers a part's own boundary draws on, which is where an edge is clicked. */
-export const EDGE_LAYERS = [`${SOURCE_ID}-outline`, `${SOURCE_ID}-line`];
-
 /** The vertex under the pointer, read off the feature the map answers with. */
 export function vertexUnder(map: MapboxMap, event: MapMouseEvent): DrawVertexRef | null {
 	const [feature] = map.queryRenderedFeatures(hitBox(event), { layers: [VERTEX_LAYER] });
@@ -147,7 +154,7 @@ export function vertexUnder(map: MapboxMap, event: MapMouseEvent): DrawVertexRef
 
 /** Whether the pointer is on a boundary rather than inside or outside a shape. */
 export function isOverEdge(map: MapboxMap, event: MapMouseEvent): boolean {
-	return map.queryRenderedFeatures(hitBox(event), { layers: EDGE_LAYERS }).length > 0;
+	return map.queryRenderedFeatures(hitBox(event), { layers: [...EDGE_LAYERS] }).length > 0;
 }
 
 function hitBox(event: MapMouseEvent): [PointLike, PointLike] {

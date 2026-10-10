@@ -25,7 +25,8 @@ export interface DirectoryFilters {
 
 export interface MethodTab {
 	readonly id: string;
-	readonly label: string;
+	/** The method's name, or `null` when the method is not in the client. */
+	readonly label: string | null;
 }
 
 export interface TrapDirectory {

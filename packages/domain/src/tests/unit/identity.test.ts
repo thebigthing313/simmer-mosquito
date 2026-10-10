@@ -19,6 +19,7 @@ import {
 	DomainValidationError,
 	endMembershipCommand,
 	inviteCommand,
+	normalizeOrganizationContactDetails,
 	reinviteCommand,
 	updateOrganizationDetailsCommand,
 	updateProfileCommand,
@@ -183,6 +184,30 @@ describe('updateOrganizationDetailsCommand', () => {
 	});
 });
 
+describe('normalizeOrganizationContactDetails', () => {
+	it('leaves an absent detail out and turns a blank one into null', () => {
+		expect(
+			normalizeOrganizationContactDetails({ phoneNumber: '  ', mailingRegion: ' nj ' }),
+		).toEqual({ details: { phoneNumber: null, mailingRegion: 'NJ' }, issues: [] });
+	});
+
+	it('returns every refusal as an issue rather than throwing', () => {
+		expect(
+			normalizeOrganizationContactDetails({
+				mainContactEmail: 'not-an-email',
+				mailingCountry: 'USA',
+				mailingRegion: 'New Jersey',
+			}).issues,
+		).toEqual([
+			{ path: 'mailingCountry', message: 'mailingCountry must be 2 characters or fewer.' },
+			{ path: 'mailingRegion', message: 'mailingRegion must be 2 characters or fewer.' },
+			{ path: 'mailingCountry', message: 'mailingCountry must be US.' },
+			{ path: 'mailingRegion', message: 'mailingRegion must be a US state code.' },
+			{ path: 'mainContactEmail', message: 'mainContactEmail must be a valid email address.' },
+		]);
+	});
+});
+
 describe('createProfileCommand', () => {
 	it('takes the client-minted id and defaults to active', () => {
 		const command = createProfileCommand({ ...organization, profileId, displayName: 'Dana Reyes' });
@@ -266,6 +291,26 @@ describe('inviteCommand', () => {
 
 	it.each(['casey', '@example.test', 'casey@'])('refuses %s as an address', (invitedEmail) => {
 		expect(() => inviteCommand({ ...invite, invitedEmail })).toThrow(DomainValidationError);
+	});
+
+	// Both of these pass a one-`@` rule, and the server stages the Membership
+	// before WorkOS is asked to send, so an address no invitation can reach
+	// would leave a Membership nobody can claim (#1525).
+	it.each([
+		'pat@localhost',
+		'a b@c.co',
+	])('refuses %s, which no invitation can reach', (invitedEmail) => {
+		expect(() => inviteCommand({ ...invite, invitedEmail })).toThrow(
+			expect.objectContaining({
+				issues: [{ path: 'invitedEmail', message: 'invitedEmail must be an email address.' }],
+			}),
+		);
+	});
+
+	it('reads the address after trimming it', () => {
+		expect(
+			inviteCommand({ ...invite, invitedEmail: '  Pat@Example.org ' }).payload.invitedEmail,
+		).toBe('pat@example.org');
 	});
 
 	// Without the id there is no key for a retry to collide on, and the spanning

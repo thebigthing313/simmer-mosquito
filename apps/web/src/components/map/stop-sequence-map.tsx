@@ -1,7 +1,7 @@
 import {
 	type BoundingBox,
+	boundsFromCoordinates,
 	boundsFromGeoJson,
-	extendBounds,
 	type LngLat,
 } from '@simmer-mosquito/mapping';
 import { LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
@@ -12,6 +12,9 @@ import { type RecordType, recordNoun } from '../../lib/record-nouns';
 import { frameOnMap } from './map-camera';
 import { MapCanvas } from './map-canvas';
 import { MapControlButton, MapControlGroup } from './map-control';
+
+/** Any other record type compiled here and drew `Zoom to trap` (#1523). */
+type StopRunRecordType = Extract<RecordType, 'route' | 'mission' | 'assignment'>;
 
 /**
  * The map for an ordered run of stops: a Route, a Mission or an Assignment.
@@ -36,8 +39,8 @@ export function StopSequenceMap({
 	readonly features: readonly RouteStopFeature[];
 	/** Total stops including unmapped ones, so "none mapped" can be told apart from "none". */
 	readonly stopCount: number;
-	/** Which run this is: `route`, `mission` or `assignment`. Its noun comes from `lib/record-nouns.ts`. */
-	readonly recordType: RecordType;
+	/** Which run this is. Its noun comes from `lib/record-nouns.ts`. */
+	readonly recordType: StopRunRecordType;
 	readonly selectedId?: string | null | undefined;
 	readonly highlightId?: string | null | undefined;
 	readonly onSelectStop?: ((id: string | null) => void) | undefined;
@@ -115,18 +118,13 @@ export function StopSequenceMap({
 }
 
 /**
- * The bounds across every located stop, or null when none has coordinates.
- * A stop that owns a shape is framed by the whole shape rather than by the pin
- * at its centroid.
+ * The bounds across every located stop, or null when none has valid
+ * coordinates. A stop that owns a shape is framed by the whole shape rather
+ * than by the pin at its centroid, and a point with a non-finite or
+ * out-of-range coordinate is left out.
  */
 function boundsOfFeatures(features: readonly RouteStopFeature[]): BoundingBox | null {
-	let box: BoundingBox | null = null;
-	for (const feature of features) {
-		for (const point of framingPoints(feature)) {
-			box = extendBounds(box, point);
-		}
-	}
-	return box;
+	return boundsFromCoordinates(features.flatMap(framingPoints));
 }
 
 /** What a stop contributes to the frame: its shape's corners, or just its pin. */

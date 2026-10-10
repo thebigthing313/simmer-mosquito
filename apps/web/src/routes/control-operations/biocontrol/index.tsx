@@ -4,8 +4,8 @@ import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	biocontrolFilterCodecs,
 	biocontrolListParams,
+	biocontrolRecordSet,
 	biocontrolTileFilters,
-	sharedBiocontrolSearch,
 } from '../../../components/control-operations/biocontrol/biocontrol-actions-search';
 import {
 	BiocontrolFilterChips,
@@ -18,7 +18,6 @@ import {
 	linkedHabitatIds,
 } from '../../../components/control-operations/biocontrol/biocontrol-row-parts';
 import { biocontrolSummaryGroupings } from '../../../components/control-operations/biocontrol/biocontrol-summary';
-import { BiocontrolSurfaceSwitch } from '../../../components/control-operations/biocontrol/biocontrol-surface-switch';
 import { BiocontrolMapCard } from '../../../components/control-operations/biocontrol-map-card';
 import {
 	controlContext,
@@ -27,6 +26,7 @@ import {
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
 import { useBiocontrolFilterState } from '../../../hooks/control-operations/use-biocontrol-filter-state';
@@ -63,9 +63,7 @@ function BiocontrolExplorerRoute() {
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no toggle) drop out.
 	const filters = biocontrolTileFilters(query);
-	// What a move to the Table takes with it: every filter, since the Table
-	// applies each one.
-	const carried = sharedBiocontrolSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 	const {
 		rows,
 		total,
@@ -93,7 +91,9 @@ function BiocontrolExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
-			actions={<BiocontrolSurfaceSwitch compact current="map" search={carried} />}
+			actions={
+				<RecordSetSwitch compact current="map" search={routeSearch} set={biocontrolRecordSet} />
+			}
 			activeFilterCount={activeFilterCount}
 			filters={<BiocontrolFilterFields binding={binding} />}
 			heading={{

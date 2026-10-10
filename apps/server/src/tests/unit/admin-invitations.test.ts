@@ -206,6 +206,43 @@ describe('registerAdminInvitationRoutes', () => {
 		expect(dbMock.stageOrganizationInvitation).not.toHaveBeenCalled();
 	});
 
+	// Each of these has an `@`, which is all the route used to ask, and staging
+	// writes the Membership before WorkOS is asked to send. So an address no
+	// invitation can reach left a Membership nobody can claim and answered with a
+	// 502 that blamed WorkOS (#1525).
+	it.each([
+		'pat@',
+		'@example.org',
+		'pat@localhost',
+	])('refuses %s before the Membership is staged', async (email) => {
+		const auth = createFakeInvitationAuth();
+		const response = await postInvitation(halves(auth), { email, role: 'manager' });
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toEqual({
+			error: 'invalid_payload',
+			reason: 'email must be an email address.',
+		});
+		expect(dbMock.stageOrganizationInvitation).not.toHaveBeenCalled();
+		expect(auth.sendOrganizationInvitation).not.toHaveBeenCalled();
+	});
+
+	// Staging lower-cases the address it stores, so the route hands it over in the
+	// case it arrived in, trimmed, the way it did before the shape check.
+	it('stages an address in any case once it is trimmed', async () => {
+		const auth = createFakeInvitationAuth();
+		const response = await postInvitation(halves(auth), {
+			email: '  Pat@Example.org ',
+			role: 'manager',
+		});
+
+		expect(response.status).toBe(201);
+		expect(dbMock.stageOrganizationInvitation).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ email: 'Pat@Example.org' }),
+		);
+	});
+
 	it('stages the role without an invitation when the email already reaches the organization', async () => {
 		const auth = createFakeInvitationAuth({
 			workosUserId: 'workos_user_casey',
@@ -345,6 +382,20 @@ describe('the staging identity interlock', () => {
 		});
 		expect(dbMock.stageOrganizationInvitation).not.toHaveBeenCalled();
 		expect(auth.sendOrganizationInvitation).not.toHaveBeenCalled();
+	});
+
+	it('refuses ahead of the payload, so a malformed address still reads 403', async () => {
+		vi.clearAllMocks();
+		const auth = createFakeInvitationAuth();
+		const response = await postInvitation(withoutWorkOsIdentityWrites(halves(auth)), {
+			email: 'pat@localhost',
+			role: 'manager',
+		});
+
+		expect(response.status).toBe(403);
+		await expect(response.json()).resolves.toMatchObject({
+			error: 'workos_identity_writes_disabled',
+		});
 	});
 });
 

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	assignmentDisplayName,
+	assignmentOwnName,
 	assignmentStatus,
 	formatAssignmentDate,
 	formatDueAt,
@@ -42,31 +43,30 @@ describe('assignmentStatus', () => {
 });
 
 describe('assignmentDisplayName', () => {
-	it('prefers an explicit name', () => {
+	it('draws an explicit name, trimmed', () => {
 		expect(
-			assignmentDisplayName(
-				{ assignmentName: 'North sweep', assignmentDate: '2026-08-04' },
-				'Rivera',
-			),
+			assignmentDisplayName({ assignmentName: '  North sweep ', assignmentDate: '2026-08-04' }),
 		).toBe('North sweep');
 	});
 
-	it('falls back to the date and assignee', () => {
-		expect(
-			assignmentDisplayName({ assignmentName: null, assignmentDate: '2026-08-04' }, 'Rivera'),
-		).toBe('2026-08-04, Rivera');
+	it('names an unnamed assignment by its formatted date', () => {
+		expect(assignmentDisplayName({ assignmentName: null, assignmentDate: '2026-08-04' })).toBe(
+			'Tue, Aug 4, 2026',
+		);
 	});
 
-	it('falls back to the date alone when nobody is assigned', () => {
-		expect(
-			assignmentDisplayName({ assignmentName: null, assignmentDate: '2026-08-04' }, null),
-		).toBe('2026-08-04');
+	it('reads a name that is only whitespace as no name', () => {
+		expect(assignmentDisplayName({ assignmentName: '   ', assignmentDate: '2026-08-04' })).toBe(
+			'Tue, Aug 4, 2026',
+		);
 	});
+});
 
-	it('ignores a name that is only whitespace', () => {
-		expect(
-			assignmentDisplayName({ assignmentName: '   ', assignmentDate: '2026-08-04' }, null),
-		).toBe('2026-08-04');
+describe('assignmentOwnName', () => {
+	it('is the trimmed name, or null when nothing is left', () => {
+		expect(assignmentOwnName({ assignmentName: '  North sweep ' })).toBe('North sweep');
+		expect(assignmentOwnName({ assignmentName: '   ' })).toBeNull();
+		expect(assignmentOwnName({ assignmentName: null })).toBeNull();
 	});
 });
 
