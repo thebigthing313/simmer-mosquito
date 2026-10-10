@@ -3,14 +3,14 @@
  * Collections Table: the date window, the Method and Region popovers, the
  * Problems only and Awaiting identification toggles, and the chips for
  * whatever is set. It returns the blocks bare, so each surface puts them in
- * its own frame. Takes the binding from `useCollectionFilterState`.
+ * its own frame. Takes the binding from `useRecordSetFilters`.
  */
 
-import type { CollectionFilterBinding } from '../../../hooks/adult-surveillance/use-collection-filter-state';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { catalogs } from '../../../hooks/queries/catalog-register';
+import type { FilterBinding } from '../../../lib/search-filters';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
@@ -22,12 +22,13 @@ import {
 	ToggleFilter,
 	toggle,
 } from '../../explorer';
+import type { CollectionFilters } from './collections-search';
 
 export function CollectionFilterFields({
 	binding,
 	wide = false,
 }: {
-	readonly binding: CollectionFilterBinding;
+	readonly binding: FilterBinding<CollectionFilters>;
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
@@ -82,7 +83,11 @@ export function CollectionFilterFields({
  * draws these under its controls, and the Collections summary draws them above
  * its groupings.
  */
-export function CollectionFilterChips({ binding }: { readonly binding: CollectionFilterBinding }) {
+export function CollectionFilterChips({
+	binding,
+}: {
+	readonly binding: FilterBinding<CollectionFilters>;
+}) {
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
 	const { nameById: regionNameById } = useRegionOptions();
 	const { filters, setFilters, reset, defaults } = binding;

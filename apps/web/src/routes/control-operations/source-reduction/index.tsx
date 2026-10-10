@@ -13,22 +13,22 @@ import {
 	sourceReductionTechnicianName,
 } from '../../../components/control-operations/source-reduction/source-reduction-row-parts';
 import { sourceReductionSummaryGroupings } from '../../../components/control-operations/source-reduction/source-reduction-summary';
-import { SourceReductionSurfaceSwitch } from '../../../components/control-operations/source-reduction/source-reduction-surface-switch';
 import {
-	sharedSourceReductionSearch,
 	sourceReductionFilterCodecs,
 	sourceReductionListParams,
+	sourceReductionRecordSet,
 	sourceReductionTileFilters,
 } from '../../../components/control-operations/source-reduction/source-reductions-search';
 import { SourceReductionMapCard } from '../../../components/control-operations/source-reduction-map-card';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
-import { useSourceReductionFilterState } from '../../../hooks/control-operations/use-source-reduction-filter-state';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
@@ -48,7 +48,7 @@ const PATH = '/map/source-reduction';
 function SourceReductionExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
-	const binding = useSourceReductionFilterState();
+	const binding = useRecordSetFilters(sourceReductionRecordSet, 'map');
 	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
 	const panel = useExplorerPanel();
 
@@ -59,9 +59,7 @@ function SourceReductionExplorerRoute() {
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
 	const filters = sourceReductionTileFilters(query);
-	// What a move to the Table takes with it: every filter, since the Table
-	// applies each one.
-	const carried = sharedSourceReductionSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 	const {
 		rows,
 		total,
@@ -89,7 +87,14 @@ function SourceReductionExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
-			actions={<SourceReductionSurfaceSwitch compact current="map" search={carried} />}
+			actions={
+				<RecordSetSwitch
+					compact
+					current="map"
+					search={routeSearch}
+					set={sourceReductionRecordSet}
+				/>
+			}
 			activeFilterCount={activeFilterCount}
 			filters={<SourceReductionFilterFields binding={binding} />}
 			heading={{

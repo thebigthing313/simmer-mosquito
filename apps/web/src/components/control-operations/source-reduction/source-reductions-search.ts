@@ -1,6 +1,12 @@
 import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
 import { addDaysToDateString } from '../../../lib/local-date';
-import { dateParam, type FilterCodecs, idSetParam } from '../../../lib/search-filters';
+import {
+	DATE_RANGE_COUNTING,
+	dateParam,
+	type FilterCodecs,
+	idSetParam,
+} from '../../../lib/search-filters';
+import { defineRecordSet } from '../../explorer/record-set';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
 import type { SourceReductionTileFilters } from '../../map';
 
@@ -76,18 +82,16 @@ export function sourceReductionListParams(
 }
 
 /**
- * The params a move between the Map and the Table carries. That is every
- * filter, since both surfaces read the same list endpoint and apply each one.
+ * The Source Reductions Map and Table. Both read `/map/source-reduction` and apply every filter.
  */
-export function sharedSourceReductionSearch(
-	search: Record<string, unknown>,
-): Record<string, unknown> {
-	const carried: Record<string, unknown> = {};
-	for (const key of Object.keys(sourceReductionFilterCodecs)) {
-		const value = search[key];
-		if (value !== undefined) {
-			carried[key] = value;
-		}
-	}
-	return carried;
-}
+export const sourceReductionRecordSet = defineRecordSet({
+	recordType: 'sourceReduction',
+	paths: {
+		map: '/control-operations/source-reduction',
+		table: '/control-operations/source-reduction/table',
+	},
+	codecs: sourceReductionFilterCodecs,
+	defaults: ({ today }) => sourceReductionFilterDefaults(today),
+	counting: DATE_RANGE_COUNTING,
+	applies: { from: 'both', to: 'both', people: 'both', methods: 'both', regions: 'both' },
+});

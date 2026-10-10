@@ -67,6 +67,14 @@ describe('useHabitatSuspense', () => {
 		});
 	});
 
+	it('reads a habitat type the client does not hold as null beside its id', async () => {
+		seedRows(habitats, [habitat({ habitat_type_id: MISSING })]);
+
+		const record = await readHabitat();
+
+		expect(record).toMatchObject({ typeId: MISSING, typeName: null });
+	});
+
 	it('reads nobody recorded as a null id and a null name', async () => {
 		seedRows(habitats, [habitat({})]);
 

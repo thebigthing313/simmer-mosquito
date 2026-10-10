@@ -12,7 +12,7 @@
  * only exists once the collection row has arrived.
  */
 
-import { caseWhen, coalesce, eq, isNull } from '@tanstack/react-db';
+import { coalesce, eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { collection_lures } from '../../lib/collections/collection_lures';
 import { collection_methods } from '../../lib/collections/collection_methods';
@@ -73,9 +73,9 @@ export function useAdultCollection(
 					trapCode: coalesce(trap.trap_code, null),
 
 					methodId: collection.collection_method_id,
-					methodName: coalesce(method.name, 'Unknown method'),
+					methodName: coalesce(method.name, null),
 					lureId: collection.collection_lure_id,
-					lureName: caseWhen(isNull(collection.collection_lure_id), null, lure.name),
+					lureName: coalesce(lure.name, null),
 					addressId: collection.address_id,
 
 					collectedAt: collection.collected_at,

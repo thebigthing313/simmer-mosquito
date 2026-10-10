@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-	sharedSourceReductionSearch,
 	sourceReductionFilterDefaults,
 	sourceReductionListParams,
 	sourceReductionTileFilters,
@@ -42,27 +41,6 @@ describe('the source reductions list request', () => {
 			regionId: 'region-1',
 			dateFrom: '2026-09-01',
 			dateTo: '2026-09-28',
-		});
-	});
-});
-
-describe('what the Map/Table switch carries', () => {
-	it('keeps every filter param and drops what is not one', () => {
-		expect(
-			sharedSourceReductionSearch({
-				from: '2026-09-01',
-				to: '2026-09-28',
-				methods: ['method-1'],
-				people: ['person-1'],
-				regions: ['region-1'],
-				page: 3,
-			}),
-		).toEqual({
-			from: '2026-09-01',
-			to: '2026-09-28',
-			methods: ['method-1'],
-			people: ['person-1'],
-			regions: ['region-1'],
 		});
 	});
 });
