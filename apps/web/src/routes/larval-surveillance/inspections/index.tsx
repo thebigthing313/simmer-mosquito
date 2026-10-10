@@ -1,35 +1,19 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { createLabel } from '../../../components/app-shell/navigation';
-import { DateRangeFilter } from '../../../components/date-range-filter';
-import {
-	ExplorerMapPage,
-	ExplorerRow,
-	FilterChip,
-	FilterGrid,
-	MultiSelectFilter,
-	SegmentedFilter,
-	ToggleFilter,
-	toggle,
-} from '../../../components/explorer';
+import { ExplorerMapPage, ExplorerRow, FilterGrid } from '../../../components/explorer';
+import { DeclaredFilterChips, filterFields } from '../../../components/explorer/declared-filters';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { densityLabel, hasAnyLifeStage } from '../../../components/larval-display';
-import {
-	DensityFilter,
-	InspectionFilterChips,
-	type InspectionFilterSetters,
-	type InspectionFilterState,
-	inspectionFilterBinding,
-	WETNESS_OPTIONS,
-} from '../../../components/larval-surveillance/inspection-filters';
+import { inspectionFilterDeclarations } from '../../../components/larval-surveillance/inspection-filters';
 import type { InspectionListing } from '../../../components/larval-surveillance/inspection-listing';
 import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
 import { inspectionSummaryGroupings } from '../../../components/larval-surveillance/inspections/inspection-summary';
 import { inspectionLegend } from '../../../components/larval-surveillance/inspections/legend';
 import {
-	type InspectionFilters as InspectionSearchFilters,
+	type InspectionFilters,
 	inspectionFilterCodecs,
 	inspectionRecordSet,
 } from '../../../components/larval-surveillance/inspections-search';
@@ -39,17 +23,16 @@ import {
 	MAP_CREATE_TARGETS,
 } from '../../../components/map';
 import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
-import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import {
 	type ExplorerResource,
 	useExplorerResource,
 } from '../../../hooks/explorer/use-explorer-resource';
-import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import {
-	type InspectionFilterOptions,
-	useInspectionFilterOptions,
-} from '../../../hooks/larval-surveillance/use-inspection-filter-options';
+	type RecordSetFilterBinding,
+	useRecordSetFilters,
+} from '../../../hooks/explorer/use-record-set-filters';
+import { useInspectionCatalogs } from '../../../hooks/larval-surveillance/use-inspection-catalogs';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
@@ -79,23 +62,13 @@ function inspectionsHeading(total: number, isLoading: boolean) {
 
 function InspectionsExplorerRoute() {
 	const binding = useRecordSetFilters(inspectionRecordSet, 'map');
-	const {
-		activeCount: activeFilterCount,
-		defaults,
-		reset,
-		set,
-		setFilters,
-		state,
-		today,
-	} = inspectionFilterBinding(binding);
-	const { dateFrom, dateTo, densities, wetness } = state;
+	const { activeCount: activeFilterCount, clearAll, filters, setFilters } = binding;
 
 	const panel = useExplorerPanel();
 
 	const routeSearch = Route.useSearch();
 
-	const filterOptions = useInspectionFilterOptions();
-	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
+	const catalogs = useInspectionCatalogs();
 	const {
 		rows,
 		total,
@@ -115,10 +88,7 @@ function InspectionsExplorerRoute() {
 		summarize: true,
 	});
 	const [clustered] = useMapClustering();
-	const legend = inspectionLegend(wetness, densities, clustered);
-
-	const resetDates = () => setFilters({ from: defaults.from, to: defaults.to });
-	const clearAll = reset;
+	const legend = inspectionLegend(filters.water, filters.density, clustered);
 
 	return (
 		<ExplorerMapPage
@@ -126,18 +96,7 @@ function InspectionsExplorerRoute() {
 				<RecordSetSwitch compact current="map" search={routeSearch} set={inspectionRecordSet} />
 			}
 			activeFilterCount={activeFilterCount}
-			filters={
-				<InspectionFilters
-					activeFilterCount={activeFilterCount}
-					dateRange={dateRange}
-					defaults={defaults}
-					onClearAll={clearAll}
-					onResetDates={resetDates}
-					options={filterOptions}
-					set={set}
-					state={state}
-				/>
-			}
+			filters={<InspectionFilterCard binding={binding} />}
 			onResetFilters={clearAll}
 			heading={inspectionsHeading(total, isLoading)}
 			map={
@@ -161,25 +120,17 @@ function InspectionsExplorerRoute() {
 				summary: summary.isShown ? (
 					<ExplorerSummary
 						chips={
-							<InspectionActiveFilters
-								activeFilterCount={activeFilterCount}
-								defaults={defaults}
-								onClearAll={clearAll}
-								onResetDates={resetDates}
-								options={filterOptions}
-								set={set}
-								state={state}
-							/>
+							<DeclaredFilterChips binding={binding} declarations={inspectionFilterDeclarations} />
 						}
 						groupings={
 							summary.data === null
 								? []
 								: inspectionSummaryGroupings({
 										summary: summary.data,
-										state,
-										set,
-										typeNameById: filterOptions.catalogs.typeNameById,
-										inspectorNameById: filterOptions.catalogs.personnelNameById,
+										filters,
+										setFilters,
+										typeNameById: catalogs.typeNameById,
+										inspectorNameById: catalogs.personnelNameById,
 									})
 						}
 						recordType="inspection"
@@ -192,7 +143,7 @@ function InspectionsExplorerRoute() {
 						key={inspection.id}
 						onSelect={setSelectedId}
 						selectedId={selectedId}
-						typeNameById={filterOptions.catalogs.typeNameById}
+						typeNameById={catalogs.typeNameById}
 					/>
 				),
 			}}
@@ -200,133 +151,25 @@ function InspectionsExplorerRoute() {
 	);
 }
 
-/** What the filter card and the chip row both read, the chips also drawing above the summary. */
-interface InspectionFilterProps {
-	readonly activeFilterCount: number;
-	readonly defaults: InspectionSearchFilters;
-	readonly onClearAll: () => void;
-	readonly onResetDates: () => void;
-	readonly options: InspectionFilterOptions;
-	readonly set: InspectionFilterSetters;
-	readonly state: InspectionFilterState;
-}
-
-/**
- * The chip row, or nothing when no filter is set.
- *
- * The six chips both surfaces share come from `InspectionFilterChips`; Region is
- * the map's own filter, so its chips are passed as children and land after them.
- */
-function InspectionActiveFilters({
-	activeFilterCount,
-	defaults,
-	onClearAll,
-	onResetDates,
-	options,
-	set,
-	state,
-}: InspectionFilterProps) {
-	if (activeFilterCount === 0) {
-		return null;
-	}
-	const { regionIds } = state;
-	return (
-		<InspectionFilterChips
-			catalogs={options.catalogs}
-			defaults={defaults}
-			onClearAll={onClearAll}
-			onResetDates={onResetDates}
-			set={set}
-			state={state}
-		>
-			{[...regionIds].map((id) => (
-				<FilterChip
-					key={`region-${id}`}
-					label={options.regions.nameById.get(id) ?? 'Unknown region'}
-					onRemove={() => set.setRegionIds(toggle(regionIds, id))}
-				/>
-			))}
-		</InspectionFilterChips>
-	);
-}
-
-/** The four multi-selects, which have no state of their own to hold. */
-function InspectionFilterGrid({
-	options,
-	set,
-	state,
-}: {
-	readonly options: InspectionFilterOptions;
-	readonly set: InspectionFilterSetters;
-	readonly state: InspectionFilterState;
-}) {
-	return (
-		<FilterGrid>
-			<ToggleFilter
-				label="Larvae found only"
-				onChange={set.setPositiveOnly}
-				value={state.positiveOnly}
-			/>
-			<MultiSelectFilter
-				empty="No habitat types"
-				label="Habitat type"
-				onChange={set.setTypeIds}
-				options={options.catalogs.habitatTypes}
-				selected={state.typeIds}
-			/>
-			<MultiSelectFilter
-				empty="No people"
-				label="Inspector"
-				onChange={set.setInspectorIds}
-				options={options.catalogs.personnel}
-				selected={state.inspectorIds}
-			/>
-			<MultiSelectFilter
-				empty="No regions"
-				label="Region"
-				onChange={set.setRegionIds}
-				options={options.regions.options}
-				selected={state.regionIds}
-			/>
-		</FilterGrid>
-	);
-}
-
 /** The filter card's contents, and the chips that undo what is set. */
-function InspectionFilters({
-	activeFilterCount,
-	dateRange,
-	defaults,
-	onClearAll,
-	onResetDates,
-	options,
-	set,
-	state,
-}: InspectionFilterProps & { readonly dateRange: ReturnType<typeof useDateRangeFilters> }) {
+function InspectionFilterCard({
+	binding,
+}: {
+	readonly binding: RecordSetFilterBinding<InspectionFilters>;
+}) {
+	const fields = filterFields(inspectionFilterDeclarations, binding);
 	return (
 		<>
-			<DateRangeFilter {...dateRange} />
-
-			<SegmentedFilter
-				label="Water"
-				onChange={set.setWetness}
-				options={WETNESS_OPTIONS}
-				value={state.wetness}
-			/>
-
-			<DensityFilter onChange={set.setDensities} selected={state.densities} />
-
-			<InspectionFilterGrid options={options} set={set} state={state} />
-
-			<InspectionActiveFilters
-				activeFilterCount={activeFilterCount}
-				defaults={defaults}
-				onClearAll={onClearAll}
-				onResetDates={onResetDates}
-				options={options}
-				set={set}
-				state={state}
-			/>
+			{fields.dates}
+			{fields.water}
+			{fields.density}
+			<FilterGrid>
+				{fields.positive}
+				{fields.types}
+				{fields.inspectors}
+				{fields.regions}
+			</FilterGrid>
+			<DeclaredFilterChips binding={binding} declarations={inspectionFilterDeclarations} />
 		</>
 	);
 }

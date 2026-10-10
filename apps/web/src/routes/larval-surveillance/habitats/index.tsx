@@ -2,12 +2,13 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import {
-	HabitatFilterChips,
 	HabitatFilterFields,
+	habitatFilterDeclarations,
 } from '../../../components/larval-surveillance/habitats/habitat-filters';
 import { HabitatMapCard } from '../../../components/larval-surveillance/habitats/habitat-map-card';
 import { habitatSummaryGroupings } from '../../../components/larval-surveillance/habitats/habitat-summary';
@@ -131,7 +132,9 @@ function HabitatsExplorerRoute() {
 				// says what is in view instead (#1244).
 				summary: summary.isShown ? (
 					<ExplorerSummary
-						chips={activeFilterCount === 0 ? null : <HabitatFilterChips binding={binding} />}
+						chips={
+							<DeclaredFilterChips binding={binding} declarations={habitatFilterDeclarations} />
+						}
 						groupings={
 							summary.data === null
 								? []

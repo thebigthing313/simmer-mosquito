@@ -6,8 +6,8 @@ import {
 	biocontrolRecordSet,
 } from '../../../components/control-operations/biocontrol/biocontrol-actions-search';
 import {
-	BiocontrolFilterChips,
 	BiocontrolFilterFields,
+	biocontrolFilterDeclarations,
 } from '../../../components/control-operations/biocontrol/biocontrol-filters';
 import {
 	type BiocontrolListRow,
@@ -22,6 +22,7 @@ import {
 	formatAmount,
 } from '../../../components/control-operations/control-display';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
@@ -119,7 +120,9 @@ function BiocontrolExplorerRoute() {
 				// says what is in view instead (#1376).
 				summary: summary.isShown ? (
 					<ExplorerSummary
-						chips={activeFilterCount === 0 ? null : <BiocontrolFilterChips binding={binding} />}
+						chips={
+							<DeclaredFilterChips binding={binding} declarations={biocontrolFilterDeclarations} />
+						}
 						groupings={
 							summary.data === null
 								? []

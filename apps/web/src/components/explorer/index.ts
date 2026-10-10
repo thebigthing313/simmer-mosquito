@@ -13,7 +13,6 @@ export { ExplorerMapPage } from './explorer-map-page';
 export { ExplorerRow } from './explorer-row';
 export {
 	ActiveFilterBar,
-	type DateRange,
 	DateRangeChip,
 	FilterChip,
 	without,

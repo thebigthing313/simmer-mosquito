@@ -5,26 +5,51 @@
  * own frame. Takes the binding from `useRecordSetFilters`.
  */
 
-import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
-import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import type { RecordSetFilterBinding } from '../../../hooks/explorer/use-record-set-filters';
-import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { catalogs } from '../../../hooks/queries/catalog-register';
+import { FilterFieldsLayout, FilterGrid } from '../../explorer';
+import { DeclaredFilterChips, filterFields } from '../../explorer/declared-filters';
 import {
-	ActiveFilterBar,
-	FilterChip,
-	FilterFieldsLayout,
-	FilterGrid,
-	MultiSelectFilter,
-	SegmentedFilter,
-	toggle,
-} from '../../explorer';
-import { TRAP_STATUS_LABELS, TRAP_STATUS_VALUES, type TrapStatusFilter } from './legend';
-import type { TrapFilters } from './traps-search';
-import { TRAP_FILTER_DEFAULTS } from './traps-search';
+	catalogSource,
+	defineFilterDeclarations,
+	REGION_FILTER,
+} from '../../explorer/filter-declarations';
+import { TRAP_STATUS_LABELS, TRAP_STATUS_VALUES } from './legend';
+import { type TrapFilters, trapRecordSet } from './traps-search';
 
-const STATUS_OPTIONS: readonly { readonly value: TrapStatusFilter; readonly label: string }[] =
-	TRAP_STATUS_VALUES.map((value) => ({ value, label: TRAP_STATUS_LABELS[value] }));
+/** Each trap filter's control, chip and summary grouping, in chip order. */
+export const trapFilterDeclarations = defineFilterDeclarations(trapRecordSet, [
+	{
+		kind: 'choice',
+		key: 'status',
+		label: 'Status',
+		options: TRAP_STATUS_VALUES.map((value) => ({ value, label: TRAP_STATUS_LABELS[value] })),
+		summary: {
+			grouping: 'isActive',
+			title: 'Status',
+			sides: [
+				{ value: 'active', match: true },
+				{ value: 'inactive', match: false },
+			],
+		},
+	},
+	{
+		kind: 'text',
+		key: 'search',
+		label: 'Search traps by name or code',
+		placeholder: 'Search name or code…',
+	},
+	{
+		kind: 'idSet',
+		key: 'methods',
+		label: 'Method',
+		empty: 'No collection methods',
+		options: catalogSource(catalogs.collectionMethods),
+		unknown: 'Unknown method',
+		summary: { grouping: 'collectionMethodId', title: 'Collection Method' },
+	},
+	REGION_FILTER,
+]);
 
 export function TrapFilterFields({
 	binding,
@@ -34,90 +59,23 @@ export function TrapFilterFields({
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
-	const { filters, setFilters, activeCount, searchInput, setSearchInput, clearSearch } = binding;
-	const { options: methods } = useCatalogOptions(catalogs.collectionMethods);
-	const regions = useRegionOptions();
-
-	const controls = (
-		<>
-			<SearchInput
-				label="Search traps by name or code"
-				onChange={(event) => setSearchInput(event.target.value)}
-				onClear={clearSearch}
-				placeholder="Search name or code…"
-				value={searchInput}
-			/>
-			<SegmentedFilter
-				label="Status"
-				onChange={(status: TrapStatusFilter) => setFilters({ status })}
-				options={STATUS_OPTIONS}
-				value={filters.status}
-			/>
-		</>
-	);
-
-	const popovers = (
-		<FilterGrid>
-			<MultiSelectFilter
-				empty="No collection methods"
-				label="Method"
-				onChange={(methodIds) => setFilters({ methods: methodIds })}
-				options={methods}
-				selected={filters.methods}
-			/>
-			<MultiSelectFilter
-				empty="No regions"
-				label="Region"
-				onChange={(regionIds) => setFilters({ regions: regionIds })}
-				options={regions.options}
-				selected={filters.regions}
-			/>
-		</FilterGrid>
-	);
-
-	const chips = activeCount === 0 ? null : <TrapFilterChips binding={binding} />;
-
-	return <FilterFieldsLayout chips={chips} controls={controls} popovers={popovers} wide={wide} />;
-}
-
-/**
- * One chip per filter that is set, each one clearing its own. The filter card
- * draws these under its controls, and the Traps summary draws them above its
- * groupings.
- */
-export function TrapFilterChips({
-	binding,
-}: {
-	readonly binding: RecordSetFilterBinding<TrapFilters>;
-}) {
-	const { nameById: methodNameById } = useCatalogOptions(catalogs.collectionMethods);
-	const { nameById: regionNameById } = useRegionOptions();
-	const { filters, setFilters, clearSearch, clearAll } = binding;
+	const fields = filterFields(trapFilterDeclarations, binding);
 	return (
-		<ActiveFilterBar onClearAll={clearAll}>
-			{filters.status === TRAP_FILTER_DEFAULTS.status ? null : (
-				<FilterChip
-					label={`Status: ${TRAP_STATUS_LABELS[filters.status]}`}
-					onRemove={() => setFilters({ status: TRAP_FILTER_DEFAULTS.status })}
-				/>
-			)}
-			{filters.search.length > 0 ? (
-				<FilterChip label={`Search: ${filters.search}`} onRemove={clearSearch} />
-			) : null}
-			{[...filters.methods].map((id) => (
-				<FilterChip
-					key={id}
-					label={methodNameById.get(id) ?? 'Unknown method'}
-					onRemove={() => setFilters({ methods: toggle(filters.methods, id) })}
-				/>
-			))}
-			{[...filters.regions].map((id) => (
-				<FilterChip
-					key={`region-${id}`}
-					label={regionNameById.get(id) ?? 'Unknown region'}
-					onRemove={() => setFilters({ regions: toggle(filters.regions, id) })}
-				/>
-			))}
-		</ActiveFilterBar>
+		<FilterFieldsLayout
+			chips={<DeclaredFilterChips binding={binding} declarations={trapFilterDeclarations} />}
+			controls={
+				<>
+					{fields.search}
+					{fields.status}
+				</>
+			}
+			popovers={
+				<FilterGrid>
+					{fields.methods}
+					{fields.regions}
+				</FilterGrid>
+			}
+			wide={wide}
+		/>
 	);
 }

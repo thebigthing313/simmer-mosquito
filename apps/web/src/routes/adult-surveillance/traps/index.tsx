@@ -3,8 +3,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { TrapMapCard } from '../../../components/adult-surveillance/trap-map-card';
 import { trapLegend } from '../../../components/adult-surveillance/traps/legend';
 import {
-	TrapFilterChips,
 	TrapFilterFields,
+	trapFilterDeclarations,
 } from '../../../components/adult-surveillance/traps/trap-filters';
 import { trapSummaryGroupings } from '../../../components/adult-surveillance/traps/trap-summary';
 import {
@@ -13,6 +13,7 @@ import {
 } from '../../../components/adult-surveillance/traps/traps-search';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
@@ -117,7 +118,7 @@ function TrapsExplorerRoute() {
 				// says what is in view instead (#1244).
 				summary: summary.isShown ? (
 					<ExplorerSummary
-						chips={activeFilterCount === 0 ? null : <TrapFilterChips binding={binding} />}
+						chips={<DeclaredFilterChips binding={binding} declarations={trapFilterDeclarations} />}
 						groupings={
 							summary.data === null
 								? []

@@ -3,8 +3,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { formatAmount } from '../../../components/control-operations/control-display';
 import {
-	SourceReductionFilterChips,
 	SourceReductionFilterFields,
+	sourceReductionFilterDeclarations,
 } from '../../../components/control-operations/source-reduction/source-reduction-filters';
 import {
 	linkedHabitatIds,
@@ -19,6 +19,7 @@ import {
 } from '../../../components/control-operations/source-reduction/source-reductions-search';
 import { SourceReductionMapCard } from '../../../components/control-operations/source-reduction-map-card';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
@@ -121,7 +122,10 @@ function SourceReductionExplorerRoute() {
 				summary: summary.isShown ? (
 					<ExplorerSummary
 						chips={
-							activeFilterCount === 0 ? null : <SourceReductionFilterChips binding={binding} />
+							<DeclaredFilterChips
+								binding={binding}
+								declarations={sourceReductionFilterDeclarations}
+							/>
 						}
 						groupings={
 							summary.data === null

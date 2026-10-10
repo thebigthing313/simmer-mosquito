@@ -5,17 +5,22 @@
  * its own frame. Takes the binding from `useRecordSetFilters`.
  */
 
-import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import type { RecordSetFilterBinding } from '../../../hooks/explorer/use-record-set-filters';
-import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
-import {
-	ActiveFilterBar,
-	FilterChip,
-	FilterFieldsLayout,
-	MultiSelectFilter,
-	toggle,
-} from '../../explorer';
-import type { AddressFilters } from './addresses-search';
+import { FilterFieldsLayout } from '../../explorer';
+import { DeclaredFilterChips, filterFields } from '../../explorer/declared-filters';
+import { defineFilterDeclarations, REGION_FILTER } from '../../explorer/filter-declarations';
+import { type AddressFilters, addressRecordSet } from './addresses-search';
+
+/** Each address filter's control and chip, in chip order. */
+export const addressFilterDeclarations = defineFilterDeclarations(addressRecordSet, [
+	{
+		kind: 'text',
+		key: 'search',
+		label: 'Search addresses',
+		placeholder: 'Search addresses…',
+	},
+	REGION_FILTER,
+]);
 
 export function AddressFilterFields({
 	binding,
@@ -25,58 +30,13 @@ export function AddressFilterFields({
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
-	const { filters, setFilters, activeCount, searchInput, setSearchInput, clearSearch } = binding;
-	const regions = useRegionOptions();
-
-	const controls = (
-		<SearchInput
-			label="Search addresses"
-			onChange={(event) => setSearchInput(event.target.value)}
-			onClear={clearSearch}
-			placeholder="Search addresses…"
-			value={searchInput}
-		/>
-	);
-
-	const popovers = (
-		<MultiSelectFilter
-			empty="No regions"
-			label="Region"
-			onChange={(regionIds) => setFilters({ regions: regionIds })}
-			options={regions.options}
-			selected={filters.regions}
-		/>
-	);
-
-	const chips = activeCount === 0 ? null : <AddressFilterChips binding={binding} />;
-
-	return <FilterFieldsLayout chips={chips} controls={controls} popovers={popovers} wide={wide} />;
-}
-
-/**
- * One chip per filter that is set, each one clearing its own. The filter card
- * draws these under its controls, and the Address Book summary draws them
- * above its figures.
- */
-export function AddressFilterChips({
-	binding,
-}: {
-	readonly binding: RecordSetFilterBinding<AddressFilters>;
-}) {
-	const { nameById: regionNameById } = useRegionOptions();
-	const { filters, setFilters, clearSearch, clearAll } = binding;
+	const fields = filterFields(addressFilterDeclarations, binding);
 	return (
-		<ActiveFilterBar onClearAll={clearAll}>
-			{filters.search.trim().length > 0 ? (
-				<FilterChip label={`Search: ${filters.search}`} onRemove={clearSearch} />
-			) : null}
-			{[...filters.regions].map((id) => (
-				<FilterChip
-					key={`region-${id}`}
-					label={regionNameById.get(id) ?? 'Unknown region'}
-					onRemove={() => setFilters({ regions: toggle(filters.regions, id) })}
-				/>
-			))}
-		</ActiveFilterBar>
+		<FilterFieldsLayout
+			chips={<DeclaredFilterChips binding={binding} declarations={addressFilterDeclarations} />}
+			controls={fields.search}
+			popovers={fields.regions}
+			wide={wide}
+		/>
 	);
 }

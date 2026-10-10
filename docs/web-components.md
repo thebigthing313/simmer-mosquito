@@ -402,6 +402,50 @@ how the Chemical Applications summary draws an amount with its unit (#1374).
 A figure is not a count, so it is never a button: nothing filters by an
 amount.
 
+#### Filter declarations
+
+Each record set's filters are declared once, in its `*-filters.tsx` module,
+through `defineFilterDeclarations` in `filter-declarations.ts` (#1421). A
+declaration names the filter's kind, its label, an id set's option source and
+its name for an id the source does not hold, and, where the summary groups by
+it, the server's grouping key and what a null group does. `filterFields` and
+`DeclaredFilterChips` in `declared-filters.tsx` draw the controls and the
+chips from it, and `declaredSummaryGroupings` builds the summary's toggle
+groups. Before this each filter was written three or four times, a control, a
+chip, a summary group and the count, and only the count read the defaults, so
+five sets counted a moved date window and drew no chip for it. A chip is now
+drawn for exactly what `countActiveFilters` counts, and one parameterised
+suite over all eleven sets holds the two together.
+
+The six kinds are the codecs' own: `idSet`, `flag`, `choice`, `choiceSet`,
+`dateRange` and `text`. A `choice` is one value with an `all`, which covers
+the Active and Inactive pair and the status on Traps, Samples and Service
+Requests alike, and inspection density is the one `choiceSet`. A summary click that hits the selected value widens to `all` for a
+choice, not to the default, which is the rule the Traps and Habitats
+summaries had: their Status opens on Active, and clicking Active shows both.
+
+The declarations sit beside the controls rather than in the `*-search.ts`
+modules, because a declaration can name a component, such as the Samples Status row,
+the species and Tag pickers or the density row, and the search modules are
+what overview panels import to build deep links. They are still read against the
+set's keys: `defineFilterDeclarations` takes the set, and a declaration naming
+a key the set does not have, or naming a flag as a choice, fails `tsc`. That
+every key is declared once is the suite's check rather than the compiler's.
+
+Chips draw in declaration order, controls go where the surface puts them, and
+summary groupings in the order the per-kind summary module lists them, because
+the three orders already differed on most sets and changing any was out of
+scope. An option source is a closed union read through one hook per source,
+each behind a small render-prop component, since a hook chosen by a
+declaration at render time is a hook called conditionally.
+
+`available` is a declaration's say in whether it draws at all in this
+Organization. Overdue is the one that needs it: with the Organization's
+threshold off it draws no control and no chip, and the set's counting leaves
+it uncounted to match. A Tag chip on Service Requests is drawn for every id
+the address holds, an unknown one included, where the old chip row drew only
+Tags the catalog knew and so could undercount what the panel reported.
+
 `ExplorerMapPage` takes it through `summary` on the row results rather than as
 a third results shape. The caller still hands over its rows, because the page
 request that counted them is the one that fetched them, and swapping the
@@ -425,11 +469,8 @@ one is the route declaration, the Table's binding, and the page with the
 kind's filter controls, table and empty-state copy. Every Table validates its
 search through `surfaceCodecs(set, 'table')`, so a filter the Table does not
 apply leaves its address. The route calls `useRecordSetFilters` itself rather
-than the page calling it, because two Tables draw their controls from the
-binding in a shape of their own: Inspections hands the bar
-`inspectionFilterBinding`'s adapter, and Service Requests reads the overdue
-cut-off off the binding's context once for both the Overdue control and every
-row. The page frames the controls itself, so a filter bar draws the controls
+than the page calling it, because Service Requests reads the overdue cut-off
+off the binding's context for every row as well as for its filter bar. The page frames the controls itself, so a filter bar draws the controls
 and not the panel around them.
 
 The Habitats and Samples tables read the Map's endpoint rather than their
@@ -662,11 +703,10 @@ block of dots over the same streets, while the table shows 100 rows a page
 whatever the reach. `inspectionRecordSet` states both windows, and which
 filters the table applies, under `RecordSetSwitch and defineRecordSet` above.
 
-`inspectionFilterBinding` is the inspection filter bar's shape over
-`useRecordSetFilters`: a plain value and a setter per filter, which is what
-the inspection components were written against. It is a function of the
-generic binding rather than a hook, so the Table route can hand the bar the
-adapter and `RecordSetTablePage` the binding it adapts.
+Both surfaces draw from `inspectionFilterDeclarations` and the binding
+`useRecordSetFilters` returns. The adapter that gave each filter a setter of
+its own is gone, and with it the date reset the Map wrote out a second time
+and threaded through eight props to its chips (#1421).
 
 #### inspectionSummaryGroupings
 
@@ -1403,7 +1443,7 @@ the page's params, and the reader leaves it unread.
 
 The filter card and its chips moved out of the route into
 `service-request-filters.tsx`, so the summary can draw the chips above its
-groupings the way `SampleFilterChips` is drawn on Samples. The summary itself
+groupings the way `DeclaredFilterChips` is drawn on Samples. The summary itself
 is `ServiceRequestSummaryPanel` rather than an inline `ExplorerSummary`, because
 the two ternaries it needs took the route component over `fallow:health`'s
 cognitive complexity threshold.

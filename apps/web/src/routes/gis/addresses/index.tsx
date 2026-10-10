@@ -2,12 +2,13 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import {
-	AddressFilterChips,
 	AddressFilterFields,
+	addressFilterDeclarations,
 } from '../../../components/gis/addresses/address-filters';
 import { AddressMapCard } from '../../../components/gis/addresses/address-map-card';
 import {
@@ -105,7 +106,9 @@ function AddressesExplorerRoute() {
 				// says what is in view instead (#1244, #1378).
 				summary: summary.isShown ? (
 					<ExplorerSummary
-						chips={activeFilterCount === 0 ? null : <AddressFilterChips binding={binding} />}
+						chips={
+							<DeclaredFilterChips binding={binding} declarations={addressFilterDeclarations} />
+						}
 						groupings={summary.data === null ? [] : addressSummaryGroupings(summary.data)}
 						recordType="address"
 						state={summary}

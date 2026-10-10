@@ -1,22 +1,19 @@
 import type { MapSummary } from '../../../hooks/explorer/use-explorer-summary';
 import type { SummaryGroup, SummaryGrouping } from '../../explorer/explorer-summary';
-import { toggle } from '../../explorer/multi-select-filter';
+import { declaredSummaryGroupings } from '../../explorer/filter-declarations';
 import { formatAmount } from '../control-display';
+import { applicationFilterDeclarations } from './application-filters';
 import { insecticideName } from './application-row-parts';
 import type { ApplicationFilters } from './applications-search';
 
-/** A filter on the Chemical Applications page that takes a set of ids. */
-type IdSetFilter = 'insecticides' | 'methods' | 'people';
-
 /**
  * The Chemical Applications summary's three groupings and its amounts, out of
- * what `/map/chemical/summary` answers, each value wired to the filter it names.
+ * what `/map/chemical/summary` answers.
  *
- * An insecticide is added to `insecticides`, an application method to
- * `methods`, and an applicator to `people`. A value the filter already holds is
- * selected, and clicking it widens back out by taking the value out of the set.
- * Names come from the catalogs the chips read, since the server answers ids.
- * The amount applied is drawn as text, one line per insecticide and unit.
+ * Insecticide, Method and Applicator are the declared filters' toggle groups,
+ * an application with no method or no applicator left out since no filter
+ * selects it. The amount applied is drawn as text, one line per insecticide
+ * and unit.
  */
 export function applicationSummaryGroupings({
 	summary,
@@ -35,28 +32,6 @@ export function applicationSummaryGroupings({
 	readonly personNameById: ReadonlyMap<string, string>;
 	readonly unitById: ReadonlyMap<string, { readonly abbreviation: string }>;
 }): readonly SummaryGrouping[] {
-	// An application with no method or no applicator has no filter value to set,
-	// so its null group is not drawn.
-	const idGroups = (
-		grouping: string,
-		filter: IdSetFilter,
-		nameById: ReadonlyMap<string, string>,
-		unknown: string,
-	): SummaryGroup[] =>
-		(summary.groups[grouping] ?? []).flatMap(({ value, count }) =>
-			typeof value === 'string'
-				? [
-						{
-							key: value,
-							label: nameById.get(value) ?? unknown,
-							count,
-							isSelected: filters[filter].has(value),
-							onToggle: () => setFilters({ [filter]: toggle(filters[filter], value) }),
-						},
-					]
-				: [],
-		);
-
 	const amounts: SummaryGroup[] = (summary.breakdowns?.amountApplied ?? []).flatMap(
 		({ by, count, sum }) => {
 			const { insecticideId, unitId } = by;
@@ -75,21 +50,20 @@ export function applicationSummaryGroupings({
 	);
 
 	return [
-		{
-			key: 'insecticide',
-			title: 'Insecticide',
-			groups: idGroups('insecticideId', 'insecticides', insecticideNameById, 'Unknown insecticide'),
-		},
-		{
-			key: 'method',
-			title: 'Method',
-			groups: idGroups('applicationMethodId', 'methods', methodNameById, 'Unknown method'),
-		},
-		{
-			key: 'applicator',
-			title: 'Applicator',
-			groups: idGroups('applicatorProfileId', 'people', personNameById, 'Unknown person'),
-		},
+		...declaredSummaryGroupings(
+			applicationFilterDeclarations,
+			['insecticides', 'methods', 'people'],
+			{
+				summary,
+				filters,
+				setFilters,
+				names: {
+					insecticides: insecticideNameById,
+					methods: methodNameById,
+					people: personNameById,
+				},
+			},
+		),
 		{ key: 'amount', title: 'Amount Applied', groups: amounts },
 	];
 }

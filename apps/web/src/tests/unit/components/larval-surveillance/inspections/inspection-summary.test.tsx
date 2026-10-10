@@ -4,19 +4,16 @@
  * The Inspections summary's five groupings, drawn and clicked.
  *
  * A group is a button that writes the filter it names through the route's
- * setters, and a group already in the filter is drawn pressed and widens back
- * out when clicked (#1369). The summary holds no filter state of its own, so
- * the whole assertion is what each setter was handed.
+ * `setFilters`, and a group already in the filter is drawn pressed and widens
+ * back out when clicked (#1369). The summary holds no filter state of its own,
+ * so the whole assertion is what `setFilters` was handed.
  */
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ExplorerSummary } from '../../../../../components/explorer/explorer-summary';
-import type {
-	InspectionFilterSetters,
-	InspectionFilterState,
-} from '../../../../../components/larval-surveillance/inspection-filters';
 import { inspectionSummaryGroupings } from '../../../../../components/larval-surveillance/inspections/inspection-summary';
+import type { InspectionFilters } from '../../../../../components/larval-surveillance/inspections-search';
 import type { MapSummary } from '../../../../../hooks/explorer/use-explorer-summary';
 
 afterEach(cleanup);
@@ -74,34 +71,23 @@ const SUMMARY: MapSummary = {
 	},
 };
 
-const EMPTY_STATE: InspectionFilterState = {
-	dateFrom: '2026-09-06',
-	dateTo: '2026-10-06',
-	densities: new Set(),
-	inspectorIds: new Set(),
-	positiveOnly: false,
-	regionIds: new Set(),
-	typeIds: new Set(),
-	wetness: 'all',
+const EMPTY_FILTERS: InspectionFilters = {
+	from: '2026-09-06',
+	to: '2026-10-06',
+	water: 'all',
+	density: new Set(),
+	positive: false,
+	types: new Set(),
+	inspectors: new Set(),
+	regions: new Set(),
 };
 
-function setters(): InspectionFilterSetters {
-	return {
-		setDensities: vi.fn(),
-		setInspectorIds: vi.fn(),
-		setPositiveOnly: vi.fn(),
-		setRegionIds: vi.fn(),
-		setTypeIds: vi.fn(),
-		setWetness: vi.fn(),
-	};
-}
-
-function renderSummary(state: Partial<InspectionFilterState> = {}, summary = SUMMARY) {
-	const set = setters();
+function renderSummary(filters: Partial<InspectionFilters> = {}, summary = SUMMARY) {
+	const setFilters = vi.fn<(patch: Partial<InspectionFilters>) => void>();
 	const groupings = inspectionSummaryGroupings({
 		summary,
-		state: { ...EMPTY_STATE, ...state },
-		set,
+		filters: { ...EMPTY_FILTERS, ...filters },
+		setFilters,
 		typeNameById: TYPE_NAMES,
 		inspectorNameById: INSPECTOR_NAMES,
 	});
@@ -112,7 +98,7 @@ function renderSummary(state: Partial<InspectionFilterState> = {}, summary = SUM
 			state={{ data: summary, isError: false, retry: () => undefined }}
 		/>,
 	);
-	return set;
+	return setFilters;
 }
 
 function group(name: string): HTMLElement {
@@ -125,7 +111,7 @@ function section(name: string): HTMLElement {
 
 describe('the inspection summary', () => {
 	it('draws Wet before Dry, and sets the water filter to the side clicked', () => {
-		const set = renderSummary();
+		const setFilters = renderSummary();
 
 		expect(
 			within(section('Water'))
@@ -134,18 +120,18 @@ describe('the inspection summary', () => {
 		).toEqual(['Wet300', 'Dry120']);
 
 		fireEvent.click(group('Dry, 120 inspections'));
-		expect(set.setWetness).toHaveBeenLastCalledWith('dry');
+		expect(setFilters).toHaveBeenLastCalledWith({ water: 'dry' });
 		fireEvent.click(group('Wet, 300 inspections'));
-		expect(set.setWetness).toHaveBeenLastCalledWith('wet');
+		expect(setFilters).toHaveBeenLastCalledWith({ water: 'wet' });
 	});
 
 	it('widens the water filter back to all from the selected side', () => {
-		const set = renderSummary({ wetness: 'wet' });
+		const setFilters = renderSummary({ water: 'wet' });
 
 		expect(group('Wet, 300 inspections').getAttribute('aria-pressed')).toBe('true');
 		fireEvent.click(group('Wet, 300 inspections'));
 
-		expect(set.setWetness).toHaveBeenLastCalledWith('all');
+		expect(setFilters).toHaveBeenLastCalledWith({ water: 'all' });
 	});
 
 	it('draws the density bands in the scale order, with no density as text', () => {
@@ -161,27 +147,27 @@ describe('the inspection summary', () => {
 	});
 
 	it('adds a density band to the filter, and takes a selected one back out', () => {
-		const set = renderSummary({ densities: new Set(['light'] as const) });
+		const setFilters = renderSummary({ density: new Set(['light'] as const) });
 
 		fireEvent.click(group('Heavy, 90 inspections'));
-		expect(set.setDensities).toHaveBeenLastCalledWith(new Set(['light', 'heavy']));
+		expect(setFilters).toHaveBeenLastCalledWith({ density: new Set(['light', 'heavy']) });
 
 		expect(group('Light, 150 inspections').getAttribute('aria-pressed')).toBe('true');
 		fireEvent.click(group('Light, 150 inspections'));
-		expect(set.setDensities).toHaveBeenLastCalledWith(new Set());
+		expect(setFilters).toHaveBeenLastCalledWith({ density: new Set() });
 	});
 
 	it('draws only the larvae found side, which turns the filter on and off', () => {
 		const off = renderSummary();
 		expect(within(section('Larvae')).getAllByRole('button')).toHaveLength(1);
 		fireEvent.click(group('Larvae found, 240 inspections'));
-		expect(off.setPositiveOnly).toHaveBeenLastCalledWith(true);
+		expect(off).toHaveBeenLastCalledWith({ positive: true });
 		cleanup();
 
-		const on = renderSummary({ positiveOnly: true });
+		const on = renderSummary({ positive: true });
 		expect(group('Larvae found, 240 inspections').getAttribute('aria-pressed')).toBe('true');
 		fireEvent.click(group('Larvae found, 240 inspections'));
-		expect(on.setPositiveOnly).toHaveBeenLastCalledWith(false);
+		expect(on).toHaveBeenLastCalledWith({ positive: false });
 	});
 
 	it('shows the top five habitat types and counts the rest', () => {
@@ -194,14 +180,14 @@ describe('the inspection summary', () => {
 	});
 
 	it('adds a habitat type to the filter, and takes a selected one back out', () => {
-		const set = renderSummary({ typeIds: new Set([TIRE]) });
+		const setFilters = renderSummary({ types: new Set([TIRE]) });
 
 		fireEvent.click(group('Ditch, 200 inspections'));
-		expect(set.setTypeIds).toHaveBeenLastCalledWith(new Set([TIRE, DITCH]));
+		expect(setFilters).toHaveBeenLastCalledWith({ types: new Set([TIRE, DITCH]) });
 
 		expect(group('Tire, 100 inspections').getAttribute('aria-pressed')).toBe('true');
 		fireEvent.click(group('Tire, 100 inspections'));
-		expect(set.setTypeIds).toHaveBeenLastCalledWith(new Set());
+		expect(setFilters).toHaveBeenLastCalledWith({ types: new Set() });
 	});
 
 	it('names each inspector from the personnel catalog, with no inspector as text', () => {
@@ -213,14 +199,14 @@ describe('the inspection summary', () => {
 	});
 
 	it('adds an inspector to the filter, and takes a selected one back out', () => {
-		const set = renderSummary({ inspectorIds: new Set([BEN]) });
+		const setFilters = renderSummary({ inspectors: new Set([BEN]) });
 
 		fireEvent.click(group('Ada Park, 260 inspections'));
-		expect(set.setInspectorIds).toHaveBeenLastCalledWith(new Set([BEN, ADA]));
+		expect(setFilters).toHaveBeenLastCalledWith({ inspectors: new Set([BEN, ADA]) });
 
 		expect(group('Ben Ortiz, 140 inspections').getAttribute('aria-pressed')).toBe('true');
 		fireEvent.click(group('Ben Ortiz, 140 inspections'));
-		expect(set.setInspectorIds).toHaveBeenLastCalledWith(new Set());
+		expect(setFilters).toHaveBeenLastCalledWith({ inspectors: new Set() });
 	});
 
 	it('shows the top five inspectors and counts the rest', () => {

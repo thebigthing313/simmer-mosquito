@@ -5,37 +5,87 @@
  * them in its own frame. Takes the binding from `useRecordSetFilters`.
  */
 
-import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
-import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import type { RecordSetFilterBinding } from '../../../hooks/explorer/use-record-set-filters';
-import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
-import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
 import { catalogs } from '../../../hooks/queries/catalog-register';
+import { FilterFieldsLayout, FilterGrid } from '../../explorer';
+import { DeclaredFilterChips, filterFields } from '../../explorer/declared-filters';
 import {
-	ActiveFilterBar,
-	FilterChip,
-	FilterFieldsLayout,
-	FilterGrid,
-	MultiSelectFilter,
-	SegmentedFilter,
-	ToggleFilter,
-	toggle,
-} from '../../explorer';
-import type { HabitatFilters } from './habitats-search';
-import { HABITAT_FILTER_DEFAULTS } from './habitats-search';
-import type { AccessFilter, HabitatStatusFilter } from './legend';
+	catalogSource,
+	defineFilterDeclarations,
+	REGION_FILTER,
+	TAG_SOURCE,
+} from '../../explorer/filter-declarations';
+import { type HabitatFilters, habitatRecordSet } from './habitats-search';
 
-const STATUS_OPTIONS: readonly { readonly value: HabitatStatusFilter; readonly label: string }[] = [
-	{ value: 'all', label: 'All' },
-	{ value: 'active', label: 'Active' },
-	{ value: 'inactive', label: 'Inactive' },
-];
-
-const ACCESS_OPTIONS: readonly { readonly value: AccessFilter; readonly label: string }[] = [
-	{ value: 'all', label: 'All' },
-	{ value: 'accessible', label: 'Accessible' },
-	{ value: 'inaccessible', label: 'Inaccessible' },
-];
+/** Each habitat filter's control, chip and summary grouping, in chip order. */
+export const habitatFilterDeclarations = defineFilterDeclarations(habitatRecordSet, [
+	{
+		kind: 'text',
+		key: 'search',
+		label: 'Search habitats by name or description',
+		placeholder: 'Search name or description…',
+	},
+	{
+		kind: 'flag',
+		key: 'untreated',
+		label: 'Untreated',
+		summary: { grouping: 'untreated', title: 'Treatment', label: 'Untreated' },
+	},
+	{
+		kind: 'choice',
+		key: 'status',
+		label: 'Status',
+		options: [
+			{ value: 'all', label: 'All' },
+			{ value: 'active', label: 'Active' },
+			{ value: 'inactive', label: 'Inactive' },
+		],
+		summary: {
+			grouping: 'isActive',
+			title: 'Status',
+			sides: [
+				{ value: 'active', match: true },
+				{ value: 'inactive', match: false },
+			],
+		},
+	},
+	{
+		kind: 'choice',
+		key: 'access',
+		label: 'Access',
+		options: [
+			{ value: 'all', label: 'All' },
+			{ value: 'accessible', label: 'Accessible' },
+			{ value: 'inaccessible', label: 'Inaccessible' },
+		],
+		summary: {
+			grouping: 'isInaccessible',
+			title: 'Access',
+			sides: [
+				{ value: 'accessible', match: false },
+				{ value: 'inaccessible', match: true },
+			],
+		},
+	},
+	REGION_FILTER,
+	{
+		kind: 'idSet',
+		key: 'typeIds',
+		label: 'Habitat type',
+		empty: 'No habitat types',
+		options: catalogSource(catalogs.habitatTypes),
+		unknown: 'Unknown type',
+		summary: { grouping: 'habitatTypeId', title: 'Habitat Type', none: 'No type' },
+	},
+	{
+		kind: 'idSet',
+		key: 'tagIds',
+		label: 'Tags',
+		empty: 'No tags',
+		options: TAG_SOURCE,
+		unknown: 'Unknown tag',
+	},
+]);
 
 export function HabitatFilterFields({
 	binding,
@@ -45,150 +95,33 @@ export function HabitatFilterFields({
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
-	const { filters, setFilters, activeCount, searchInput, setSearchInput, clearSearch } = binding;
-	const { options: habitatTypes } = useCatalogOptions(catalogs.habitatTypes);
-	const { options: tags } = useTagOptions();
-	const regions = useRegionOptions();
-
-	const controls = (
-		<>
-			<SearchInput
-				label="Search habitats by name or description"
-				onChange={(event) => setSearchInput(event.target.value)}
-				onClear={clearSearch}
-				placeholder="Search name or description…"
-				value={searchInput}
-			/>
-
-			<div className="grid gap-2">
-				<SegmentedFilter
-					label="Status"
-					onChange={(status: HabitatStatusFilter) => setFilters({ status })}
-					options={STATUS_OPTIONS}
-					value={filters.status}
-				/>
-				<SegmentedFilter
-					label="Access"
-					onChange={(access: AccessFilter) => setFilters({ access })}
-					options={ACCESS_OPTIONS}
-					value={filters.access}
-				/>
-			</div>
-		</>
-	);
-
-	// The toggle sits under the grid at its own width. In a grid cell it was
-	// stretched to the column and drew as a bordered box beside the popover
-	// triggers, which read as a text field.
-	const popovers = (
-		<div className="grid gap-2">
-			<FilterGrid>
-				<MultiSelectFilter
-					empty="No habitat types"
-					label="Habitat type"
-					onChange={(typeIds) => setFilters({ typeIds })}
-					options={habitatTypes}
-					selected={filters.typeIds}
-				/>
-				<MultiSelectFilter
-					empty="No tags"
-					label="Tags"
-					onChange={(tagIds) => setFilters({ tagIds })}
-					options={tags}
-					selected={filters.tagIds}
-				/>
-				<MultiSelectFilter
-					empty="No regions"
-					label="Region"
-					onChange={(regionIds) => setFilters({ regions: regionIds })}
-					options={regions.options}
-					selected={filters.regions}
-				/>
-			</FilterGrid>
-			<div>
-				<ToggleFilter
-					label="Untreated"
-					onChange={(untreated) => setFilters({ untreated })}
-					value={filters.untreated}
-				/>
-			</div>
-		</div>
-	);
-
-	const chips = activeCount === 0 ? null : <HabitatFilterChips binding={binding} />;
-
-	return <FilterFieldsLayout chips={chips} controls={controls} popovers={popovers} wide={wide} />;
-}
-
-/**
- * One chip per filter that is set, each one clearing its own. The filter card
- * draws these under its controls, and the Habitats summary draws them above
- * its groupings.
- */
-export function HabitatFilterChips({
-	binding,
-}: {
-	readonly binding: RecordSetFilterBinding<HabitatFilters>;
-}) {
-	const { nameById: typeNameById } = useCatalogOptions(catalogs.habitatTypes);
-	const { byId: tagById } = useTagOptions();
-	const { nameById: regionNameById } = useRegionOptions();
-	const { filters, setFilters, clearSearch, clearAll } = binding;
+	const fields = filterFields(habitatFilterDeclarations, binding);
 	return (
-		<ActiveFilterBar onClearAll={clearAll}>
-			{filters.search.length > 0 ? (
-				<FilterChip label={`Search: ${filters.search}`} onRemove={clearSearch} />
-			) : null}
-			{filters.untreated ? (
-				<FilterChip label="Untreated" onRemove={() => setFilters({ untreated: false })} />
-			) : null}
-			<StateChips binding={binding} />
-			{[...filters.regions].map((id) => (
-				<FilterChip
-					key={`region-${id}`}
-					label={regionNameById.get(id) ?? 'Unknown region'}
-					onRemove={() => setFilters({ regions: toggle(filters.regions, id) })}
-				/>
-			))}
-			{[...filters.typeIds].map((id) => (
-				<FilterChip
-					key={`type-${id}`}
-					label={typeNameById.get(id) ?? 'Unknown type'}
-					onRemove={() => setFilters({ typeIds: toggle(filters.typeIds, id) })}
-				/>
-			))}
-			{[...filters.tagIds].map((id) => {
-				const tag = tagById.get(id);
-				return (
-					<FilterChip
-						color={tag?.color ?? null}
-						key={`tag-${id}`}
-						label={tag?.name ?? 'Unknown tag'}
-						onRemove={() => setFilters({ tagIds: toggle(filters.tagIds, id) })}
-					/>
-				);
-			})}
-		</ActiveFilterBar>
-	);
-}
-
-/** Status and Access, each a chip only while it is off its default. */
-function StateChips({ binding }: { readonly binding: RecordSetFilterBinding<HabitatFilters> }) {
-	const { filters, setFilters } = binding;
-	return (
-		<>
-			{filters.status === HABITAT_FILTER_DEFAULTS.status ? null : (
-				<FilterChip
-					label={`Status: ${filters.status === 'all' ? 'All' : 'Inactive'}`}
-					onRemove={() => setFilters({ status: HABITAT_FILTER_DEFAULTS.status })}
-				/>
-			)}
-			{filters.access === 'all' ? null : (
-				<FilterChip
-					label={`Access: ${filters.access === 'accessible' ? 'Accessible' : 'Inaccessible'}`}
-					onRemove={() => setFilters({ access: 'all' })}
-				/>
-			)}
-		</>
+		<FilterFieldsLayout
+			chips={<DeclaredFilterChips binding={binding} declarations={habitatFilterDeclarations} />}
+			controls={
+				<>
+					{fields.search}
+					<div className="grid gap-2">
+						{fields.status}
+						{fields.access}
+					</div>
+				</>
+			}
+			// The toggle sits under the grid at its own width. In a grid cell it was
+			// stretched to the column and drew as a bordered box beside the popover
+			// triggers, which read as a text field.
+			popovers={
+				<div className="grid gap-2">
+					<FilterGrid>
+						{fields.typeIds}
+						{fields.tagIds}
+						{fields.regions}
+					</FilterGrid>
+					<div>{fields.untreated}</div>
+				</div>
+			}
+			wide={wide}
+		/>
 	);
 }

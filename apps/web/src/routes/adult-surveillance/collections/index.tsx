@@ -2,8 +2,8 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { CollectionMapCard } from '../../../components/adult-surveillance/collection-map-card';
 import {
-	CollectionFilterChips,
 	CollectionFilterFields,
+	collectionFilterDeclarations,
 } from '../../../components/adult-surveillance/collections/collection-filters';
 import {
 	type CollectionListRow,
@@ -19,6 +19,7 @@ import {
 import { collectionLegend } from '../../../components/adult-surveillance/collections/legend';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
@@ -114,7 +115,9 @@ function CollectionsExplorerRoute() {
 				// says what is in view instead (#1373).
 				summary: summary.isShown ? (
 					<ExplorerSummary
-						chips={activeFilterCount === 0 ? null : <CollectionFilterChips binding={binding} />}
+						chips={
+							<DeclaredFilterChips binding={binding} declarations={collectionFilterDeclarations} />
+						}
 						groupings={
 							summary.data === null
 								? []
