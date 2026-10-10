@@ -795,10 +795,14 @@ a switch for on and a number for the days, rather than a fifth kind or a body of
 its own inside `SettingsSheet`. A fifth kind would be a new branch in
 `SettingsFieldInput` and a new member of `SettingsSectionField` for one setting,
 and a custom body would take the Public Engagement section off the descriptor
-and redraw its four context fields by hand. The cost is that the days input
-stays drawn while the switch is off; `serviceRequestOverdueDaysFrom` ignores it
-then, so an emptied input does not stop a save that turns the threshold off,
-and the number is still there when the switch goes back on. The section's
+and redraw its four context fields by hand. The days field carries a `when`
+reading `overdueOn`, so the sheet does not draw it while the switch is off
+(#1557). `when` is for a field that means nothing while another value says so:
+it is read against the values as they stand, the ones `preview` is given, and
+it hides the input without clearing its value. `convert` still gets every
+value, `serviceRequestOverdueDaysFrom` ignores the days while the switch is off,
+so an emptied input does not stop a save that turns the threshold off, and the
+number is still there when the switch goes back on. The section's
 `save` writes the context and then the threshold, one after the other, because
 the second write states the `updated_at` the first committed under. The two
 are not one transaction: a refused threshold write after a saved context
