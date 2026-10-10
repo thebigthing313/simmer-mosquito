@@ -19,6 +19,7 @@ import {
 	DomainValidationError,
 	endMembershipCommand,
 	inviteCommand,
+	normalizeOrganizationContactDetails,
 	reinviteCommand,
 	updateOrganizationDetailsCommand,
 	updateProfileCommand,
@@ -180,6 +181,30 @@ describe('updateOrganizationDetailsCommand', () => {
 				expectedUpdatedAt: 'soon',
 			}),
 		).toThrow(DomainValidationError);
+	});
+});
+
+describe('normalizeOrganizationContactDetails', () => {
+	it('leaves an absent detail out and turns a blank one into null', () => {
+		expect(
+			normalizeOrganizationContactDetails({ phoneNumber: '  ', mailingRegion: ' nj ' }),
+		).toEqual({ details: { phoneNumber: null, mailingRegion: 'NJ' }, issues: [] });
+	});
+
+	it('returns every refusal as an issue rather than throwing', () => {
+		expect(
+			normalizeOrganizationContactDetails({
+				mainContactEmail: 'not-an-email',
+				mailingCountry: 'USA',
+				mailingRegion: 'New Jersey',
+			}).issues,
+		).toEqual([
+			{ path: 'mailingCountry', message: 'mailingCountry must be 2 characters or fewer.' },
+			{ path: 'mailingRegion', message: 'mailingRegion must be 2 characters or fewer.' },
+			{ path: 'mailingCountry', message: 'mailingCountry must be US.' },
+			{ path: 'mailingRegion', message: 'mailingRegion must be a US state code.' },
+			{ path: 'mainContactEmail', message: 'mainContactEmail must be a valid email address.' },
+		]);
 	});
 });
 

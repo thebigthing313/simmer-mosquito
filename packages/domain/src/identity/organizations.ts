@@ -6,7 +6,7 @@ import {
 	throwIfIssues,
 	validateOrganizationBase,
 } from '../command-validation.js';
-import { isEmailAddress } from '../shared.js';
+import { type DomainValidationIssue, isEmailAddress } from '../shared.js';
 import type {
 	IdentityDomainCommand,
 	OrganizationIdentityCommandInput,
@@ -138,7 +138,7 @@ const US_STATE_CODES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Every detail but the name, and how long each may be.
+ * Every detail but the name and the map centre, and how long each may be.
  *
  * The name is the only required one, so it is normalized on its own. The other
  * eight are nullable text and differ from each other in nothing but the limit.
@@ -154,9 +154,17 @@ const NULLABLE_DETAIL_LIMITS = {
 	mailingPostalCode: 20,
 } as const;
 
-type NullableDetailKey = keyof typeof NULLABLE_DETAIL_LIMITS;
+/** The eight contact details: an organization's Main contact, phone and mailing address. */
+export type OrganizationContactDetailKey = keyof typeof NULLABLE_DETAIL_LIMITS;
 
-const NULLABLE_DETAIL_KEYS = Object.keys(NULLABLE_DETAIL_LIMITS) as readonly NullableDetailKey[];
+/** Contact details as a caller sent them: absent, `null`, or text not yet checked. */
+export type OrganizationContactDetails = {
+	readonly [K in OrganizationContactDetailKey]?: string | null;
+};
+
+const NULLABLE_DETAIL_KEYS = Object.keys(
+	NULLABLE_DETAIL_LIMITS,
+) as readonly OrganizationContactDetailKey[];
 
 /** The map centre's two halves and the range each must sit inside. */
 const MAP_CENTER_RANGES = [
@@ -179,7 +187,7 @@ const DETAIL_KEYS: readonly (keyof OrganizationDetailChanges)[] = [
  * the country came to be written with no check at all.
  */
 const CODED_DETAILS: readonly {
-	readonly key: NullableDetailKey;
+	readonly key: OrganizationContactDetailKey;
 	readonly isAllowed: (code: string) => boolean;
 	readonly message: string;
 }[] = [
@@ -209,13 +217,42 @@ export function updateOrganizationDetailsCommand(
 	if (input.name !== undefined) {
 		changes.name = normalizeRequiredText(input.name, 'name', issues, 200);
 	}
+	const contact = normalizeOrganizationContactDetails(input);
+	issues.push(...contact.issues);
+	Object.assign(changes, contact.details, mapCenterChanges(input, issues));
+
+	const expectedUpdatedAt = normalizeExpectedUpdatedAt(input.expectedUpdatedAt, issues);
+	throwIfIssues('Update organization details command is invalid.', issues);
+
+	return {
+		type: 'identity.updateOrganizationDetails',
+		payload: { ...organizationPayload(input), changes, expectedUpdatedAt },
+	};
+}
+
+/**
+ * The contact details that arrived, trimmed, coded, and checked.
+ *
+ * A key left out stays out of `details`, and blank text comes back as `null`.
+ * The two codes are upper-cased, the Main contact must be an email address, and
+ * each detail is held to its length. Nothing is thrown: a refusal is an entry
+ * in `issues`, so a caller that answers before writing to a second system can
+ * refuse without catching. `updateOrganizationDetailsCommand` and the operator
+ * console's Organization create both read their rules from here.
+ */
+export function normalizeOrganizationContactDetails(input: OrganizationContactDetails): {
+	readonly details: { [K in OrganizationContactDetailKey]?: string | null };
+	readonly issues: readonly DomainValidationIssue[];
+} {
+	const issues = createIssues();
+	const details: { [K in OrganizationContactDetailKey]?: string | null } = {};
 	for (const key of NULLABLE_DETAIL_KEYS) {
 		if (input[key] !== undefined) {
-			changes[key] = normalizeNullableText(input[key], key, issues, NULLABLE_DETAIL_LIMITS[key]);
+			details[key] = normalizeNullableText(input[key], key, issues, NULLABLE_DETAIL_LIMITS[key]);
 		}
 	}
 	for (const { key, isAllowed, message } of CODED_DETAILS) {
-		const value = changes[key];
+		const value = details[key];
 		// Absent leaves the column alone and `null` clears it. An organization that
 		// has not filled its address in is not an error; only a code that names
 		// somewhere else is.
@@ -226,26 +263,18 @@ export function updateOrganizationDetailsCommand(
 		if (!isAllowed(code)) {
 			issues.push({ path: key, message });
 		}
-		changes[key] = code;
+		details[key] = code;
 	}
 	// Absent leaves the column alone and `null` clears it, so only a string is
 	// checked. Its case is kept: lowercasing a stored Main contact is a decision
 	// of its own.
-	if (typeof changes.mainContactEmail === 'string' && !isEmailAddress(changes.mainContactEmail)) {
+	if (typeof details.mainContactEmail === 'string' && !isEmailAddress(details.mainContactEmail)) {
 		issues.push({
 			path: 'mainContactEmail',
 			message: 'mainContactEmail must be a valid email address.',
 		});
 	}
-	Object.assign(changes, mapCenterChanges(input, issues));
-
-	const expectedUpdatedAt = normalizeExpectedUpdatedAt(input.expectedUpdatedAt, issues);
-	throwIfIssues('Update organization details command is invalid.', issues);
-
-	return {
-		type: 'identity.updateOrganizationDetails',
-		payload: { ...organizationPayload(input), changes, expectedUpdatedAt },
-	};
+	return { details, issues };
 }
 
 /**

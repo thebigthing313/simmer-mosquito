@@ -1,0 +1,209 @@
+/**
+ * `POST /admin/organizations` refuses a contact detail before WorkOS is called.
+ *
+ * The route writes in two systems and WorkOS goes first, so a detail the insert
+ * cannot store, or one the details builder would refuse, used to leave a WorkOS
+ * organization with no SIMMER row behind it (#1524). Every case here asserts
+ * the WorkOS half was never reached, through a stub that records the call
+ * rather than a client that could make one (ADR 0017).
+ */
+
+import type { AuthUser } from '@simmer-mosquito/auth';
+import { Hono } from 'hono';
+import { createMiddleware } from 'hono/factory';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AuthVariables, OperatorAuthContext } from '../../auth-middleware.js';
+import {
+	type OperatorOrganizationAuth,
+	registerOperatorOrganizationRoutes,
+} from '../../operator-organization-routes.js';
+
+const dbMock = vi.hoisted(() => ({
+	getOperatorOrganization: vi.fn(),
+	listOperatorOrganizations: vi.fn(),
+	listOrganizationMemberships: vi.fn(),
+	upsertOperatorOrganization: vi.fn(),
+}));
+
+vi.mock('@simmer-mosquito/db', () => dbMock);
+
+const operatorUser: AuthUser = {
+	workosUserId: 'workos_user_operator',
+	email: 'operator@example.com',
+	firstName: 'Opal',
+	lastName: 'Operator',
+	displayName: 'Opal Operator',
+	emailVerified: true,
+	profilePictureUrl: null,
+};
+
+const operatorContext: OperatorAuthContext = {
+	workosUser: operatorUser,
+	workosOrganizationId: null,
+	workosSessionId: 'session-1',
+	workosRole: null,
+	localIdentity: null,
+};
+
+describe('POST /admin/organizations', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		dbMock.upsertOperatorOrganization.mockImplementation(async (_db, input) => ({
+			id: 'org-1',
+			workosOrganizationId: input.workosOrganizationId,
+			name: input.name,
+			slug: input.slug,
+			subscription: {
+				subscriptionStatus: input.subscriptionStatus,
+				billingMode: input.billingMode,
+				billingContactName: input.billingContactName,
+				billingContactEmail: input.billingContactEmail,
+				subscriptionNotes: input.subscriptionNotes,
+			},
+			contact: input.contact,
+			ownerLinked: false,
+			createdAt: new Date('2026-10-01T00:00:00.000Z'),
+			updatedAt: new Date('2026-10-01T00:00:00.000Z'),
+		}));
+	});
+
+	it.each([
+		['mainContactEmail', 'not-an-email', 'mainContactEmail must be a valid email address.'],
+		['mailingCountry', 'USA', 'mailingCountry'],
+		['mailingCountry', 'CA', 'mailingCountry must be US.'],
+		['mailingRegion', 'New Jersey', 'mailingRegion'],
+		['mailingRegion', 'XX', 'mailingRegion must be a US state code.'],
+		['phoneNumber', '5'.repeat(51), 'phoneNumber must be 50 characters or fewer.'],
+		['mailingPostalCode', '0'.repeat(21), 'mailingPostalCode'],
+		['billingContactEmail', 'billing', 'billingContactEmail must be a valid email address.'],
+	])('refuses %s %j before WorkOS is called', async (field, value, reason) => {
+		const auth = createFakeAuth();
+		const response = await postOrganization(auth, { name: 'County Mosquito', [field]: value });
+
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as { error: string; reason: string };
+		expect(body.error).toBe('invalid_payload');
+		expect(body.reason).toContain(reason);
+		expect(auth.createOrganization).not.toHaveBeenCalled();
+		expect(dbMock.upsertOperatorOrganization).not.toHaveBeenCalled();
+	});
+
+	it('stores a lower-case state code and country upper-cased', async () => {
+		const auth = createFakeAuth();
+		const response = await postOrganization(auth, {
+			name: 'County Mosquito',
+			mailingRegion: 'nj',
+			mailingCountry: 'us',
+		});
+
+		expect(response.status).toBe(201);
+		expect(dbMock.upsertOperatorOrganization).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				contact: expect.objectContaining({ mailingRegion: 'NJ', mailingCountry: 'US' }),
+			}),
+		);
+	});
+
+	it('stores a create carrying only a name with every contact detail null', async () => {
+		const auth = createFakeAuth();
+		const response = await postOrganization(auth, { name: 'County Mosquito' });
+
+		expect(response.status).toBe(201);
+		expect(auth.createOrganization).toHaveBeenCalledWith({ name: 'County Mosquito' });
+		const body = (await response.json()) as { contact: Record<string, unknown> };
+		expect(body.contact).toEqual({
+			mainContactEmail: null,
+			phoneNumber: null,
+			mailingCountry: null,
+			mailingAddressLine1: null,
+			mailingAddressLine2: null,
+			mailingLocality: null,
+			mailingRegion: null,
+			mailingPostalCode: null,
+		});
+		expect(dbMock.upsertOperatorOrganization).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ billingContactEmail: null }),
+		);
+	});
+
+	it('stores blank details as null rather than refusing them', async () => {
+		const auth = createFakeAuth();
+		const response = await postOrganization(auth, {
+			name: 'County Mosquito',
+			mainContactEmail: '   ',
+			mailingRegion: '',
+			billingContactEmail: ' ',
+		});
+
+		expect(response.status).toBe(201);
+		expect(dbMock.upsertOperatorOrganization).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				billingContactEmail: null,
+				contact: expect.objectContaining({ mainContactEmail: null, mailingRegion: null }),
+			}),
+		);
+	});
+
+	it('stores valid contact details as they arrived, trimmed', async () => {
+		const auth = createFakeAuth();
+		const response = await postOrganization(auth, {
+			name: 'County Mosquito',
+			mainContactEmail: ' Ops@Example.org ',
+			billingContactEmail: 'billing@example.org',
+			phoneNumber: '555-0100',
+		});
+
+		expect(response.status).toBe(201);
+		expect(dbMock.upsertOperatorOrganization).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				billingContactEmail: 'billing@example.org',
+				contact: expect.objectContaining({
+					mainContactEmail: 'Ops@Example.org',
+					phoneNumber: '555-0100',
+				}),
+			}),
+		);
+	});
+});
+
+type FakeOrganizationAuth = OperatorOrganizationAuth & {
+	readonly createOrganization: ReturnType<typeof vi.fn>;
+};
+
+function createFakeAuth(): FakeOrganizationAuth {
+	return {
+		createOrganization: vi.fn(async (input: { readonly name: string }) => ({
+			workosOrganizationId: 'workos_org_1',
+			name: input.name,
+		})),
+	} as FakeOrganizationAuth;
+}
+
+async function postOrganization(
+	auth: OperatorOrganizationAuth,
+	body: Record<string, unknown>,
+): Promise<Response> {
+	const app = new Hono<{ Variables: AuthVariables }>();
+	app.use(
+		'/admin/*',
+		createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
+			context.set('operatorContext', operatorContext);
+			await next();
+		}),
+	);
+	registerOperatorOrganizationRoutes(app, {
+		db: {} as never,
+		auth,
+		operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
+	});
+
+	return app.request('/admin/organizations', {
+		method: 'POST',
+		body: JSON.stringify(body),
+		headers: { 'content-type': 'application/json' },
+	});
+}
