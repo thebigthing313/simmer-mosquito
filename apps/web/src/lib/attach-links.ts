@@ -3,12 +3,16 @@ import { type RecordType, recordNoun } from './record-nouns';
 import { errorMessageForSave } from './save-error';
 
 /**
- * A write that changes the links a record already had, rather than attaching
- * new ones. Its miss can be a removal, and the place to retry it is the edit
- * form, so it is reported in those words.
+ * Where a missed link write is put right, which decides what the report says.
+ *
+ * - `add`: new links the detail page has no control for, the crew and the
+ *   samples, so the retry is the edit form.
+ * - `comment`: a note, which is added from the thread on the detail page.
+ * - `change`: links the record already had. Its miss can be a removal, and the
+ *   retry is the edit form (#1566).
  */
-interface LinkChange {
-	readonly write: 'change';
+interface LinkRetry {
+	readonly write: 'add' | 'comment' | 'change';
 	/** The record the links hang off, named from the register in the description. */
 	readonly recordType: RecordType;
 }
@@ -32,21 +36,25 @@ export async function attachLinksBestEffort(
 	/** What failed to attach, as a noun phrase: "the additional personnel". */
 	subject: string,
 	write: () => Promise<void>,
-	/** Present when the write changes existing links. Absent, it attaches new ones. */
-	change?: LinkChange,
+	retry: LinkRetry,
 ): Promise<void> {
 	try {
 		await write();
 	} catch (error) {
 		const reason = errorMessageForSave(error, 'Unknown error.');
-		if (change === undefined) {
-			toast.error(`Saved, but ${subject} could not be attached.`, {
-				description: `${reason} Add them from the record.`,
+		const record = recordNoun(retry.recordType).one;
+		if (retry.write === 'change') {
+			toast.error(`Saved, but ${subject} could not be updated.`, {
+				description: `${reason} Edit the ${record} to try again.`,
 			});
 			return;
 		}
-		toast.error(`Saved, but ${subject} could not be updated.`, {
-			description: `${reason} Edit the ${recordNoun(change.recordType).one} to try again.`,
+		const next =
+			retry.write === 'comment'
+				? `Add it as a comment on the ${record}.`
+				: `Edit the ${record} to add them.`;
+		toast.error(`Saved, but ${subject} could not be attached.`, {
+			description: `${reason} ${next}`,
 		});
 	}
 }
