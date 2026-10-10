@@ -36,8 +36,7 @@ export function AddMissionStopForm({
 }) {
 	const navigate = useNavigate();
 
-	// Reading the stops both warms the on-demand stream the insert confirms
-	// against and gives the new stop its place at the end of the order.
+	// The mission's stops, which give the new stop its place at the end of the order.
 	const { stops } = useMissionStopViews(mission.id);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);

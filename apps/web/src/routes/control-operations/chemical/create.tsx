@@ -21,8 +21,6 @@ import type {
 	FormulationComponentListing,
 	FormulationListing,
 } from '../../../hooks/queries/chemical-roster-view';
-import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
-import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
 import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useFormulationComponentRoster } from '../../../hooks/queries/use-formulation-component-roster';
 import { useFormulationRoster } from '../../../hooks/queries/use-formulation-roster';
@@ -79,15 +77,9 @@ function CreateApplicationRoute() {
 	const canSubmit = canAttributeWrite({ organization, actorProfileId });
 
 	// The first application's id is minted up front so its crew rows can be written
-	// the moment it lands — and so the on-demand streams those live on are already
-	// warm when the save fires. A formulation mints the rest at save.
+	// the moment it lands. A formulation mints the rest at save.
 	const [applicationId] = useState(newRecordId);
-	useAdditionalPersonnel({ type: 'application', id: applicationId });
 	const recordExtras = useRecordExtras();
-	// The batches ride in the create's own command now, so nothing here needs this
-	// list. It stays mounted for the stream: a write cannot wait for its own txid on
-	// a collection nobody is subscribed to.
-	useApplicationBatches(applicationId);
 	const { record } = useApplicationMutations();
 
 	// A confirmed acknowledgement re-runs the whole save. Safe because the loop

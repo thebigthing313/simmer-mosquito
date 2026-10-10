@@ -157,9 +157,6 @@ function CreateInspectionRoute() {
 			await attachLinksBestEffort('the samples', async () => {
 				for (const sample of values.samples) {
 					const label = sample.label.trim();
-					// Sequential: the samples stream is on-demand, so the first insert
-					// warms it and the rest confirm against a live shape instead of
-					// racing a cold one.
 					await sampleMutations.add({
 						sampleId: sample.id,
 						inspectionId,

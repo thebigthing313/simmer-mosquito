@@ -12,7 +12,6 @@ import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import { catalogs } from '../../../hooks/queries/catalog-register';
-import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
@@ -59,10 +58,8 @@ function CreateSourceReductionRoute() {
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const canSubmit = canAttributeWrite({ organization, actorProfileId });
 
-	// Minted up front so the crew rows can be written the moment the action lands
-	// — and so their on-demand stream is already warm when the save fires.
+	// Minted up front so the crew rows can be written the moment the action lands.
 	const [sourceReductionId] = useState(newRecordId);
-	useAdditionalPersonnel({ type: 'sourceReduction', id: sourceReductionId });
 	const recordExtras = useRecordExtras();
 	const { record } = useSourceReductionMutations();
 

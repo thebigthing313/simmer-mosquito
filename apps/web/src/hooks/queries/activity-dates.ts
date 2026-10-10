@@ -5,8 +5,9 @@
  * `OVERVIEW_RECORD_TYPES`, and the columns are the ones the server's overview
  * reader windows on (#980). A service request is counted on the day it was
  * received, which is its request date in `CONTEXT.md`. `useActivityStrip`
- * reads all eight from here; the other multi-table reads still name their
- * columns themselves until they move onto it (#1428).
+ * reads all eight from here, `useDayActivity` reads the six it windows by a
+ * date column, and `performed-action-reads.ts` hands the four performed
+ * actions' columns on to the hooks that read those (#1428).
  *
  * Each column is a function from the row's ref to the column on it rather than
  * a column name in a string, so a misspelled column is a `tsc` error here, and
@@ -38,7 +39,7 @@ import { collectedSince, collectionEffectiveDate } from './collection-day';
  * A ref that carries `TKey` the way `TRow`'s table does: the table's own ref,
  * or a `left` join over it, whose nullable brand rides through to the column.
  */
-type HasColumn<TRow, TKey extends keyof TRow> = Pick<Ref<TRow>, TKey>;
+export type HasColumn<TRow, TKey extends keyof TRow> = Pick<Ref<TRow>, TKey>;
 
 function inspectionDate<TRef extends HasColumn<Inspection, 'inspection_date'>>(
 	inspection: TRef,

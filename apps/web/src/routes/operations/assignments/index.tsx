@@ -34,6 +34,7 @@ import { useAssignmentStops } from '../../../hooks/operations/use-assignment-sto
 import { useWorklistIndex } from '../../../hooks/operations/use-worklist-index';
 import {
 	ASSIGNMENT_STATUS_LABELS,
+	ASSIGNMENT_STATUSES,
 	type AssignmentListing,
 	type AssignmentStatus,
 	assignmentStatus,
@@ -50,6 +51,7 @@ import { datePresetRange, SCHEDULE_WINDOW } from '../../../lib/date-presets';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import {
+	choiceSetParam,
 	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
@@ -59,25 +61,23 @@ import {
 
 const AssignmentIcon = iconRegistry.entities.vehicle.icon;
 
-const STATUS_OPTIONS: readonly FilterOption[] = [
-	{ id: 'notStarted', label: 'Not started' },
-	{ id: 'inProgress', label: 'In progress' },
-	{ id: 'completed', label: 'Completed' },
-	{ id: 'cancelled', label: 'Cancelled' },
-];
+const STATUS_OPTIONS: readonly FilterOption[] = ASSIGNMENT_STATUSES.map((status) => ({
+	id: status,
+	label: ASSIGNMENT_STATUS_LABELS[status],
+}));
 
 interface AssignmentFilters {
 	readonly from: string;
 	readonly to: string;
 	readonly people: ReadonlySet<string>;
-	readonly statuses: ReadonlySet<string>;
+	readonly statuses: ReadonlySet<AssignmentStatus>;
 }
 
 const FILTER_CODECS: FilterCodecs<AssignmentFilters> = {
 	from: dateParam,
 	to: dateParam,
 	people: idSetParam,
-	statuses: idSetParam,
+	statuses: choiceSetParam(ASSIGNMENT_STATUSES),
 };
 
 export const Route = createFileRoute('/operations/assignments/')({
@@ -94,7 +94,7 @@ function AssignmentsIndexRoute() {
 		from: scheduleRange.from,
 		to: scheduleRange.to,
 		people: new Set(),
-		statuses: new Set(),
+		statuses: new Set<AssignmentStatus>(),
 	};
 	const { filters, setFilters, reset, activeCount } = useSearchFilters(
 		filterDefaults,
@@ -202,7 +202,11 @@ function AssignmentsIndexRoute() {
 						<MultiSelectFilter
 							empty="No statuses"
 							label="Status"
-							onChange={(next) => setFilters({ statuses: next })}
+							onChange={(next) =>
+								setFilters({
+									statuses: new Set(ASSIGNMENT_STATUSES.filter((status) => next.has(status))),
+								})
+							}
 							options={STATUS_OPTIONS}
 							selected={filters.statuses}
 						/>
@@ -221,7 +225,7 @@ function AssignmentsIndexRoute() {
 							{[...filters.statuses].map((status) => (
 								<FilterChip
 									key={status}
-									label={ASSIGNMENT_STATUS_LABELS[status as AssignmentStatus] ?? status}
+									label={ASSIGNMENT_STATUS_LABELS[status]}
 									onRemove={() => setFilters({ statuses: without(filters.statuses, status) })}
 								/>
 							))}

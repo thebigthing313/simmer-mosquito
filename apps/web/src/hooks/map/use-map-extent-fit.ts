@@ -1,11 +1,8 @@
-import {
-	type BoundingBox,
-	formatBoundingBox,
-	MAP_CLUSTER_UNTIL_ZOOM,
-} from '@simmer-mosquito/mapping';
+import { type BoundingBox, formatBoundingBox } from '@simmer-mosquito/mapping';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
-import { framingPadding, insetPadding, type MapInset } from '../../components/map/map-inset';
+import { frameOnMap } from '../../components/map/map-camera';
+import { insetPadding, type MapInset } from '../../components/map/map-inset';
 import { useMapExtent } from './use-map-extent';
 import { isMapLive } from './use-mapbox-map';
 
@@ -15,22 +12,10 @@ import { isMapLive } from './use-mapbox-map';
  */
 export type MapExtentFitSource = { readonly url: string } | { readonly bounds: BoundingBox | null };
 
-/** Breathing room (px) between the framed data and the map edge. */
-const FIT_PADDING = 56;
-/** Ceiling on the fitted zoom, so a tight cluster doesn't slam into street level. */
-const FIT_MAX_ZOOM = 16;
 /**
- * Zoom used when the extent collapses to a single point.
- *
- * The zoom clustering stops at, so a record framed on its own is drawn as
- * itself and never inside a cluster of its neighbours.
- */
-const FIT_POINT_ZOOM = MAP_CLUSTER_UNTIL_ZOOM;
-const FIT_DURATION_MS = 600;
-
-/**
- * Frames the records a map draws: fits on first load, and refits whenever the
- * source changes. Panning and zooming are left alone.
+ * Frames the records a map draws as a `collection` (see `frameOnMap`): fits on
+ * first load, and refits whenever the source changes. Panning and zooming are
+ * left alone.
  *
  * The source is an extent URL the server answers for the current filters, or
  * a box the page computed from local rows. A refit off an extent URL is
@@ -119,7 +104,7 @@ function frameOnce(
 	ledger.map = map;
 	ledger.key = fitKey;
 	if (isFirstFit ? !keepOpeningCamera : isRefitOwed(map, url, bounds)) {
-		fitMapToBounds(map, bounds, isFirstFit ? 0 : FIT_DURATION_MS, inset);
+		frameOnMap(map, bounds, { purpose: 'collection', animate: !isFirstFit, inset });
 	}
 }
 
@@ -163,32 +148,4 @@ function isInView(map: MapboxMap, extent: BoundingBox): boolean {
 	const west = view.getWest();
 	const east = view.getEast();
 	return [0, 360, -360].some((turn) => extent.west + turn >= west && extent.east + turn <= east);
-}
-
-function fitMapToBounds(
-	map: MapboxMap,
-	bounds: BoundingBox,
-	duration: number,
-	inset: MapInset,
-): void {
-	const padding = framingPadding(map, FIT_PADDING, inset);
-	// One record (or many stacked on one address) collapses the box to a point,
-	// which fitBounds cannot frame, so ease onto it at a sane zoom instead.
-	if (bounds.west === bounds.east && bounds.south === bounds.north) {
-		map.easeTo({
-			center: [bounds.west, bounds.south],
-			zoom: Math.max(map.getZoom(), FIT_POINT_ZOOM),
-			duration,
-			...padding,
-		});
-		return;
-	}
-
-	map.fitBounds(
-		[
-			[bounds.west, bounds.south],
-			[bounds.east, bounds.north],
-		],
-		{ ...padding, maxZoom: FIT_MAX_ZOOM, duration },
-	);
 }

@@ -13,6 +13,7 @@ import { useDeferredValue, useState } from 'react';
 import { OptionRow, PickerFallback } from '../../components/pickers/entity-picker';
 import { type DrawGeometry, drawParts, toDrawGeometry } from '../../hooks/map/use-map-draw';
 import { useRegionFolderNames } from '../../hooks/map/use-region-folder-names';
+import { activityGcTimeMs } from '../../hooks/queries/shared';
 import { fetchRegionGeometryOnce } from '../../hooks/use-region-geometry';
 import { regions } from '../../lib/collections/regions';
 
@@ -31,7 +32,6 @@ import { regions } from '../../lib/collections/regions';
  */
 
 const RegionIcon = iconRegistry.entities.region.icon;
-const searchGcTimeMs = 30_000;
 const resultLimit = 8;
 
 /** A Region's boundary as the draw flow holds one: one area, or several as one. */
@@ -138,7 +138,7 @@ function RegionResults({
 	const pattern = `%${normalized}%`;
 	const folderNames = useRegionFolderNames();
 	const { data, isReady, isError } = useLiveQuery({
-		gcTime: searchGcTimeMs,
+		gcTime: activityGcTimeMs,
 		query: (query) => {
 			// No organization predicate: the shape is scoped to the organization
 			// server-side, so re-stating it here is redundant — and a stale column
