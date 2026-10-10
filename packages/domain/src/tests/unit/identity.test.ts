@@ -95,15 +95,21 @@ describe('updateOrganizationDetailsCommand', () => {
 		]);
 	});
 
-	it('accepts a Main contact that is an email address, keeping its case, and accepts null', () => {
+	it('accepts a Main contact that is an email address', () => {
 		expect(
 			updateOrganizationDetailsCommand({ ...organization, mainContactEmail: 'a@b.co' }).payload
 				.changes,
 		).toEqual({ mainContactEmail: 'a@b.co' });
+	});
+
+	it('keeps the case of a Main contact rather than lowercasing it', () => {
 		expect(
 			updateOrganizationDetailsCommand({ ...organization, mainContactEmail: 'Ops@Example.org' })
 				.payload.changes.mainContactEmail,
 		).toBe('Ops@Example.org');
+	});
+
+	it('accepts a Main contact sent as null, which clears it', () => {
 		expect(
 			updateOrganizationDetailsCommand({ ...organization, mainContactEmail: null }).payload.changes,
 		).toEqual({ mainContactEmail: null });

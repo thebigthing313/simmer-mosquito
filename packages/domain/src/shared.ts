@@ -21,9 +21,8 @@ export class DomainValidationError extends Error {
  * Whether `value` has the shape of an email address: no whitespace, one `@`,
  * and a dot somewhere after it.
  *
- * This is the only copy of the rule. A Contact's email, an Organization's Main
- * contact and the web form that edits the latter all read it. It trims nothing,
- * so a caller trims first.
+ * The domain's builders and the web form both read this, so the shape is
+ * written once. It trims nothing, so a caller trims first.
  */
 export function isEmailAddress(value: string): boolean {
 	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);

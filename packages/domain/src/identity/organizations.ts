@@ -228,8 +228,9 @@ export function updateOrganizationDetailsCommand(
 		}
 		changes[key] = code;
 	}
-	// Absent and `null` are not the address's business, and its case is kept:
-	// lowercasing a stored Main contact is a decision of its own.
+	// Absent leaves the column alone and `null` clears it, so only a string is
+	// checked. Its case is kept: lowercasing a stored Main contact is a decision
+	// of its own.
 	if (typeof changes.mainContactEmail === 'string' && !isEmailAddress(changes.mainContactEmail)) {
 		issues.push({
 			path: 'mainContactEmail',
