@@ -23,7 +23,10 @@ import {
 } from '../../../components/larval-surveillance/samples-search';
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import {
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
 import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { useSpeciesOptions } from '../../../hooks/explorer/use-species-options';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
@@ -51,7 +54,6 @@ function SamplesExplorerRoute() {
 
 	const { nameById } = useSpeciesOptions();
 
-	const filters = sampleRecordSet.tileFilters(query, binding.context);
 	const routeSearch = Route.useSearch();
 
 	const {
@@ -65,13 +67,11 @@ function SamplesExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
-	} = useExplorerResource<SampleListRow>({
-		path: sampleRecordSet.endpoint.path,
-		rowsKey: sampleRecordSet.endpoint.rowsKey,
+	}: ExplorerResource<SampleListRow> = useExplorerResource({
+		set: sampleRecordSet,
+		binding,
+		tileset: 'samples',
 		rowKey: 'sample',
-		recordType: 'sample',
-		params: sampleRecordSet.listParams(filters),
-		tiles: { kind: 'samples', filters },
 		summarize: true,
 	});
 

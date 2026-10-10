@@ -29,7 +29,10 @@ import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import {
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
 import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
@@ -56,9 +59,6 @@ function BiocontrolExplorerRoute() {
 	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const unitById = useUnitLabels().byId;
 
-	// The server tiles + list read the same filter shape, so the map and the paged
-	// rail stay in lockstep. Omitted keys (empty range / no toggle) drop out.
-	const filters = biocontrolRecordSet.tileFilters(query, binding.context);
 	const routeSearch = Route.useSearch();
 	const {
 		rows,
@@ -71,13 +71,11 @@ function BiocontrolExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
-	} = useExplorerResource<BiocontrolListRow>({
-		path: biocontrolRecordSet.endpoint.path,
-		rowsKey: biocontrolRecordSet.endpoint.rowsKey,
+	}: ExplorerResource<BiocontrolListRow> = useExplorerResource({
+		set: biocontrolRecordSet,
+		binding,
+		tileset: 'biocontrol',
 		rowKey: 'biocontrolAction',
-		recordType: 'biocontrolAction',
-		params: biocontrolRecordSet.listParams(filters),
-		tiles: { kind: 'biocontrol', filters },
 		summarize: true,
 	});
 

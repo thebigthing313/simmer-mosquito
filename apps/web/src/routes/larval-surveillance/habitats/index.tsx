@@ -20,7 +20,10 @@ import { HABITAT_STATUS_COLORS, MAP_CREATE_TARGETS } from '../../../components/m
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import {
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
 import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { catalogs } from '../../../hooks/queries/catalog-register';
@@ -64,7 +67,6 @@ function HabitatsExplorerRoute() {
 
 	const { nameById: typeNameById } = useCatalogOptions(catalogs.habitatTypes);
 
-	const filters = habitatRecordSet.tileFilters(query, binding.context);
 	const [clustered] = useMapClustering();
 	const legend = habitatLegend(query.status, query.access, clustered);
 	const routeSearch = Route.useSearch();
@@ -80,13 +82,11 @@ function HabitatsExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
-	} = useExplorerResource<HabitatListRow>({
-		path: habitatRecordSet.endpoint.path,
-		rowsKey: habitatRecordSet.endpoint.rowsKey,
+	}: ExplorerResource<HabitatListRow> = useExplorerResource({
+		set: habitatRecordSet,
+		binding,
+		tileset: 'habitats',
 		rowKey: 'habitat',
-		recordType: 'habitat',
-		params: habitatRecordSet.listParams(filters),
-		tiles: { kind: 'habitats', filters },
 		summarize: true,
 	});
 	// Tags for the rows actually on screen, so the subset request stays small.

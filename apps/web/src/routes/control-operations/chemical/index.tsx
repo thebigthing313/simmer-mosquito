@@ -25,7 +25,10 @@ import { RecordSetSwitch } from '../../../components/explorer/record-set-switch'
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import {
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
 import { useInsecticideOptions } from '../../../hooks/explorer/use-insecticide-options';
 import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { catalogs } from '../../../hooks/queries/catalog-register';
@@ -53,9 +56,6 @@ function ApplicationsExplorerRoute() {
 	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const unitById = useUnitLabels().byId;
 
-	// The server tiles + list read the same filter shape, so the map and the paged
-	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
-	const filters = applicationRecordSet.tileFilters(query, binding.context);
 	const routeSearch = Route.useSearch();
 	const {
 		rows,
@@ -68,13 +68,11 @@ function ApplicationsExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
-	} = useExplorerResource<ApplicationListRow>({
-		path: applicationRecordSet.endpoint.path,
-		rowsKey: applicationRecordSet.endpoint.rowsKey,
+	}: ExplorerResource<ApplicationListRow> = useExplorerResource({
+		set: applicationRecordSet,
+		binding,
+		tileset: 'chemical',
 		rowKey: 'application',
-		recordType: 'application',
-		params: applicationRecordSet.listParams(filters),
-		tiles: { kind: 'chemical', filters },
 		normalizeRow: normalizeApplication,
 		summarize: true,
 	});

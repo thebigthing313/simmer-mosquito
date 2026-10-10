@@ -25,7 +25,10 @@ import { RecordSetSwitch } from '../../../components/explorer/record-set-switch'
 import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import {
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
 import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
@@ -52,9 +55,6 @@ function SourceReductionExplorerRoute() {
 	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const unitById = useUnitLabels().byId;
 
-	// The server tiles + list read the same filter shape, so the map and the paged
-	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
-	const filters = sourceReductionRecordSet.tileFilters(query, binding.context);
 	const routeSearch = Route.useSearch();
 	const {
 		rows,
@@ -67,13 +67,11 @@ function SourceReductionExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
-	} = useExplorerResource<SourceReductionListRow>({
-		path: sourceReductionRecordSet.endpoint.path,
-		rowsKey: sourceReductionRecordSet.endpoint.rowsKey,
+	}: ExplorerResource<SourceReductionListRow> = useExplorerResource({
+		set: sourceReductionRecordSet,
+		binding,
+		tileset: 'source-reduction',
 		rowKey: 'sourceReduction',
-		recordType: 'sourceReduction',
-		params: sourceReductionRecordSet.listParams(filters),
-		tiles: { kind: 'source-reduction', filters },
 		summarize: true,
 	});
 
