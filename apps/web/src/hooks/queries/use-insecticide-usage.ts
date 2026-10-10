@@ -12,11 +12,11 @@
  * The product name is still joined, so the caller sorts by a name it was handed.
  */
 
-import { coalesce, gte, useLiveQuery } from '@tanstack/react-db';
+import { gte, useLiveQuery } from '@tanstack/react-db';
 import { applications } from '../../lib/collections/applications';
 import { insecticides } from '../../lib/collections/insecticides';
 import { PERFORMED_ACTIONS } from './performed-action-reads';
-import { activityGcTimeMs } from './shared';
+import { activityGcTimeMs, joinedOrNull } from './shared';
 
 const applicationReads = PERFORMED_ACTIONS.applications;
 
@@ -49,7 +49,7 @@ export function useInsecticideUsage(sinceDate: string): {
 					const measured = applicationReads.measured(application);
 					return {
 						insecticideId: measured.productId,
-						name: coalesce(product.trade_name, null),
+						name: joinedOrNull(product.trade_name),
 						amountApplied: measured.amount,
 						unitId: measured.unitId,
 					};

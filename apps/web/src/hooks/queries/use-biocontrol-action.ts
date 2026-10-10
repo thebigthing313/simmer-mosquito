@@ -7,7 +7,7 @@
  * Three sequential queries before: the action, then its method, then its unit.
  */
 
-import { coalesce, eq } from '@tanstack/react-db';
+import { eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
 import { biocontrol_methods } from '../../lib/collections/biocontrol_methods';
@@ -15,7 +15,7 @@ import { profiles } from '../../lib/collections/profiles';
 import { units } from '../../lib/collections/units';
 import type { BiocontrolAction } from './control-action-view';
 import { controlActionBaseSelect, PERFORMED_ACTIONS } from './performed-action-reads';
-import { addressSelect, useRecordById } from './shared';
+import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
 const releaseReads = PERFORMED_ACTIONS.releases;
 
@@ -68,13 +68,13 @@ export function useBiocontrolAction(
 						actionDate: releaseReads.date(action),
 
 						methodId: measured.methodId,
-						methodName: coalesce(method.name, null),
+						methodName: joinedOrNull(method.name),
 						technicianProfileId: measured.performerProfileId,
-						technicianName: coalesce(technician.display_name, null),
+						technicianName: joinedOrNull(technician.display_name),
 
 						amountReleased: measured.amount,
 						unitId: measured.unitId,
-						unitAbbreviation: coalesce(unit.abbreviation, null),
+						unitAbbreviation: joinedOrNull(unit.abbreviation),
 						habitatId: action.habitat_id,
 						...controlActionBaseSelect(action),
 					};
