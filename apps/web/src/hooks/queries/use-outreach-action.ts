@@ -7,7 +7,7 @@
  * Two sequential queries before: the action, then the method that titles it.
  */
 
-import { caseWhen, coalesce, eq, isNull } from '@tanstack/react-db';
+import { coalesce, eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { outreach_actions } from '../../lib/collections/outreach_actions';
 import { outreach_methods } from '../../lib/collections/outreach_methods';
@@ -62,13 +62,9 @@ export function useOutreachAction(
 						outreachDate: outreachReads.date(action),
 
 						methodId: measured.methodId,
-						methodName: coalesce(method.name, 'Unknown method'),
+						methodName: coalesce(method.name, null),
 						technicianProfileId: measured.performerProfileId,
-						technicianName: caseWhen(
-							isNull(measured.performerProfileId),
-							null,
-							technician.display_name,
-						),
+						technicianName: coalesce(technician.display_name, null),
 
 						reach: measured.amount,
 						reachDescription: action.reach_description,

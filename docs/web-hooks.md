@@ -2208,6 +2208,17 @@ inside a function, never a column name in a string, so a misspelled column
 fails `tsc` in that file rather than answering `undefined`. #1498 checked it by
 renaming two columns there and reading two TS2551s.
 
+Every hook that reads a performed control action returns each joined name,
+the performer, the method and the insecticide, as
+`coalesce(joined.name, null)`. The name is `null` both when nothing was
+recorded and when the record is not in the client, which is permanent for a
+deleted Profile because the Profile shape streams live rows only. So the
+surface reads the id beside the name to tell the two apart and draws its own
+`Unknown method` or `No method`; the hook draws neither. A `caseWhen` guarded
+on the foreign key used to yield `undefined` for the second case under a
+`string | null` type, and the Chemical Application map card drew an empty
+applicator row for it (#1501).
+
 #### useInspection and useHabitatSuspense
 
 The two larval detail pages' own records, read off the synced rows with their
