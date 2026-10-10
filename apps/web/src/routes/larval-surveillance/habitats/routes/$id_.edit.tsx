@@ -486,19 +486,20 @@ function EditStopList({
 			{stops.map((stop, index) => (
 				<EditStopRow
 					canSubmit={canSubmit}
+					count={stops.length}
+					focus={{
+						selected: stop.routeItemId === selectedStopId,
+						highlighted: stop.routeItemId === highlightId,
+						onSelect,
+						onHover,
+					}}
 					index={index}
-					isFirst={index === 0}
-					isHighlighted={stop.routeItemId === highlightId}
-					isLast={index === stops.length - 1}
-					isSelected={stop.routeItemId === selectedStopId}
 					key={stop.routeItemId}
 					onEditAddress={onEditAddress}
-					onHover={onHover}
 					onMove={onMove}
 					onRemove={onRemove}
 					onSaveDescription={onSaveDescription}
 					onSaveDirections={onSaveDirections}
-					onSelect={onSelect}
 					ordinal={index + 1}
 					sameAddressAsPrev={
 						index > 0 && stop.addressId !== null && stops[index - 1]?.addressId === stop.addressId

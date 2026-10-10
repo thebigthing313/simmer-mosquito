@@ -36,21 +36,26 @@ const MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
  * everywhere and live here; "Remove from route" / "Remove from assignment" /
  * "Edit linked address…" are the surface's own and are passed in, already
  * separated, so the menu reads in the caller's vocabulary.
+ *
+ * Takes the stop's `index`, the list's `count`, `onMove` and the optional
+ * `extraActions`, and disables the moves that would leave either end.
  */
 export function StopReorderControls({
 	index,
-	isFirst,
-	isLast,
+	count,
 	onMove,
 	extraActions,
 }: {
 	readonly index: number;
-	readonly isFirst: boolean;
-	readonly isLast: boolean;
+	/** How many stops the list holds, which is what says where its ends are. */
+	readonly count: number;
 	readonly onMove: (index: number, action: MoveAction) => void;
 	/** Menu items below the jumps, e.g. remove. Rendered after a separator. */
 	readonly extraActions?: ReactNode;
 }) {
+	const isFirst = index === 0;
+	const isLast = index === count - 1;
+
 	return (
 		<div className="pointer-events-auto flex shrink-0 items-center gap-0.5">
 			<Tooltip>
