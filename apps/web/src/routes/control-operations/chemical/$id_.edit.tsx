@@ -35,6 +35,7 @@ import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { APPLICATION_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
@@ -194,17 +195,31 @@ function EditApplicationLoader({
 						}),
 				acknowledgements,
 			});
+			// The update has landed by now, so a miss on the crew or the batches is
+			// reported rather than thrown (see attachLinksBestEffort). Each reports
+			// on its own, so one failing does not hide the other, and both can lose
+			// rows as well as gain them, so the report is a change to retry here.
 			await Promise.all([
-				setPersonnel({
-					target: { type: 'application', id: application.id },
-					existing: personnel.rows,
-					profileIds: values.additionalPersonnelIds,
-				}),
-				setBatches({
-					applicationId: application.id,
-					existing: batches.rows,
-					insecticideBatchIds: values.insecticideBatchIds,
-				}),
+				attachLinksBestEffort(
+					'the additional personnel',
+					() =>
+						setPersonnel({
+							target: { type: 'application', id: application.id },
+							existing: personnel.rows,
+							profileIds: values.additionalPersonnelIds,
+						}),
+					{ write: 'change', recordType: 'application' },
+				),
+				attachLinksBestEffort(
+					'the insecticide batches',
+					() =>
+						setBatches({
+							applicationId: application.id,
+							existing: batches.rows,
+							insecticideBatchIds: values.insecticideBatchIds,
+						}),
+					{ write: 'change', recordType: 'application' },
+				),
 			]);
 			await navigate({ to: '/control-operations/chemical/$id', params: { id: application.id } });
 		});

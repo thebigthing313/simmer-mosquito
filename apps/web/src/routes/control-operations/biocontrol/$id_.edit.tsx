@@ -25,6 +25,7 @@ import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/us
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
+import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { noTechnicianValue } from '../../../lib/no-technician';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -140,11 +141,19 @@ function EditBiocontrolActionLoader({
 						},
 					}),
 		});
-		await setPersonnel({
-			target: { type: 'biocontrolAction', id: action.id },
-			existing: personnel.rows,
-			profileIds: values.additionalPersonnelIds,
-		});
+		// The update has landed by now, so a crew miss is reported rather than
+		// thrown (see attachLinksBestEffort). The crew can lose rows here as well as
+		// gain them, so the report is a change to retry from this form.
+		await attachLinksBestEffort(
+			'the additional personnel',
+			() =>
+				setPersonnel({
+					target: { type: 'biocontrolAction', id: action.id },
+					existing: personnel.rows,
+					profileIds: values.additionalPersonnelIds,
+				}),
+			{ write: 'change', recordType: 'biocontrolAction' },
+		);
 		await navigate({ to: '/control-operations/biocontrol/$id', params: { id: action.id } });
 	};
 
