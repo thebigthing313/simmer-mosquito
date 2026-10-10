@@ -192,7 +192,7 @@ export function GeometryImportDialog({
 						type="file"
 					/>
 					<Button onClick={() => fileInputRef.current?.click()} type="button" variant="outline">
-						<UploadIcon aria-hidden="true" data-icon="inline-start" />
+						<UploadIcon aria-hidden="true" />
 						{parsed === null ? 'Choose KML, KMZ, or GeoJSON File' : 'Choose a Different File'}
 					</Button>
 

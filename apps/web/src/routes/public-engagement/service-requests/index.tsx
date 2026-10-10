@@ -5,6 +5,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow, SegmentedFilter } from '../../../components/explorer';
 import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
+import { surfaceCodecs } from '../../../components/explorer/record-set';
 import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { MAP_CREATE_TARGETS, SERVICE_REQUEST_STATUS_COLORS } from '../../../components/map';
 import {
@@ -24,48 +25,44 @@ import {
 	type ServiceRequestFilterChipProps,
 	ServiceRequestFilterFields,
 } from '../../../components/public-engagement/service-requests/service-request-filters';
-import {
-	SERVICE_REQUESTS_PATH,
-	type ServiceRequestListing,
-	serviceRequestPageParams,
-	serviceRequestTileFilters,
-} from '../../../components/public-engagement/service-requests/service-request-listing';
+import type { ServiceRequestListing } from '../../../components/public-engagement/service-requests/service-request-listing';
 import { ServiceRequestSummaryPanel } from '../../../components/public-engagement/service-requests/service-request-summary-panel';
 import {
-	countedServiceRequestFilters,
 	SERVICE_REQUEST_ORDER_OPTIONS,
 	type ServiceRequestRailOrder,
 	type ServiceRequestRailSearch,
-	serviceRequestFilterCodecs,
+	serviceRequestOrderParams,
+	serviceRequestOverdueCutoffFor,
 	serviceRequestRailOrderCodecs,
 	serviceRequestRecordSet,
 } from '../../../components/public-engagement/service-requests/service-requests-search';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import {
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
-import { useServiceRequestFilterDefaults } from '../../../hooks/public-engagement/use-service-request-filter-defaults';
 import type { Address } from '../../../hooks/queries/address-view';
 import type { ContactSummary } from '../../../hooks/queries/contact-view';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { useRequestParties } from '../../../hooks/queries/use-request-parties';
-import { useDebouncedTextFilter } from '../../../hooks/use-debounced-text-filter';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
-import { type RecordType, recordNoun } from '../../../lib/record-nouns';
-import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
+import { recordNoun } from '../../../lib/record-nouns';
+import { searchValidator } from '../../../lib/search-filters';
 
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
-const RECORD_TYPE: RecordType = 'serviceRequest';
 const ORDER_DEFAULTS: ServiceRequestRailSearch = { order: 'newest' };
 const EMPTY_TAGS: readonly Tag[] = [];
 
 export const Route = createFileRoute('/public-engagement/service-requests/')({
 	component: ServiceRequestsExplorerRoute,
 	validateSearch: searchValidator({
-		...serviceRequestFilterCodecs,
+		...surfaceCodecs(serviceRequestRecordSet, 'map'),
 		...serviceRequestRailOrderCodecs,
 	}),
 });
@@ -79,8 +76,6 @@ function ServiceRequestsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a
 	// request both land on the list the operator had narrowed to. An address with
 	// no params opens on every request received this year, open or closed.
-	const { defaults, today, overdueCutoff } = useServiceRequestFilterDefaults();
-	const overdueAvailable = overdueCutoff !== null;
 	const { filters: railOrder, setFilters: setRailOrder } = useSearchFilters(
 		ORDER_DEFAULTS,
 		serviceRequestRailOrderCodecs,
@@ -88,14 +83,17 @@ function ServiceRequestsExplorerRoute() {
 	const {
 		filters: query,
 		setFilters,
-		reset,
-		activeCount: urlFilterCount,
-	} = useSearchFilters(defaults, serviceRequestFilterCodecs, DATE_RANGE_COUNTING);
-	const activeFilterCount = countedServiceRequestFilters(
-		urlFilterCount,
-		query.overdue,
-		overdueAvailable,
-	);
+		activeCount: activeFilterCount,
+		defaults,
+		today,
+		searchInput: search,
+		setSearchInput: setSearch,
+		clearSearch,
+		clearAll,
+		context,
+	} = useRecordSetFilters(serviceRequestRecordSet, 'map');
+	const overdueCutoff = serviceRequestOverdueCutoffFor(context);
+	const overdueAvailable = overdueCutoff !== null;
 	const dateRange = useDateRangeFilters({ from: query.from, to: query.to, today, setFilters });
 	const status = query.status;
 	const selectedTagIds = query.tags;
@@ -103,25 +101,6 @@ function ServiceRequestsExplorerRoute() {
 	const setStatus = (next: ServiceRequestStatusFilter) => setFilters({ status: next });
 	const setSelectedTagIds = (next: ReadonlySet<string>) => setFilters({ tags: next });
 	const setSelectedRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
-	const commitSearch = (next: string) => setFilters({ search: next });
-	const {
-		input: search,
-		setInput: setSearch,
-		clear: clearSearchInput,
-	} = useDebouncedTextFilter(query.search, commitSearch);
-	// Both halves: the field the operator is looking at, and the committed term on
-	// the URL that is actually cutting the list.
-	const clearSearch = () => {
-		clearSearchInput();
-		commitSearch('');
-	};
-	// Both halves: the field the operator is looking at, and the params on the
-	// URL that are actually cutting the list. `reset` drops every filter param in
-	// one navigation, which lands on the defaults rather than writing them out.
-	const clearAll = () => {
-		clearSearchInput();
-		reset();
-	};
 	const routeSearch = Route.useSearch();
 	const regions = useRegionOptions();
 	const panel = useExplorerPanel();
@@ -131,7 +110,6 @@ function ServiceRequestsExplorerRoute() {
 	// the map and the rail stay in lockstep. The rail used to filter and page the
 	// whole Organization's requests out of the sync collection and draw them as a
 	// GeoJSON overlay, 1,180 rows in the prod clone over three years (#963).
-	const filters = serviceRequestTileFilters(query, overdueCutoff);
 	const {
 		rows,
 		total,
@@ -143,13 +121,12 @@ function ServiceRequestsExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
-	} = useExplorerResource<ServiceRequestListing>({
-		path: SERVICE_REQUESTS_PATH,
-		rowsKey: 'serviceRequests',
+	}: ExplorerResource<ServiceRequestListing> = useExplorerResource({
+		set: serviceRequestRecordSet,
+		binding: { filters: query, context },
+		tileset: 'service-requests',
 		rowKey: 'serviceRequest',
-		recordType: RECORD_TYPE,
-		params: serviceRequestPageParams(filters, railOrder.order),
-		tiles: { kind: 'service-requests', filters },
+		params: serviceRequestOrderParams(railOrder.order),
 		// A pick moves the map to the record and leaves the list as it was, so
 		// the reader working down the queue does not lose their place.
 		holdRailOnSelect: true,

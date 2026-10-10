@@ -1,4 +1,4 @@
-import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
+import type { MapQueryValue } from '../../../lib/map-query-params';
 import { type FilterCodecs, idSetParam, textParam } from '../../../lib/search-filters';
 import { defineRecordSet } from '../../explorer/record-set';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
@@ -46,5 +46,10 @@ export const addressRecordSet = defineRecordSet({
 	recordType: 'address',
 	paths: { map: '/gis/addresses', table: '/gis/addresses/table' },
 	codecs: addressFilterCodecs,
+	endpoint: { path: '/map/addresses', rowsKey: 'addresses' },
+	tileFilters: addressTileFilters,
+	listParams: addressListParams,
+	defaults: () => ADDRESS_FILTER_DEFAULTS,
+	textSearch: { key: 'search' },
 	applies: { search: 'both', regions: 'both' },
 });

@@ -4,6 +4,7 @@ import {
 	choiceSetParam,
 	DATE_RANGE_COUNTING,
 	dateParam,
+	type FilterBinding,
 	type FilterCodecs,
 	idSetParam,
 } from '../../lib/search-filters';
@@ -45,23 +46,12 @@ function assignmentFilterDefaults(today: string): AssignmentFilters {
 	};
 }
 
-/** The Assignments filter set on the URL, and what it resets to. */
-export interface AssignmentFilterBinding {
-	readonly filters: AssignmentFilters;
-	readonly setFilters: (patch: Partial<AssignmentFilters>) => void;
-	readonly reset: () => void;
-	readonly activeCount: number;
-	readonly defaults: AssignmentFilters;
-	/** The Organization's today, which the schedule window is measured from. */
-	readonly today: string;
-}
-
 /**
  * The filters the Assignments index reads, held on the URL through
  * `assignmentFilterCodecs`. A window moved off the schedule window counts as
  * one active filter.
  */
-export function useAssignmentFilterState(): AssignmentFilterBinding {
+export function useAssignmentFilterState(): FilterBinding<AssignmentFilters> {
 	const timeZone = useOrganizationTimeZone();
 	const today = todayInTimeZone(timeZone);
 	const defaults = assignmentFilterDefaults(today);

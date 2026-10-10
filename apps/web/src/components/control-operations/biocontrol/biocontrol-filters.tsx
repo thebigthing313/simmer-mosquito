@@ -3,14 +3,14 @@
  * Table: the date window, the Method, Technician and Region popovers, the
  * Habitat-linked toggle, and the chips for whatever is set. It returns the
  * blocks bare, so each surface puts them in its own frame. Takes the binding
- * from `useBiocontrolFilterState`.
+ * from `useRecordSetFilters`.
  */
 
-import type { BiocontrolFilterBinding } from '../../../hooks/control-operations/use-biocontrol-filter-state';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { catalogs } from '../../../hooks/queries/catalog-register';
+import type { FilterBinding } from '../../../lib/search-filters';
 import { DateRangeFilter } from '../../date-range-filter';
 import {
 	ActiveFilterBar,
@@ -22,12 +22,13 @@ import {
 	ToggleFilter,
 	toggle,
 } from '../../explorer';
+import type { BiocontrolFilters } from './biocontrol-actions-search';
 
 export function BiocontrolFilterFields({
 	binding,
 	wide = false,
 }: {
-	readonly binding: BiocontrolFilterBinding;
+	readonly binding: FilterBinding<BiocontrolFilters>;
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
@@ -85,7 +86,11 @@ export function BiocontrolFilterFields({
  * draws these under its controls, and the Biocontrol Actions summary draws
  * them above its groupings.
  */
-export function BiocontrolFilterChips({ binding }: { readonly binding: BiocontrolFilterBinding }) {
+export function BiocontrolFilterChips({
+	binding,
+}: {
+	readonly binding: FilterBinding<BiocontrolFilters>;
+}) {
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.biocontrolMethods);
 	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const { nameById: regionNameById } = useRegionOptions();

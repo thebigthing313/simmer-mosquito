@@ -13,17 +13,18 @@ import { HabitatMapCard } from '../../../components/larval-surveillance/habitats
 import { habitatSummaryGroupings } from '../../../components/larval-surveillance/habitats/habitat-summary';
 import {
 	habitatFilterCodecs,
-	habitatListParams,
 	habitatRecordSet,
-	habitatTileFilters,
 } from '../../../components/larval-surveillance/habitats/habitats-search';
 import { habitatLegend } from '../../../components/larval-surveillance/habitats/legend';
 import { HABITAT_STATUS_COLORS, MAP_CREATE_TARGETS } from '../../../components/map';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { useHabitatFilterState } from '../../../hooks/larval-surveillance/use-habitat-filter-state';
+import {
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { Tag } from '../../../hooks/queries/tag-view';
@@ -35,8 +36,6 @@ export const Route = createFileRoute('/larval-surveillance/habitats/')({
 	component: HabitatsExplorerRoute,
 	validateSearch: searchValidator(habitatFilterCodecs),
 });
-
-const PATH = '/map/habitats';
 
 const NO_TAGS: readonly Tag[] = [];
 
@@ -62,13 +61,12 @@ interface HabitatListRow {
 }
 
 function HabitatsExplorerRoute() {
-	const binding = useHabitatFilterState();
+	const binding = useRecordSetFilters(habitatRecordSet, 'map');
 	const { filters: query, activeCount: activeFilterCount, clearAll, setFilters } = binding;
 	const panel = useExplorerPanel();
 
 	const { nameById: typeNameById } = useCatalogOptions(catalogs.habitatTypes);
 
-	const filters = habitatTileFilters(query);
 	const [clustered] = useMapClustering();
 	const legend = habitatLegend(query.status, query.access, clustered);
 	const routeSearch = Route.useSearch();
@@ -84,13 +82,11 @@ function HabitatsExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
-	} = useExplorerResource<HabitatListRow>({
-		path: PATH,
-		rowsKey: 'habitats',
+	}: ExplorerResource<HabitatListRow> = useExplorerResource({
+		set: habitatRecordSet,
+		binding,
+		tileset: 'habitats',
 		rowKey: 'habitat',
-		recordType: 'habitat',
-		params: habitatListParams(filters),
-		tiles: { kind: 'habitats', filters },
 		summarize: true,
 	});
 	// Tags for the rows actually on screen, so the subset request stays small.

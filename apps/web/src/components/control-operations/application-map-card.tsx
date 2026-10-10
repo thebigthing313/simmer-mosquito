@@ -49,7 +49,7 @@ export function ApplicationMapCard({
 			eyebrow={<MapCardEyebrow date={application.actionDate} recordType="application" />}
 			inset={inset}
 			onClose={onClose}
-			title={application.productName ?? 'Unknown product'}
+			title={application.productName ?? 'Unknown insecticide'}
 			viewDetailLink={(content) => (
 				<Link params={{ id: application.id }} to="/control-operations/chemical/$id">
 					{content}

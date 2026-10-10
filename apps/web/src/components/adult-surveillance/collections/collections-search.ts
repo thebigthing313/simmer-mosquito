@@ -1,6 +1,12 @@
-import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
 import { addDaysToDateString } from '../../../lib/local-date';
-import { dateParam, type FilterCodecs, flagParam, idSetParam } from '../../../lib/search-filters';
+import type { MapQueryValue } from '../../../lib/map-query-params';
+import {
+	DATE_RANGE_COUNTING,
+	dateParam,
+	type FilterCodecs,
+	flagParam,
+	idSetParam,
+} from '../../../lib/search-filters';
 import { defineRecordSet } from '../../explorer/record-set';
 import { whenAny, whenOn, whenText } from '../../explorer/tile-filter-params';
 import type { CollectionTileFilters } from '../../map';
@@ -86,6 +92,11 @@ export const collectionRecordSet = defineRecordSet({
 	recordType: 'collection',
 	paths: { map: '/adult-surveillance/collections', table: '/adult-surveillance/collections/table' },
 	codecs: collectionFilterCodecs,
+	endpoint: { path: '/map/collections', rowsKey: 'collections' },
+	tileFilters: collectionTileFilters,
+	listParams: collectionListParams,
+	defaults: ({ today }) => collectionFilterDefaults(today),
+	counting: DATE_RANGE_COUNTING,
 	applies: {
 		from: 'both',
 		to: 'both',

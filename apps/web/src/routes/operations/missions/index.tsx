@@ -116,7 +116,7 @@ function MissionsRoute() {
 						<WriteOnly minimum="manager">
 							<Button asChild size="sm">
 								<Link to="/operations/missions/create">
-									<PlusIcon aria-hidden="true" data-icon="inline-start" />
+									<PlusIcon aria-hidden="true" />
 									{createLabel('mission')}
 								</Link>
 							</Button>

@@ -178,7 +178,7 @@ describe('the Monthly page', () => {
 		// The select draws nothing for a value it has no item for, so the trigger
 		// reading the month is the extra item at the bottom of the list.
 		expect(screen.getByRole('combobox', { name: 'Month shown' }).textContent).toBe('May 2009');
-		expect(screen.getByRole('button', { name: 'Previous Month' })).toHaveProperty('disabled', true);
+		expect(screen.getByRole('button', { name: 'Previous month' })).toHaveProperty('disabled', true);
 		expect(harness.navigate).not.toHaveBeenCalled();
 	});
 
@@ -187,8 +187,8 @@ describe('the Monthly page', () => {
 
 		await waitFor(() => screen.getByRole('table'));
 
-		expect(screen.getByRole('button', { name: 'Next Month' })).toHaveProperty('disabled', true);
-		expect(screen.getByRole('button', { name: 'Previous Month' })).toHaveProperty(
+		expect(screen.getByRole('button', { name: 'Next month' })).toHaveProperty('disabled', true);
+		expect(screen.getByRole('button', { name: 'Previous month' })).toHaveProperty(
 			'disabled',
 			false,
 		);

@@ -118,7 +118,7 @@ function untaggableHeader() {
 
 async function openMenu(): Promise<readonly string[]> {
 	fireEvent.pointerDown(
-		screen.getByRole('button', { name: 'More Actions' }),
+		screen.getByRole('button', { name: 'More actions' }),
 		new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
 	);
 	await screen.findAllByRole('menuitem');
@@ -170,6 +170,6 @@ describe('the tag picker in the detail header', () => {
 		);
 
 		expect(screen.getByText('Standing water')).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
 	});
 });

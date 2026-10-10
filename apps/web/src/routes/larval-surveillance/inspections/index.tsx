@@ -21,14 +21,10 @@ import {
 	InspectionFilterChips,
 	type InspectionFilterSetters,
 	type InspectionFilterState,
+	inspectionFilterBinding,
 	WETNESS_OPTIONS,
 } from '../../../components/larval-surveillance/inspection-filters';
-import {
-	INSPECTIONS_PATH,
-	type InspectionListing,
-	inspectionQueryParams,
-	inspectionTileFilters,
-} from '../../../components/larval-surveillance/inspection-listing';
+import type { InspectionListing } from '../../../components/larval-surveillance/inspection-listing';
 import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
 import { inspectionSummaryGroupings } from '../../../components/larval-surveillance/inspections/inspection-summary';
 import { inspectionLegend } from '../../../components/larval-surveillance/inspections/legend';
@@ -45,17 +41,20 @@ import {
 import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import {
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import {
 	type InspectionFilterOptions,
 	useInspectionFilterOptions,
 } from '../../../hooks/larval-surveillance/use-inspection-filter-options';
-import { useInspectionFilterState } from '../../../hooks/larval-surveillance/use-inspection-filter-state';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
-import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
+import { searchValidator } from '../../../lib/search-filters';
 
 const InspectionEntityIcon = iconRegistry.entities.inspection.icon;
 
@@ -79,6 +78,7 @@ function inspectionsHeading(total: number, isLoading: boolean) {
 }
 
 function InspectionsExplorerRoute() {
+	const binding = useRecordSetFilters(inspectionRecordSet, 'map');
 	const {
 		activeCount: activeFilterCount,
 		defaults,
@@ -87,7 +87,7 @@ function InspectionsExplorerRoute() {
 		setFilters,
 		state,
 		today,
-	} = useInspectionFilterState(DATE_RANGE_COUNTING, 'last-30-days');
+	} = inspectionFilterBinding(binding);
 	const { dateFrom, dateTo, densities, wetness } = state;
 
 	const panel = useExplorerPanel();
@@ -95,7 +95,6 @@ function InspectionsExplorerRoute() {
 	const routeSearch = Route.useSearch();
 
 	const filterOptions = useInspectionFilterOptions();
-	const filters = inspectionTileFilters(state);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 	const {
 		rows,
@@ -108,13 +107,11 @@ function InspectionsExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
-	} = useExplorerResource<InspectionListing>({
-		path: INSPECTIONS_PATH,
-		rowsKey: 'inspections',
+	}: ExplorerResource<InspectionListing> = useExplorerResource({
+		set: inspectionRecordSet,
+		binding,
+		tileset: 'inspections',
 		rowKey: 'inspection',
-		recordType: 'inspection',
-		params: inspectionQueryParams(filters),
-		tiles: { kind: 'inspections', filters },
 		summarize: true,
 	});
 	const [clustered] = useMapClustering();

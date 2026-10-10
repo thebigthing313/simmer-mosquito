@@ -5,7 +5,7 @@ import {
 	sampleListParams,
 	sampleTileFilters,
 } from '../../../../components/larval-surveillance/samples-search';
-import { mapQueryParams } from '../../../../hooks/explorer/use-paged-map-resource';
+import { mapQueryParams } from '../../../../lib/map-query-params';
 import { resolveFilters } from '../../../../lib/search-filters';
 
 describe('the samples filter contract', () => {

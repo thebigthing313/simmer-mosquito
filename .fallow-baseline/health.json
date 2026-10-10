@@ -210,6 +210,11 @@
         "count": 1
       }
     },
+    "apps/web/src/components/larval-surveillance/habitats/route-stop-edit-row.tsx": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
     "apps/web/src/components/map/biocontrol-tiles.ts": {
       "crap_high": {
         "count": 1
@@ -421,9 +426,6 @@
     },
     "apps/web/src/routes/larval-surveillance/habitats/routes/$id_.edit.tsx": {
       "complexity_high": {
-        "count": 1
-      },
-      "complexity_moderate": {
         "count": 1
       },
       "crap_high": {
