@@ -1,26 +1,19 @@
 import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
+import { type MapFiltersOf, REGION_MAP_FILTERS } from '@simmer-mosquito/domain';
 import type {
 	ExpressionSpecification,
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
-import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
+import { tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
- * Server-side filters for the region vector tiles. Mirrors the query params the
- * `/map/tiles/regions/{z}/{x}/{y}.mvt` endpoint understands.
+ * The filters the `regions` tiles and extent draw under, typed off the
+ * spec in `@simmer-mosquito/domain` the server parses them with. `ids`
+ * narrows the extent alone: the tiles stream every region and hide the rest
+ * through {@link regionVisibilityFilter}.
  */
-export interface RegionTileFilters {
-	/** A folder id, or the literal `'unfiled'` for folderless regions. */
-	readonly regionFolderId?: string;
-	readonly search?: string;
-	/**
-	 * An explicit region id set. The tiles stream every region and hide the rest
-	 * through {@link regionVisibilityFilter}, so this narrows the extent request
-	 * only — it is what lets the camera frame the ticked regions alone.
-	 */
-	readonly ids?: readonly string[];
-}
+export type RegionTileFilters = MapFiltersOf<typeof REGION_MAP_FILTERS>;
 
 export const REGION_SOURCE_ID = 'regions';
 const REGION_SOURCE_LAYER = 'regions';
@@ -49,29 +42,12 @@ export const REGION_LAYER_IDS = [
 
 /** Build the tile template URL with the active filters folded into the query. */
 export function buildRegionTileUrl(serverUrl: string, filters?: RegionTileFilters): string {
-	return tileTemplateUrl(serverUrl, REGION_SOURCE_ID, regionTileParams(filters));
+	return tileTemplateUrl(serverUrl, REGION_SOURCE_ID, tileFilterQuery(REGION_MAP_FILTERS, filters));
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */
 export function buildRegionExtentUrl(serverUrl: string, filters?: RegionTileFilters): string {
-	return tileExtentUrl(serverUrl, REGION_SOURCE_ID, regionTileParams(filters));
-}
-
-function regionTileParams(filters?: RegionTileFilters): URLSearchParams {
-	const params = new URLSearchParams();
-
-	if (filters?.regionFolderId !== undefined && filters.regionFolderId.length > 0) {
-		params.set('regionFolderId', filters.regionFolderId);
-	}
-	const search = filters?.search?.trim();
-	if (search !== undefined && search.length > 0) {
-		params.set('search', search);
-	}
-	if (filters?.ids !== undefined && filters.ids.length > 0) {
-		params.set('id', [...filters.ids].sort().join(','));
-	}
-
-	return params;
+	return tileExtentUrl(serverUrl, REGION_SOURCE_ID, tileFilterQuery(REGION_MAP_FILTERS, filters));
 }
 
 /**

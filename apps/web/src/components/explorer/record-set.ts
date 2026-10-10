@@ -1,6 +1,10 @@
-import type { OrganizationSettings } from '@simmer-mosquito/domain';
+import {
+	encodeMapFilterParams,
+	type MapFilterSpec,
+	type MapFiltersOf,
+	type OrganizationSettings,
+} from '@simmer-mosquito/domain';
 import type { LinkProps } from '@tanstack/react-router';
-import type { MapQueryValue } from '../../lib/map-query-params';
 import type { RecordType } from '../../lib/record-nouns';
 import type { FilterCodecs, FilterCounting, SearchCodec } from '../../lib/search-filters';
 import type { MapTileLayer } from '../map/tile-layers';
@@ -120,9 +124,11 @@ type RecordSetTileset<TTile> = {
 /**
  * One Map/Table pair over one record type and one filter contract.
  *
- * `TFilters` is inferred from `codecs` alone and `TTile` from `tileFilters`,
- * so everything else is checked against them rather than widening them: a
- * misspelled key, a missing key and a tileset drawing other filters all fail.
+ * `TFilters` is inferred from `codecs` alone and `TTile` is the filters the
+ * set's `filterSpec` declares, so everything else is checked against them
+ * rather than widening them: a misspelled key, a missing key, an adapter
+ * writing a key the spec does not hold and a tileset drawing other filters all
+ * fail.
  */
 export interface RecordSet<TFilters, TTile = unknown> extends RecordSetLinks<TFilters> {
 	/**
@@ -153,15 +159,19 @@ export interface RecordSet<TFilters, TTile = unknown> extends RecordSetLinks<TFi
 	 * would then pass where a set over any tile is asked for (#1588).
 	 */
 	readonly tileFilters: (filters: TFilters, context: RecordSetContext) => TTile;
-	/** The tile filters as the list endpoint's query params. */
-	readonly listParams: (tile: TTile) => Readonly<Record<string, MapQueryValue>>;
+	/**
+	 * The `/map/*` filter spec in `@simmer-mosquito/domain` that the server
+	 * parses this set's requests with. The tile URL, the extent URL and the list
+	 * request are all encoded from it, so no param name is written here.
+	 */
+	readonly filterSpec: MapFilterSpec;
 }
 
 /**
  * Declares a record set. An identity at runtime; what it adds is the
  * inference, so every other field is read against the keys `codecs` declares.
  */
-export function defineRecordSet<TFilters, TTile>(
+export function defineRecordSet<TFilters, const TSpec extends MapFilterSpec>(
 	definition: Omit<RecordSetLinks<TFilters>, 'applies'> & {
 		readonly applies: { readonly [Key in keyof NoInfer<TFilters>]-?: AppliedOn };
 		readonly defaults: (context: RecordSetContext, surface: RecordSetSurface) => NoInfer<TFilters>;
@@ -170,11 +180,14 @@ export function defineRecordSet<TFilters, TTile>(
 			| ((context: RecordSetContext) => FilterCounting<NoInfer<TFilters>>);
 		readonly textSearch?: TextSearch<NoInfer<TFilters>>;
 		readonly endpoint: RecordSetEndpoint;
-		readonly tileset: NoInfer<RecordSetTileset<TTile>>;
-		readonly tileFilters: (filters: NoInfer<TFilters>, context: RecordSetContext) => TTile;
-		readonly listParams: (tile: NoInfer<TTile>) => Readonly<Record<string, MapQueryValue>>;
+		readonly filterSpec: TSpec;
+		readonly tileset: NoInfer<RecordSetTileset<MapFiltersOf<TSpec>>>;
+		readonly tileFilters: (
+			filters: NoInfer<TFilters>,
+			context: RecordSetContext,
+		) => NoInfer<MapFiltersOf<TSpec>>;
 	},
-): RecordSet<TFilters, TTile> {
+): RecordSet<TFilters, MapFiltersOf<TSpec>> {
 	return definition;
 }
 
@@ -220,8 +233,21 @@ export function recordSetListParams<TFilters, TTile>(
 	set: RecordSet<TFilters, TTile>,
 	filters: TFilters,
 	context: RecordSetContext,
-): Readonly<Record<string, MapQueryValue>> {
-	return set.listParams(set.tileFilters(filters, context));
+): Readonly<Record<string, string>> {
+	return recordSetFilterParams(set, set.tileFilters(filters, context));
+}
+
+/**
+ * Tile filters as the wire params the set's spec encodes them to. An empty
+ * object for no filters set, which is the rail's "none" empty reason.
+ */
+export function recordSetFilterParams(
+	set: Pick<RecordSet<unknown>, 'filterSpec'>,
+	tile: unknown,
+): Readonly<Record<string, string>> {
+	// `defineRecordSet` pairs the two, `TTile` being `MapFiltersOf` the spec; a
+	// generic `TTile` cannot be followed back to the spec it came from here.
+	return encodeMapFilterParams(set.filterSpec, tile as MapFiltersOf<MapFilterSpec>);
 }
 
 /** The set's counting rule in `context`, or none for a set that states none. */

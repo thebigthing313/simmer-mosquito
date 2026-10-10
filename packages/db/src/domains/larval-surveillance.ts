@@ -1,4 +1,4 @@
-import type { LarvalDensity } from '@simmer-mosquito/domain';
+import { type LarvalDensity, SAMPLE_STATUSES, type SampleStatus } from '@simmer-mosquito/domain';
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
@@ -336,16 +336,12 @@ function inspectionFilterWhere(
  * states are not strictly exclusive in the data (a zero-larvae sample can also
  * carry an unidentifiable reason), so the server resolves a single status by the
  * precedence in {@link sampleStatusExpression}: an identified result wins over any
- * closed-out reason.
+ * closed-out reason. The list is declared in `@simmer-mosquito/domain`, beside
+ * the map filter spec that reads it off the wire.
  */
-export type SampleStatus = 'identified' | 'awaiting' | 'zero_larvae' | 'unidentifiable';
+export type { SampleStatus };
 
-export const sampleStatusValues: readonly SampleStatus[] = [
-	'identified',
-	'awaiting',
-	'zero_larvae',
-	'unidentifiable',
-];
+export const sampleStatusValues: readonly SampleStatus[] = SAMPLE_STATUSES;
 
 /** One identified species within a sample, as rolled up for the explorer row. */
 export interface SampleSpeciesResult {

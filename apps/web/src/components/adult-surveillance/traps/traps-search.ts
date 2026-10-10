@@ -1,4 +1,4 @@
-import type { MapQueryValue } from '../../../lib/map-query-params';
+import { TRAP_MAP_FILTERS } from '@simmer-mosquito/domain';
 import { choiceParam, type FilterCodecs, idSetParam, textParam } from '../../../lib/search-filters';
 import { defineRecordSet } from '../../explorer/record-set';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
@@ -42,20 +42,6 @@ export function trapTileFilters(filters: TrapFilters): TrapTileFilters {
 }
 
 /**
- * The same filters as `/map/traps` reads them. The Map adds the viewport's
- * `bbox` to these and the Table adds the whole world's, so the two surfaces
- * send one filter set under two boxes.
- */
-export function trapListParams(filters: TrapTileFilters): Record<string, MapQueryValue> {
-	return {
-		collectionMethodId: filters.collectionMethodIds,
-		status: filters.isActive === undefined ? undefined : filters.isActive ? 'active' : 'inactive',
-		search: filters.search,
-		regionId: filters.regionIds,
-	};
-}
-
-/**
  * The Traps Map and Table. Both read `/map/traps` and apply every filter.
  */
 export const trapRecordSet = defineRecordSet({
@@ -65,7 +51,7 @@ export const trapRecordSet = defineRecordSet({
 	endpoint: { path: '/map/traps', rowsKey: 'traps', rowKey: 'trap' },
 	tileset: 'traps',
 	tileFilters: trapTileFilters,
-	listParams: trapListParams,
+	filterSpec: TRAP_MAP_FILTERS,
 	defaults: () => TRAP_FILTER_DEFAULTS,
 	textSearch: { key: 'search', delayMs: 200 },
 	applies: { search: 'both', status: 'both', methods: 'both', regions: 'both' },

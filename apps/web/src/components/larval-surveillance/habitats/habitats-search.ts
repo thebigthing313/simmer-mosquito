@@ -1,4 +1,4 @@
-import type { MapQueryValue } from '../../../lib/map-query-params';
+import { HABITAT_MAP_FILTERS } from '@simmer-mosquito/domain';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -67,23 +67,6 @@ export function habitatTileFilters(filters: HabitatFilters): HabitatTileFilters 
 }
 
 /**
- * The same filters as `/map/habitats` reads them. The Map adds the viewport's
- * `bbox` to these and the Table adds the whole world's, so the two surfaces
- * send one filter set under two boxes.
- */
-export function habitatListParams(filters: HabitatTileFilters): Record<string, MapQueryValue> {
-	return {
-		isActive: filters.isActive,
-		isInaccessible: filters.isInaccessible,
-		habitatTypeId: filters.habitatTypeIds,
-		tagId: filters.tagIds,
-		regionId: filters.regionIds,
-		search: filters.search,
-		untreated: filters.untreatedOnly,
-	};
-}
-
-/**
  * The Habitats Map and Table. Both read `/map/habitats` and apply every filter.
  */
 export const habitatRecordSet = defineRecordSet({
@@ -93,7 +76,7 @@ export const habitatRecordSet = defineRecordSet({
 	endpoint: { path: '/map/habitats', rowsKey: 'habitats', rowKey: 'habitat' },
 	tileset: 'habitats',
 	tileFilters: habitatTileFilters,
-	listParams: habitatListParams,
+	filterSpec: HABITAT_MAP_FILTERS,
 	defaults: () => HABITAT_FILTER_DEFAULTS,
 	textSearch: { key: 'search' },
 	applies: {

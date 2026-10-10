@@ -1,26 +1,20 @@
 import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
+import { ADDRESS_MAP_FILTERS, type MapFiltersOf } from '@simmer-mosquito/domain';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
 	SymbolLayerSpecification,
 } from 'mapbox-gl';
 import { clusterTileLayers, recordOnly } from './geometry-tiles';
-import {
-	type RegionScopedTileFilters,
-	setRegionTileParam,
-	type TileDrawOptions,
-	tileExtentUrl,
-	tileTemplateUrl,
-} from './tile-urls';
+import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
- * Server-side filters for the address vector tiles. Mirrors the query params the
- * `/map/tiles/addresses/{z}/{x}/{y}.mvt` endpoint understands; the same `search`
- * drives the address-book list so the map and the list stay in lockstep.
+ * The filters the `addresses` tiles and extent draw under, typed off the
+ * spec in `@simmer-mosquito/domain` the server parses them with. The list
+ * request encodes the same object, so the map and the list name one set of
+ * params.
  */
-export interface AddressTileFilters extends RegionScopedTileFilters {
-	readonly search?: string;
-}
+export type AddressTileFilters = MapFiltersOf<typeof ADDRESS_MAP_FILTERS>;
 
 export const ADDRESS_SOURCE_ID = 'addresses';
 const ADDRESS_SOURCE_LAYER = 'addresses';
@@ -57,25 +51,17 @@ export function buildAddressTileUrl(
 	filters?: AddressTileFilters,
 	options?: TileDrawOptions,
 ): string {
-	return tileTemplateUrl(serverUrl, ADDRESS_SOURCE_ID, addressTileParams(filters), options);
+	return tileTemplateUrl(
+		serverUrl,
+		ADDRESS_SOURCE_ID,
+		tileFilterQuery(ADDRESS_MAP_FILTERS, filters),
+		options,
+	);
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */
 export function buildAddressExtentUrl(serverUrl: string, filters?: AddressTileFilters): string {
-	return tileExtentUrl(serverUrl, ADDRESS_SOURCE_ID, addressTileParams(filters));
-}
-
-function addressTileParams(filters?: AddressTileFilters): URLSearchParams {
-	const params = new URLSearchParams();
-
-	const search = filters?.search?.trim();
-	if (search !== undefined && search.length > 0) {
-		params.set('search', search);
-	}
-
-	setRegionTileParam(params, filters?.regionIds);
-
-	return params;
+	return tileExtentUrl(serverUrl, ADDRESS_SOURCE_ID, tileFilterQuery(ADDRESS_MAP_FILTERS, filters));
 }
 
 /** The GL layers for the address source. `selectedId` drives the highlight. */

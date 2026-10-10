@@ -1,4 +1,5 @@
 import { mapDomain, mapInteraction, mapLifecycle } from '@simmer-mosquito/design-tokens';
+import { HABITAT_MAP_FILTERS, type MapFiltersOf } from '@simmer-mosquito/domain';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import {
 	allLayerIds,
@@ -6,28 +7,15 @@ import {
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import {
-	type RegionScopedTileFilters,
-	setRegionTileParam,
-	type TileDrawOptions,
-	tileExtentUrl,
-	tileTemplateUrl,
-} from './tile-urls';
+import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
- * Server-side filters for the habitat vector tiles. Mirrors the query params the
- * `/map/tiles/habitats/{z}/{x}/{y}.mvt` endpoint understands; the same shape
- * drives the `/map/habitats` bbox list so the map and the list stay in lockstep.
+ * The filters the `habitats` tiles and extent draw under, typed off the
+ * spec in `@simmer-mosquito/domain` the server parses them with. The list
+ * request encodes the same object, so the map and the list name one set of
+ * params.
  */
-export interface HabitatTileFilters extends RegionScopedTileFilters {
-	readonly isActive?: boolean;
-	readonly isInaccessible?: boolean;
-	readonly habitatTypeIds?: readonly string[];
-	readonly tagIds?: readonly string[];
-	readonly search?: string;
-	/** Only untreated habitats; see `untreatedHabitatSql`. */
-	readonly untreatedOnly?: boolean;
-}
+export type HabitatTileFilters = MapFiltersOf<typeof HABITAT_MAP_FILTERS>;
 
 export const HABITAT_SOURCE_ID = 'habitats';
 
@@ -72,40 +60,17 @@ export function buildHabitatTileUrl(
 	filters?: HabitatTileFilters,
 	options?: TileDrawOptions,
 ): string {
-	return tileTemplateUrl(serverUrl, HABITAT_SOURCE_ID, habitatTileParams(filters), options);
+	return tileTemplateUrl(
+		serverUrl,
+		HABITAT_SOURCE_ID,
+		tileFilterQuery(HABITAT_MAP_FILTERS, filters),
+		options,
+	);
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */
 export function buildHabitatExtentUrl(serverUrl: string, filters?: HabitatTileFilters): string {
-	return tileExtentUrl(serverUrl, HABITAT_SOURCE_ID, habitatTileParams(filters));
-}
-
-function habitatTileParams(filters?: HabitatTileFilters): URLSearchParams {
-	const params = new URLSearchParams();
-
-	if (filters?.isActive !== undefined) {
-		params.set('isActive', String(filters.isActive));
-	}
-	if (filters?.isInaccessible !== undefined) {
-		params.set('isInaccessible', String(filters.isInaccessible));
-	}
-	if (filters?.habitatTypeIds !== undefined && filters.habitatTypeIds.length > 0) {
-		params.set('habitatTypeId', [...filters.habitatTypeIds].sort().join(','));
-	}
-	if (filters?.tagIds !== undefined && filters.tagIds.length > 0) {
-		params.set('tagId', [...filters.tagIds].sort().join(','));
-	}
-	const search = filters?.search?.trim();
-	if (search !== undefined && search.length > 0) {
-		params.set('search', search);
-	}
-	if (filters?.untreatedOnly === true) {
-		params.set('untreated', 'true');
-	}
-
-	setRegionTileParam(params, filters?.regionIds);
-
-	return params;
+	return tileExtentUrl(serverUrl, HABITAT_SOURCE_ID, tileFilterQuery(HABITAT_MAP_FILTERS, filters));
 }
 
 /** The GL layers for the habitat source. `selectedId` drives the highlight set. */

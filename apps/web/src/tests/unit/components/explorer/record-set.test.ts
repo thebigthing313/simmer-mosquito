@@ -262,7 +262,7 @@ describe('a record set definition', () => {
 	});
 
 	it('does not widen to a set over any tile', () => {
-		// @ts-expect-error: `listParams` reads address tile filters, so it cannot take any value.
+		// @ts-expect-error: the set's `tileset` draws address tile filters, so it cannot draw any value.
 		const widened: RecordSet<AddressFilters, unknown> = addressRecordSet;
 
 		expect(widened).toBe(addressRecordSet);

@@ -1,5 +1,10 @@
 import { mapDensity, mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
-import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
+import {
+	INSPECTION_MAP_FILTERS,
+	LARVAL_DENSITIES,
+	type LarvalDensity,
+	type MapFiltersOf,
+} from '@simmer-mosquito/domain';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import {
 	allLayerIds,
@@ -7,34 +12,15 @@ import {
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import {
-	type RegionScopedTileFilters,
-	setRegionTileParam,
-	type TileDrawOptions,
-	tileExtentUrl,
-	tileTemplateUrl,
-} from './tile-urls';
+import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
- * Server-side filters for the inspection vector tiles. Mirrors the query params
- * the `/map/tiles/inspections/{z}/{x}/{y}.mvt` endpoint understands; the same
- * shape drives the `/map/inspections` bbox list so the map and the list stay in
- * lockstep.
+ * The filters the `inspections` tiles and extent draw under, typed off the
+ * spec in `@simmer-mosquito/domain` the server parses them with. The list
+ * request encodes the same object, so the map and the list name one set of
+ * params.
  */
-export interface InspectionTileFilters extends RegionScopedTileFilters {
-	readonly isWet?: boolean;
-	/** Larval-density enum values (`none` … `very_heavy`). */
-	readonly densities?: readonly string[];
-	/** Only inspections where at least one life stage was found. */
-	readonly positiveOnly?: boolean;
-	readonly habitatTypeIds?: readonly string[];
-	/** Match inspections recorded by any of these profiles. */
-	readonly inspectedByProfileIds?: readonly string[];
-	/** Inclusive `YYYY-MM-DD` lower bound on inspection date. */
-	readonly dateFrom?: string;
-	/** Inclusive `YYYY-MM-DD` upper bound on inspection date. */
-	readonly dateTo?: string;
-}
+export type InspectionTileFilters = MapFiltersOf<typeof INSPECTION_MAP_FILTERS>;
 
 export const INSPECTION_SOURCE_ID = 'inspections';
 
@@ -101,7 +87,12 @@ export function buildInspectionTileUrl(
 	filters?: InspectionTileFilters,
 	options?: TileDrawOptions,
 ): string {
-	return tileTemplateUrl(serverUrl, INSPECTION_SOURCE_ID, inspectionTileParams(filters), options);
+	return tileTemplateUrl(
+		serverUrl,
+		INSPECTION_SOURCE_ID,
+		tileFilterQuery(INSPECTION_MAP_FILTERS, filters),
+		options,
+	);
 }
 
 /** Build the extent URL for the same filters — the whole filtered set, no viewport. */
@@ -109,37 +100,11 @@ export function buildInspectionExtentUrl(
 	serverUrl: string,
 	filters?: InspectionTileFilters,
 ): string {
-	return tileExtentUrl(serverUrl, INSPECTION_SOURCE_ID, inspectionTileParams(filters));
-}
-
-function inspectionTileParams(filters?: InspectionTileFilters): URLSearchParams {
-	const params = new URLSearchParams();
-
-	if (filters?.isWet !== undefined) {
-		params.set('isWet', String(filters.isWet));
-	}
-	if (filters?.densities !== undefined && filters.densities.length > 0) {
-		params.set('density', [...filters.densities].sort().join(','));
-	}
-	if (filters?.positiveOnly === true) {
-		params.set('positive', 'true');
-	}
-	if (filters?.habitatTypeIds !== undefined && filters.habitatTypeIds.length > 0) {
-		params.set('habitatTypeId', [...filters.habitatTypeIds].sort().join(','));
-	}
-	if (filters?.inspectedByProfileIds !== undefined && filters.inspectedByProfileIds.length > 0) {
-		params.set('inspectedBy', [...filters.inspectedByProfileIds].sort().join(','));
-	}
-	if (filters?.dateFrom !== undefined) {
-		params.set('dateFrom', filters.dateFrom);
-	}
-	if (filters?.dateTo !== undefined) {
-		params.set('dateTo', filters.dateTo);
-	}
-
-	setRegionTileParam(params, filters?.regionIds);
-
-	return params;
+	return tileExtentUrl(
+		serverUrl,
+		INSPECTION_SOURCE_ID,
+		tileFilterQuery(INSPECTION_MAP_FILTERS, filters),
+	);
 }
 
 /** The GL layers for the inspection source. `selectedId` drives the highlight set. */

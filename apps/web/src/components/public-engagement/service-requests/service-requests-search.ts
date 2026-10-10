@@ -1,6 +1,10 @@
-import { serviceRequestOverdueCutoff } from '@simmer-mosquito/domain';
+import {
+	encodeMapFilterParams,
+	SERVICE_REQUEST_MAP_FILTERS,
+	SERVICE_REQUEST_ORDER_FILTERS,
+	serviceRequestOverdueCutoff,
+} from '@simmer-mosquito/domain';
 import { startOfYear } from '../../../lib/date-presets';
-import type { MapQueryValue } from '../../../lib/map-query-params';
 import {
 	choiceParam,
 	DATE_RANGE_COUNTING,
@@ -76,21 +80,6 @@ export function serviceRequestTileFilters(
 	};
 }
 
-/** The same filters as the query params `/map/service-requests` takes. */
-export function serviceRequestListParams(
-	filters: ServiceRequestTileFilters,
-): Record<string, MapQueryValue> {
-	return {
-		status: filters.isOpen === undefined ? undefined : filters.isOpen ? 'open' : 'closed',
-		search: filters.search,
-		tagId: filters.tagIds,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-		overdueBefore: filters.overdueBefore,
-	};
-}
-
 /**
  * The first request date that is not overdue under the Organization's
  * threshold, or `null` while the threshold is off. Overdue turns over on the
@@ -131,13 +120,17 @@ export const serviceRequestRailOrderCodecs: FilterCodecs<ServiceRequestRailSearc
 };
 
 /**
- * The order as the page request sends it, which only the page reads. Newest
- * first is the default and goes unsent.
+ * The order as the page request sends it, which only the page reads, so the
+ * tile and extent URLs never carry it. Newest first is the default and goes
+ * unsent.
  */
 export function serviceRequestOrderParams(
 	order: ServiceRequestRailOrder,
-): Record<string, MapQueryValue> {
-	return { oldest: order === 'oldest' ? true : undefined };
+): Readonly<Record<string, string>> {
+	return encodeMapFilterParams(
+		SERVICE_REQUEST_ORDER_FILTERS,
+		order === 'oldest' ? { oldestFirst: true } : {},
+	);
 }
 
 /** The order control's two choices, drawn by the Map's rail and the Table alike. */
@@ -183,7 +176,7 @@ export const serviceRequestRecordSet = defineRecordSet({
 	tileset: 'service-requests',
 	tileFilters: (filters: ServiceRequestFilters, context: RecordSetContext) =>
 		serviceRequestTileFilters(filters, serviceRequestOverdueCutoffFor(context)),
-	listParams: serviceRequestListParams,
+	filterSpec: SERVICE_REQUEST_MAP_FILTERS,
 	defaults: ({ today }) => serviceRequestFilterDefaults(today),
 	counting: serviceRequestCounting,
 	textSearch: { key: 'search' },

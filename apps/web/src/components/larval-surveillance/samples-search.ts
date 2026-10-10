@@ -1,5 +1,5 @@
+import { SAMPLE_MAP_FILTERS } from '@simmer-mosquito/domain';
 import { addDaysToDateString } from '../../lib/local-date';
-import type { MapQueryValue } from '../../lib/map-query-params';
 import {
 	choiceParam,
 	DATE_RANGE_COUNTING,
@@ -82,22 +82,6 @@ export function sampleTileFilters(filters: SampleFilters): SampleTileFilters {
 }
 
 /**
- * The same filters as `/map/samples` reads them. The Map adds the viewport's
- * `bbox` to these and the Table adds the whole world's, so the two surfaces
- * send one filter set under two boxes.
- */
-export function sampleListParams(filters: SampleTileFilters): Record<string, MapQueryValue> {
-	return {
-		species: filters.speciesIds,
-		status: filters.status,
-		nonMosquito: filters.nonMosquitoOnly,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	};
-}
-
-/**
  * The Samples Map and Table. Both read `/map/samples` and apply every filter.
  */
 export const sampleRecordSet = defineRecordSet({
@@ -107,7 +91,7 @@ export const sampleRecordSet = defineRecordSet({
 	endpoint: { path: '/map/samples', rowsKey: 'samples', rowKey: 'sample' },
 	tileset: 'samples',
 	tileFilters: sampleTileFilters,
-	listParams: sampleListParams,
+	filterSpec: SAMPLE_MAP_FILTERS,
 	defaults: ({ today }) => sampleFilterDefaults(today),
 	counting: DATE_RANGE_COUNTING,
 	applies: {

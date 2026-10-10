@@ -1,4 +1,5 @@
 import { mapInteraction, mapStatus } from '@simmer-mosquito/design-tokens';
+import { type MapFiltersOf, SERVICE_REQUEST_MAP_FILTERS } from '@simmer-mosquito/domain';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import {
 	allLayerIds,
@@ -6,37 +7,15 @@ import {
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import {
-	type RegionScopedTileFilters,
-	setIdListTileParam,
-	setRegionTileParam,
-	setTextTileParam,
-	type TileDrawOptions,
-	tileExtentUrl,
-	tileTemplateUrl,
-} from './tile-urls';
+import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
- * Server-side filters for the service request vector tiles. Mirrors the query
- * params the `/map/tiles/service-requests/{z}/{x}/{y}.mvt` endpoint
- * understands; the same shape drives the `/map/service-requests` paged list so
- * the map and the list stay in lockstep.
+ * The filters the `service-requests` tiles and extent draw under, typed off the
+ * spec in `@simmer-mosquito/domain` the server parses them with. The list
+ * request encodes the same object, so the map and the list name one set of
+ * params.
  */
-export interface ServiceRequestTileFilters extends RegionScopedTileFilters {
-	/** Open only when `true`, closed only when `false`, both when absent. */
-	readonly isOpen?: boolean;
-	readonly search?: string;
-	readonly tagIds?: readonly string[];
-	/** Inclusive `YYYY-MM-DD` lower bound on the request date. */
-	readonly dateFrom?: string;
-	/** Inclusive `YYYY-MM-DD` upper bound on the request date. */
-	readonly dateTo?: string;
-	/**
-	 * Overdue requests only: open, and received before this `YYYY-MM-DD`, which
-	 * is `serviceRequestOverdueCutoff` for the Organization's threshold.
-	 */
-	readonly overdueBefore?: string;
-}
+export type ServiceRequestTileFilters = MapFiltersOf<typeof SERVICE_REQUEST_MAP_FILTERS>;
 
 export const SERVICE_REQUEST_SOURCE_ID = 'service-requests';
 
@@ -87,7 +66,7 @@ export function buildServiceRequestTileUrl(
 	return tileTemplateUrl(
 		serverUrl,
 		SERVICE_REQUEST_SOURCE_ID,
-		serviceRequestTileParams(filters),
+		tileFilterQuery(SERVICE_REQUEST_MAP_FILTERS, filters),
 		options,
 	);
 }
@@ -97,23 +76,11 @@ export function buildServiceRequestExtentUrl(
 	serverUrl: string,
 	filters?: ServiceRequestTileFilters,
 ): string {
-	return tileExtentUrl(serverUrl, SERVICE_REQUEST_SOURCE_ID, serviceRequestTileParams(filters));
-}
-
-function serviceRequestTileParams(filters: ServiceRequestTileFilters = {}): URLSearchParams {
-	const params = new URLSearchParams();
-
-	if (filters.isOpen !== undefined) {
-		params.set('status', filters.isOpen ? 'open' : 'closed');
-	}
-	setTextTileParam(params, 'search', filters.search);
-	setIdListTileParam(params, 'tagId', filters.tagIds);
-	setTextTileParam(params, 'dateFrom', filters.dateFrom);
-	setTextTileParam(params, 'dateTo', filters.dateTo);
-	setTextTileParam(params, 'overdueBefore', filters.overdueBefore);
-	setRegionTileParam(params, filters.regionIds);
-
-	return params;
+	return tileExtentUrl(
+		serverUrl,
+		SERVICE_REQUEST_SOURCE_ID,
+		tileFilterQuery(SERVICE_REQUEST_MAP_FILTERS, filters),
+	);
 }
 
 /** The GL layers for the service request source. `selectedId` drives the highlight set. */

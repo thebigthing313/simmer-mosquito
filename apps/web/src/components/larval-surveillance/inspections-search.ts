@@ -1,6 +1,9 @@
-import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
+import {
+	INSPECTION_MAP_FILTERS,
+	LARVAL_DENSITIES,
+	type LarvalDensity,
+} from '@simmer-mosquito/domain';
 import { addDaysToDateString } from '../../lib/local-date';
-import type { MapQueryValue } from '../../lib/map-query-params';
 import {
 	choiceParam,
 	choiceSetParam,
@@ -103,22 +106,6 @@ export function inspectionTileFilters(filters: InspectionFilters): InspectionTil
 	};
 }
 
-/** The same filters as `/map/inspections` reads them. */
-export function inspectionListParams(
-	filters: InspectionTileFilters,
-): Record<string, MapQueryValue> {
-	return {
-		isWet: filters.isWet,
-		density: filters.densities,
-		positive: filters.positiveOnly,
-		habitatTypeId: filters.habitatTypeIds,
-		inspectedBy: filters.inspectedByProfileIds,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	};
-}
-
 /**
  * The Inspections Map and Table. Both read `/map/inspections`. The Table has
  * no Region control, so Region is the Map's alone and a switch to the Table
@@ -134,7 +121,7 @@ export const inspectionRecordSet = defineRecordSet({
 	endpoint: { path: '/map/inspections', rowsKey: 'inspections', rowKey: 'inspection' },
 	tileset: 'inspections',
 	tileFilters: inspectionTileFilters,
-	listParams: inspectionListParams,
+	filterSpec: INSPECTION_MAP_FILTERS,
 	defaults: ({ today }, surface) => inspectionFilterDefaults(today, surface),
 	counting: DATE_RANGE_COUNTING,
 	applies: {

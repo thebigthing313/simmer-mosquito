@@ -27,7 +27,25 @@ import {
 	searchHabitatSites,
 	type TrapMapFilters,
 } from '@simmer-mosquito/db';
-import { LARVAL_DENSITIES } from '@simmer-mosquito/domain';
+import {
+	ADDRESS_MAP_FILTERS,
+	BIOCONTROL_MAP_FILTERS,
+	CHEMICAL_MAP_FILTERS,
+	COLLECTION_MAP_FILTERS,
+	HABITAT_MAP_FILTERS,
+	INSPECTION_MAP_FILTERS,
+	LARVAL_DENSITIES,
+	type MapFilterField,
+	type MapFilterSpec,
+	type MapFiltersOf,
+	OUTREACH_MAP_FILTERS,
+	REGION_MAP_FILTERS,
+	SAMPLE_MAP_FILTERS,
+	SERVICE_REQUEST_MAP_FILTERS,
+	SERVICE_REQUEST_ORDER_FILTERS,
+	SOURCE_REDUCTION_MAP_FILTERS,
+	TRAP_MAP_FILTERS,
+} from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 
@@ -35,15 +53,6 @@ import type { AuthVariables } from './auth-middleware.js';
 const mvtContentType = 'application/vnd.mapbox-vector-tile';
 const maxSupportedZoom = 22;
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * The region narrowing every map surface accepts. Regions are the
- * organization's own operational geography, so "only this district" is asked of
- * habitats, traps, applications, and everything else alike — one param name
- * across every tileset keeps a deep link from one explorer readable by the
- * next.
- */
-const regionFilterParam = 'regionId';
 
 /**
  * The param that asks a tile for its points grouped by grid cell.
@@ -1083,40 +1092,17 @@ interface PageInput<TFilters> {
  * parse body naming the same params again. Two lists that had to agree, with
  * nothing checking that they did — a param in the `Set` but not the body was
  * silently ignored, and one in the body but not the `Set` was a 400 nobody could
- * explain. Here they are the same list.
+ * explain. Here they are the same list, and since #1420 the list is the spec in
+ * `@simmer-mosquito/domain` that the web encodes its requests from.
  *
  * `trueOnly` is its own kind rather than a boolean because three surfaces had
  * written the rule out longhand: `nonMosquito=false` is the same as omitting
  * it, so only `true` reaches the reader.
  */
-interface FilterField {
-	/** The query param, as the client sends it. */
-	readonly param: string;
-	/** The filter key the reader expects, when it differs from the param. */
-	readonly as?: string;
-	readonly kind:
-		| 'boolean'
-		| 'trueOnly'
-		| 'uuidList'
-		| 'text'
-		| 'date'
-		| 'density'
-		| 'sampleStatus'
-		| 'trapStatus'
-		| 'requestStatus';
-}
-
-/** The region filter is spatial, not an FK, and every surface carries it. */
-const regionField = { param: regionFilterParam, as: 'regionIds', kind: 'uuidList' } as const;
-const dateFields = [
-	{ param: 'dateFrom', kind: 'date' },
-	{ param: 'dateTo', kind: 'date' },
-] as const satisfies readonly FilterField[];
-
 function defineFilters<TFilters>(
 	/** The noun in `Unsupported <noun> filter: x.` */
 	noun: string,
-	fields: readonly FilterField[],
+	fields: MapFilterSpec,
 ): (searchParams: URLSearchParams) => FilterResult<TFilters> {
 	const admitted = new Set(fields.map((field) => field.param));
 
@@ -1143,9 +1129,36 @@ function defineFilters<TFilters>(
 	};
 }
 
+/**
+ * The parser for a spec, typed as the filters its reader takes, and refused by
+ * `tsc` when the spec's filter object is not that interface key for key.
+ *
+ * Assignability alone would pass a rename: every key on both sides is
+ * optional, so a spec whose `habitatLinkedOnly` became `habitatLinked` still
+ * assigns to `BiocontrolMapFilters`, and the filter is dropped on the floor.
+ * So the keys are compared both ways as well, and the spec argument is
+ * `never` when they differ. Curried so the reader's interface is written and
+ * the spec's type is inferred.
+ */
+function readerFilters<TFilters>() {
+	return <const TSpec extends MapFilterSpec>(
+		noun: string,
+		spec: TSpec & ReadAs<MapFiltersOf<TSpec>, TFilters>,
+	) => defineFilters<TFilters>(noun, spec);
+}
+
+/** `unknown` when `TSpecFilters` is `TFilters` key for key, otherwise `never`. */
+type ReadAs<TSpecFilters, TFilters> = [keyof TSpecFilters] extends [keyof TFilters]
+	? [keyof TFilters] extends [keyof TSpecFilters]
+		? TSpecFilters extends TFilters
+			? unknown
+			: never
+		: never
+	: never;
+
 function parseFilterField(
 	searchParams: URLSearchParams,
-	field: FilterField,
+	field: MapFilterField,
 ):
 	| { readonly ok: true; readonly value: unknown }
 	| { readonly ok: false; readonly reason: string } {
@@ -1183,118 +1196,63 @@ function parseFilterField(
 	}
 }
 
-export const parseHabitatTileFilters = defineFilters<HabitatMvtTileFilters>('habitat tile', [
-	{ param: 'isActive', kind: 'boolean' },
-	{ param: 'isInaccessible', kind: 'boolean' },
-	{ param: 'habitatTypeId', as: 'habitatTypeIds', kind: 'uuidList' },
-	{ param: 'tagId', as: 'tagIds', kind: 'uuidList' },
-	regionField,
-	{ param: 'search', kind: 'text' },
-	// The Dashboard's banner links here; the surface reads the same fragment.
-	{ param: 'untreated', as: 'untreatedOnly', kind: 'trueOnly' },
-]);
+export const parseHabitatTileFilters = readerFilters<HabitatMvtTileFilters>()(
+	'habitat tile',
+	HABITAT_MAP_FILTERS,
+);
 
-export const parseAddressTileFilters = defineFilters<AddressMvtTileFilters>('address tile', [
-	{ param: 'search', kind: 'text' },
-	regionField,
-]);
+export const parseAddressTileFilters = readerFilters<AddressMvtTileFilters>()(
+	'address tile',
+	ADDRESS_MAP_FILTERS,
+);
 
-export const parseRegionTileFilters = defineFilters<RegionMvtTileFilters>('region tile', [
-	{ param: 'regionFolderId', kind: 'text' },
-	{ param: 'search', kind: 'text' },
-	// The regions explorer draws one checkbox-picked set rather than every region
-	// its other filters allow, so its extent request names the ids outright.
-	{ param: 'id', as: 'ids', kind: 'uuidList' },
-]);
+export const parseRegionTileFilters = readerFilters<RegionMvtTileFilters>()(
+	'region tile',
+	REGION_MAP_FILTERS,
+);
 
-export const parseInspectionTileFilters = defineFilters<InspectionMvtTileFilters>(
+export const parseInspectionTileFilters = readerFilters<InspectionMvtTileFilters>()(
 	'inspection tile',
-	[
-		{ param: 'isWet', kind: 'boolean' },
-		{ param: 'density', as: 'densities', kind: 'density' },
-		{ param: 'positive', as: 'positiveOnly', kind: 'boolean' },
-		{ param: 'habitatTypeId', as: 'habitatTypeIds', kind: 'uuidList' },
-		{ param: 'inspectedBy', as: 'inspectedByProfileIds', kind: 'uuidList' },
-		regionField,
-		...dateFields,
-	],
+	INSPECTION_MAP_FILTERS,
 );
 
-export const parseSampleTileFilters = defineFilters<SampleListFilters>('sample tile', [
-	{ param: 'species', as: 'speciesIds', kind: 'uuidList' },
-	{ param: 'status', kind: 'sampleStatus' },
-	{ param: 'nonMosquito', as: 'nonMosquitoOnly', kind: 'trueOnly' },
-	regionField,
-	...dateFields,
-]);
+export const parseSampleTileFilters = readerFilters<SampleListFilters>()(
+	'sample tile',
+	SAMPLE_MAP_FILTERS,
+);
 
-export const parseApplicationMapFilters = defineFilters<ApplicationMapFilters>('chemical', [
-	{ param: 'insecticideId', as: 'insecticideIds', kind: 'uuidList' },
-	{ param: 'applicationMethodId', as: 'applicationMethodIds', kind: 'uuidList' },
-	{ param: 'applicator', as: 'applicatorProfileIds', kind: 'uuidList' },
-	regionField,
-	...dateFields,
-]);
+export const parseApplicationMapFilters = readerFilters<ApplicationMapFilters>()(
+	'chemical',
+	CHEMICAL_MAP_FILTERS,
+);
 
-export const parseSourceReductionMapFilters = defineFilters<SourceReductionMapFilters>(
+export const parseSourceReductionMapFilters = readerFilters<SourceReductionMapFilters>()(
 	'source-reduction',
-	[
-		{ param: 'sourceReductionMethodId', as: 'sourceReductionMethodIds', kind: 'uuidList' },
-		{ param: 'technician', as: 'technicianProfileIds', kind: 'uuidList' },
-		regionField,
-		...dateFields,
-	],
+	SOURCE_REDUCTION_MAP_FILTERS,
 );
 
-export const parseBiocontrolMapFilters = defineFilters<BiocontrolMapFilters>('biocontrol', [
-	{ param: 'biocontrolMethodId', as: 'biocontrolMethodIds', kind: 'uuidList' },
-	{ param: 'habitatLinked', as: 'habitatLinkedOnly', kind: 'trueOnly' },
-	{ param: 'technician', as: 'technicianProfileIds', kind: 'uuidList' },
-	regionField,
-	...dateFields,
-]);
+export const parseBiocontrolMapFilters = readerFilters<BiocontrolMapFilters>()(
+	'biocontrol',
+	BIOCONTROL_MAP_FILTERS,
+);
 
-export const parseOutreachMapFilters = defineFilters<OutreachMapFilters>('outreach', [
-	{ param: 'outreachMethodId', as: 'outreachMethodIds', kind: 'uuidList' },
-	{ param: 'technician', as: 'technicianProfileIds', kind: 'uuidList' },
-	regionField,
-	...dateFields,
-]);
+export const parseOutreachMapFilters = readerFilters<OutreachMapFilters>()(
+	'outreach',
+	OUTREACH_MAP_FILTERS,
+);
 
-export const parseTrapMapFilters = defineFilters<TrapMapFilters>('traps', [
-	{ param: 'collectionMethodId', as: 'collectionMethodIds', kind: 'uuidList' },
-	{ param: 'status', as: 'isActive', kind: 'trapStatus' },
-	{ param: 'search', kind: 'text' },
-	regionField,
-]);
+export const parseTrapMapFilters = readerFilters<TrapMapFilters>()('traps', TRAP_MAP_FILTERS);
 
-export const parseCollectionMapFilters = defineFilters<CollectionMapFilters>('collections', [
-	{ param: 'collectionMethodId', as: 'collectionMethodIds', kind: 'uuidList' },
-	{ param: 'problem', as: 'problemOnly', kind: 'trueOnly' },
-	// The Dashboard's queue links here; the surface reads the same fragment.
-	{ param: 'awaiting', as: 'awaitingOnly', kind: 'trueOnly' },
-	regionField,
-	...dateFields,
-]);
+export const parseCollectionMapFilters = readerFilters<CollectionMapFilters>()(
+	'collections',
+	COLLECTION_MAP_FILTERS,
+);
 
-// The date fields carry no default on the explorer: #920 decided a date
-// default there is not a substitute for the viewport, and a filter with no
-// default is a different thing. They exist so a count on the period-in-review
-// pages lands on the rows it counted (docs/today-spec.md, "Links").
-export const parseServiceRequestMapFilters = defineFilters<ServiceRequestMapFilters>(
+// The rail's order rides beside the filters: the tiles and the extent take it
+// and ignore it, and only the list request sends it.
+export const parseServiceRequestMapFilters = readerFilters<ServiceRequestMapFilters>()(
 	'service-requests',
-	[
-		{ param: 'status', as: 'isOpen', kind: 'requestStatus' },
-		{ param: 'search', kind: 'text' },
-		{ param: 'tagId', as: 'tagIds', kind: 'uuidList' },
-		// The rail's order. The tiles and the extent take it and ignore it.
-		{ param: 'oldest', as: 'oldestFirst', kind: 'trueOnly' },
-		// The Overdue filter: the first request date that is not overdue, which
-		// the client computes from the Organization's threshold (#1246).
-		{ param: 'overdueBefore', kind: 'date' },
-		regionField,
-		...dateFields,
-	],
+	[...SERVICE_REQUEST_MAP_FILTERS, ...SERVICE_REQUEST_ORDER_FILTERS],
 );
 
 /**

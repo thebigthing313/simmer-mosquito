@@ -5,7 +5,11 @@ import type {
 	ExplorerEmptiness,
 	ExplorerEmptyReason,
 } from '../../components/explorer/explorer-empty-state';
-import type { RecordSet, RecordSetTiles } from '../../components/explorer/record-set';
+import {
+	type RecordSet,
+	type RecordSetTiles,
+	recordSetFilterParams,
+} from '../../components/explorer/record-set';
 import { type MapTileLayer, tileLayerExtentUrl } from '../../components/map/tile-layers';
 import { type MapQueryValue, mapQueryParams } from '../../lib/map-query-params';
 import { type MapExtent, useMapExtent } from '../map/use-map-extent';
@@ -149,7 +153,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape, TFilters, TTi
 	const shaping = normalizeRow === undefined ? {} : { normalizeRow };
 	// `bbox` first, so it sits on the query string ahead of the surface's own
 	// filters, which is where the three larval routes have always had it.
-	const query = mapQueryParams({ bbox, ...set.listParams(tileFilters), ...params });
+	const query = mapQueryParams({ bbox, ...recordSetFilterParams(set, tileFilters), ...params });
 
 	const paged = usePagedMapResource<TRow>({
 		path,
