@@ -85,6 +85,15 @@
  * them, so a caller can use one through inference without ever naming it, and
  * an import is the wrong question to ask of it.
  *
+ * The caller side matches that. A value name counts as asked for only when a
+ * caller names it in a value entry, so `import type { a }` and
+ * `import { type a }` do not satisfy the name rule: the published side already
+ * leaves types out, and a value nothing imports as a value is a value with no
+ * caller, whatever types a caller takes from it (#1572). The module rule still
+ * counts a type-only import, because a module whose only outside use is its
+ * types is used, and `GeoJsonGeometry` and `PlanarPosition` reach most of
+ * their callers that way.
+ *
  * A name with no caller comes out of the barrel. A helper its own module still
  * calls stays there, and whether it keeps its `export` keyword is
  * `fallow dead-code`'s answer: a unit suite importing the module directly is
@@ -108,11 +117,13 @@
  *
  * `PROBES` is a third guard and cannot be a floor. The name rule is at zero, so
  * a pattern that stopped reading value clauses would print the same clean line
- * a working one prints. Four barrel and caller pairs with known answers run
+ * a working one prints. Six barrel and caller pairs with known answers run
  * ahead of the walk, through the same reading the barrel and the callers get:
- * a name asked for, a name not asked for, a type-only name not asked for, and
- * a renamed name beside an inline `type` entry. A probe read wrong fails the
- * run before the walk starts.
+ * a name asked for, a name not asked for, a type-only name not asked for, a
+ * renamed name beside an inline `type` entry, and a value name a caller asks
+ * for only as `import type { x }` and only as `import { type x }`, each of
+ * which must be reported. A probe read wrong fails the run before the walk
+ * starts.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -138,8 +149,11 @@ const SOURCE_ROOT = join(PACKAGE_DIR, 'src');
  * `export type { a } from` all reach one. `apps/web` writes the third of those
  * over this package, in `components/gis/regions/import-parse.ts`, so reading only
  * imports would report `parseKmlCoordinates` as having no caller.
+ *
+ * The first group is the clause-level `type`, which `clauseEntries` reads as
+ * making every entry in the clause type-only.
  */
-const NAMED = /(?:import|export)\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
+const NAMED = /(?:import|export)\s+(type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
 
 /**
  * A value re-export, `export { a } from`, which is the only clause the name rule
@@ -190,6 +204,17 @@ const PROBES = [
 		caller: "import { asked } from '@simmer-mosquito/mapping';",
 		finds: [],
 	},
+	{
+		barrel: "export { asked, unasked } from './a.js';",
+		caller:
+			"import { asked } from '@simmer-mosquito/mapping';\nimport type { unasked } from '@simmer-mosquito/mapping';",
+		finds: ['unasked'],
+	},
+	{
+		barrel: "export { asked, unasked } from './a.js';",
+		caller: "import { asked, type unasked } from '@simmer-mosquito/mapping';",
+		finds: ['unasked'],
+	},
 ];
 
 function main() {
@@ -226,13 +251,13 @@ function main() {
 function assertItReadsNames() {
 	const wrong = PROBES.filter(
 		(probe) =>
-			uncalledNames(probe.barrel, new Set(namesAskedIn(probe.caller)))
+			uncalledNames(probe.barrel, valueNames(namesAskedIn(probe.caller)))
 				.map(({ name }) => name)
 				.join(',') !== probe.finds.join(','),
 	);
 	if (wrong.length > 0) {
 		fail(
-			`the name rule no longer reads ${count(wrong.length, 'source')} of the ${PROBES.length} in PROBES as expected, the first being: ${wrong[0].barrel}. A run in this state reads every barrel name the same wrong way, so it refuses rather than passing. Fix VALUE_REEXPORT, publishedValues or namesAskedIn in scripts/check-mapping-callers.mjs, and change a probe only alongside the rule it states.`,
+			`the name rule no longer reads ${count(wrong.length, 'source')} of the ${PROBES.length} in PROBES as expected, the first being the barrel ${wrong[0].barrel} against the caller ${wrong[0].caller}. A run in this state reads every barrel name the same wrong way, so it refuses rather than passing. Fix NAMED, VALUE_REEXPORT, clauseEntries or namesAskedIn in scripts/check-mapping-callers.mjs, and change a probe only alongside the rule it states.`,
 		);
 	}
 }
@@ -254,8 +279,10 @@ const readModules = () => [...typeScriptFilesUnder(SOURCE_ROOT)];
  */
 function readWhatCallersAsk() {
 	const texts = callerTexts();
+	const entries = texts.flatMap(namesAskedIn);
 	return {
-		names: new Set(texts.flatMap(namesAskedIn)),
+		names: new Set(entries.map(({ name }) => name)),
+		values: valueNames(entries),
 		subpaths: new Set(texts.flatMap(subpathsNamedIn)),
 	};
 }
@@ -267,11 +294,22 @@ const callerTexts = () =>
 		.map((file) => readFileSync(file, 'utf8'))
 		.filter((text) => text.includes(PACKAGE_NAME));
 
-/** The names one file imports or re-exports from the package. */
+/**
+ * The entries one file imports or re-exports from the package.
+ *
+ * `a as b` in an import binds `a` from the package and calls it `b` here, so
+ * `name`, the first half, is what is asked for. A re-export renames the other
+ * way, `a as b` publishing `b`, but the name asked of this package is still
+ * `a`, so one rule covers both.
+ */
 const namesAskedIn = (text) =>
 	[...text.matchAll(NAMED)]
-		.filter(([, , specifier]) => isThisPackage(specifier))
-		.flatMap(([, clause]) => bindings(clause));
+		.filter(([, , , specifier]) => isThisPackage(specifier))
+		.flatMap(([, typeClause, clause]) => clauseEntries(clause, typeClause !== undefined));
+
+/** The names asked for in a value entry, which are what the name rule counts. */
+const valueNames = (entries) =>
+	new Set(entries.filter(({ typeOnly }) => !typeOnly).map(({ name }) => name));
 
 /** The subpaths of the package one file names, in any import form. */
 const subpathsNamedIn = (text) =>
@@ -281,55 +319,40 @@ const isThisPackage = (specifier) =>
 	specifier === PACKAGE_NAME || specifier.startsWith(`${PACKAGE_NAME}/`);
 
 /**
- * The names a `{ ... }` clause carries.
+ * Every entry in a `{ ... }` clause, as `{ name, alias, typeOnly }`.
  *
- * `a as b` in an import binds `a` from the package and calls it `b` here, so
- * the first half is the name asked for. A re-export renames the other way,
- * `a as b` publishing `b`, but the name asked of this package is still `a`, so
- * one rule covers both.
- */
-const bindings = (clause) =>
-	clause
-		.split(',')
-		.map((each) =>
-			each
-				.trim()
-				.replace(/^type\s+/, '')
-				.split(/\s+as\s+/)[0]
-				?.trim(),
-		)
-		.filter((name) => name !== undefined && name.length > 0);
-
-/**
- * The published name in each entry of a value clause, type-only entries
- * dropped.
+ * This is the one place a clause is split, and the caller scan and the barrel
+ * read both go through it, each taking the half it needs. `name` is the first
+ * half of `a as b`, which is what a caller asks of the package, and `alias` is
+ * the second, which is what a barrel publishes; with no `as` the two are the
+ * same. An entry is type-only when it carries an inline `type`, or when the
+ * whole clause does, `import type { ... }` or `export type { ... }`, which is
+ * what `clauseIsTypeOnly` says.
  *
- * A re-export publishes the second half of `a as b`, and `b` is what a caller
- * imports, so that is the name to look for. `bindings` takes the first half
- * because it reads what is asked of the package, and the two answer different
- * questions.
+ * @returns {Array<{ name: string, alias: string, typeOnly: boolean }>}
  */
-const publishedValues = (clause) =>
+const clauseEntries = (clause, clauseIsTypeOnly = false) =>
 	clause
 		.split(',')
 		.map((each) => each.trim())
-		.filter((each) => each.length > 0 && !/^type\s/.test(each))
-		.map((each) =>
-			each
+		.filter((each) => each.length > 0)
+		.map((each) => {
+			const [name, alias = name] = each
+				.replace(/^type\s+/, '')
 				.split(/\s+as\s+/)
-				.pop()
-				.trim(),
-		);
+				.map((half) => half.trim());
+			return { name, alias, typeOnly: clauseIsTypeOnly || /^type\s/.test(each) };
+		});
 
 /**
- * The value names one barrel's text publishes and no caller asks for, as
- * `{ name, specifier }`.
+ * The value names one barrel's text publishes and no caller asks for in a
+ * value entry, as `{ name, specifier }`.
  */
-const uncalledNames = (text, askedNames) =>
+const uncalledNames = (text, askedValues) =>
 	[...text.matchAll(VALUE_REEXPORT)].flatMap(([, clause, specifier]) =>
-		publishedValues(clause)
-			.filter((name) => !askedNames.has(name))
-			.map((name) => ({ name, specifier })),
+		clauseEntries(clause)
+			.filter(({ alias, typeOnly }) => !typeOnly && !askedValues.has(alias))
+			.map(({ alias }) => ({ name: alias, specifier })),
 	);
 
 /**
@@ -339,7 +362,7 @@ const uncalledNames = (text, askedNames) =>
  * @returns {Array<{ name: string, module: string }>}
  */
 const uncalledNamesIn = (entry, asked) =>
-	uncalledNames(readFileSync(entry.file, 'utf8'), asked.names).map(({ name, specifier }) => ({
+	uncalledNames(readFileSync(entry.file, 'utf8'), asked.values).map(({ name, specifier }) => ({
 		name,
 		module: resolveRelative(entry.file, specifier)[0] ?? specifier,
 	}));
@@ -420,13 +443,13 @@ function seedsFrom(entry, asked) {
 		return asked.subpaths.has(entry.specifier) ? [{ file: entry.file, follow: true }] : [];
 	}
 
-	const wanted = reexports.filter(([, clause]) =>
-		bindings(clause).some((name) => asked.names.has(name)),
+	const wanted = reexports.filter(([, , clause]) =>
+		clauseEntries(clause).some(({ name }) => asked.names.has(name)),
 	);
 	return [
 		{ file: entry.file, follow: false },
 		...wanted
-			.flatMap(([, , specifier]) => resolveRelative(entry.file, specifier))
+			.flatMap(([, , , specifier]) => resolveRelative(entry.file, specifier))
 			.map((file) => ({ file, follow: true })),
 	];
 }
