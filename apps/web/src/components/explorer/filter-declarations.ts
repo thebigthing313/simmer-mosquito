@@ -12,7 +12,7 @@ import { type CatalogDescriptor, catalogs } from '../../hooks/queries/catalog-re
 import type { DateDirection } from '../../lib/date-presets';
 import type { SummaryGroup, SummaryGrouping } from './explorer-summary';
 import { type FilterOption, toggle } from './multi-select-filter';
-import type { RecordSetContext, RecordSetLinks } from './record-set';
+import type { RecordSetLinks } from './record-set';
 
 /** Where an id set's options and names come from. */
 export type OptionSource =
@@ -74,18 +74,8 @@ export interface ChoiceOption<TValue extends string> {
 	readonly color?: string;
 }
 
-interface DeclarationBase {
-	/**
-	 * Whether the filter narrows anything in this Organization. Left out, it
-	 * always does. While it answers false the filter draws no control and no
-	 * chip, and the set's counting has to leave it uncounted to match. Only a
-	 * record set's binding carries the context this reads.
-	 */
-	readonly available?: (context: RecordSetContext) => boolean;
-}
-
 /** A selection of ids from a catalog, written by `idSetParam`. */
-export interface IdSetDeclaration<TKey extends string> extends DeclarationBase {
+export interface IdSetDeclaration<TKey extends string> {
 	readonly kind: 'idSet';
 	readonly key: TKey;
 	/** The control's name. */
@@ -117,7 +107,7 @@ export interface IdSetDeclaration<TKey extends string> extends DeclarationBase {
 }
 
 /** A flag that narrows when on, written by `flagParam`. */
-export interface FlagDeclaration<TKey extends string> extends DeclarationBase {
+export interface FlagDeclaration<TKey extends string> {
 	readonly kind: 'flag';
 	readonly key: TKey;
 	/** The control's name, which the chip reads too unless `chip` says otherwise. */
@@ -133,8 +123,7 @@ export interface FlagDeclaration<TKey extends string> extends DeclarationBase {
 }
 
 /** One of a fixed set with an `all`, written by `choiceParam`. */
-export interface ChoiceDeclaration<TKey extends string, TValue extends string>
-	extends DeclarationBase {
+export interface ChoiceDeclaration<TKey extends string, TValue extends string> {
 	readonly kind: 'choice';
 	readonly key: TKey;
 	readonly label: string;
@@ -166,7 +155,7 @@ export interface ChoiceDeclaration<TKey extends string, TValue extends string>
  * `MultiSelectFilter` that writes the values in option order, or a control of
  * its own in `field`.
  */
-export type ChoiceSetDeclaration<TKey extends string, TValue extends string> = DeclarationBase & {
+export type ChoiceSetDeclaration<TKey extends string, TValue extends string> = {
 	readonly kind: 'choiceSet';
 	readonly key: TKey;
 	readonly label: string;
@@ -179,29 +168,29 @@ export type ChoiceSetDeclaration<TKey extends string, TValue extends string> = D
 		readonly none?: string;
 	};
 } & (
-		| {
-				readonly field: ComponentType<{
-					readonly selected: ReadonlySet<TValue>;
-					readonly onChange: (next: ReadonlySet<TValue>) => void;
-				}>;
-				readonly empty?: never;
-		  }
-		| {
-				readonly field?: never;
-				/** What the `MultiSelectFilter` says when its search matches nothing. */
-				readonly empty: string;
-		  }
-	);
+	| {
+			readonly field: ComponentType<{
+				readonly selected: ReadonlySet<TValue>;
+				readonly onChange: (next: ReadonlySet<TValue>) => void;
+			}>;
+			readonly empty?: never;
+	  }
+	| {
+			readonly field?: never;
+			/** What the `MultiSelectFilter` says when its search matches nothing. */
+			readonly empty: string;
+	  }
+);
 
 /** The date window, `from` and `to`, a `dateParam` pair. */
-export interface DateRangeDeclaration extends DeclarationBase {
+export interface DateRangeDeclaration {
 	readonly kind: 'dateRange';
 	/** The presets the control offers. Left out, `history`. */
 	readonly direction?: DateDirection;
 }
 
 /** The search box's committed term, written by `textParam`. */
-export interface TextDeclaration<TKey extends string> extends DeclarationBase {
+export interface TextDeclaration<TKey extends string> {
 	readonly kind: 'text';
 	readonly key: TKey;
 	/** The box's accessible name. */
@@ -313,21 +302,11 @@ export function declaredKeys(declaration: LooseDeclaration): readonly string[] {
 }
 
 /**
- * Whether a declaration draws anything in `context`. A declaration that asks
- * for the context on a binding with none is a mistake in the page, so it throws
- * rather than drawing or hiding the filter by guess.
+ * Whether a declaration reads a key its record set calls inert, which is a
+ * filter that narrows nothing in this Organization and so draws nothing.
  */
-export function isAvailable<TFilters>(
-	declaration: FilterDeclaration<TFilters>,
-	context: RecordSetContext | undefined,
-): boolean {
-	if (declaration.available === undefined) {
-		return true;
-	}
-	if (context === undefined) {
-		throw new Error('A filter that reads the Organization needs a record set binding.');
-	}
-	return declaration.available(context);
+export function isInert(declaration: LooseDeclaration, inert: ReadonlySet<string>): boolean {
+	return declaredKeys(declaration).some((key) => inert.has(key));
 }
 
 /** What {@link declaredSummaryGroupings} reads: the summary, the URL's filters and their write. */

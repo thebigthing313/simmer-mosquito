@@ -28,32 +28,35 @@ import {
 	type FlagDeclaration,
 	filterName,
 	type IdSetDeclaration,
-	isAvailable,
+	isInert,
 	type LooseDeclaration,
 	loosenDeclaration,
 	type OptionSource,
 	type TextDeclaration,
 } from './filter-declarations';
 import { type FilterOption, MultiSelectFilter, toggle } from './multi-select-filter';
-import type { RecordSetContext } from './record-set';
 import { SegmentedFilter } from './segmented-filter';
 import { ToggleFilter } from './toggle-filter';
 
 /**
  * What the controls and chips read off a binding. A record set's binding from
- * `useRecordSetFilters` carries all of it. A page with no record set hands its
- * `FilterBinding`, and then declares no text filter and no `available`, since
- * both read a half it does not have; "Clear all" is its `reset`.
+ * `useRecordSetFilters` carries all of it, `inert` included, which is the set's
+ * own statement of the filters that narrow nothing in this Organization. A page
+ * with no record set hands its `FilterBinding`, and then declares no text
+ * filter, since that reads a half it does not have, and has nothing inert;
+ * "Clear all" is its `reset`.
  */
 export type DeclaredFilterBinding<TFilters> = FilterBinding<TFilters> &
-	Partial<TextSearchBinding> & { readonly context?: RecordSetContext };
+	Partial<TextSearchBinding> & { readonly inert?: ReadonlySet<string> };
 
-/** One control per declared filter, by name, or null where the filter is not available. */
+/** One control per declared filter, by name, or null where the filter is inert. */
 export type FilterFields<TFilters> = Readonly<Record<FilterName<TFilters>, ReactElement | null>>;
+
+const NOTHING_INERT: ReadonlySet<string> = new Set();
 
 /**
  * Each declared filter's control, keyed by its name so the surface can lay
- * them out in its own frame. A filter that is not available in the
+ * them out in its own frame. A filter the record set calls inert in this
  * Organization is null, which a `FilterGrid` leaves out.
  */
 export function filterFields<TFilters>(
@@ -63,13 +66,10 @@ export function filterFields<TFilters>(
 	const fields: Partial<Record<FilterName<TFilters>, ReactElement | null>> = {};
 	for (const declaration of declarations.list) {
 		const name = filterName(declaration);
-		fields[name] = isAvailable(declaration, binding.context) ? (
-			<DeclaredField
-				binding={loosen(binding)}
-				declaration={loosenDeclaration(declaration)}
-				key={name}
-			/>
-		) : null;
+		const loose = loosenDeclaration(declaration);
+		fields[name] = isInert(loose, binding.inert ?? NOTHING_INERT) ? null : (
+			<DeclaredField binding={loosen(binding)} declaration={loose} key={name} />
+		);
 	}
 	return fields as FilterFields<TFilters>;
 }
@@ -91,15 +91,16 @@ export function DeclaredFilterChips<TFilters>({
 	}
 	return (
 		<ActiveFilterBar onClearAll={binding.clearAll ?? binding.reset}>
-			{declarations.list.map((declaration) =>
-				isAvailable(declaration, binding.context) ? (
+			{declarations.list.map((declaration) => {
+				const loose = loosenDeclaration(declaration);
+				return isInert(loose, binding.inert ?? NOTHING_INERT) ? null : (
 					<DeclaredChips
 						binding={loosen(binding)}
-						declaration={loosenDeclaration(declaration)}
+						declaration={loose}
 						key={filterName(declaration)}
 					/>
-				) : null,
-			)}
+				);
+			})}
 		</ActiveFilterBar>
 	);
 }

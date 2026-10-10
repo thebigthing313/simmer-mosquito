@@ -10,7 +10,6 @@ import {
 	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
-	type FilterCounting,
 	flagParam,
 	idSetParam,
 	textParam,
@@ -93,14 +92,11 @@ export function serviceRequestOverdueCutoffFor({
 }
 
 /**
- * How a service request surface counts what is set. An Overdue left on the
- * address while the Organization's threshold is off narrows nothing, so it is
- * not counted.
+ * The service request filters that narrow nothing in `context`: Overdue while
+ * the Organization's threshold is off, whatever the address says.
  */
-function serviceRequestCounting(context: RecordSetContext): FilterCounting<ServiceRequestFilters> {
-	return serviceRequestOverdueCutoffFor(context) === null
-		? { ...DATE_RANGE_COUNTING, uncounted: ['overdue'] }
-		: DATE_RANGE_COUNTING;
+function serviceRequestInertFilters(context: RecordSetContext): readonly 'overdue'[] {
+	return serviceRequestOverdueCutoffFor(context) === null ? ['overdue'] : [];
 }
 
 /** The order the Map's rail and the Table page in. */
@@ -178,7 +174,8 @@ export const serviceRequestRecordSet = defineRecordSet({
 		serviceRequestTileFilters(filters, serviceRequestOverdueCutoffFor(context)),
 	filterSpec: SERVICE_REQUEST_MAP_FILTERS,
 	defaults: ({ today }) => serviceRequestFilterDefaults(today),
-	counting: serviceRequestCounting,
+	counting: DATE_RANGE_COUNTING,
+	inert: serviceRequestInertFilters,
 	textSearch: { key: 'search' },
 	applies: {
 		status: 'both',

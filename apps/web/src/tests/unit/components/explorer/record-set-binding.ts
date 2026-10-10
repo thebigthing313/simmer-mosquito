@@ -15,6 +15,7 @@ import {
 	type RecordSetContext,
 	type RecordSetSurface,
 	recordSetCounting,
+	recordSetInert,
 } from '../../../../components/explorer/record-set';
 import type { RecordSetFilterBinding } from '../../../../hooks/explorer/use-record-set-filters';
 import { countActiveFilters } from '../../../../lib/search-filters';
@@ -58,5 +59,6 @@ export function recordSetBinding<TFilters extends object, TTile>(
 		clearSearch: vi.fn<() => void>(),
 		clearAll,
 		context,
+		inert: recordSetInert(set, context),
 	};
 }

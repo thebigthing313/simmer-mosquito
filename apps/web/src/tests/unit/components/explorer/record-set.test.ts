@@ -13,6 +13,7 @@ import {
 	type RecordSetLinks,
 	type RecordSetSurface,
 	recordSetCounting,
+	recordSetInert,
 	recordSetListParams,
 	surfaceCodecs,
 } from '../../../../components/explorer/record-set';
@@ -197,6 +198,32 @@ describe('the service requests count', () => {
 
 	it('does not count an Overdue left on the address while the threshold is off', () => {
 		expect(countWithOverdue('off')).toBe(0);
+	});
+
+	it('calls Overdue inert only while the threshold is off', () => {
+		expect([...recordSetInert(serviceRequestRecordSet, contextOn('2026-10-09', 'off'))]).toEqual([
+			'overdue',
+		]);
+		expect(recordSetInert(serviceRequestRecordSet, contextOn('2026-10-09', 14)).size).toBe(0);
+	});
+});
+
+describe('an inert filter in the counting', () => {
+	const context = contextOn('2026-10-09', 14);
+
+	it("is left uncounted beside the set's own uncounted keys and groups", () => {
+		const counting = recordSetCounting<{ a: string; b: string; c: string }>(
+			{ counting: { groups: [['a', 'b']], uncounted: ['a'] }, inert: () => ['c'] },
+			context,
+		);
+
+		expect(counting).toEqual({ groups: [['a', 'b']], uncounted: ['a', 'c'] });
+	});
+
+	it("leaves a set's counting as it is when nothing is inert", () => {
+		const own = { groups: [['a', 'b']] } as const;
+
+		expect(recordSetCounting({ counting: own, inert: () => [] }, context)).toBe(own);
 	});
 });
 
