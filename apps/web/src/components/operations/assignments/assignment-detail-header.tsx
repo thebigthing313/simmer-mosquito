@@ -1,12 +1,8 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
-import {
-	formatAssignmentDate,
-	formatDueAt,
-	type ProgressCounts,
-} from '../../../hooks/queries/assignment-view';
+import { formatAssignmentDate, type ProgressCounts } from '../../../hooks/queries/assignment-view';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { DetailPageHeader } from '../../record/detail-page-header';
 import { StopProgressSummary } from '../operations-display';
 import {
@@ -54,10 +50,10 @@ export function AssignmentDetailHeader({
 	readonly lifecycle: AssignmentLifecycleHandlers;
 	readonly askDelete: AskAcknowledged;
 }) {
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const assignmentWrites = useAssignmentMutations();
 	const phase = assignmentPhase(assignment.status);
-	const due = formatDueAt(assignment.dueAt, timeZone);
+	const due = clock.formatInstant(assignment.dueAt, 'dueAt');
 
 	return (
 		<>

@@ -6,7 +6,6 @@ export function ActivityLog({
 	families,
 	message,
 	lookups,
-	timeZone,
 	selectedKey,
 	onSelect,
 }: {
@@ -16,7 +15,6 @@ export function ActivityLog({
 	readonly message: { readonly title: string; readonly body: string } | null;
 	readonly lookups: ActivityLookups;
 	readonly selectedKey: string | null;
-	readonly timeZone: string | undefined;
 	readonly onSelect: (key: string) => void;
 }) {
 	if (message !== null) {
@@ -32,7 +30,6 @@ export function ActivityLog({
 					lookups={lookups}
 					onSelect={onSelect}
 					selectedKey={selectedKey}
-					timeZone={timeZone}
 				/>
 			))}
 		</ol>

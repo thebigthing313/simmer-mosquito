@@ -1,5 +1,5 @@
 /**
- * The three date labels a record detail page draws.
+ * The two calendar-day labels a record detail page draws.
  *
  * They were one file's worth of code written twice. `formatFullDate`,
  * `formatMonthDayYear` and `formatDateTime` were byte-identical in
@@ -16,9 +16,10 @@
  *
  * The two date labels render on the UTC clock because an inspection date and a
  * sample date are calendar days: read as instants they land on the previous day
- * everywhere west of Greenwich. {@link formatDateTime} is the opposite, and takes
- * the organization's zone, because a stamp is an instant and the question is
- * what the clock read where the work happened.
+ * everywhere west of Greenwich. The third, `formatDateTime`, was the opposite: a
+ * stamp is an instant, so it took the Organization's zone. It is the `dateTime`
+ * style of `formatInstant` in `organization-clock.ts` now, beside the three other
+ * copies of it (#1433).
  */
 
 import { calendarDateParts, utcCalendarDay } from './local-date';
@@ -56,29 +57,4 @@ function utcDate(
 		day: 'numeric',
 		timeZone: 'UTC',
 	}).format(utcCalendarDay(parts));
-}
-
-/**
- * A stored instant on the organization's clock: `Aug 12, 2026, 4:30 PM`.
- *
- * It answered `Unknown` for a value it could not read, which said only that
- * something was wrong. The value goes back on screen instead, which at least
- * says what.
- *
- * No zone means the reader's own, which is what a page shows before the
- * organization's settings have arrived.
- */
-export function formatDateTime(value: string, timeZone: string | undefined): string {
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) {
-		return unreadable('formatDateTime', value);
-	}
-	return new Intl.DateTimeFormat('en-US', {
-		day: 'numeric',
-		month: 'short',
-		year: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit',
-		...(timeZone === undefined ? {} : { timeZone }),
-	}).format(date);
 }
