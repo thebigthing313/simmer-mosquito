@@ -142,7 +142,7 @@ const REQUESTS: Card<RequestFilters> = {
 		'Remove Dates: Jan 1–Oct 9 filter',
 		'Remove Biocontrol filter',
 		'Remove Source Reduction filter',
-		'Remove Unknown person filter',
+		'Remove Unknown profile filter',
 		'Remove Not yet assigned filter',
 	],
 };
@@ -185,11 +185,11 @@ describe.each(CARDS)('the $name chips', (card) => {
 });
 
 describe('a profile the catalog does not hold', () => {
-	it('reads the same on Requests for Control as on a record set Technician filter', () => {
+	it('reads Unknown profile on Requests for Control and Unknown person on a Technician filter', () => {
 		render(
 			<RequestControlFilters binding={binding(REQUESTS.defaults, { people: new Set(['gone']) })} />,
 		);
-		const onRequests = chipNames();
+		expect(chipNames()).toEqual(['Remove Unknown profile filter']);
 		cleanup();
 
 		const set = biocontrolFilterDeclarations.set as unknown as RecordSet<Record<string, unknown>>;
@@ -200,6 +200,6 @@ describe('a profile the catalog does not hold', () => {
 			/>,
 		);
 
-		expect(onRequests).toEqual(chipNames());
+		expect(chipNames()).toEqual(['Remove Unknown person filter']);
 	});
 });

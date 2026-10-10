@@ -1,7 +1,7 @@
 /**
  * The filter declarations more than one Operations index writes the same way:
- * Control type, on Missions and Requests for Control, and the name an
- * assignee chip reads for a profile the worklist does not hold.
+ * Control type, on Missions and Requests for Control, and the name a profile
+ * chip reads on all three for a profile it cannot name.
  */
 
 import { CONTROL_TYPES, controlTypeLabel } from '../../hooks/queries/operations-view';
@@ -23,5 +23,9 @@ export const CONTROL_TYPE_FILTER: IdSetDeclaration<'types'> = {
 	unknown: 'Unknown control type',
 };
 
-/** What an Assigned to chip reads for a profile the worklist does not hold. */
-export const ASSIGNEE_UNKNOWN = 'Unknown profile';
+/**
+ * What an Assigned to or Requested by chip reads for a profile it cannot name.
+ * The record sets' Technician filter says Unknown person, and which wording
+ * the app settles on is #1538's to decide.
+ */
+export const PROFILE_UNKNOWN = 'Unknown profile';
