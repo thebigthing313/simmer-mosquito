@@ -29,6 +29,7 @@ import { useRouteSnapshotItems } from '../../../hooks/operations/use-route-snaps
 import { useRouteStopCounts } from '../../../hooks/queries/use-route-stop-counts';
 import { useRouteCatalog } from '../../../hooks/queries/use-routes';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { stopCountPhrase } from '../../../lib/format-count';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -207,7 +208,7 @@ function AssignmentCreateRoute() {
 						{routeId === null ? null : (
 							<p className="m-0 text-muted-foreground text-xs">
 								{routeItemsReady
-									? `${routeStopCount === 1 ? '1 stop' : `${routeStopCount} stops`} will be copied in order.`
+									? `${stopCountPhrase(routeStopCount)} will be copied in order.`
 									: 'Loading this route’s stops…'}
 							</p>
 						)}
