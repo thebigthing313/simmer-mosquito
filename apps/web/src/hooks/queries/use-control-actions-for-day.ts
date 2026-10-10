@@ -19,7 +19,7 @@
  * to answer the same questions.
  */
 
-import { caseWhen, coalesce, eq, isNull, useLiveQuery } from '@tanstack/react-db';
+import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { application_methods } from '../../lib/collections/application_methods';
 import { applications } from '../../lib/collections/applications';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
@@ -48,13 +48,19 @@ export interface DailyControlAction {
 	/** Applicator or technician: whoever performed the work. */
 	readonly performedByProfileId: string | null;
 	readonly performedByName: string | null;
-	/** The product (applications) or the control method (the other two). */
-	readonly subjectName: string;
+	/**
+	 * The product (applications) or the control method (the other two). `null`
+	 * while that record is not in the client; the surface draws its own stand-in.
+	 */
+	readonly subjectName: string | null;
 	/**
 	 * How it was done, where that is a separate fact from the subject. Only
 	 * applications have one — for the other two the method *is* the subject, so
-	 * repeating it in the secondary line would say the same thing twice.
+	 * repeating it in the secondary line would say the same thing twice, and both
+	 * fields are `null` there. On an application, a `null` id is no method
+	 * recorded and a `null` name beside a set id is a method not in the client.
 	 */
+	readonly methodId: string | null;
 	readonly methodName: string | null;
 	readonly amount: number;
 	readonly unitAbbreviation: string | null;
@@ -99,17 +105,10 @@ export function useControlActionsForDay(date: string): {
 						id: application.id,
 						actionDate: applicationReads.date(application),
 						performedByProfileId: measured.performerProfileId,
-						performedByName: caseWhen(
-							isNull(measured.performerProfileId),
-							null,
-							performer.display_name,
-						),
-						subjectName: coalesce(product.trade_name, 'Unknown insecticide'),
-						methodName: caseWhen(
-							isNull(measured.methodId),
-							'No method',
-							coalesce(method.name, 'Unknown method'),
-						),
+						performedByName: coalesce(performer.display_name, null),
+						subjectName: coalesce(product.trade_name, null),
+						methodId: measured.methodId,
+						methodName: coalesce(method.name, null),
 						amount: measured.amount,
 						unitAbbreviation: coalesce(unit.abbreviation, null),
 						createdAt: application.created_at,
@@ -145,12 +144,8 @@ export function useControlActionsForDay(date: string): {
 						id: action.id,
 						actionDate: reductionReads.date(action),
 						performedByProfileId: measured.performerProfileId,
-						performedByName: caseWhen(
-							isNull(measured.performerProfileId),
-							null,
-							performer.display_name,
-						),
-						subjectName: coalesce(method.name, 'Unknown method'),
+						performedByName: coalesce(performer.display_name, null),
+						subjectName: coalesce(method.name, null),
 						amount: measured.amount,
 						unitAbbreviation: coalesce(unit.abbreviation, null),
 						createdAt: action.created_at,
@@ -182,12 +177,8 @@ export function useControlActionsForDay(date: string): {
 						id: action.id,
 						actionDate: releaseReads.date(action),
 						performedByProfileId: measured.performerProfileId,
-						performedByName: caseWhen(
-							isNull(measured.performerProfileId),
-							null,
-							performer.display_name,
-						),
-						subjectName: coalesce(method.name, 'Unknown method'),
+						performedByName: coalesce(performer.display_name, null),
+						subjectName: coalesce(method.name, null),
 						amount: measured.amount,
 						unitAbbreviation: coalesce(unit.abbreviation, null),
 						createdAt: action.created_at,
@@ -204,11 +195,13 @@ export function useControlActionsForDay(date: string): {
 		...sourceReductionRows.map((row) => ({
 			...row,
 			kind: 'sourceReduction' as const,
+			methodId: null,
 			methodName: null,
 		})),
 		...biocontrolRows.map((row) => ({
 			...row,
 			kind: 'biocontrol' as const,
+			methodId: null,
 			methodName: null,
 		})),
 		// Recording order, which is the order the crew worked in — the three

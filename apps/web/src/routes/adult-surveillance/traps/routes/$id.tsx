@@ -32,7 +32,6 @@ function RouteDetailRoute() {
 			route={routes.find((candidate) => candidate.id === id) ?? null}
 			routeId={id}
 			stopList={(selection) => <TrapStopList selection={selection} stops={stops} />}
-			stops={stops}
 			surface={trapRouteSurface}
 		/>
 	);

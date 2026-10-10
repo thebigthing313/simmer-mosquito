@@ -6,7 +6,7 @@
  * `YYYY-MM-DD` string — no zone, no instant.
  */
 
-import { caseWhen, coalesce, gte, isNull, useLiveQuery } from '@tanstack/react-db';
+import { coalesce, gte, useLiveQuery } from '@tanstack/react-db';
 import { outreach_actions } from '../../lib/collections/outreach_actions';
 import { outreach_methods } from '../../lib/collections/outreach_methods';
 import { profiles } from '../../lib/collections/profiles';
@@ -20,7 +20,8 @@ export interface RecentOutreachAction {
 	readonly id: string;
 	readonly outreachDate: string;
 	readonly methodId: string;
-	readonly methodName: string;
+	/** `null` while the method is not in the client. */
+	readonly methodName: string | null;
 	readonly technicianProfileId: string | null;
 	readonly technicianName: string | null;
 	readonly reach: number;
@@ -55,13 +56,9 @@ export function useRecentOutreachActions(sinceDate: string): {
 						id: action.id,
 						outreachDate: outreachReads.date(action),
 						methodId: measured.methodId,
-						methodName: coalesce(method.name, 'Unknown method'),
+						methodName: coalesce(method.name, null),
 						technicianProfileId: measured.performerProfileId,
-						technicianName: caseWhen(
-							isNull(measured.performerProfileId),
-							null,
-							technician.display_name,
-						),
+						technicianName: coalesce(technician.display_name, null),
 						reach: measured.amount,
 						reachDescription: action.reach_description,
 					};

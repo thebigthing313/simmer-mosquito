@@ -7,7 +7,7 @@
  * Three sequential queries before: the action, then its method, then its unit.
  */
 
-import { caseWhen, coalesce, eq, isNull } from '@tanstack/react-db';
+import { coalesce, eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { profiles } from '../../lib/collections/profiles';
 import { source_reduction_methods } from '../../lib/collections/source_reduction_methods';
@@ -68,13 +68,9 @@ export function useSourceReduction(
 						actionDate: reductionReads.date(action),
 
 						methodId: measured.methodId,
-						methodName: coalesce(method.name, 'Unknown method'),
+						methodName: coalesce(method.name, null),
 						technicianProfileId: measured.performerProfileId,
-						technicianName: caseWhen(
-							isNull(measured.performerProfileId),
-							null,
-							technician.display_name,
-						),
+						technicianName: coalesce(technician.display_name, null),
 
 						sourcesEliminated: measured.amount,
 						unitId: measured.unitId,

@@ -1,8 +1,5 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useState } from 'react';
-import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ApplicationMapCard } from '../../../components/control-operations/application-map-card';
 import {
@@ -25,8 +22,9 @@ import {
 } from '../../../components/control-operations/chemical/applications-search';
 import { formatAmount } from '../../../components/control-operations/control-display';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
 import { ExplorerSummary } from '../../../components/explorer/explorer-summary';
-import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
+import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useApplicationFilterState } from '../../../hooks/control-operations/use-application-filter-state';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
@@ -52,8 +50,6 @@ function ApplicationsExplorerRoute() {
 	// both land on the list the operator had narrowed to.
 	const binding = useApplicationFilterState();
 	const { filters: query, setFilters, reset: clearAll, activeCount: activeFilterCount } = binding;
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.applicationMethods);
@@ -67,28 +63,27 @@ function ApplicationsExplorerRoute() {
 	// What a move to the Table takes with it: every filter, since the Table
 	// applies each one.
 	const carried = sharedApplicationSearch(Route.useSearch());
-	const layer: MapTileLayer = {
-		kind: 'chemical',
-		serverUrl: getServerUrl(),
-		filters,
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		empty,
+		summary,
+		canvas,
 		selectedId,
-		onSelectFeature: setSelectedId,
-	};
-	const { rows, total, isLoading, isError, retry, selected, empty, summary, layers } =
-		useExplorerResource<ApplicationListRow>({
-			path: PATH,
-			rowsKey: 'applications',
-			rowKey: 'application',
-			recordType: 'application',
-			params: applicationListParams(filters),
-			layer,
-			map,
-			selectedId,
-			normalizeRow: normalizeApplication,
-			summarize: true,
-		});
-
-	const handleMapReady = (instance: MapboxMap) => setMap(instance);
+		setSelectedId,
+	} = useExplorerResource<ApplicationListRow>({
+		path: PATH,
+		rowsKey: 'applications',
+		rowKey: 'application',
+		recordType: 'application',
+		params: applicationListParams(filters),
+		tiles: { kind: 'chemical', filters },
+		normalizeRow: normalizeApplication,
+		summarize: true,
+	});
 
 	return (
 		<ExplorerMapPage
@@ -104,25 +99,12 @@ function ApplicationsExplorerRoute() {
 			}}
 			onResetFilters={clearAll}
 			map={
-				<>
-					<MapCanvas
-						inset={panel.inset}
-						searchWidth={panel.width}
-						contextMenu={{ create: [MAP_CREATE_TARGETS.chemical] }}
-						layers={layers}
-						controls={{ measure: true, readout: true }}
-						fitToData
-						rememberCamera
-						onMapReady={handleMapReady}
-					/>
-					{selected === null ? null : (
-						<ApplicationMapCard
-							id={selected.id}
-							inset={panel.inset}
-							onClose={() => setSelectedId(null)}
-						/>
-					)}
-				</>
+				<ExplorerCanvas
+					canvas={canvas}
+					card={(props) => <ApplicationMapCard {...props} />}
+					contextMenu={{ create: [MAP_CREATE_TARGETS.chemical] }}
+					panel={panel}
+				/>
 			}
 			panel={panel}
 			results={{

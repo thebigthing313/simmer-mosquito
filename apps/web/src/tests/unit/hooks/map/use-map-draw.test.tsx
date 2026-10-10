@@ -5,6 +5,12 @@ import { cleanup, fireEvent, screen } from '@testing-library/react';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { act, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+	drawLayers,
+	EDGE_LAYERS,
+	SOURCE_ID,
+	VERTEX_LAYER,
+} from '../../../../components/map/draw-layers';
 import type { DrawGeometry } from '../../../../hooks/map/use-map-draw';
 import { useMapDraw } from '../../../../hooks/map/use-map-draw';
 import {
@@ -12,11 +18,14 @@ import {
 	BLOCK_WITH_EDGE_VERTEX,
 	BLOCK_WITH_PULLED_CORNER,
 	BULGED_BLOCK,
-	FIRST_SQUARE,
+	FIRST_TRIANGLE,
+	line,
+	ON_FIRST_LEG,
 	ON_WEST_EDGE,
 	OUTSIDE_SKETCH,
 	POND,
 	PULLED_CORNER,
+	TRIANGLE_WITH_LEG_VERTEX,
 } from '../../components/map/draw-fixtures';
 import type { FakeMap } from '../../components/map/fake-map';
 import {
@@ -37,14 +46,7 @@ import {
 	selectTrigger,
 } from '../../components/map/key-presses';
 
-const SOURCE_ID = 'habitat-draw';
-const LAYER_IDS = [
-	'habitat-draw-fill',
-	'habitat-draw-outline',
-	'habitat-draw-line',
-	'habitat-draw-vertex',
-	'habitat-draw-point',
-];
+const LAYER_IDS = drawLayers().map(({ id }) => id);
 
 afterEach(cleanupRenderedHooks);
 afterEach(cleanup);
@@ -147,10 +149,37 @@ function editBlock() {
 	return harness;
 }
 
-/** The layer the edit listener asks for a vertex under the pointer. */
-const VERTEX_LAYER = `${SOURCE_ID}-vertex`;
-/** One of the two layers it asks for an edge, the one an area's boundary draws on. */
-const OUTLINE_LAYER = `${SOURCE_ID}-outline`;
+/**
+ * The two layers the edit listener asks for an edge: the one an area's boundary
+ * draws on, then the one a line draws on. Read out of the module rather than
+ * spelled here, so a case cannot keep passing against a layer the listener
+ * stopped asking about.
+ */
+const [OUTLINE_LAYER, LINE_LAYER] = edgeLayers();
+
+function edgeLayers(): readonly [string, string] {
+	const [outline, lineLayer, ...rest] = EDGE_LAYERS;
+	if (outline === undefined || lineLayer === undefined || rest.length > 0) {
+		throw new Error(`The edit listener asks ${EDGE_LAYERS.length} layers for an edge, not two.`);
+	}
+	return [outline, lineLayer];
+}
+
+/** Draw `positions` as a line and open it for editing. */
+function editLine(positions: readonly (readonly [number, number])[]) {
+	const harness = mountControlled();
+	act(() => {
+		harness.result.current.draw.start('LineString');
+	});
+	placeVertices(harness.fake, positions);
+	act(() => {
+		harness.result.current.draw.finish();
+	});
+	act(() => {
+		harness.result.current.draw.editPart(0);
+	});
+	return harness;
+}
 
 /**
  * The corner the draft source painted at `at`, which is what the vertex layer
@@ -177,6 +206,15 @@ function paintedArea(fake: FakeMap) {
 	const feature = fake.featuresOf(SOURCE_ID).find(({ geometry }) => geometry.type === 'Polygon');
 	if (feature === undefined) {
 		throw new Error('The draft painted no area.');
+	}
+	return feature;
+}
+
+/** The line the draft source painted, which the line layer draws. */
+function paintedLine(fake: FakeMap) {
+	const feature = fake.featuresOf(SOURCE_ID).find(({ geometry }) => geometry.type === 'LineString');
+	if (feature === undefined) {
+		throw new Error('The draft painted no line.');
 	}
 	return feature;
 }
@@ -208,7 +246,7 @@ const OPEN_DRAFTS = [
 			act(() => {
 				result.current.draw.start('Polygon');
 			});
-			placeVertices(fake, FIRST_SQUARE);
+			placeVertices(fake, FIRST_TRIANGLE);
 		},
 	},
 	{
@@ -344,13 +382,13 @@ describe('useMapDraw', () => {
 		act(() => {
 			result.current.draw.start('Polygon');
 		});
-		placeVertices(fake, FIRST_SQUARE);
+		placeVertices(fake, FIRST_TRIANGLE);
 		pressKey('Enter');
 
 		expect(result.current.draw.isDrawing).toBe(false);
 		expect(result.current.value).toEqual({
 			type: 'Polygon',
-			coordinates: [closeRing(FIRST_SQUARE)],
+			coordinates: [closeRing(FIRST_TRIANGLE)],
 		});
 	});
 
@@ -364,13 +402,13 @@ describe('useMapDraw', () => {
 		act(() => {
 			result.current.draw.start('Polygon');
 		});
-		placeVertices(fake, FIRST_SQUARE);
+		placeVertices(fake, FIRST_TRIANGLE);
 		pressKeyIn(fake.canvas, 'Enter');
 
 		expect(result.current.draw.isDrawing).toBe(false);
 		expect(result.current.value).toEqual({
 			type: 'Polygon',
-			coordinates: [closeRing(FIRST_SQUARE)],
+			coordinates: [closeRing(FIRST_TRIANGLE)],
 		});
 	});
 
@@ -403,7 +441,7 @@ describe('useMapDraw', () => {
 			result.current.draw.start('Polygon');
 		});
 		field.focus();
-		placeVertices(fake, FIRST_SQUARE);
+		placeVertices(fake, FIRST_TRIANGLE);
 
 		expect(document.activeElement).toBe(field);
 		field.remove();
@@ -461,7 +499,7 @@ describe('useMapDraw', () => {
 		act(() => {
 			result.current.draw.start('Polygon');
 		});
-		placeVertices(fake, FIRST_SQUARE);
+		placeVertices(fake, FIRST_TRIANGLE);
 		const before = draftState(result);
 
 		const option = await openSelect();
@@ -898,6 +936,26 @@ describe('useMapDraw', () => {
 			type: 'Polygon',
 			coordinates: [closeRing(BLOCK_WITH_EDGE_VERTEX)],
 		});
+	});
+
+	// The other layer `isOverEdge` asks. A line draws on its own layer rather than
+	// the outline, so a listener that stopped asking it would leave every line
+	// with no way to take a vertex.
+	it('adds a vertex on the line a click landed on and picks it', () => {
+		const { fake, result } = editLine(FIRST_TRIANGLE);
+		fake.showFeatures(LINE_LAYER, [paintedLine(fake)]);
+
+		const [longitude, latitude] = ON_FIRST_LEG;
+		act(() => {
+			fake.click(longitude, latitude);
+		});
+
+		expect(result.current.draw.editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
+		expect(result.current.draw.vertexCount).toBe(FIRST_TRIANGLE.length + 1);
+		act(() => {
+			result.current.draw.finish();
+		});
+		expect(result.current.value).toEqual(line(TRIANGLE_WITH_LEG_VERTEX));
 	});
 
 	it('picks the vertex and adds none when a click is over a vertex and an edge', () => {
