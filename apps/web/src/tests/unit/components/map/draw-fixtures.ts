@@ -26,6 +26,16 @@ export const BLOCK: readonly PlanarPosition[] = [
 	[-88, 37],
 	[-88, 34],
 ];
+/** On {@link BLOCK}'s western edge, between its first two corners. */
+export const ON_WEST_EDGE: PlanarPosition = [-91, 35.5];
+/** {@link BLOCK} with {@link ON_WEST_EDGE} inserted as its second corner. */
+export const BLOCK_WITH_EDGE_VERTEX: readonly PlanarPosition[] = [
+	[-91, 34],
+	ON_WEST_EDGE,
+	[-91, 37],
+	[-88, 37],
+	[-88, 34],
+];
 /** Well inside {@link BLOCK}. */
 export const POND: readonly PlanarPosition[] = [
 	[-90, 35],

@@ -9,8 +9,10 @@ import type { DrawGeometry } from '../../../../hooks/map/use-map-draw';
 import { useMapDraw } from '../../../../hooks/map/use-map-draw';
 import {
 	BLOCK,
+	BLOCK_WITH_EDGE_VERTEX,
 	BULGED_BLOCK,
 	FIRST_SQUARE,
+	ON_WEST_EDGE,
 	OUTSIDE_SKETCH,
 	POND,
 } from '../../components/map/draw-fixtures';
@@ -131,6 +133,50 @@ function drawPolygon(
 	act(() => {
 		result.current.draw.finish();
 	});
+}
+
+/** Draw {@link BLOCK} and open it for editing, the state every hit-test case starts in. */
+function editBlock() {
+	const harness = mountControlled();
+	drawPolygon(harness.fake, harness.result, BLOCK);
+	act(() => {
+		harness.result.current.draw.editPart(0);
+	});
+	return harness;
+}
+
+/** The layer the edit listener asks for a vertex under the pointer. */
+const VERTEX_LAYER = `${SOURCE_ID}-vertex`;
+/** One of the two layers it asks for an edge, the one an area's boundary draws on. */
+const OUTLINE_LAYER = `${SOURCE_ID}-outline`;
+
+/**
+ * The corner the draft source painted at `at`, which is what the vertex layer
+ * hands back to a query over it: the hit-test reads the ring and the index off
+ * the feature, so a fake carrying any other properties tests a different read.
+ */
+function paintedVertex(fake: FakeMap, at: { readonly ring: number; readonly vertex: number }) {
+	const feature = fake
+		.featuresOf(SOURCE_ID)
+		.find(
+			({ properties }) =>
+				properties?.role === 'vertex' &&
+				properties.ring === at.ring &&
+				properties.vertex === at.vertex,
+		);
+	if (feature === undefined) {
+		throw new Error(`The draft painted no vertex at ring ${at.ring}, index ${at.vertex}.`);
+	}
+	return feature;
+}
+
+/** The area the draft source painted, which the outline layer draws the boundary of. */
+function paintedArea(fake: FakeMap) {
+	const feature = fake.featuresOf(SOURCE_ID).find(({ geometry }) => geometry.type === 'Polygon');
+	if (feature === undefined) {
+		throw new Error('The draft painted no area.');
+	}
+	return feature;
 }
 
 /** How far along the open draft is, in the terms a stray key would move. */
@@ -816,6 +862,102 @@ describe('useMapDraw', () => {
 
 		expect(result.current.draw.editedPart?.selected).toBeNull();
 		expect(result.current.draw.vertexCount).toBe(3);
+	});
+
+	// The click half of the edit hit-test. Each case tells the fake map what the
+	// vertex and edge layers have under the pointer and clicks once.
+	it('picks the vertex a click landed on', () => {
+		const { fake, result } = editBlock();
+		fake.showFeatures(VERTEX_LAYER, [paintedVertex(fake, { ring: 0, vertex: 2 })]);
+
+		act(() => {
+			fake.click(-88, 37);
+		});
+
+		expect(result.current.draw.editedPart?.selected).toEqual({ ring: 0, vertex: 2 });
+		expect(result.current.draw.vertexCount).toBe(BLOCK.length);
+	});
+
+	it('adds a vertex on the edge a click landed on and picks it', () => {
+		const { fake, result } = editBlock();
+		fake.showFeatures(OUTLINE_LAYER, [paintedArea(fake)]);
+
+		const [longitude, latitude] = ON_WEST_EDGE;
+		act(() => {
+			fake.click(longitude, latitude);
+		});
+
+		expect(result.current.draw.editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
+		expect(result.current.draw.vertexCount).toBe(BLOCK.length + 1);
+		act(() => {
+			result.current.draw.finish();
+		});
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [closeRing(BLOCK_WITH_EDGE_VERTEX)],
+		});
+	});
+
+	it('picks the vertex and adds none when a click is over a vertex and an edge', () => {
+		const { fake, result } = editBlock();
+		fake.showFeatures(VERTEX_LAYER, [paintedVertex(fake, { ring: 0, vertex: 1 })]);
+		fake.showFeatures(OUTLINE_LAYER, [paintedArea(fake)]);
+
+		act(() => {
+			fake.click(-91, 37);
+		});
+
+		expect(result.current.draw.editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
+		expect(result.current.draw.vertexCount).toBe(BLOCK.length);
+	});
+
+	it('drops the pick on a click over nothing', () => {
+		const { fake, result } = editBlock();
+		act(() => {
+			result.current.draw.selectVertex({ ring: 0, vertex: 1 });
+		});
+
+		act(() => {
+			fake.click(-89.5, 35.5);
+		});
+
+		expect(result.current.draw.editedPart?.selected).toBeNull();
+		expect(result.current.draw.vertexCount).toBe(BLOCK.length);
+	});
+
+	// The press half. A press on a corner is claimed, or Mapbox would pan the map
+	// out from under the corner being dragged, and the corner lands where the
+	// button was let go.
+	it('claims a press on a vertex and drops the vertex where the button is let go', () => {
+		const { fake, result } = editBlock();
+		fake.showFeatures(VERTEX_LAYER, [paintedVertex(fake, { ring: 0, vertex: 2 })]);
+
+		let pressed = { defaultPrevented: false };
+		act(() => {
+			pressed = fake.press(-88, 37);
+		});
+		act(() => {
+			fake.move(-87, 38);
+		});
+		act(() => {
+			fake.releaseButton();
+		});
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(pressed.defaultPrevented).toBe(true);
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [
+				closeRing([
+					[-91, 34],
+					[-91, 37],
+					[-87, 38],
+					[-88, 34],
+				]),
+			],
+		});
 	});
 
 	// The toolbar tells the user to double-click, so the gesture has to be the one
