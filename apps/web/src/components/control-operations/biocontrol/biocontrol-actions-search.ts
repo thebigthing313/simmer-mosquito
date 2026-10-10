@@ -1,5 +1,5 @@
-import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
 import { addDaysToDateString } from '../../../lib/local-date';
+import type { MapQueryValue } from '../../../lib/map-query-params';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -93,6 +93,9 @@ export const biocontrolRecordSet = defineRecordSet({
 	recordType: 'biocontrolAction',
 	paths: { map: '/control-operations/biocontrol', table: '/control-operations/biocontrol/table' },
 	codecs: biocontrolFilterCodecs,
+	endpoint: { path: '/map/biocontrol', rowsKey: 'biocontrolActions' },
+	tileFilters: biocontrolTileFilters,
+	listParams: biocontrolListParams,
 	defaults: ({ today }) => biocontrolFilterDefaults(today),
 	counting: DATE_RANGE_COUNTING,
 	applies: {

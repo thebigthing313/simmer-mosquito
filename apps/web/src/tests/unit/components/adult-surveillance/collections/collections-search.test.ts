@@ -4,7 +4,7 @@ import {
 	collectionListParams,
 	collectionTileFilters,
 } from '../../../../../components/adult-surveillance/collections/collections-search';
-import { mapQueryParams } from '../../../../../hooks/explorer/use-paged-map-resource';
+import { mapQueryParams } from '../../../../../lib/map-query-params';
 
 /**
  * The Map and the Table send one filter set to `/map/collections`, so this is

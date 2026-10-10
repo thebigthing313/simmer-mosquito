@@ -33,7 +33,7 @@ export function InspectionsFilterBar({
 	const resetDates = () => setFilters({ from: defaults.from, to: defaults.to });
 
 	return (
-		<div className="grid gap-4 rounded-md border border-border/50 bg-muted/20 p-4">
+		<>
 			<div className="grid gap-4 lg:grid-cols-2">
 				<DateRangeFilter {...dateRange} />
 				<div className="grid content-start gap-3">
@@ -77,6 +77,6 @@ export function InspectionsFilterBar({
 					state={state}
 				/>
 			)}
-		</div>
+		</>
 	);
 }

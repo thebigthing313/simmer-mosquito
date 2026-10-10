@@ -1,4 +1,5 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { stopCountPhrase } from '../../lib/format-count';
 import { recordNoun } from '../../lib/record-nouns';
 import type { DetailAction } from '../record/detail-page-header';
 
@@ -105,8 +106,6 @@ export function PendingStopsHint({
 		return null;
 	}
 	return (
-		<p className="m-0 text-muted-foreground text-xs">
-			{pending === 1 ? '1 stop still pending' : `${pending} stops still pending`}
-		</p>
+		<p className="m-0 text-muted-foreground text-xs">{stopCountPhrase(pending)} still pending</p>
 	);
 }

@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { countLabel, countPhrase, formatAmount, formatCount } from '../../../lib/format-count';
+import {
+	countLabel,
+	countPhrase,
+	formatAmount,
+	formatCount,
+	stopCountPhrase,
+} from '../../../lib/format-count';
 
 const HABITATS = { one: 'habitat', many: 'habitats' };
 
@@ -25,6 +31,25 @@ describe('countPhrase', () => {
 
 	it('leaves zero a plural for the surface to draw', () => {
 		expect(countPhrase(0, HABITATS)).toBe('0 habitats');
+	});
+});
+
+/**
+ * A stop is a Route item, a Mission Item or an Assignment item depending on
+ * the run, so it is not a record type and has no register entry. The count is
+ * still the shared phrase, so zero stays a plural.
+ */
+describe('stopCountPhrase', () => {
+	it('counts no stops as a plural', () => {
+		expect(stopCountPhrase(0)).toBe('0 stops');
+	});
+
+	it('counts one stop in the singular', () => {
+		expect(stopCountPhrase(1)).toBe('1 stop');
+	});
+
+	it('counts two stops in the plural', () => {
+		expect(stopCountPhrase(2)).toBe('2 stops');
 	});
 });
 

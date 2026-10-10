@@ -260,7 +260,7 @@ function CreateButton({
 		<WriteOnly minimum={create.minimum ?? 'collector'}>
 			<Button asChild size="sm">
 				<Link to={create.to}>
-					<PlusIcon aria-hidden="true" data-icon="inline-start" />
+					<PlusIcon aria-hidden="true" />
 					{create.label}
 				</Link>
 			</Button>

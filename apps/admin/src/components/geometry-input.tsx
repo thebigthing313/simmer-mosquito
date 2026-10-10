@@ -117,7 +117,7 @@ export function GeometryFileInput({
 			<div className="grid gap-3">
 				<div className="flex flex-wrap items-center gap-2">
 					<Button onClick={() => fileInputRef.current?.click()} type="button" variant="outline">
-						<UploadIcon aria-hidden="true" data-icon="inline-start" />
+						<UploadIcon aria-hidden="true" />
 						Choose KML, KMZ, or GeoJSON file
 					</Button>
 					{value === null ? null : (

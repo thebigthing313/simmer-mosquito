@@ -236,11 +236,7 @@ export function AddressFormPage({
 							type="button"
 							variant="outline"
 						>
-							{isGeocoding ? (
-								<Spinner data-icon="inline-start" />
-							) : (
-								<SearchIcon aria-hidden="true" data-icon="inline-start" />
-							)}
+							{isGeocoding ? <Spinner /> : <SearchIcon aria-hidden="true" />}
 							Geocode
 						</Button>
 					}

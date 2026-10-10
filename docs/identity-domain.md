@@ -160,7 +160,10 @@ The operator console's `POST /admin/organizations` holds a new Organization to
 the same rules. Both read them from `normalizeOrganizationContactDetails` in
 `packages/domain`, which also carries the per-field length limits and the Main
 contact's email check, and the create route refuses before it calls WorkOS
-(#1524).
+(#1524). The billing contact is a create field the details command does not
+carry, so its rules sit beside those in `normalizeOrganizationBillingContact`:
+the name at 200 characters, and the email at 320 and refused with the message
+the Main contact's email gets (#1550).
 
 The reason is that SIMMER does not expect an organization outside the US. A
 mosquito control district is a US institution, and the assumption is already

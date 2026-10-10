@@ -98,7 +98,7 @@ export function RegionBoundaryPicker({
 					type="button"
 					variant="outline"
 				>
-					<RegionIcon aria-hidden="true" data-icon="inline-start" />
+					<RegionIcon aria-hidden="true" />
 					Region
 				</Button>
 			</PopoverTrigger>
