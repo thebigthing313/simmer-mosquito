@@ -112,8 +112,16 @@ type SettingsFieldKey<Values, Field> = {
 }[keyof Values] &
 	string;
 
-/** One input in a settings section's sheet, named by the value it edits. */
-export type SettingsSectionField<Values> =
+/**
+ * One input in a settings section's sheet, named by the value it edits. `when`
+ * reads the section's values as they stand, and the sheet draws the input only
+ * while it returns true; with no `when` the input is always drawn.
+ */
+export type SettingsSectionField<Values> = SettingsFieldKind<Values> & {
+	readonly when?: ((values: Values) => boolean) | undefined;
+};
+
+type SettingsFieldKind<Values> =
 	| {
 			readonly kind: 'text';
 			readonly key: SettingsFieldKey<Values, string>;
