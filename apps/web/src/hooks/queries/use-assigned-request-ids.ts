@@ -32,7 +32,7 @@
 import { and, eq, isNull, not, useLiveQuery } from '@tanstack/react-db';
 import { mission_items } from '../../lib/collections/mission_items';
 import { missions } from '../../lib/collections/missions';
-import { activityGcTimeMs } from './shared';
+import { liveQueryGcTimeMs } from './shared';
 
 export function useAssignedRequestIds(): {
 	readonly assignedRequestIds: ReadonlySet<string>;
@@ -40,7 +40,7 @@ export function useAssignedRequestIds(): {
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: mission_items() })

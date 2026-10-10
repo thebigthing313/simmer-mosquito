@@ -18,10 +18,7 @@ import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
 const outreachReads = PERFORMED_ACTIONS.outreachActions;
 
-export function useOutreachAction(
-	actionId: string | null,
-	options?: { readonly gcTime?: number },
-): {
+export function useOutreachAction(actionId: string | null): {
 	readonly action: OutreachAction | undefined;
 	readonly isReady: boolean;
 	/**
@@ -34,7 +31,6 @@ export function useOutreachAction(
 	const result = useRecordById({
 		collection: outreach_actions(),
 		id: actionId,
-		gcTime: options?.gcTime,
 		query: (query) =>
 			query
 				// `left` throughout: outreach need not record a technician and most

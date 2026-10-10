@@ -2,7 +2,7 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import type { FilterOption } from '../../components/explorer/multi-select-filter';
 import { regions } from '../../lib/collections/regions';
 import { NATURAL_ORDER } from '../../lib/natural-order';
-import { activityGcTimeMs, unmatchableId } from '../queries/shared';
+import { liveQueryGcTimeMs, unmatchableId } from '../queries/shared';
 import { useOrganizationIdentity } from '../queries/use-organization-identity';
 
 /**
@@ -19,7 +19,7 @@ export function useRegionOptions(): {
 	const organizationId = useOrganizationIdentity()?.id ?? unmatchableId;
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ region: regions() })

@@ -16,7 +16,7 @@ import { isServiceRequestOverdue } from '@simmer-mosquito/domain';
 import { eq, isNull, useLiveQuery } from '@tanstack/react-db';
 import { assignment_items } from '../../lib/collections/assignment_items';
 import { service_requests } from '../../lib/collections/service_requests';
-import { activityGcTimeMs, type ElectricQueue } from './shared';
+import { type ElectricQueue, liveQueryGcTimeMs } from './shared';
 
 export interface OpenServiceRequestsQueue extends ElectricQueue {
 	/** Open and named by no stop. */
@@ -38,7 +38,7 @@ export function useOpenServiceRequestsQueue(
 	overdueCutoff: string | null,
 ): OpenServiceRequestsQueue {
 	const open = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ request: service_requests() })
@@ -47,7 +47,7 @@ export function useOpenServiceRequestsQueue(
 	});
 
 	const stops = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: assignment_items() })

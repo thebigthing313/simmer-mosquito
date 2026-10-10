@@ -15,7 +15,7 @@
 import { and, gte, lte, useLiveQuery } from '@tanstack/react-db';
 import { assignments } from '../../lib/collections/assignments';
 import type { AssignmentListing } from './assignment-view';
-import { activityGcTimeMs } from './shared';
+import { liveQueryGcTimeMs } from './shared';
 
 /**
  * The bound an unset half of the window gets.
@@ -40,7 +40,7 @@ export function useAssignments(
 	const toBound = to === '' ? LATEST_DATE : to;
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ assignment: assignments() })

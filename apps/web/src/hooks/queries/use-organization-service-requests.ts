@@ -33,7 +33,7 @@
 
 import { useLiveQuery } from '@tanstack/react-db';
 import { service_requests } from '../../lib/collections/service_requests';
-import { activityGcTimeMs } from './shared';
+import { liveQueryGcTimeMs } from './shared';
 
 /** A Service Request as a list of them shows one. */
 export interface RequestListing {
@@ -58,7 +58,7 @@ export function useOrganizationServiceRequests(): {
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ request: service_requests() })

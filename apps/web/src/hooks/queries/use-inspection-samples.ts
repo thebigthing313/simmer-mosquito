@@ -23,7 +23,7 @@ import { eq, toArray, useLiveQuery } from '@tanstack/react-db';
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 import { species as speciesCatalog } from '../../lib/collections/species';
-import { activityGcTimeMs, joinedOrNull } from './shared';
+import { joinedOrNull, liveQueryGcTimeMs } from './shared';
 
 /** One identification under a sample. */
 export interface InspectionSampleSpecies {
@@ -51,7 +51,7 @@ export function useInspectionSamples(inspectionId: string): {
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ sample: samples() })

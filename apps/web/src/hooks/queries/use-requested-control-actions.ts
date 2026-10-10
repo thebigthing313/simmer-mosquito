@@ -17,7 +17,7 @@ import { requested_control_actions } from '../../lib/collections/requested_contr
 import { addCalendarDays, localDayStartAsInstant } from '../../lib/local-date';
 import { useOrganizationTimeZone } from '../use-organization-time-zone';
 import type { RequestListing } from './operations-view';
-import { activityGcTimeMs } from './shared';
+import { liveQueryGcTimeMs } from './shared';
 
 /**
  * The bounds an unset half of the window gets.
@@ -50,7 +50,7 @@ export function useRequestedControlActions(
 		to === '' ? LATEST_INSTANT : localDayStartAsInstant(addCalendarDays(to, 1), timeZone);
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ request: requested_control_actions() })

@@ -7,11 +7,11 @@
 import { and, count, isNull, min, not, useLiveQuery } from '@tanstack/react-db';
 import { assignments } from '../../lib/collections/assignments';
 import { localCalendarDay } from '../../lib/local-date';
-import { activityGcTimeMs, type ElectricQueue } from './shared';
+import { type ElectricQueue, liveQueryGcTimeMs } from './shared';
 
 export function useInProgressAssignmentsQueue(timeZone: string): ElectricQueue {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ assignment: assignments() })

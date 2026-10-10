@@ -11,7 +11,7 @@ import { outreach_actions } from '../../lib/collections/outreach_actions';
 import { outreach_methods } from '../../lib/collections/outreach_methods';
 import { profiles } from '../../lib/collections/profiles';
 import { PERFORMED_ACTIONS } from './performed-action-reads';
-import { activityGcTimeMs, joinedOrNull } from './shared';
+import { joinedOrNull, liveQueryGcTimeMs } from './shared';
 
 const outreachReads = PERFORMED_ACTIONS.outreachActions;
 
@@ -34,7 +34,7 @@ export function useRecentOutreachActions(sinceDate: string): {
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ action: outreach_actions() })

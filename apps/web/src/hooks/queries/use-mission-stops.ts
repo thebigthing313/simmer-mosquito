@@ -25,7 +25,7 @@ import { addresses } from '../../lib/collections/addresses';
 import { mission_items } from '../../lib/collections/mission_items';
 import { requested_control_actions } from '../../lib/collections/requested_control_actions';
 import type { MissionStop } from './operations-view';
-import { activityGcTimeMs, addressSelect, joinedOrNull, unmatchableId } from './shared';
+import { addressSelect, joinedOrNull, liveQueryGcTimeMs, unmatchableId } from './shared';
 
 export function useMissionStops(missionId: string | null): {
 	readonly stops: readonly MissionStop[];
@@ -33,7 +33,7 @@ export function useMissionStops(missionId: string | null): {
 	readonly isReady: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: mission_items() })

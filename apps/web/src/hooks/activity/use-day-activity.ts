@@ -51,7 +51,7 @@ import { traps } from '../../lib/collections/traps';
 import { addCalendarDays, localDayStartAsInstant } from '../../lib/local-date';
 import { ACTIVITY_DATES } from '../queries/activity-dates';
 import { collectedOn } from '../queries/collection-day';
-import { activityGcTimeMs } from '../queries/shared';
+import { liveQueryGcTimeMs } from '../queries/shared';
 
 export interface DayActivityRead {
 	readonly entries: readonly DayActivityEntry[];
@@ -77,7 +77,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 	const next = localDayStartAsInstant(addCalendarDays(day, 1), timeZone);
 
 	const habitatRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ r: habitats() })
@@ -102,7 +102,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 	});
 
 	const inspectionRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ r: inspections() })
@@ -132,7 +132,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 	});
 
 	const trapRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ r: traps() })
@@ -151,7 +151,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 	});
 
 	const collectionRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ r: collections() })
@@ -186,7 +186,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 	});
 
 	const applicationRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ r: applications() })
@@ -211,7 +211,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 	});
 
 	const sourceReductionRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ r: source_reductions() })
@@ -235,7 +235,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 	});
 
 	const biocontrolRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ r: biocontrol_actions() })
@@ -261,7 +261,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 	});
 
 	const outreachRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ r: outreach_actions() })
@@ -283,7 +283,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 	});
 
 	const serviceRequestRows = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ r: service_requests() })

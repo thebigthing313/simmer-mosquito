@@ -5,14 +5,14 @@ import { source_reductions } from '../../lib/collections/source_reductions';
 import { units } from '../../lib/collections/units';
 import { PERFORMED_ACTIONS } from './performed-action-reads';
 import type { RecentResult } from './recent-control-action-view';
-import { activityGcTimeMs, joinedOrNull } from './shared';
+import { joinedOrNull, liveQueryGcTimeMs } from './shared';
 
 const reductionReads = PERFORMED_ACTIONS.sourceReductions;
 
 /** Source reductions performed on or after `sinceDate`, newest first. */
 export function useRecentSourceReductions(sinceDate: string): RecentResult {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ action: source_reductions() })

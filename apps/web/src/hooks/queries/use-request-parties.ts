@@ -21,7 +21,7 @@ import { addresses } from '../../lib/collections/addresses';
 import { contacts } from '../../lib/collections/contacts';
 import type { Address } from './address-view';
 import type { ContactSummary } from './contact-view';
-import { activityGcTimeMs, addressSelect, unmatchableId } from './shared';
+import { addressSelect, liveQueryGcTimeMs, unmatchableId } from './shared';
 
 export interface RequestParties {
 	readonly contactById: ReadonlyMap<string, ContactSummary>;
@@ -38,7 +38,7 @@ export function useRequestParties(
 	const addressQueryIds = addressIds.length > 0 ? addressIds : [unmatchableId];
 
 	const contactResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ contact: contacts() })
@@ -53,7 +53,7 @@ export function useRequestParties(
 	});
 
 	const addressResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ address: addresses() })

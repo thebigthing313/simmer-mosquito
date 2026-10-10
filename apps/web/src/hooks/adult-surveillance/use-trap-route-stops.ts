@@ -3,7 +3,7 @@ import { trapStopTone } from '../../components/adult-surveillance/traps/trap-rou
 import { route_items } from '../../lib/collections/route_items';
 import { traps } from '../../lib/collections/traps';
 import type { RouteStopFeature } from '../map/use-route-layer';
-import { activityGcTimeMs, joinedOrNull, unmatchableId } from '../queries/shared';
+import { joinedOrNull, liveQueryGcTimeMs, unmatchableId } from '../queries/shared';
 import { trapDisplayName } from '../queries/trap-view';
 
 /**
@@ -44,7 +44,7 @@ export function useTrapRouteStops(routeId: string | null): {
 	readonly isLoading: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: route_items() })

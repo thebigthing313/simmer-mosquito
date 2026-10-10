@@ -30,7 +30,7 @@ import { source_reduction_methods } from '../../lib/collections/source_reduction
 import { source_reductions } from '../../lib/collections/source_reductions';
 import { units } from '../../lib/collections/units';
 import { PERFORMED_ACTIONS } from './performed-action-reads';
-import { activityGcTimeMs, joinedOrNull } from './shared';
+import { joinedOrNull, liveQueryGcTimeMs } from './shared';
 
 const {
 	applications: applicationReads,
@@ -73,7 +73,7 @@ export function useControlActionsForDay(date: string): {
 	readonly isError: boolean;
 } {
 	const applicationResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ application: applications() })
@@ -117,7 +117,7 @@ export function useControlActionsForDay(date: string): {
 	});
 
 	const sourceReductionResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ action: source_reductions() })
@@ -154,7 +154,7 @@ export function useControlActionsForDay(date: string): {
 	});
 
 	const biocontrolResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ action: biocontrol_actions() })

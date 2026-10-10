@@ -13,7 +13,7 @@
 import type { MissionNotificationStatus, NotificationChannel } from '@simmer-mosquito/domain';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { mission_notifications } from '../../lib/collections/mission_notifications';
-import { activityGcTimeMs, unmatchableId } from './shared';
+import { liveQueryGcTimeMs, unmatchableId } from './shared';
 
 /** One notification, as the mission page reads it. */
 export interface MissionNotificationRecord {
@@ -34,7 +34,7 @@ export function useMissionNotifications(missionId: string | null | undefined): {
 	const id = missionId ?? unmatchableId;
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ notification: mission_notifications() })

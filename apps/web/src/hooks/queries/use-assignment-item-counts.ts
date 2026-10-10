@@ -10,7 +10,7 @@
 
 import { and, caseWhen, count, inArray, isNull, not, sum, useLiveQuery } from '@tanstack/react-db';
 import { assignment_items } from '../../lib/collections/assignment_items';
-import { activityGcTimeMs, unmatchableId } from './shared';
+import { liveQueryGcTimeMs, unmatchableId } from './shared';
 import { type WorklistProgress, worklistProgress } from './worklist-progress';
 
 export function useAssignmentItemCounts(assignmentIds: readonly string[]): {
@@ -20,7 +20,7 @@ export function useAssignmentItemCounts(assignmentIds: readonly string[]): {
 	const queryIds = assignmentIds.length > 0 ? [...assignmentIds] : [unmatchableId];
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: assignment_items() })

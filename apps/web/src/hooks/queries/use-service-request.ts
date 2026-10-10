@@ -18,14 +18,13 @@ import { service_requests } from '../../lib/collections/service_requests';
 import type { ServiceRequest } from './service-request-view';
 import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
-export function useServiceRequest(
-	requestId: string | null,
-	options?: { readonly gcTime?: number },
-): { readonly request: ServiceRequest | undefined; readonly isReady: boolean } {
+export function useServiceRequest(requestId: string | null): {
+	readonly request: ServiceRequest | undefined;
+	readonly isReady: boolean;
+} {
 	const result = useRecordById({
 		collection: service_requests(),
 		id: requestId,
-		gcTime: options?.gcTime,
 		query: (query) =>
 			query
 				.join(

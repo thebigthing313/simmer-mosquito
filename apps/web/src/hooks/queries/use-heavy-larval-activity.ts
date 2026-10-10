@@ -21,7 +21,7 @@ import { inspections } from '../../lib/collections/inspections';
 import { profiles } from '../../lib/collections/profiles';
 import { joinedHabitatNameSelect } from './habitat-view';
 import type { LarvalActivityRow } from './larval-activity-view';
-import { activityGcTimeMs, joinedOrNull } from './shared';
+import { joinedOrNull, liveQueryGcTimeMs } from './shared';
 
 /** What this panel means by heavy. The two top bands of the density scale. */
 const heavyDensities: LarvalDensity[] = ['heavy', 'very_heavy'];
@@ -32,7 +32,7 @@ export function useHeavyLarvalActivity(sinceDate: string): {
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ inspection: inspections() })
