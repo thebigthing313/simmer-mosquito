@@ -1,10 +1,10 @@
 import { mapContext } from '@simmer-mosquito/design-tokens';
 import {
 	type BoundingBox,
+	boundsFromCoordinates,
 	boundsFromGeoJson,
 	centroidFromGeoJson,
 	countGeoJsonVertices,
-	extendBounds,
 	formatGeometryTypeLabel,
 	type GeoJsonGeometry,
 } from '@simmer-mosquito/mapping';
@@ -301,19 +301,16 @@ function unionBounds(
 	geojson: GeoJsonGeometry | null,
 	contextGeojson: GeoJsonGeometry | null,
 ): BoundingBox | null {
-	let bounds: BoundingBox | null = null;
-	for (const geometry of [geojson, contextGeojson]) {
-		if (geometry === null) {
-			continue;
-		}
-		const next = boundsFromGeoJson(geometry);
-		if (next === null) {
-			continue;
-		}
-		bounds = extendBounds(bounds, { lng: next.west, lat: next.south });
-		bounds = extendBounds(bounds, { lng: next.east, lat: next.north });
-	}
-	return bounds;
+	const corners = [geojson, contextGeojson].flatMap((geometry) => {
+		const box = geometry === null ? null : boundsFromGeoJson(geometry);
+		return box === null
+			? []
+			: [
+					{ lng: box.west, lat: box.south },
+					{ lng: box.east, lat: box.north },
+				];
+	});
+	return boundsFromCoordinates(corners);
 }
 
 /**

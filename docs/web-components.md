@@ -301,6 +301,31 @@ is one timer, and there is no refresh control for the same reason.
 
 ### explorer
 
+#### ExplorerCanvas
+
+The map half of every explorer built on `useExplorerResource`. All eleven
+routes wrote the same `MapCanvas` props, the measure and readout controls,
+`fitToData`, `rememberCamera`, and the panel's inset and search width, and the
+same conditional card under it; Service Requests wrote them inside a component
+of its own (#1423). What still varies is the create menu, the key, and which
+card draws, so those are the three props a route passes beside the hook's
+`canvas` bundle and the panel.
+
+The card is a function of the selected id, the panel's inset and the close
+handler, and a route spreads that object into its card. A card takes no map
+and moves no camera. The hook's flight is the only one a selection makes, and
+a card that has better coordinates than the row is a reason to fix the row.
+
+Service Requests had its own canvas component, `ServiceRequestsMapCanvas`,
+moved out of the route in #1382 because the clustering setting its legend reads
+was the route's fourteenth hook, and fallow scores a component's hook count
+into its cognitive complexity. The route reads that setting again now, which
+the two `useState` calls the hook took over leave room for.
+
+It imports `MapCanvas` through the `components/map` barrel rather than from
+`map-canvas.tsx`. Every route suite replaces `MapCanvas` with a stand-in by
+mocking the barrel, and a direct import would draw a real Mapbox map in jsdom.
+
 #### ExplorerSummary
 
 What an explorer rail draws in place of its rows over 100 in view (#1244).
@@ -474,12 +499,12 @@ drawn.
 #### WeatherSummariesCard
 
 One year per tab, because a station logged daily for ten years is 3,650 rows in
-one table. The tab follows a write because `weather_summaries` is on-demand and
-a write into a subset the live query does not cover waits out a txid that never
-arrives; `settleWrite` swallows that timeout, so it is a slow save over a row
-the user cannot see, and moving the tab fixes both. The dialog is mounted on
-the card for the same reason: the card is what keeps the station's subset
-queried.
+one table. The tab follows a write because the dialog would otherwise close
+over a list missing the row just saved, whenever the save lands in a year other
+than the one on screen. It used to say the switch was also what let the save
+confirm, on the belief that a txid for a row outside the loaded year never
+arrives; #1509 corrected that against `electric-db-collection` 0.5.8, and
+`docs/sync.md` has the reading.
 
 #### WeatherSummaryDialog
 
@@ -673,6 +698,11 @@ It fits once per `fitKey` rather than handing the stops to `MapCanvas`'s
 `fitToData`. `useMapExtentFit` refits whenever the box changes, so adding a
 stop on a Route edit page would move the camera under the person placing it,
 which none of these surfaces does.
+
+`recordType` takes only `route`, `mission` and `assignment`, an `Extract` over
+`RecordType`, because the wider type let `recordType="trap"` compile and draw
+`Zoom to trap` (#1523). A rename in the register narrows the alias rather than
+failing on it, so the error lands on the call site passing the old name.
 
 #### MapSearch
 
@@ -1270,14 +1300,6 @@ groupings the way `SampleFilterChips` is drawn on Samples. The summary itself
 is `ServiceRequestSummaryPanel` rather than an inline `ExplorerSummary`, because
 the two ternaries it needs took the route component over `fallow:health`'s
 cognitive complexity threshold.
-
-#### ServiceRequestsMapCanvas
-
-The Service Requests Map's `MapCanvas` moved out of the route in #1382 for the
-same threshold. Clustering on this map put the shared clustering setting in the
-legend, and fallow scores a component's hook count into its cognitive
-complexity, so the route's fourteenth hook took it to 16, one over. The canvas
-reads the setting itself now, beside the legend it decides.
 
 ### record
 

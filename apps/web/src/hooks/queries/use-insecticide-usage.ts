@@ -23,7 +23,8 @@ const applicationReads = PERFORMED_ACTIONS.applications;
 /** One product's total over the window, per unit it was measured in. */
 export interface InsecticideUsage {
 	readonly insecticideId: string;
-	readonly name: string;
+	/** `null` while the product is not in the client. */
+	readonly name: string | null;
 	readonly totalsByUnitId: ReadonlyMap<string, number>;
 	readonly applicationCount: number;
 }
@@ -48,7 +49,7 @@ export function useInsecticideUsage(sinceDate: string): {
 					const measured = applicationReads.measured(application);
 					return {
 						insecticideId: measured.productId,
-						name: coalesce(product.trade_name, 'Unknown insecticide'),
+						name: coalesce(product.trade_name, null),
 						amountApplied: measured.amount,
 						unitId: measured.unitId,
 					};
@@ -66,14 +67,14 @@ export function useInsecticideUsage(sinceDate: string): {
 function usageByInsecticide(
 	rows: readonly {
 		readonly insecticideId: string;
-		readonly name: string;
+		readonly name: string | null;
 		readonly amountApplied: number;
 		readonly unitId: string;
 	}[],
 ): readonly InsecticideUsage[] {
 	const byInsecticide = new Map<
 		string,
-		{ name: string; totals: Map<string, number>; count: number }
+		{ name: string | null; totals: Map<string, number>; count: number }
 	>();
 	for (const row of rows) {
 		const entry = byInsecticide.get(row.insecticideId) ?? {

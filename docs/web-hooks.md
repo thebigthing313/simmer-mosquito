@@ -263,9 +263,26 @@ is the copy the rail gave before it could tell.
 `holdRailOnSelect` is the switch for `useFlyToSelection`'s `holdRail`, off by
 default so the other explorers keep re-paging for the record they fly to.
 
-`layers` is the list the route hands its `MapCanvas`: the tile layer it passed
-in, with the selected row on it as `selectedRecord`. That is the read the
-selection overlay draws from on a clustered tileset (see
+The hook holds the map instance, the selection and the tile layer, since
+#1423. All eleven routes used to keep a `MapboxMap` in state whose only reader
+was this hook, keep a selection whose only readers were the tile layer and the
+card, and write out the same five-field layer around both. So a route passes
+the tileset as `tiles`, a `kind` and its `filters`, and the hook adds the
+server URL, the selected id and the click handler. What comes back is the
+selection, `selectedId` with a setter and a clear for the rail, and `canvas`,
+the bundle `ExplorerCanvas` takes. The map arrives through `canvas.onMapReady`,
+which is `MapCanvas`'s own callback, so nothing changed about how a canvas
+reports its map, and the page still waits for it. Selection state is held here
+and not on the canvas because the rail sets it too, and the selected row the
+flight reads comes from this hook's page.
+
+The selection starts empty on every route, so the setter is all a route needs.
+A deep link to a selected record would be an initial value passed in, and no
+explorer has one.
+
+`canvas.layers` is the list `ExplorerCanvas` hands `MapCanvas`: the tile layer
+built from `tiles`, with the selected row on it as `selectedRecord`. That is
+the read the selection overlay draws from on a clustered tileset (see
 `useSelectionOverlayLayer`), and every explorer passes it, so a tileset that
 starts clustering gets the overlay without its route changing.
 
@@ -1535,9 +1552,11 @@ hard to find among the JSX. The rules themselves and the metric inputs live
 in `components/gis/weather/weather-summary-form.ts`, shared with the dialog.
 
 `onWriteYear` is called before the write, not after. The card lists one year
-at a time, and a write into a year its live query does not cover waits out a
-txid that never arrives on that subset: `settleWrite` swallows the
-adapter's timeout, so the dialog closes late over a row the user cannot see.
+at a time, so without it a save into another year closes the dialog over a
+list missing the row just saved. Calling it first starts the written year
+loading while the save waits for confirmation. The written year is not what
+lets the save confirm: `docs/sync.md` has why a txid arrives whatever a live
+query has loaded.
 
 #### useActiveYear
 
@@ -2190,6 +2209,17 @@ gives on the write side. Every column is a property access on a typed ref
 inside a function, never a column name in a string, so a misspelled column
 fails `tsc` in that file rather than answering `undefined`. #1498 checked it by
 renaming two columns there and reading two TS2551s.
+
+Every hook that reads a performed control action returns each joined name,
+the performer, the method and the insecticide, as
+`coalesce(joined.name, null)`. The name is `null` both when nothing was
+recorded and when the record is not in the client, which is permanent for a
+deleted Profile because the Profile shape streams live rows only. So the
+surface reads the id beside the name to tell the two apart and draws its own
+`Unknown method` or `No method`; the hook draws neither. A `caseWhen` guarded
+on the foreign key used to yield `undefined` for the second case under a
+`string | null` type, and the Chemical Application map card drew an empty
+applicator row for it (#1501).
 
 #### useInspection and useHabitatSuspense
 

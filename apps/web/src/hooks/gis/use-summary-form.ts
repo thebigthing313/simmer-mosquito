@@ -69,10 +69,10 @@ export function useSummaryForm(input: {
 		setIsSaving(true);
 		setError(null);
 		const fields: WeatherSummaryFields = { startDate, endDate, ...parsed };
-		// Before the write, not after. The card lists one year at a time, and a
-		// write into a year its live query does not cover waits out a txid that
-		// never arrives on that subset: `settleWrite` swallows the adapter's
-		// timeout, so the dialog closes late over a row the user cannot see.
+		// Before the write, not after. The card lists one year at a time, and
+		// moving it to the written year means the list the dialog closes over
+		// shows the row the user saved. Moving first starts that year loading
+		// while the save waits for confirmation.
 		onWriteYear(summaryYear(endDate));
 		try {
 			if (summary === null) {
