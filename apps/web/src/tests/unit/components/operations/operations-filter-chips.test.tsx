@@ -7,7 +7,8 @@
  * declarations. The cases are that suite's: each filter alone, then every
  * filter at once, and the chips drawn match `activeCount`. The all-at-once
  * case also holds each card's chip labels and order to what the hand-written
- * lists drew.
+ * lists drew, except that an id set's chips follow the order its options list
+ * them since #1613, so the expected types follow that order.
  */
 
 import { cleanup, render, screen } from '@testing-library/react';
@@ -101,8 +102,8 @@ const MISSIONS: Card<MissionFilters> = {
 		`Remove Dates: Jan 1–${scheduleWindowEnd()} filter`,
 		'Remove Scheduled filter',
 		'Remove Completed filter',
-		'Remove Outreach filter',
 		'Remove Application filter',
+		'Remove Outreach filter',
 		'Remove Ada Reyes filter',
 		'Remove Unknown profile filter',
 	],
@@ -140,8 +141,8 @@ const REQUESTS: Card<RequestFilters> = {
 	chips: [
 		'Remove Status: Resolved filter',
 		'Remove Dates: Jan 1–Oct 9 filter',
-		'Remove Biocontrol filter',
 		'Remove Source Reduction filter',
+		'Remove Biocontrol filter',
 		'Remove Unknown profile filter',
 		'Remove Not yet assigned filter',
 	],

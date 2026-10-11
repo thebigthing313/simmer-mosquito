@@ -389,7 +389,14 @@ function IdSetField({
 	);
 }
 
-/** One chip per id held, named from the source, or the declaration's unknown name. */
+/**
+ * One chip per id held, named from the source, or the declaration's unknown
+ * name, a declaration's own `chip` included. The row follows the order the
+ * source lists the ids, which is the order the control lists them, rather than
+ * the order they were picked, so one filter always draws one row (#1613). An id
+ * the source does not hold draws after the rest, in the order it was picked.
+ * `idSetParam` still writes the ids in picked order, so only the draw changes.
+ */
 function IdSetChips({
 	binding,
 	declaration,
@@ -403,24 +410,35 @@ function IdSetChips({
 		return null;
 	}
 	const remove = (id: string) => () => binding.setFilters({ [key]: toggle(selected, id) });
-	if (Chip !== undefined) {
-		return [...selected].map((id) => <Chip id={id} key={`${key}-${id}`} onRemove={remove(id)} />);
-	}
 	return (
 		<WithOptions source={declaration.options}>
-			{({ nameById, colorById }) =>
-				[...selected].map((id) => (
-					<FilterChip
-						color={colorById?.get(id)}
-						italic={italic}
-						key={`${key}-${id}`}
-						label={nameById.get(id) ?? unknown}
-						onRemove={remove(id)}
-					/>
-				))
+			{({ options, nameById, colorById }) =>
+				inSourceOrder(selected, options).map((id) =>
+					Chip === undefined ? (
+						<FilterChip
+							color={colorById?.get(id)}
+							italic={italic}
+							key={`${key}-${id}`}
+							label={nameById.get(id) ?? unknown}
+							onRemove={remove(id)}
+						/>
+					) : (
+						<Chip id={id} key={`${key}-${id}`} onRemove={remove(id)} />
+					),
+				)
 			}
 		</WithOptions>
 	);
+}
+
+/** The selected ids in the order `options` lists them, then the ids it does not hold. */
+function inSourceOrder(
+	selected: ReadonlySet<string>,
+	options: readonly FilterOption[],
+): readonly string[] {
+	const listed = options.filter((option) => selected.has(option.id)).map((option) => option.id);
+	const listedIds = new Set(listed);
+	return [...listed, ...[...selected].filter((id) => !listedIds.has(id))];
 }
 
 /** An option source as the controls and chips read it. */

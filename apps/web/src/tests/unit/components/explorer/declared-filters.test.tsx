@@ -39,13 +39,20 @@ import { serviceRequestFilterDeclarations } from '../../../../components/public-
 import { recordSetBinding, recordSetContext } from './record-set-binding';
 
 // The option sources are catalog reads. With none loaded every id is one the
-// catalog does not name, which is a chip all the same.
+// catalog does not name, which is a chip all the same. The Region and Tag
+// catalogs are the suite's to load, for the cases that read the chip order.
 const NO_OPTIONS = { options: [], nameById: new Map() };
+const loaded = vi.hoisted(() => ({
+	regions: undefined as
+		| { options: readonly { id: string; label: string }[]; nameById: Map<string, string> }
+		| undefined,
+	tags: [] as readonly { id: string; name: string; color: null; description: null }[],
+}));
 vi.mock('../../../../hooks/explorer/use-catalog-options', () => ({
 	useCatalogOptions: () => NO_OPTIONS,
 }));
 vi.mock('../../../../hooks/explorer/use-region-options', () => ({
-	useRegionOptions: () => NO_OPTIONS,
+	useRegionOptions: () => loaded.regions ?? NO_OPTIONS,
 }));
 vi.mock('../../../../hooks/explorer/use-insecticide-options', () => ({
 	useInsecticideOptions: () => NO_OPTIONS,
@@ -54,10 +61,17 @@ vi.mock('../../../../hooks/explorer/use-species-options', () => ({
 	useSpeciesOptions: () => NO_OPTIONS,
 }));
 vi.mock('../../../../hooks/explorer/use-tag-options', () => ({
-	useTagOptions: () => ({ options: [], byId: new Map() }),
+	useTagOptions: () => ({
+		options: loaded.tags.map((tag) => ({ id: tag.id, label: tag.name })),
+		byId: new Map(loaded.tags.map((tag) => [tag.id, tag] as const)),
+	}),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	loaded.regions = undefined;
+	loaded.tags = [];
+});
 
 /** Any set's filters, keyed loosely so one table can hold all eleven. */
 type AnyFilters = Record<string, unknown>;
@@ -241,5 +255,56 @@ describe('the Overdue chip', () => {
 
 		expect(off.overdue).toBeNull();
 		expect(on.overdue).not.toBeNull();
+	});
+});
+
+describe('an id set chip row', () => {
+	const set = serviceRequestFilterDeclarations.set as unknown as RecordSet<Record<string, unknown>>;
+	const declarations =
+		serviceRequestFilterDeclarations as unknown as FilterDeclarations<AnyFilters>;
+
+	function loadRegions(...names: readonly string[]): void {
+		const options = names.map((label, index) => ({ id: `region-${index}`, label }));
+		loaded.regions = {
+			options,
+			nameById: new Map(options.map((option) => [option.id, option.label] as const)),
+		};
+	}
+
+	function chipNames(): readonly (string | null)[] {
+		return removeButtons().map((button) => button.getAttribute('aria-label'));
+	}
+
+	it('draws in catalog order whatever order the ids were picked in', () => {
+		loadRegions('Atlantic', 'Bergen', 'Cape May');
+		const binding = recordSetBinding(set, 'map', { regions: new Set(['region-2', 'region-0']) });
+		render(<DeclaredFilterChips binding={binding} declarations={declarations} />);
+
+		expect(chipNames()).toEqual(['Remove Atlantic filter', 'Remove Cape May filter']);
+	});
+
+	it('draws an id the catalog does not hold after the ones it does', () => {
+		loadRegions('Atlantic', 'Bergen');
+		const binding = recordSetBinding(set, 'map', { regions: new Set(['region-gone', 'region-1']) });
+		render(<DeclaredFilterChips binding={binding} declarations={declarations} />);
+
+		expect(chipNames()).toEqual(['Remove Bergen filter', 'Remove Unknown region filter']);
+	});
+
+	it("orders a declaration's own chip by the catalog too", () => {
+		loaded.tags = [
+			{ id: 'tag-bees', name: 'Bees', color: null, description: null },
+			{ id: 'tag-wasps', name: 'Wasps', color: null, description: null },
+		];
+		const binding = recordSetBinding(set, 'map', {
+			tags: new Set(['tag-gone', 'tag-wasps', 'tag-bees']),
+		});
+		render(<DeclaredFilterChips binding={binding} declarations={declarations} />);
+
+		expect(chipNames()).toEqual([
+			'Remove Bees filter',
+			'Remove Wasps filter',
+			'Remove Unknown tag filter',
+		]);
 	});
 });
