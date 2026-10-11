@@ -11,6 +11,7 @@ import type { SampleTileFilters } from '../../../../components/map/sample-tiles'
 import type { ServiceRequestTileFilters } from '../../../../components/map/service-request-tiles';
 import type { SourceReductionTileFilters } from '../../../../components/map/source-reduction-tiles';
 import {
+	allRegionsExtentUrl,
 	type MapTileLayer,
 	tileLayerClusters,
 	tileLayerExtentUrl,
@@ -106,6 +107,13 @@ describe('tile and extent URLs', () => {
 	it('frames nothing for Regions while no region is ticked', () => {
 		expect(extentUrl({ kind: 'regions', serverUrl })).toBeNull();
 		expect(extentUrl({ kind: 'regions', serverUrl, visibleIds: [] })).toBeNull();
+	});
+
+	// A first visit frames the Organization's regions whether or not any is ticked.
+	it('frames every region for a first visit', () => {
+		expect(allRegionsExtentUrl(serverUrl)).toBe(
+			'https://api.example.test/map/tiles/regions/extent',
+		);
 	});
 });
 

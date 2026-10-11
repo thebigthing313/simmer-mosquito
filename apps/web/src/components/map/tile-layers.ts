@@ -392,13 +392,10 @@ export function tileLayerSpecs(layer: MapTileLayer, draw: TileDrawOptions): Laye
  */
 export function tileLayerTileUrl(layer: MapTileLayer, draw: TileDrawOptions): string {
 	const binding = tileLayerBinding(layer);
-	// The spec is named because inferring it from the entry's filters, a union of
-	// twelve kinds, picks one kind's spec and refuses the rest. The row and the
-	// entry agree by `kind`, which is what `tileLayerBinding` already relies on.
 	return tileTemplateUrl(
 		layer.serverUrl,
 		binding.sourceId,
-		tileFilterQuery<MapFilterSpec>(binding.filterSpec, layer.filters),
+		bindingFilterQuery(binding, layer.filters),
 		{ cluster: tileLayerDrawsClusters(layer, draw) },
 	);
 }
@@ -410,9 +407,28 @@ export function tileLayerExtentUrl(layer: MapTileLayer): string | null {
 		binding.extentFilters === undefined ? layer.filters : binding.extentFilters(layer);
 	return filters === null
 		? null
-		: tileExtentUrl(
-				layer.serverUrl,
-				binding.sourceId,
-				tileFilterQuery<MapFilterSpec>(binding.filterSpec, filters),
-			);
+		: tileExtentUrl(layer.serverUrl, binding.sourceId, bindingFilterQuery(binding, filters));
+}
+
+/**
+ * The extent of every region the Organization has, ticked or not, which is
+ * what an explorer frames on a first visit. {@link tileLayerExtentUrl} answers
+ * null for a regions entry with nothing ticked, so this is the one way past it.
+ */
+export function allRegionsExtentUrl(serverUrl: string): string {
+	const binding = TILE_LAYER_BINDINGS.regions;
+	return tileExtentUrl(serverUrl, binding.sourceId, tileFilterQuery(binding.filterSpec, undefined));
+}
+
+/**
+ * A row's filters as its query. The spec is named because inferring it from an
+ * entry's filters, a union of twelve kinds, picks one kind's spec and refuses
+ * the rest. The row and the entry agree by `kind`, which is what
+ * {@link tileLayerBinding} already relies on.
+ */
+function bindingFilterQuery(
+	binding: TileLayerBinding<MapTileLayer>,
+	filters: MapTileLayer['filters'] | MapFiltersOf<MapFilterSpec>,
+): URLSearchParams {
+	return tileFilterQuery<MapFilterSpec>(binding.filterSpec, filters);
 }
