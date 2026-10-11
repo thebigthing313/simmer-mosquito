@@ -1,12 +1,11 @@
 import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
-import { ADDRESS_MAP_FILTERS, type MapFiltersOf } from '@simmer-mosquito/domain';
+import type { ADDRESS_MAP_FILTERS, MapFiltersOf } from '@simmer-mosquito/domain';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
 	SymbolLayerSpecification,
 } from 'mapbox-gl';
 import { clusterTileLayers, recordOnly } from './geometry-tiles';
-import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
  * The filters the `addresses` tiles and extent draw under, typed off the
@@ -44,25 +43,6 @@ export const ADDRESS_LAYER_IDS = [
 	`${ADDRESS_SOURCE_ID}-cluster-counts`,
 	...ADDRESS_SELECTED_LAYER_IDS,
 ] as const;
-
-/** Build the tile template URL with the active filters folded into the query. */
-export function buildAddressTileUrl(
-	serverUrl: string,
-	filters?: AddressTileFilters,
-	options?: TileDrawOptions,
-): string {
-	return tileTemplateUrl(
-		serverUrl,
-		ADDRESS_SOURCE_ID,
-		tileFilterQuery(ADDRESS_MAP_FILTERS, filters),
-		options,
-	);
-}
-
-/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
-export function buildAddressExtentUrl(serverUrl: string, filters?: AddressTileFilters): string {
-	return tileExtentUrl(serverUrl, ADDRESS_SOURCE_ID, tileFilterQuery(ADDRESS_MAP_FILTERS, filters));
-}
 
 /** The GL layers for the address source. `selectedId` drives the highlight. */
 export function addressTileLayers(

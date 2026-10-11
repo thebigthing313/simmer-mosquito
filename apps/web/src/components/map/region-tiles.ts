@@ -1,11 +1,10 @@
 import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
-import { type MapFiltersOf, REGION_MAP_FILTERS } from '@simmer-mosquito/domain';
+import type { MapFiltersOf, REGION_MAP_FILTERS } from '@simmer-mosquito/domain';
 import type {
 	ExpressionSpecification,
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
-import { tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
  * The filters the `regions` tiles and extent draw under, typed off the
@@ -39,16 +38,6 @@ export const REGION_LAYER_IDS = [
 	`${REGION_SOURCE_ID}-outline`,
 	...REGION_SELECTED_LAYER_IDS,
 ] as const;
-
-/** Build the tile template URL with the active filters folded into the query. */
-export function buildRegionTileUrl(serverUrl: string, filters?: RegionTileFilters): string {
-	return tileTemplateUrl(serverUrl, REGION_SOURCE_ID, tileFilterQuery(REGION_MAP_FILTERS, filters));
-}
-
-/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
-export function buildRegionExtentUrl(serverUrl: string, filters?: RegionTileFilters): string {
-	return tileExtentUrl(serverUrl, REGION_SOURCE_ID, tileFilterQuery(REGION_MAP_FILTERS, filters));
-}
 
 /**
  * A filter that renders only features whose id is in `visibleIds`. When the set

@@ -1,5 +1,5 @@
 import { mapInteraction, mapStatus } from '@simmer-mosquito/design-tokens';
-import { COLLECTION_MAP_FILTERS, type MapFiltersOf } from '@simmer-mosquito/domain';
+import type { COLLECTION_MAP_FILTERS, MapFiltersOf } from '@simmer-mosquito/domain';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import {
 	allLayerIds,
@@ -7,7 +7,6 @@ import {
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
  * The filters the `collections` tiles and extent draw under, typed off the
@@ -69,32 +68,6 @@ const statusColor: ExpressionSpecification = [
 	colors.zeroResult,
 	colors.collected,
 ];
-
-/** Build the tile template URL with the active filters folded into the query. */
-export function buildCollectionTileUrl(
-	serverUrl: string,
-	filters?: CollectionTileFilters,
-	options?: TileDrawOptions,
-): string {
-	return tileTemplateUrl(
-		serverUrl,
-		COLLECTION_SOURCE_ID,
-		tileFilterQuery(COLLECTION_MAP_FILTERS, filters),
-		options,
-	);
-}
-
-/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
-export function buildCollectionExtentUrl(
-	serverUrl: string,
-	filters?: CollectionTileFilters,
-): string {
-	return tileExtentUrl(
-		serverUrl,
-		COLLECTION_SOURCE_ID,
-		tileFilterQuery(COLLECTION_MAP_FILTERS, filters),
-	);
-}
 
 /** The GL layers for the collection source. `selectedId` drives the highlight set. */
 export function collectionTileLayers(selectedId: string | null): GeometryTileLayer[] {

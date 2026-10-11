@@ -1,12 +1,11 @@
 import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
-import { type MapFiltersOf, SOURCE_REDUCTION_MAP_FILTERS } from '@simmer-mosquito/domain';
+import type { MapFiltersOf, SOURCE_REDUCTION_MAP_FILTERS } from '@simmer-mosquito/domain';
 import {
 	allLayerIds,
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
  * The filters the `source-reduction` tiles and extent draw under, typed off the
@@ -31,32 +30,6 @@ export const SOURCE_REDUCTION_INTERACTIVE_LAYER_IDS = interactiveLayerIds(
 );
 
 export const SOURCE_REDUCTION_LAYER_IDS = allLayerIds(SOURCE_REDUCTION_SOURCE_ID);
-
-/** Build the tile template URL with the active filters folded into the query. */
-export function buildSourceReductionTileUrl(
-	serverUrl: string,
-	filters?: SourceReductionTileFilters,
-	options?: TileDrawOptions,
-): string {
-	return tileTemplateUrl(
-		serverUrl,
-		SOURCE_REDUCTION_SOURCE_ID,
-		tileFilterQuery(SOURCE_REDUCTION_MAP_FILTERS, filters),
-		options,
-	);
-}
-
-/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
-export function buildSourceReductionExtentUrl(
-	serverUrl: string,
-	filters?: SourceReductionTileFilters,
-): string {
-	return tileExtentUrl(
-		serverUrl,
-		SOURCE_REDUCTION_SOURCE_ID,
-		tileFilterQuery(SOURCE_REDUCTION_MAP_FILTERS, filters),
-	);
-}
 
 /** The GL layers for the source-reduction activity source. `selectedId` drives the highlight set. */
 export function sourceReductionTileLayers(selectedId: string | null): GeometryTileLayer[] {

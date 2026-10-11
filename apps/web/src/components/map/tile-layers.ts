@@ -2,9 +2,9 @@
  * The twelve vector tilesets a {@link MapCanvas} can draw, in one table.
  *
  * The variation between them was already extracted: `use-tile-layer.ts` owns the
- * whole GL lifecycle and each tileset only supplies a source id, two URL
- * builders, a layer builder and two id lists. What was left was the enumeration
- * itself, written out nine times inside `map-canvas.tsx` and once more per
+ * whole GL lifecycle and each tileset only supplies a source id, its filter spec,
+ * a layer builder and two id lists. What was left was the enumeration itself,
+ * written out nine times inside `map-canvas.tsx` and once more per
  * `use-*-tile-layer.ts` wrapper, so a twelfth record kind edited ten files.
  *
  * A row here is one record kind. The `kind` a caller writes in the `layers` list
@@ -15,116 +15,96 @@
  * every tile and draws an empty map with nothing on screen to say why.
  */
 
+import {
+	ADDRESS_MAP_FILTERS,
+	BIOCONTROL_MAP_FILTERS,
+	CHEMICAL_MAP_FILTERS,
+	COLLECTION_MAP_FILTERS,
+	HABITAT_MAP_FILTERS,
+	INSPECTION_MAP_FILTERS,
+	type MapFilterSpec,
+	type MapFiltersOf,
+	OUTREACH_MAP_FILTERS,
+	REGION_MAP_FILTERS,
+	SAMPLE_MAP_FILTERS,
+	SERVICE_REQUEST_MAP_FILTERS,
+	SOURCE_REDUCTION_MAP_FILTERS,
+	TRAP_MAP_FILTERS,
+} from '@simmer-mosquito/domain';
 import { type GeoJsonPoint, isGeoJsonGeometryOfTypes } from '@simmer-mosquito/mapping';
 import type { LayerSpecification } from 'mapbox-gl';
 import {
 	ADDRESS_INTERACTIVE_LAYER_IDS,
 	ADDRESS_LAYER_IDS,
 	ADDRESS_SOURCE_ID,
-	type AddressTileFilters,
 	addressTileLayers,
-	buildAddressExtentUrl,
-	buildAddressTileUrl,
 } from './address-tiles';
 import {
 	BIOCONTROL_INTERACTIVE_LAYER_IDS,
 	BIOCONTROL_LAYER_IDS,
 	BIOCONTROL_SOURCE_ID,
-	type BiocontrolTileFilters,
 	biocontrolTileLayers,
-	buildBiocontrolExtentUrl,
-	buildBiocontrolTileUrl,
 } from './biocontrol-tiles';
 import {
-	buildChemicalExtentUrl,
-	buildChemicalTileUrl,
 	CHEMICAL_INTERACTIVE_LAYER_IDS,
 	CHEMICAL_LAYER_IDS,
 	CHEMICAL_SOURCE_ID,
-	type ChemicalTileFilters,
 	chemicalTileLayers,
 } from './chemical-tiles';
 import {
-	buildCollectionExtentUrl,
-	buildCollectionTileUrl,
 	COLLECTION_INTERACTIVE_LAYER_IDS,
 	COLLECTION_LAYER_IDS,
 	COLLECTION_SOURCE_ID,
-	type CollectionTileFilters,
 	collectionTileLayers,
 } from './collection-tiles';
 import { withSelectedPointFromCutOff } from './geometry-tiles';
 import {
-	buildHabitatExtentUrl,
-	buildHabitatTileUrl,
 	HABITAT_INTERACTIVE_LAYER_IDS,
 	HABITAT_LAYER_IDS,
 	HABITAT_SOURCE_ID,
-	type HabitatTileFilters,
 	habitatTileLayers,
 } from './habitat-tiles';
 import {
-	buildInspectionExtentUrl,
-	buildInspectionTileUrl,
 	INSPECTION_INTERACTIVE_LAYER_IDS,
 	INSPECTION_LAYER_IDS,
 	INSPECTION_SOURCE_ID,
-	type InspectionTileFilters,
 	inspectionTileLayers,
 } from './inspection-tiles';
 import {
-	buildOutreachExtentUrl,
-	buildOutreachTileUrl,
 	OUTREACH_INTERACTIVE_LAYER_IDS,
 	OUTREACH_LAYER_IDS,
 	OUTREACH_SOURCE_ID,
-	type OutreachTileFilters,
 	outreachTileLayers,
 } from './outreach-tiles';
 import {
-	buildRegionExtentUrl,
-	buildRegionTileUrl,
 	REGION_INTERACTIVE_LAYER_IDS,
 	REGION_LAYER_IDS,
 	REGION_SOURCE_ID,
-	type RegionTileFilters,
 	regionTileLayers,
 } from './region-tiles';
 import {
-	buildSampleExtentUrl,
-	buildSampleTileUrl,
 	SAMPLE_INTERACTIVE_LAYER_IDS,
 	SAMPLE_LAYER_IDS,
 	SAMPLE_SOURCE_ID,
-	type SampleTileFilters,
 	sampleTileLayers,
 } from './sample-tiles';
 import {
-	buildServiceRequestExtentUrl,
-	buildServiceRequestTileUrl,
 	SERVICE_REQUEST_INTERACTIVE_LAYER_IDS,
 	SERVICE_REQUEST_LAYER_IDS,
 	SERVICE_REQUEST_SOURCE_ID,
-	type ServiceRequestTileFilters,
 	serviceRequestTileLayers,
 } from './service-request-tiles';
 import {
-	buildSourceReductionExtentUrl,
-	buildSourceReductionTileUrl,
 	SOURCE_REDUCTION_INTERACTIVE_LAYER_IDS,
 	SOURCE_REDUCTION_LAYER_IDS,
 	SOURCE_REDUCTION_SOURCE_ID,
-	type SourceReductionTileFilters,
 	sourceReductionTileLayers,
 } from './source-reduction-tiles';
-import type { TileDrawOptions } from './tile-urls';
+import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 import {
-	buildTrapExtentUrl,
-	buildTrapTileUrl,
 	TRAP_INTERACTIVE_LAYER_IDS,
 	TRAP_LAYER_IDS,
 	TRAP_SOURCE_ID,
-	type TrapTileFilters,
 	trapTileLayers,
 } from './trap-tiles';
 
@@ -156,9 +136,15 @@ interface SelectedTileRecord {
 }
 
 /** What one tileset supplies so {@link useTileLayer} can draw it. */
-interface TileLayerBinding<TLayer> {
+interface TileLayerBinding<TLayer, TSpec extends MapFilterSpec = MapFilterSpec> {
 	/** The GL source id, which is also the `/map/tiles/:tileset` segment. */
 	readonly sourceId: string;
+	/**
+	 * The spec in `@simmer-mosquito/domain` the server parses this tileset's
+	 * filters with. The tile and extent queries are both encoded off it, and the
+	 * entry's `filters` are typed off it, so the two cannot name different params.
+	 */
+	readonly filterSpec: TSpec;
 	/** Clickable layers, in hit priority. */
 	readonly interactiveLayerIds: readonly string[];
 	/** Every layer the tileset owns, for teardown. */
@@ -171,21 +157,25 @@ interface TileLayerBinding<TLayer> {
 	 * holds this set to the server's.
 	 */
 	readonly clusters?: true;
-	/** `draw.cluster` is only ever true here for a tileset that clusters. */
-	readonly buildTileUrl: (layer: TLayer, draw: TileDrawOptions) => string;
-	/** The extent for these filters, or null to leave the camera alone. */
-	readonly buildExtentUrl: (layer: TLayer) => string | null;
+	/**
+	 * The filters the extent is asked for, or null to leave the camera alone.
+	 * Without it the extent takes the entry's own filters, which is every row but
+	 * Regions.
+	 */
+	readonly extentFilters?: (layer: TLayer) => MapFiltersOf<TSpec> | null;
 	readonly buildLayers: (layer: TLayer) => LayerSpecification[];
 }
 
 /**
- * One row of the table. `TExtra` is what this kind carries beyond the four
- * shared fields, and only Regions has any: a field meaningless for the other eleven
- * on the shared shape is how the next one gets added without an argument.
+ * One row of the table. The entry's filters come off the row's spec. `TExtra`
+ * is what this kind carries beyond the shared fields, and only Regions has any:
+ * a field meaningless for the other eleven on the shared shape is how the next
+ * one gets added without an argument. Naming it means naming the spec too,
+ * since TypeScript infers all of a call's type arguments or none of them.
  */
-function defineTileLayer<TFilters, TExtra = unknown>(
-	binding: TileLayerBinding<TileLayerBase<TFilters> & TExtra>,
-): TileLayerBinding<TileLayerBase<TFilters> & TExtra> {
+function defineTileLayer<const TSpec extends MapFilterSpec, TExtra = unknown>(
+	binding: TileLayerBinding<TileLayerBase<MapFiltersOf<TSpec>> & TExtra, TSpec>,
+): TileLayerBinding<TileLayerBase<MapFiltersOf<TSpec>> & TExtra, TSpec> {
 	return binding;
 }
 
@@ -202,120 +192,106 @@ const EMPTY_IDS: readonly string[] = [];
  * it names and a `defineTileSet` on the server.
  */
 const TILE_LAYER_BINDINGS = {
-	habitats: defineTileLayer<HabitatTileFilters>({
+	habitats: defineTileLayer({
 		sourceId: HABITAT_SOURCE_ID,
+		filterSpec: HABITAT_MAP_FILTERS,
 		interactiveLayerIds: HABITAT_INTERACTIVE_LAYER_IDS,
 		allLayerIds: HABITAT_LAYER_IDS,
 		clusters: true,
-		buildTileUrl: (layer, draw) => buildHabitatTileUrl(layer.serverUrl, layer.filters, draw),
-		buildExtentUrl: (layer) => buildHabitatExtentUrl(layer.serverUrl, layer.filters),
 		buildLayers: (layer) => habitatTileLayers(layer.selectedId ?? null),
 	}),
-	regions: defineTileLayer<RegionTileFilters, RegionVisibility>({
+	regions: defineTileLayer<typeof REGION_MAP_FILTERS, RegionVisibility>({
 		sourceId: REGION_SOURCE_ID,
+		filterSpec: REGION_MAP_FILTERS,
 		interactiveLayerIds: REGION_INTERACTIVE_LAYER_IDS,
 		allLayerIds: REGION_LAYER_IDS,
-		buildTileUrl: (layer) => buildRegionTileUrl(layer.serverUrl, layer.filters),
 		// Only the ticked regions are on screen, so the camera frames those and an
 		// empty set frames nothing rather than the whole organization.
-		buildExtentUrl: (layer) => {
+		extentFilters: (layer) => {
 			const ids = layer.visibleIds ?? EMPTY_IDS;
-			return ids.length === 0
-				? null
-				: buildRegionExtentUrl(layer.serverUrl, { ...layer.filters, ids });
+			return ids.length === 0 ? null : { ...layer.filters, ids };
 		},
 		buildLayers: (layer) =>
 			regionTileLayers(layer.selectedId ?? null, layer.visibleIds ?? EMPTY_IDS),
 	}),
-	addresses: defineTileLayer<AddressTileFilters>({
+	addresses: defineTileLayer({
 		sourceId: ADDRESS_SOURCE_ID,
+		filterSpec: ADDRESS_MAP_FILTERS,
 		interactiveLayerIds: ADDRESS_INTERACTIVE_LAYER_IDS,
 		allLayerIds: ADDRESS_LAYER_IDS,
 		clusters: true,
-		buildTileUrl: (layer, draw) => buildAddressTileUrl(layer.serverUrl, layer.filters, draw),
-		buildExtentUrl: (layer) => buildAddressExtentUrl(layer.serverUrl, layer.filters),
 		buildLayers: (layer) => addressTileLayers(layer.selectedId ?? null),
 	}),
-	inspections: defineTileLayer<InspectionTileFilters>({
+	inspections: defineTileLayer({
 		sourceId: INSPECTION_SOURCE_ID,
+		filterSpec: INSPECTION_MAP_FILTERS,
 		interactiveLayerIds: INSPECTION_INTERACTIVE_LAYER_IDS,
 		allLayerIds: INSPECTION_LAYER_IDS,
 		clusters: true,
-		buildTileUrl: (layer, draw) => buildInspectionTileUrl(layer.serverUrl, layer.filters, draw),
-		buildExtentUrl: (layer) => buildInspectionExtentUrl(layer.serverUrl, layer.filters),
 		buildLayers: (layer) => inspectionTileLayers(layer.selectedId ?? null),
 	}),
-	samples: defineTileLayer<SampleTileFilters>({
+	samples: defineTileLayer({
 		sourceId: SAMPLE_SOURCE_ID,
+		filterSpec: SAMPLE_MAP_FILTERS,
 		interactiveLayerIds: SAMPLE_INTERACTIVE_LAYER_IDS,
 		allLayerIds: SAMPLE_LAYER_IDS,
 		clusters: true,
-		buildTileUrl: (layer, draw) => buildSampleTileUrl(layer.serverUrl, layer.filters, draw),
-		buildExtentUrl: (layer) => buildSampleExtentUrl(layer.serverUrl, layer.filters),
 		buildLayers: (layer) => sampleTileLayers(layer.selectedId ?? null),
 	}),
-	chemical: defineTileLayer<ChemicalTileFilters>({
+	chemical: defineTileLayer({
 		sourceId: CHEMICAL_SOURCE_ID,
+		filterSpec: CHEMICAL_MAP_FILTERS,
 		interactiveLayerIds: CHEMICAL_INTERACTIVE_LAYER_IDS,
 		allLayerIds: CHEMICAL_LAYER_IDS,
 		clusters: true,
-		buildTileUrl: (layer, draw) => buildChemicalTileUrl(layer.serverUrl, layer.filters, draw),
-		buildExtentUrl: (layer) => buildChemicalExtentUrl(layer.serverUrl, layer.filters),
 		buildLayers: (layer) => chemicalTileLayers(layer.selectedId ?? null),
 	}),
-	'source-reduction': defineTileLayer<SourceReductionTileFilters>({
+	'source-reduction': defineTileLayer({
 		sourceId: SOURCE_REDUCTION_SOURCE_ID,
+		filterSpec: SOURCE_REDUCTION_MAP_FILTERS,
 		interactiveLayerIds: SOURCE_REDUCTION_INTERACTIVE_LAYER_IDS,
 		allLayerIds: SOURCE_REDUCTION_LAYER_IDS,
 		clusters: true,
-		buildTileUrl: (layer, draw) =>
-			buildSourceReductionTileUrl(layer.serverUrl, layer.filters, draw),
-		buildExtentUrl: (layer) => buildSourceReductionExtentUrl(layer.serverUrl, layer.filters),
 		buildLayers: (layer) => sourceReductionTileLayers(layer.selectedId ?? null),
 	}),
-	biocontrol: defineTileLayer<BiocontrolTileFilters>({
+	biocontrol: defineTileLayer({
 		sourceId: BIOCONTROL_SOURCE_ID,
+		filterSpec: BIOCONTROL_MAP_FILTERS,
 		interactiveLayerIds: BIOCONTROL_INTERACTIVE_LAYER_IDS,
 		allLayerIds: BIOCONTROL_LAYER_IDS,
 		clusters: true,
-		buildTileUrl: (layer, draw) => buildBiocontrolTileUrl(layer.serverUrl, layer.filters, draw),
-		buildExtentUrl: (layer) => buildBiocontrolExtentUrl(layer.serverUrl, layer.filters),
 		buildLayers: (layer) => biocontrolTileLayers(layer.selectedId ?? null),
 	}),
-	outreach: defineTileLayer<OutreachTileFilters>({
+	outreach: defineTileLayer({
 		sourceId: OUTREACH_SOURCE_ID,
+		filterSpec: OUTREACH_MAP_FILTERS,
 		interactiveLayerIds: OUTREACH_INTERACTIVE_LAYER_IDS,
 		allLayerIds: OUTREACH_LAYER_IDS,
 		clusters: true,
-		buildTileUrl: (layer, draw) => buildOutreachTileUrl(layer.serverUrl, layer.filters, draw),
-		buildExtentUrl: (layer) => buildOutreachExtentUrl(layer.serverUrl, layer.filters),
 		buildLayers: (layer) => outreachTileLayers(layer.selectedId ?? null),
 	}),
-	traps: defineTileLayer<TrapTileFilters>({
+	traps: defineTileLayer({
 		sourceId: TRAP_SOURCE_ID,
+		filterSpec: TRAP_MAP_FILTERS,
 		interactiveLayerIds: TRAP_INTERACTIVE_LAYER_IDS,
 		allLayerIds: TRAP_LAYER_IDS,
 		clusters: true,
-		buildTileUrl: (layer, draw) => buildTrapTileUrl(layer.serverUrl, layer.filters, draw),
-		buildExtentUrl: (layer) => buildTrapExtentUrl(layer.serverUrl, layer.filters),
 		buildLayers: (layer) => trapTileLayers(layer.selectedId ?? null),
 	}),
-	collections: defineTileLayer<CollectionTileFilters>({
+	collections: defineTileLayer({
 		sourceId: COLLECTION_SOURCE_ID,
+		filterSpec: COLLECTION_MAP_FILTERS,
 		interactiveLayerIds: COLLECTION_INTERACTIVE_LAYER_IDS,
 		allLayerIds: COLLECTION_LAYER_IDS,
 		clusters: true,
-		buildTileUrl: (layer, draw) => buildCollectionTileUrl(layer.serverUrl, layer.filters, draw),
-		buildExtentUrl: (layer) => buildCollectionExtentUrl(layer.serverUrl, layer.filters),
 		buildLayers: (layer) => collectionTileLayers(layer.selectedId ?? null),
 	}),
-	'service-requests': defineTileLayer<ServiceRequestTileFilters>({
+	'service-requests': defineTileLayer({
 		sourceId: SERVICE_REQUEST_SOURCE_ID,
+		filterSpec: SERVICE_REQUEST_MAP_FILTERS,
 		interactiveLayerIds: SERVICE_REQUEST_INTERACTIVE_LAYER_IDS,
 		allLayerIds: SERVICE_REQUEST_LAYER_IDS,
 		clusters: true,
-		buildTileUrl: (layer, draw) => buildServiceRequestTileUrl(layer.serverUrl, layer.filters, draw),
-		buildExtentUrl: (layer) => buildServiceRequestExtentUrl(layer.serverUrl, layer.filters),
 		buildLayers: (layer) => serviceRequestTileLayers(layer.selectedId ?? null),
 	}),
 };
@@ -416,12 +392,43 @@ export function tileLayerSpecs(layer: MapTileLayer, draw: TileDrawOptions): Laye
  */
 export function tileLayerTileUrl(layer: MapTileLayer, draw: TileDrawOptions): string {
 	const binding = tileLayerBinding(layer);
-	return binding.buildTileUrl(layer, {
-		cluster: draw.cluster === true && binding.clusters === true,
-	});
+	return tileTemplateUrl(
+		layer.serverUrl,
+		binding.sourceId,
+		bindingFilterQuery(binding, layer.filters),
+		{ cluster: tileLayerDrawsClusters(layer, draw) },
+	);
 }
 
 /** Where this layer's filtered data is, or null when it has none to frame. */
 export function tileLayerExtentUrl(layer: MapTileLayer): string | null {
-	return tileLayerBinding(layer).buildExtentUrl(layer);
+	const binding = tileLayerBinding(layer);
+	const filters =
+		binding.extentFilters === undefined ? layer.filters : binding.extentFilters(layer);
+	return filters === null
+		? null
+		: tileExtentUrl(layer.serverUrl, binding.sourceId, bindingFilterQuery(binding, filters));
+}
+
+/**
+ * The extent of every region the Organization has, ticked or not, which is
+ * what an explorer frames on a first visit. {@link tileLayerExtentUrl} answers
+ * null for a regions entry with nothing ticked, so this is the one way past it.
+ */
+export function allRegionsExtentUrl(serverUrl: string): string {
+	const binding = TILE_LAYER_BINDINGS.regions;
+	return tileExtentUrl(serverUrl, binding.sourceId, tileFilterQuery(binding.filterSpec, undefined));
+}
+
+/**
+ * A row's filters as its query. The spec is named because inferring it from an
+ * entry's filters, a union of twelve kinds, picks one kind's spec and refuses
+ * the rest. The row and the entry agree by `kind`, which is what
+ * {@link tileLayerBinding} already relies on.
+ */
+function bindingFilterQuery(
+	binding: TileLayerBinding<MapTileLayer>,
+	filters: MapTileLayer['filters'] | MapFiltersOf<MapFilterSpec>,
+): URLSearchParams {
+	return tileFilterQuery<MapFilterSpec>(binding.filterSpec, filters);
 }

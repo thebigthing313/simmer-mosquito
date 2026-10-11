@@ -1,5 +1,5 @@
 import { mapInteraction, mapStatus } from '@simmer-mosquito/design-tokens';
-import { type MapFiltersOf, SERVICE_REQUEST_MAP_FILTERS } from '@simmer-mosquito/domain';
+import type { MapFiltersOf, SERVICE_REQUEST_MAP_FILTERS } from '@simmer-mosquito/domain';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import {
 	allLayerIds,
@@ -7,7 +7,6 @@ import {
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
  * The filters the `service-requests` tiles and extent draw under, typed off the
@@ -56,32 +55,6 @@ const statusColor: ExpressionSpecification = [
 	colors.open,
 	colors.closed,
 ];
-
-/** Build the tile template URL with the active filters folded into the query. */
-export function buildServiceRequestTileUrl(
-	serverUrl: string,
-	filters?: ServiceRequestTileFilters,
-	options?: TileDrawOptions,
-): string {
-	return tileTemplateUrl(
-		serverUrl,
-		SERVICE_REQUEST_SOURCE_ID,
-		tileFilterQuery(SERVICE_REQUEST_MAP_FILTERS, filters),
-		options,
-	);
-}
-
-/** Build the extent URL for the same filters: the whole filtered set, no viewport. */
-export function buildServiceRequestExtentUrl(
-	serverUrl: string,
-	filters?: ServiceRequestTileFilters,
-): string {
-	return tileExtentUrl(
-		serverUrl,
-		SERVICE_REQUEST_SOURCE_ID,
-		tileFilterQuery(SERVICE_REQUEST_MAP_FILTERS, filters),
-	);
-}
 
 /** The GL layers for the service request source. `selectedId` drives the highlight set. */
 export function serviceRequestTileLayers(selectedId: string | null): GeometryTileLayer[] {
