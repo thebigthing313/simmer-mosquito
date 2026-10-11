@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	formatActionDate,
 	formatMeasure,
+	perUnitAmountGroups,
 	usageTotal,
 } from '../../../../components/control-operations/control-display';
 
@@ -112,6 +113,36 @@ describe('usageTotal', () => {
 
 		expect(result.text).toBe('3 gal · 5');
 		expect(result.convertedFrom).toBeNull();
+	});
+});
+
+describe('perUnitAmountGroups', () => {
+	const unitById = new Map([['u-gallon', { unitName: 'Gallon', abbreviation: 'gal' }]]);
+
+	it('draws a known unit by name with its count and summed amount', () => {
+		expect(
+			perUnitAmountGroups([{ by: { unitId: 'u-gallon' }, count: 3, sum: 12.5 }], unitById),
+		).toEqual([{ key: 'u-gallon', label: 'Gallon', count: 3, figure: '12.50 gal' }]);
+	});
+
+	it('reads a unit the client does not hold as Unknown unit, with the amount bare', () => {
+		expect(perUnitAmountGroups([{ by: { unitId: 'u-gone' }, count: 2, sum: 4 }], unitById)).toEqual(
+			[{ key: 'u-gone', label: 'Unknown unit', count: 2, figure: '4' }],
+		);
+	});
+
+	it('draws no line for a row with no unit, and keeps the order of the rest', () => {
+		expect(
+			perUnitAmountGroups(
+				[
+					{ by: { unitId: 'u-gone' }, count: 5, sum: 1 },
+					{ by: { unitId: null }, count: 4, sum: 9 },
+					{ by: {}, count: 3, sum: 9 },
+					{ by: { unitId: 'u-gallon' }, count: 2, sum: 6 },
+				],
+				unitById,
+			).map((group) => group.key),
+		).toEqual(['u-gone', 'u-gallon']);
 	});
 });
 
