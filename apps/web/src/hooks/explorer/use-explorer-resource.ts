@@ -1,19 +1,23 @@
 import type { Map as MapboxMap } from 'mapbox-gl';
+import { useState } from 'react';
+import { getServerUrl } from '../../auth';
 import type {
 	ExplorerEmptiness,
 	ExplorerEmptyReason,
 } from '../../components/explorer/explorer-empty-state';
+import {
+	type RecordSet,
+	type RecordSetTiles,
+	recordSetFilterParams,
+} from '../../components/explorer/record-set';
 import { type MapTileLayer, tileLayerExtentUrl } from '../../components/map/tile-layers';
-import type { RecordType } from '../../lib/record-nouns';
+import { type MapQueryValue, mapQueryParams } from '../../lib/map-query-params';
 import { type MapExtent, useMapExtent } from '../map/use-map-extent';
+import { type ExplorerSummaryState, useExplorerSummary } from './use-explorer-summary';
 import { useFlyToSelection } from './use-fly-to-selection';
 import { useMapBoundsParam } from './use-map-bounds-param';
-import {
-	type MapQueryValue,
-	mapQueryParams,
-	type PagedMapResource,
-	usePagedMapResource,
-} from './use-paged-map-resource';
+import { type PagedMapResource, usePagedMapResource } from './use-paged-map-resource';
+import type { RecordSetFilterBinding } from './use-record-set-filters';
 import { useSelectedMapRecord } from './use-selected-map-record';
 /**
  * What every explorer rail needs of a row: which record it is, and where on the
@@ -26,7 +30,7 @@ export interface ExplorerRowShape {
 	readonly lng: number | null;
 }
 
-export interface ExplorerResource<TRow> extends PagedMapResource<TRow> {
+export interface ExplorerResource<TRow> extends PagedMapResource<TRow>, ExplorerSelection {
 	/** The record the map selection points at, on this page or fetched by id. */
 	readonly selected: TRow | null;
 	/**
@@ -35,46 +39,84 @@ export interface ExplorerResource<TRow> extends PagedMapResource<TRow> {
 	 * `ExplorerEmptyReason` for the four answers.
 	 */
 	readonly empty: ExplorerEmptiness;
+	/**
+	 * The in-view summary, shown in place of the rows over 100 in view on a
+	 * surface that asked for one with `summarize`.
+	 */
+	readonly summary: ExplorerSummaryState;
+	/** What the surface hands `ExplorerCanvas`. */
+	readonly canvas: ExplorerCanvasBinding;
 }
+
+/**
+ * What `ExplorerCanvas` needs off the hook: the layers to draw, the callback
+ * the canvas hands its map to, and the card's record with the way to shut it.
+ */
+export interface ExplorerCanvasBinding {
+	/**
+	 * The `layers` list for `MapCanvas`: the surface's tile layer, carrying the
+	 * selected record, so a clustered tileset draws the record over the cluster
+	 * that holds it. See `tileLayerSelectionOverlay`.
+	 */
+	readonly layers: readonly MapTileLayer[];
+	/** `MapCanvas`'s `onMapReady`. Nothing is asked for until it has been called. */
+	readonly onMapReady: (map: MapboxMap) => void;
+	/** The record the card is for, or null when nothing is selected. */
+	readonly selectedRecordId: string | null;
+	/** The card's close. A route clears with `setSelectedId(null)`. */
+	readonly clearSelection: () => void;
+}
+
+interface ExplorerSelection {
+	/**
+	 * What the rail or the map picked. `canvas.selectedRecordId` is the same id
+	 * once the record has been read, which is when the card mounts.
+	 */
+	readonly selectedId: string | null;
+	/** Pick a record, or pass null to clear. A map click on empty ground passes null. */
+	readonly setSelectedId: (id: string | null) => void;
+}
+
+/** No params beside the filters, which is ten routes of the eleven. */
+const NO_PARAMS: Readonly<Record<string, MapQueryValue>> = {};
 
 /**
  * One page of a `/map/*` list endpoint, the record the map has selected, and
  * the camera move that follows it.
  *
- * The viewport goes on the wire ahead of the surface's own filters, and nothing
- * is asked for until the map has one. `empty` reads the layer's extent, which
- * the map fetches to frame the same filters, so it costs no extra request.
+ * The hook holds the map the canvas reports, the selection and the tile layer,
+ * so a route hands it a record set and the filters it resolved, and renders
+ * `ExplorerCanvas` with what comes back. The set names the tileset and the key
+ * one record arrives under. The set's tile filters are computed once here and
+ * feed both the tile layer and the page request. The
+ * viewport goes on the wire ahead of the surface's own filters, and nothing is
+ * asked for until the map has one. `empty` reads the layer's extent, which the
+ * map fetches to frame the same filters, so it costs no extra request. `TRow`
+ * is read off the type annotation on the result.
  */
-export function useExplorerResource<TRow extends ExplorerRowShape>({
-	path,
-	rowsKey,
-	rowKey,
-	recordType,
-	params,
-	layer,
-	map,
-	selectedId,
+export function useExplorerResource<TRow extends ExplorerRowShape, TFilters, TTile>({
+	set,
+	binding,
+	params = NO_PARAMS,
 	normalizeRow,
 	holdRailOnSelect = false,
+	summarize = false,
 }: {
-	/** The list endpoint, e.g. `/map/source-reduction`. Also roots the query key. */
-	readonly path: string;
-	/** The key the rows arrive under in the response body, e.g. `sourceReductions`. */
-	readonly rowsKey: string;
-	/** The key one record arrives under, e.g. `sourceReduction`. */
-	readonly rowKey: string;
-	/** What the page lists. `usePagedMapResource`'s prop carries the rule. */
-	readonly recordType: RecordType;
-	/** The surface's own filters, before the empties are dropped. */
-	readonly params: Readonly<Record<string, MapQueryValue>>;
 	/**
-	 * The tile layer the map draws for this surface, the same entry `MapCanvas`
-	 * frames under `fitToData`. Its extent URL is what the empty state reads,
-	 * and the two share one query, so the surface still sends one extent request.
+	 * The record set the Map draws. Its endpoint is the list request and roots
+	 * the query key, and its record type is what a failure and the empty state
+	 * read by. Its tileset is the layer `MapCanvas` frames under `fitToData`, and
+	 * the empty state reads that layer's extent through the same query, so the
+	 * surface still sends one extent request.
 	 */
-	readonly layer: MapTileLayer;
-	readonly map: MapboxMap | null;
-	readonly selectedId: string | null;
+	readonly set: RecordSet<TFilters, TTile>;
+	/**
+	 * The Map's filters and the context they were resolved in, which the set's
+	 * `tileFilters` reads. `useRecordSetFilters(set, 'map')` returns both.
+	 */
+	readonly binding: Pick<RecordSetFilterBinding<NoInfer<TFilters>>, 'filters' | 'context'>;
+	/** What the page request sends beside the filters, such as a rail order. */
+	readonly params?: Readonly<Record<string, MapQueryValue>>;
 	/** Defaults a row's newer fields, where a deployed server may not send them. */
 	readonly normalizeRow?: (row: TRow) => TRow;
 	/**
@@ -82,14 +124,36 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	 * the record; the page is not re-read for the viewport it lands on.
 	 */
 	readonly holdRailOnSelect?: boolean;
+	/**
+	 * Read `{path}/summary` once the page counts more than fit on it. Only a
+	 * surface whose server declares a summary passes it.
+	 */
+	readonly summarize?: boolean;
 }): ExplorerResource<TRow> {
+	// Held here rather than by the route, which only ever handed it back.
+	const [map, setMap] = useState<MapboxMap | null>(null);
+	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const { path, rowsKey, rowKey } = set.endpoint;
+	const { recordType } = set;
+	// Computed once, so the tiles and the page cannot read different filters.
+	const tileFilters = set.tileFilters(binding.filters, binding.context);
+	// `defineRecordSet` pairs the tileset with these filters, which TypeScript
+	// cannot follow from a generic `TTile` into the union. Only that pair is
+	// asserted, so `tsc` still checks every other field of the layer.
+	const tiles = { kind: set.tileset, filters: tileFilters } as RecordSetTiles;
+	const layer: MapTileLayer = {
+		...tiles,
+		serverUrl: getServerUrl(),
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
 	const bbox = useMapBoundsParam(map);
 	// Spread rather than passed, because the workspace is on
 	// `exactOptionalPropertyTypes` and an explicit `undefined` is not an absent key.
 	const shaping = normalizeRow === undefined ? {} : { normalizeRow };
 	// `bbox` first, so it sits on the query string ahead of the surface's own
 	// filters, which is where the three larval routes have always had it.
-	const query = mapQueryParams({ bbox, ...params });
+	const query = mapQueryParams({ bbox, ...recordSetFilterParams(set, tileFilters), ...params });
 
 	const paged = usePagedMapResource<TRow>({
 		path,
@@ -109,7 +173,16 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 		selectedId,
 		...shaping,
 	});
+	// The one camera move a selection makes. A card does not fly as well (#1423).
 	useFlyToSelection(map, selected, holdRailOnSelect);
+	const summary = useExplorerSummary({
+		path,
+		recordType,
+		params: query,
+		total: paged.total,
+		pageSettled: paged.isSettled,
+		enabled: summarize,
+	});
 
 	const extentUrl = tileLayerExtentUrl(layer);
 	const extent = useMapExtent(extentUrl);
@@ -117,6 +190,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	// map reports a viewport, and a disabled query is not `isLoading`, so a cold
 	// map used to read as a settled, empty page for as long as it took to load.
 	const isLoading = bbox === null || paged.isLoading || (extentUrl !== null && !extent.isSettled);
+	const layers: readonly MapTileLayer[] = [{ ...layer, selectedRecord: selected }];
 	const empty: ExplorerEmptiness = {
 		recordType,
 		reason: isLoading ? 'loading' : emptyReason(extentUrl, extent),
@@ -129,6 +203,15 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 		isLoading,
 		selected,
 		empty,
+		summary,
+		selectedId,
+		setSelectedId,
+		canvas: {
+			layers,
+			onMapReady: setMap,
+			selectedRecordId: selected === null ? null : selected.id,
+			clearSelection: () => setSelectedId(null),
+		},
 	};
 }
 

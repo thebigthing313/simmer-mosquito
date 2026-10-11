@@ -16,18 +16,17 @@ import type { ReactNode } from 'react';
  * looks stateful and is not.
  *
  * A switch is the local answer instead. It sits on the two surfaces that
- * actually share the contract, it carries the shared params by construction
+ * actually share the contract, it carries the params the destination applies
  * through a `Link`'s `search`, and it carries nothing else: params one surface
- * owns and the other does not read, such as a table's sort, stay behind. The
+ * owns and the other does not read, such as an order, stay behind. The
  * Inspections Map and Table are the pair this was written for (#521). When
- * another explorer grows a second surface, it gets one of these.
+ * another explorer grows a second surface, it gets a `defineRecordSet`.
  *
  * ## What is here and what is the caller's
  *
- * The frame and the item styling, and nothing about destinations. `tsc` checks a
- * `to` and `search` pair against the generated route tree, and it can only do
- * that where the path is written as a literal, so each pair builds its own
- * `Link`s and this draws the box around them.
+ * The frame and the item styling, and nothing about destinations.
+ * `RecordSetSwitch` draws the two links inside it from a record set, whose
+ * paths `tsc` checks against the generated route tree.
  */
 export function SurfaceSwitch({
 	children,

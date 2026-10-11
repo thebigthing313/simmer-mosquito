@@ -5,7 +5,7 @@ import { operationalDayAsTimestamp } from '../../../lib/local-date';
 /** The timing fields a collection form holds, in either mode. */
 interface CollectionTimingValues {
 	readonly timingMode: AdultCollectionTimingMode;
-	/** `YYYY-MM-DD` the trap was set: exact mode only, and optional there. */
+	/** `YYYY-MM-DD` the trap was set: exact mode only, and required there on every collection. */
 	readonly startedAt: string | null;
 	/** `YYYY-MM-DD` specimens were retrieved: exact mode. */
 	readonly collectedAt: string | null;

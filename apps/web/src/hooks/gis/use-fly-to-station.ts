@@ -1,7 +1,11 @@
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect } from 'react';
+import { focusOnMap } from '../../components/map/map-camera';
 
-/** Flies to a station when it becomes focused, from either the list or the map. */
+/**
+ * Flies to a station when it becomes focused, from either the list or the map,
+ * as a `selection` focus (see `focusOnMap`).
+ */
 export function useFlyToStation(
 	map: MapboxMap | null,
 	focused: { readonly lat: number; readonly lng: number } | null,
@@ -10,10 +14,6 @@ export function useFlyToStation(
 		if (map === null || focused === null) {
 			return;
 		}
-		map.flyTo({
-			center: [focused.lng, focused.lat],
-			zoom: Math.max(map.getZoom(), 12),
-			duration: 600,
-		});
+		focusOnMap(map, focused, { purpose: 'selection' });
 	}, [map, focused]);
 }

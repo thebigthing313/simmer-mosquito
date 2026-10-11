@@ -14,12 +14,12 @@ import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { ArrowLeftIcon, ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
+import { StopSequenceMap } from '../../../components/map/stop-sequence-map';
 import {
 	type AssignmentStopView,
 	assignmentStopTone,
@@ -45,13 +45,14 @@ import {
 	AssignmentTargetPicker,
 	type AssignmentTargetSelection,
 } from '../../../components/operations/assignments/assignment-target-picker';
-import { WorklistMap } from '../../../components/operations/worklist-map';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import {
 	InlineEditField,
 	type MoveAction,
 	type MovePlan,
 	OrdinalBadge,
+	StopCardFrame,
+	type StopFocus,
 	StopList,
 	StopReorderControls,
 } from '../../../components/stop-order';
@@ -65,7 +66,7 @@ import { assignmentDisplayName } from '../../../hooks/queries/assignment-view';
 import { useStopOrder } from '../../../hooks/stop-order/use-stop-order';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { ASSIGNMENT_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -97,7 +98,7 @@ export const Route = createFileRoute('/operations/assignments/$id_/edit')({
 function AssignmentPlanRoute() {
 	const { id } = Route.useParams();
 	const auth = useAuthSnapshot();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const identity = auth?.authenticated === true ? auth.localIdentity : null;
 	const organizationId = identity?.organizationId ?? null;
 
@@ -123,7 +124,7 @@ function AssignmentPlanRoute() {
 
 	const { assignment, isReady, isError } = useAssignment(id);
 	const { stops, isLoading } = useAssignmentStops(id);
-	const { options: assigneeOptions, nameById } = useAssigneeOptions();
+	const { options: assigneeOptions } = useAssigneeOptions();
 
 	const [detailDraft, setDetailDraft] = useState<AssignmentDetailValues | null>(null);
 	const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
@@ -132,14 +133,10 @@ function AssignmentPlanRoute() {
 	const [savingDetails, setSavingDetails] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const assigneeName =
-		assignment?.assignedToProfileId == null
-			? null
-			: (nameById.get(assignment.assignedToProfileId) ?? null);
-	const displayName = assignment === null ? null : assignmentDisplayName(assignment, assigneeName);
+	const displayName = assignment === null ? null : assignmentDisplayName(assignment);
 	useBreadcrumbLabel(id, displayName);
 
-	const savedDetails = assignment === null ? null : toAssignmentDetails(assignment, timeZone);
+	const savedDetails = assignment === null ? null : toAssignmentDetails(assignment, clock.zone);
 	const values = detailDraft ?? savedDetails;
 	const isDirty =
 		detailDraft !== null &&
@@ -196,7 +193,7 @@ function AssignmentPlanRoute() {
 				assignmentName: assignmentNameOrNull(detailDraft),
 				assignmentDate: detailDraft.assignmentDate,
 				assignedToProfileId: assigneeOrNull(detailDraft),
-				dueAt: toDueAt(detailDraft, timeZone),
+				dueAt: toDueAt(detailDraft, clock.zone),
 			});
 			setDetailDraft(null);
 		} catch (cause) {
@@ -259,7 +256,7 @@ function AssignmentPlanRoute() {
 		<>
 			<MapSplitPage
 				map={
-					<WorklistMap
+					<StopSequenceMap
 						features={features}
 						fitKey={id}
 						highlightId={highlightId}
@@ -449,18 +446,19 @@ function PlanStopList({
 		>
 			{stops.map((stop, index) => (
 				<PlanStopRow
+					count={stops.length}
 					editable={editable}
+					focus={{
+						selected: stop.assignmentItemId === selectedStopId,
+						highlighted: stop.assignmentItemId === highlightId,
+						onSelect,
+						onHover,
+					}}
 					index={index}
-					isFirst={index === 0}
-					isHighlighted={stop.assignmentItemId === highlightId}
-					isLast={index === stops.length - 1}
-					isSelected={stop.assignmentItemId === selectedStopId}
 					key={stop.assignmentItemId}
-					onHover={onHover}
 					onMove={onMove}
 					onRemove={onRemove}
 					onSaveDirections={onSaveDirections}
-					onSelect={onSelect}
 					ordinal={index + 1}
 					stop={stop}
 				/>
@@ -474,105 +472,76 @@ function PlanStopRow({
 	ordinal,
 	index,
 	editable,
-	isFirst,
-	isLast,
-	isSelected,
-	isHighlighted,
+	count,
+	focus,
 	onMove,
 	onRemove,
 	onSaveDirections,
-	onSelect,
-	onHover,
 }: {
 	readonly stop: AssignmentStopView;
 	readonly ordinal: number;
 	readonly index: number;
 	readonly editable: boolean;
-	readonly isFirst: boolean;
-	readonly isLast: boolean;
-	readonly isSelected: boolean;
-	readonly isHighlighted: boolean;
+	readonly count: number;
+	readonly focus: StopFocus;
 	readonly onMove: (index: number, action: MoveAction) => void;
 	readonly onRemove: (stop: AssignmentStopView) => void;
 	readonly onSaveDirections: (assignmentItemId: string, value: string) => void;
-	readonly onSelect: (id: string | null) => void;
-	readonly onHover: (id: string | null) => void;
 }) {
 	return (
-		<li
-			className={cn(
-				'relative rounded-lg border bg-card transition-colors',
-				isSelected || isHighlighted
-					? 'border-primary/40 ring-1 ring-primary/25'
-					: 'border-border/60',
-			)}
-			onMouseEnter={() => onHover(stop.assignmentItemId)}
-			onMouseLeave={() => onHover(null)}
+		<StopCardFrame
+			focus={focus}
+			id={stop.assignmentItemId}
+			label={`Show stop ${ordinal} on the map`}
 		>
-			{/* Full-card target selects the stop on the map; interactive bits opt back in. */}
-			<button
-				aria-label={`Show stop ${ordinal} on the map`}
-				aria-pressed={isSelected}
-				className={cn(
-					'absolute inset-0 size-full rounded-lg transition-colors',
-					isSelected ? 'bg-primary/5' : 'hover:bg-muted/40',
-				)}
-				onClick={() => onSelect(isSelected ? null : stop.assignmentItemId)}
-				type="button"
-			/>
-			<div className="pointer-events-none relative flex items-start gap-3 p-3">
-				<OrdinalBadge ordinal={ordinal} tone={assignmentStopTone(stop)} />
+			<OrdinalBadge ordinal={ordinal} tone={assignmentStopTone(stop)} />
 
-				<div className="min-w-0 flex-1">
-					<div className="flex flex-wrap items-center gap-2">
-						<span className="pointer-events-auto min-w-0">
-							<TargetLink isResolving={stop.isResolving} target={stop.target} />
-						</span>
-						<TargetTypePill type={stop.entityType} />
-						<ItemProgressBadge progress={stop.progress} />
-						<span aria-hidden="true" className="min-w-0 flex-1" />
-						{editable ? (
-							<StopReorderControls
-								extraActions={
-									<DropdownMenuItem onClick={() => onRemove(stop)} variant="destructive">
-										Remove from assignment
-									</DropdownMenuItem>
-								}
-								index={index}
-								isFirst={isFirst}
-								isLast={isLast}
-								onMove={onMove}
-							/>
-						) : null}
-					</div>
-
-					{stop.target?.secondary == null ? null : (
-						<p className="m-0 mt-1 truncate text-muted-foreground text-xs">
-							{stop.target.secondary}
-						</p>
-					)}
-
-					<div className="mt-2">
-						<InlineEditField
-							ariaLabel={`Directions after stop ${ordinal}`}
-							disabled={!editable}
-							emptyLabel="Add directions to the next stop"
-							onSave={(value) => onSaveDirections(stop.assignmentItemId, value)}
-							renderValue={(value) => (
-								<span className="flex items-start gap-1.5 text-muted-foreground text-xs">
-									<ChevronRightIcon
-										aria-hidden="true"
-										className="mt-px size-3 shrink-0 rotate-90 text-muted-foreground/70"
-									/>
-									<span className="min-w-0 whitespace-pre-wrap">{value}</span>
-								</span>
-							)}
-							textareaPlaceholder="e.g. Turn left at the pump station; gate code 4821."
-							value={stop.directionsToNextItem ?? ''}
+			<div className="min-w-0 flex-1">
+				<div className="flex flex-wrap items-center gap-2">
+					<span className="pointer-events-auto min-w-0">
+						<TargetLink isResolving={stop.isResolving} target={stop.target} />
+					</span>
+					<TargetTypePill type={stop.entityType} />
+					<ItemProgressBadge progress={stop.progress} />
+					<span aria-hidden="true" className="min-w-0 flex-1" />
+					{editable ? (
+						<StopReorderControls
+							extraActions={
+								<DropdownMenuItem onClick={() => onRemove(stop)} variant="destructive">
+									Remove from assignment
+								</DropdownMenuItem>
+							}
+							count={count}
+							index={index}
+							onMove={onMove}
 						/>
-					</div>
+					) : null}
+				</div>
+
+				{stop.target?.secondary == null ? null : (
+					<p className="m-0 mt-1 truncate text-muted-foreground text-xs">{stop.target.secondary}</p>
+				)}
+
+				<div className="mt-2">
+					<InlineEditField
+						ariaLabel={`Directions after stop ${ordinal}`}
+						disabled={!editable}
+						emptyLabel="Add directions to the next stop"
+						onSave={(value) => onSaveDirections(stop.assignmentItemId, value)}
+						renderValue={(value) => (
+							<span className="flex items-start gap-1.5 text-muted-foreground text-xs">
+								<ChevronRightIcon
+									aria-hidden="true"
+									className="mt-px size-3 shrink-0 rotate-90 text-muted-foreground/70"
+								/>
+								<span className="min-w-0 whitespace-pre-wrap">{value}</span>
+							</span>
+						)}
+						textareaPlaceholder="e.g. Turn left at the pump station; gate code 4821."
+						value={stop.directionsToNextItem ?? ''}
+					/>
 				</div>
 			</div>
-		</li>
+		</StopCardFrame>
 	);
 }

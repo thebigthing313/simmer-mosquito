@@ -24,6 +24,9 @@ domain doc instead of expanding this file.
 | **Organization Lookup** | Organization-owned catalog value used to configure surveillance or control workflows. | dropdown option, enum |
 | **Delete** | Removing a record that should never have existed. Refused while any live record refers to it. | archive, retire, purge |
 | **Deactivate** | Retiring a record that should not be referred to from now on. Leaves records that already name it alone. | delete, disable, archive |
+| **Field device** | A Windows tablet or Android phone running the installed field app, which keeps working offline. The field app in a browser is not one: it saves only while connected. | mobile, offline client |
+| **Queued command** | A write made on a field device that has not reached the server yet. Sent in the order it was made, and shown as done on the device while it waits. | pending change, unsynced edit, draft |
+| **Refused command** | A queued command the server declined, with the server's reason. Holds back the queued commands that name the same records until the Collector edits and resends it or discards it. Never sent again unchanged. | failed sync, conflict, sync error |
 
 ### Create verbs
 
@@ -124,6 +127,10 @@ own the allowed source flows for each workflow.
 Common source terms:
 
 - **Manual Drawing**: user-provided GeoJSON geometry.
+- **Track**: a Manual Drawing recorded from the device's location fixes while
+  it moves, one Part for each stretch between Start or Resume and Pause. Saved
+  as a line, or closed into an area where the record allows one. Avoid path and
+  trace.
 - **Address Geometry**: stored point geometry associated with an address.
 - **Trap Geometry**: point geometry stored for an adult surveillance trap.
 - **Habitat Geometry**: point, line, or polygon geometry stored for a reusable
@@ -146,7 +153,8 @@ Common source terms:
   **piece** on screen, which is the word a user reads for the thing they drew.
 - A geometry **covers no ground** when it encloses zero area or spans zero
   length. It is distinct from invalid, which is about a ring crossing itself and
-  which SIMMER does not police.
+  which the server does not police. The field app's draw control refuses to
+  finish an area whose edges cross.
 
 ## Ambiguities to preserve
 

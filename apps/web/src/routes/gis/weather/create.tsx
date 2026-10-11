@@ -28,9 +28,7 @@ function CreateWeatherStationRoute() {
 	const mutations = useWeatherStationMutations();
 
 	// Minted up front so the redirect can name the station before the server
-	// answers. `weather_sources` is eager, so unlike the region create there is no
-	// on-demand subset to warm first, the row arrives on the stream everything is
-	// already watching.
+	// answers.
 	const [stationId] = useState(() => newRecordId());
 
 	const onSave = async ({

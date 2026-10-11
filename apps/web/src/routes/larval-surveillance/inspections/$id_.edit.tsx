@@ -1,10 +1,6 @@
 import type { ResolvedLarvalInspectionEntryPolicy } from '@simmer-mosquito/domain';
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import { sessionFetch } from '@simmer-mosquito/sync';
-import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { getServerUrl } from '../../../auth';
 import {
 	type DrawGeometry,
 	InspectionFormPage,
@@ -16,28 +12,28 @@ import {
 	noHabitatTypeValue,
 	unsetDensityValue,
 } from '../../../components/larval-surveillance/inspections/inspection-form-values';
-import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { toDrawGeometry } from '../../../hooks/map/use-map-draw';
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelLink,
 	useAdditionalPersonnel,
 } from '../../../hooks/queries/use-additional-personnel';
-import { useHabitatTypeRoster } from '../../../hooks/queries/use-habitat-type-roster';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import {
 	type InspectionRecord,
 	useInspectionRecord,
 } from '../../../hooks/queries/use-inspection-record';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { INSPECTION_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
+import { addSamplesInFormOrder } from '../../../lib/add-inspection-samples';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
-import { samples } from '../../../lib/collections/samples';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
@@ -58,22 +54,15 @@ function EditInspectionRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const { organization, settings } = useOrganizationWorkspace(auth.snapshot);
-	const habitatTypes = useHabitatTypeRoster();
+	const habitatTypes = useCatalogRoster(catalogs.habitatTypes);
 	const profiles = useProfileRoster();
 
 	// inspections is an on-demand collection, so this reads live status through
 	// useLiveQuery (not the suspense variant, which can hang after a nav unmount).
 	const { inspection, isReady, isError } = useInspectionRecord(id);
 
-	// Mounted here rather than inside the loader so the crew subset — and the
-	// samples subset below — are already streaming when the save fires; a write
-	// over a cold on-demand stream never sees its txid come back.
+	// The crew already on the inspection, which the form opens with.
 	const personnel = useAdditionalPersonnel({ type: 'inspection', id });
-	useLiveQuery({
-		gcTime: activityGcTimeMs,
-		query: (query) =>
-			query.from({ sample: samples() }).where(({ sample }) => eq(sample.inspection_id, id)),
-	});
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
@@ -125,23 +114,22 @@ function EditInspectionLoader({
 	readonly personnelProfileIds: readonly string[];
 }) {
 	const navigate = useNavigate();
-	const queryClient = useQueryClient();
 	const { setPersonnel } = useAdditionalPersonnelMutations();
 	const isAdhoc = inspection.habitatId === null;
 	const inspectionMutations = useInspectionMutations();
 	const sampleMutations = useSampleMutations();
 
 	// Geometry is not part of the Electric shape (ADR 0009), so it comes from the
-	// display endpoint. Keyed on updatedAt so reopening after a save loads the
-	// current shape, and holding the previous value across that key change so the
-	// form is not unmounted mid-save — which would take any error with it.
-	const geometryQuery = useQuery({
-		queryKey: ['inspection-geometry', inspection.id, inspection.updatedAt.toISOString()],
-		queryFn: ({ signal }) => fetchInspectionGeometry(inspection.id, signal),
-		placeholderData: (previous) => previous,
-		staleTime: Number.POSITIVE_INFINITY,
-	});
-	const geojson = geometryQuery.data ?? null;
+	// display endpoint, keyed on updatedAt so reopening after a save loads the
+	// current shape. `useOwnedGeometry` holds the previous value across that key
+	// change, so the form is not unmounted mid-save, which would take any error
+	// with it.
+	const geometryQuery = useOwnedGeometry(
+		INSPECTION_GEOMETRY_SOURCE,
+		inspection.id,
+		inspection.updatedAt.toISOString(),
+	);
+	const geojson = geometryQuery.geojson;
 	const initialAdhocGeometry = isAdhoc ? toDrawGeometry(geojson) : null;
 
 	const onSave = async ({
@@ -204,30 +192,27 @@ function EditInspectionLoader({
 
 		// The rest reference the inspection and cannot fail a save that already
 		// landed, so each is reported rather than thrown (see attachLinksBestEffort).
-		await attachLinksBestEffort('the additional personnel', () =>
-			setPersonnel({
-				target: { type: 'inspection', id: inspection.id },
-				existing: existingPersonnel,
-				profileIds: values.additionalPersonnelIds,
-			}),
+		// The crew can lose rows here as well as gain them, so a miss is a change
+		// to retry from this form. The samples are only ever new.
+		await attachLinksBestEffort(
+			'the additional personnel',
+			() =>
+				setPersonnel({
+					target: { type: 'inspection', id: inspection.id },
+					existing: existingPersonnel,
+					profileIds: values.additionalPersonnelIds,
+				}),
+			{ write: 'change', recordType: 'inspection' },
 		);
 
 		if (values.samples.length > 0) {
-			await attachLinksBestEffort('the samples', async () => {
-				for (const sample of values.samples) {
-					const label = sample.label.trim();
-					await sampleMutations.add({
-						sampleId: sample.id,
-						inspectionId: inspection.id,
-						displayName: label === '' ? null : label,
-					});
-				}
-			});
+			await attachLinksBestEffort(
+				'the samples',
+				() => addSamplesInFormOrder(sampleMutations.add, inspection.id, values.samples),
+				{ write: 'add', recordType: 'inspection' },
+			);
 		}
 
-		// The detail page reads the inspection over HTTP, so its cached copy would
-		// still hold the pre-edit values on arrival.
-		await queryClient.invalidateQueries({ queryKey: ['inspection-detail', inspection.id] });
 		await navigate({ to: '/larval-surveillance/inspections/$id', params: { id: inspection.id } });
 	};
 
@@ -294,25 +279,4 @@ function defaultsFromInspection(
 			hasPupae: inspection.hasPupae,
 		},
 	};
-}
-
-/** Samples added on this pass. Existing ones are managed from the record. */
-
-async function fetchInspectionGeometry(
-	inspectionId: string,
-	signal: AbortSignal,
-): Promise<GeoJsonGeometry | null> {
-	const url = new URL(`/map/inspections/${inspectionId}`, getServerUrl());
-	const response = await sessionFetch(url, { signal });
-	if (response.status === 404) {
-		return null;
-	}
-	if (!response.ok) {
-		throw new Error(`Inspection geometry request failed with ${response.status}`);
-	}
-
-	const body = (await response.json()) as {
-		readonly inspection?: { readonly geojson?: unknown };
-	};
-	return checkOwnedGeometry('inspection', body.inspection?.geojson).geometry;
 }

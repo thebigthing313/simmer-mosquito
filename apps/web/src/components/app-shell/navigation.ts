@@ -396,6 +396,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.generic.map.icon,
 					},
 					{
+						id: 'traps-table',
+						label: 'Table',
+						to: '/adult-surveillance/traps/table',
+						icon: iconRegistry.generic.table.icon,
+					},
+					{
 						id: 'traps-directory',
 						label: 'Directory',
 						to: '/adult-surveillance/trap-directory',
@@ -432,6 +438,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Map',
 						to: '/adult-surveillance/collections',
 						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'collections-table',
+						label: 'Table',
+						to: '/adult-surveillance/collections/table',
+						icon: iconRegistry.generic.table.icon,
 					},
 					{
 						id: 'collections-create',
@@ -494,6 +506,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.generic.map.icon,
 					},
 					{
+						id: 'chemical-table',
+						label: 'Table',
+						to: '/control-operations/chemical/table',
+						icon: iconRegistry.generic.table.icon,
+					},
+					{
 						id: 'chemical-create',
 						label: createLabel('application'),
 						to: '/control-operations/chemical/create',
@@ -540,6 +558,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.generic.map.icon,
 					},
 					{
+						id: 'source-reduction-table',
+						label: 'Table',
+						to: '/control-operations/source-reduction/table',
+						icon: iconRegistry.generic.table.icon,
+					},
+					{
 						id: 'source-reduction-create',
 						label: createLabel('sourceReduction'),
 						to: '/control-operations/source-reduction/create',
@@ -570,6 +594,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Map',
 						to: '/control-operations/biocontrol',
 						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'biocontrol-table',
+						label: 'Table',
+						to: '/control-operations/biocontrol/table',
+						icon: iconRegistry.generic.table.icon,
 					},
 					{
 						id: 'biocontrol-create',
@@ -658,6 +688,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Map',
 						to: '/public-engagement/outreach',
 						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'outreach-table',
+						label: 'Table',
+						to: '/public-engagement/outreach/table',
+						icon: iconRegistry.generic.table.icon,
 					},
 					{
 						id: 'outreach-create',
@@ -765,6 +801,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Address Book',
 						to: '/gis/addresses',
 						icon: iconRegistry.actions.searchCheck.icon,
+					},
+					{
+						id: 'addresses-table',
+						label: 'Table',
+						to: '/gis/addresses/table',
+						icon: iconRegistry.generic.table.icon,
 					},
 					{
 						id: 'addresses-create',

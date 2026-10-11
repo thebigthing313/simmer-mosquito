@@ -1,12 +1,8 @@
 import { and, coalesce, eq, inArray, useLiveQuery } from '@tanstack/react-db';
 import { tag_items } from '../../lib/collections/tag_items';
 import { tags } from '../../lib/collections/tags';
-import { unmatchableId } from '../queries/shared';
+import { joinedOrNull, liveQueryGcTimeMs, unmatchableId } from '../queries/shared';
 import type { Tag } from '../queries/tag-view';
-
-// `tag_items` is on-demand; keep the current page's tags warm briefly on unmount
-// so paging back and forth does not refetch them.
-const TAG_ITEMS_GC_MS = 30_000;
 
 /**
  * The tags attached to a page of records, keyed by record id.
@@ -29,7 +25,7 @@ export function useEntityTags(
 	const uniqueIds = [...new Set(entityIds)];
 
 	const result = useLiveQuery({
-		gcTime: TAG_ITEMS_GC_MS,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: tag_items() })
@@ -57,8 +53,8 @@ export function useEntityTags(
 					entityId: item.entity_id,
 					id: coalesce(tag.id, item.tag_id),
 					name: coalesce(tag.tag_name, 'Unknown tag'),
-					color: coalesce(tag.color, null),
-					description: coalesce(tag.description, null),
+					color: joinedOrNull(tag.color),
+					description: joinedOrNull(tag.description),
 				})),
 	});
 

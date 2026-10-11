@@ -52,33 +52,40 @@ observer's first delivery, because `ResizeObserver` reports after layout and
 before paint, so a document that has not painted yet, such as a background tab
 or a hidden pane, never hears from it.
 
-#### The control method option hooks
+#### useCatalogOptions
 
-`useApplicationMethodOptions`, `useSourceReductionMethodOptions`,
-`useBiocontrolMethodOptions` and `useOutreachMethodOptions` are one question
-asked of four tables: how was this done, and with what. Each control explorer
-reaches for the pair, the multi-select above the list and the name on every
-row, and the rows themselves come from `/map/*`, which sends ids rather than
-names.
+One question asked of every catalog on the register in
+`hooks/queries/catalog-register.ts`: what may an explorer filter by, and what
+is the name behind an id. An explorer reaches for the pair, the multi-select
+above the list and the name on every row, and the rows themselves come from
+`/map/*`, which sends ids rather than names. It replaced ten hooks, six of them
+aliases over `useNamedCatalog` and three copies of it written out again (#1430).
 
-Retired methods stay in the lists, for the reason they do in
-`useHabitatTypeOptions`: an explorer looks backwards, and a season's work done
-with a method the organization has since dropped is exactly what somebody
-filtering by it is asking for. The pickers on the forms are the surfaces that
-offer only what is current.
+Retired rows stay in the lists. An explorer looks backwards, and a season's
+work done with a method the organization has since dropped is exactly what
+somebody filtering by it is asking for. The pickers on the forms are the
+surfaces that offer only what is current.
 
-The catalogs are eager and small, so these suspend rather than drawing a
-pending state; they are loaded before an explorer can be reached.
+The catalogs are eager and small, so this suspends rather than drawing a
+pending state; they are loaded before an explorer can be reached. It sorts in
+the query rather than in the hook, because `orderBy` is part of the compiled
+pipeline and the rows arrive ordered. For the profiles catalog that drops
+`localeCompare`, which differs on accented names: Ángela sorts before Alan
+rather than between Alan and Beth. It is the same ordering the other picker
+lists use, and it is the price of a sort that happens once when a row arrives
+instead of on every render. `useDailyWorkRoster` is the profile read that pays
+for `localeCompare`, and its docblock says why.
 
-`useControlMethodNames` is built from the four hooks rather than from four more
-queries, so a page that shows both a filter and a name pays for one read of
-each catalog. Ids are uuids and so globally unique, which is what lets one map
-serve all four catalogs.
+`useControlMethodNames` is built from four calls to this hook rather than from
+four more queries, so a page that shows both a filter and a name pays for one
+read of each catalog. Ids are uuids and so globally unique, which is what lets
+one map serve all four catalogs.
 
-`useInsecticideOptions` is its own hook rather than a call to `useNamedCatalog`
-because the column is `trade_name` rather than `name`. `shorthand` is an
-organization's internal abbreviation for data entry, not a name a reader should
-have to read.
+`useInsecticideOptions` is its own hook rather than a register entry, because
+insecticides are not on the register: they order active first in one query and
+sit beside the batch reads. It reads `trade_name` and calls `indexed`, which
+this module exports for it. `shorthand` is an organization's internal
+abbreviation for data entry, not a name a reader should have to read.
 
 #### usePagedMapResource
 
@@ -106,18 +113,35 @@ reductions`, beside five that read `titleMany` out of the register.
 `pnpm check:record-nouns` lists this hook as a register consumer.
 
 `mapQueryParams` exists because every explorer wrote the presence rule out as
-a wall of `if (x !== undefined && x.length > 0)`.
+a wall of `if (x !== undefined && x.length > 0)`. It and `MapQueryValue` live
+in `lib/map-query-params.ts` since #1588 rather than in this hook's module,
+because the record set definition and the eleven set search modules read them
+and none of those is a hook.
 
-The Habitats Table and the Samples Table call this hook directly, with no map,
-and send `WHOLE_WORLD_BBOX` as the box. Both could have read their collections
-the way the Inspections Table does, and neither does, because the collection
-can only push down a filter or a sort that names a column of its own table.
-Three of the habitat filters are not columns (Tags, Region, Untreated), and a
-sample's date, status and species all live on other tables. The endpoint
-answers every filter the Map has, so the two surfaces agree on the set and the
-switch between them carries everything. What it costs is the column sort: the
-order is the surface's own, habitats by name and samples by newest
-inspection.
+`PAGE_SIZE` is 100 since #1244, and the server's `limit` cap moved with it. It
+is also the threshold `useExplorerSummary` reads: a surface with a summary
+draws its rows only when they fit on one page, so its pager never shows. The
+rail mounts only the rows in view, so a page of 100 costs what 50 did.
+
+The Habitats Table, the Samples Table, the Traps Table, the Collections
+Table, the Chemical Applications Table, the Source Reductions Table, the
+Biocontrol Actions Table and the Outreach Actions Table call this hook
+directly, with no map, and send `WHOLE_WORLD_BBOX` as the box. Each could have
+read its collection the way the Inspections Table does, and none does, because
+the collection can only push down a filter or a sort that names a column of
+its own table. Three of the habitat filters are not columns (Tags, Region,
+Untreated), a sample's date, status and species all live on other tables, a
+trap's Region is ADR 0015's membership computed on read, and a collection's
+date is one of two columns by its timing mode, in the Organization's zone,
+while Awaiting identification reads `collection_species`. The Region of a
+chemical application, a source reduction, a biocontrol action or an outreach
+action is the same membership as a trap's, and a chemical application's rows
+carry the applicator's name and batch names, which the endpoint joins. The endpoint answers every filter the Map has, so
+the two surfaces agree on the set and the switch between them carries
+everything. What it costs is the column sort: the order is the surface's own,
+habitats by name, samples by newest inspection, traps by code, and
+collections, chemical applications, source reductions, biocontrol actions and
+outreach actions by newest date.
 
 #### useSelectedMapRecord
 
@@ -143,30 +167,17 @@ that is on the page draws when the page does rather than a moment before it.
 
 #### The catalog option hooks
 
-`useCollectionMethodOptions`, `useHabitatTypeOptions`, `usePersonnelOptions`,
-`useRegionOptions`, `useSpeciesOptions` and `useTagOptions` each answer one
-filter question an explorer gets asked: how a trap catches, what kind of place
-a Habitat is, who did the work, which district, which species, which tag. Each
-labels its rows with the same lookup the filter reads.
+`useRegionOptions`, `useSpeciesOptions` and `useTagOptions` each answer a
+filter question `useCatalogOptions` cannot: which district, which species,
+which tag. None of the three is a name lookup over one table, which is why
+they are not on the catalog register. Each labels its rows with the same lookup
+the filter reads, and retired rows stay in every list for the reason they do in
+`useCatalogOptions`.
 
-Retired catalog rows stay in every list. An explorer looks backwards, and a
-season's inspections filtered by a type the organization has since stopped
-using is exactly what the person asking means. The pickers on the forms are the
-surfaces that offer only what is current.
-
-The eager catalogs suspend rather than drawing a pending state, because they
-are loaded before an explorer can be reached. `useRegionOptions` is the one
-that cannot: `regions` is on-demand, and the suspense hook hangs when a route
-unmounts over an on-demand collection, so it uses plain `useLiveQuery` and
-holds the subset for thirty seconds past unmount, because regions are picked,
-unpicked and re-picked while somebody narrows a map.
-
-`usePersonnelOptions` sorts in the query rather than in the hook, because
-`orderBy` is part of the compiled pipeline and the rows arrive ordered. That
-drops `localeCompare`, which differs on accented names: Ángela sorts before
-Alan rather than between Alan and Beth. It is the same ordering the other
-picker lists use, and it is the price of a sort that happens once when a row
-arrives instead of on every render.
+`useRegionOptions` does not suspend: `regions` is on-demand, and the suspense
+hook hangs when a route unmounts over an on-demand collection, so it uses plain
+`useLiveQuery` and holds the subset for thirty seconds past unmount, because
+regions are picked, unpicked and re-picked while somebody narrows a map.
 
 `useSpeciesOptions` reads two sets on purpose. The options are the species the
 organization has adopted, since a New Jersey program records perhaps thirty of
@@ -193,11 +204,76 @@ optimistic row and its synced twin are two assignments of it while the write
 is in flight, so the grouping drops the duplicate rather than drawing two
 chips.
 
+#### useRecordSetFilters
+
+Each record set's Map and Table read one filter set off the URL, so a switch
+between them carries what both apply and Back out of a record lands on the list
+the reader had narrowed to. This is the one hook over all eleven sets (#1419).
+It replaced nine copies, `useCollectionFilterState` and its neighbours, which
+differed only in names, and the inline `useSearchFilters` call both service
+request routes made.
+
+What differs by kind is the set's definition, so the hook reads it rather than
+taking arguments. The defaults come from `defaults(context, surface)`, and the
+context is the Organization's today and its settings. The window ends on the
+Organization's today rather than the browser's, because the server cuts a
+record's day in that zone too, and a window ending on the browser's day would
+drop the evening's records for a reader west of the Organization. Inspections
+is the one set whose two surfaces open on different windows, which its
+definition states: the Map draws every matching record at once, so a season of
+inspections is a solid block of dots and it opens on the last 30 days, while
+the Table says it holds every inspection and opens on all time. The window is
+a fixed number of days back rather than a calendar month, so the Map opens on
+the same amount of work whenever it is opened.
+
+A surface reads the set's codecs through `surfaceCodecs`, so a key it does not
+apply resolves to its default, counts nothing and leaves the address when
+written. That is what took `INSPECTION_TABLE_COUNTING` and the Table's
+`regionIds: new Set()` override out: neither had anything left to suppress.
+The counting is the set's too, and leaves out the filters the set calls
+`inert`, which for service requests reads the Organization's settings, since
+an Overdue left on the address while the threshold is off narrows nothing and
+is not counted.
+
+The binding carries the context it resolved in, the Organization's today and
+settings, because the set's `tileFilters` reads it. The Service Requests
+routes read the overdue cut-off off it too, for the Overdue control and every
+row, through the same `serviceRequestOverdueCutoffFor` the set's `inert` rule
+and the tile conversion call, so the count, the request and the rows cannot
+disagree about whether Overdue is on. The binding also carries the set's
+`inert` filters in that context, which the declarations read to draw no
+control and no chip for them (#1612). That took out
+`useServiceRequestOverdueCutoff`, which read the settings a second time.
+
+The search box half is for a set that names a `textSearch` key, which is
+Traps, Habitats, Addresses and the Service Requests Map. Traps commits after
+200ms, as its Map did before the filters moved out of the route (#1372), and
+the others take `useDebouncedTextFilter`'s default. Clearing has to reach both
+the field the operator is looking at and the committed term on the URL, or the
+box empties and the list stays narrowed. A set with no text key, or a surface
+that does not apply it, gets a box that commits nothing, so `clearAll` is then
+`reset` and nothing else; the hook calls the debounce either way, because a
+hook called on some sets and not others is a hook called conditionally.
+
+Every set calls `useOrganizationSettings` for its today, the three undated
+ones included. The shell has the Organization row before any explorer mounts,
+so it costs no suspension in the app; a suite rendering one of those routes
+seeds the row.
+
 #### useDateRangeFilters
 
 Eight explorers wrote the four pieces out by hand, including the rule that
 matters: editing one bound past the other drags the other along, so the range
 never inverts into a window that can hold nothing.
+
+`direction` is `history` unless a caller passes `schedule`, and the binding
+carries it on to `DateRangeFilter`. The Missions and Assignments pages pass
+`schedule`, because a worklist reads work planned ahead: under `history` End
+stopped at today and every preset ended today, so a reader who touched either
+lost the fortnight ahead and could reach it again only through `All Time`
+(#1432). The schedule presets lead with `SCHEDULE_WINDOW`, which is also the
+window both pages open on and the one the operations overview's schedule
+panels read, so first load lights a preset and that preset is the way back.
 
 #### useFlyToSelection
 
@@ -216,11 +292,54 @@ A flag on the event rather than a pause on the listener, because a pan the
 reader makes during or after the flight is a real change of viewport and must
 still re-page.
 
+This is the only flight an explorer selection makes, and a map card moves no
+camera. The Address card used to fly as well, once its geometry request
+answered, so one pick in the Address Book moved the map twice: on a cold pick
+the hook's flight was cut short and restarted, and on a cached one the card's
+was replaced in the same commit (#1423). A card that has better coordinates
+than the row is a reason to fix the row.
+
 #### useExplorerResource
 
 Nine explorer routes each ran the same four hooks in the same order and spent
 eighty lines doing it. What varies between them is the endpoint, the two keys
 its body answers under, the noun a failure reads by, and the filters.
+
+Most of that is the record set's, since #1587. A route passes `set`, its
+record set, and `binding`, the filters and context
+`useRecordSetFilters(set, 'map')` returned, and the hook reads the endpoint
+path, the rows key and the record type off the set. It calls the set's
+`tileFilters` once per render and hands the result to both the tile layer and
+`recordSetFilterParams`, which encodes it with the set's `filterSpec`, so the
+tiles and the page cannot read two filter sets.
+Every route used to do that by hand, with five options a route could fill
+from two different sets or with params that skipped `tileFilters`, and `tsc`
+would have taken it. Since #1595 the set also names the tileset its Map
+draws, `tileset`, and its endpoint names the key one record arrives under from
+`GET {path}/:id`, `rowKey`, which `useSelectedMapRecord` reads for a selected
+record that is not on the page. Both were route options, written as literals
+beside the set in all eleven routes, and `rowKey` was a free `string` that
+could name another record type's key. What a route still passes is what the
+set does not decide: `normalizeRow`, `holdRailOnSelect` and `summarize`, and
+`params`, what the page request sends beside the filters, which only Service
+Requests uses, for its rail order. Those go on after the filters and never on
+the tile or extent URL, and `bbox` still goes first.
+
+`defineRecordSet` checks the tileset against the set's tile filter type, and
+the check is exact rather than by assignment. Every tile filter type is
+optional fields throughout, so Outreach's and Source Reduction's, which differ
+by one field name, each pass for the other, and an assignability check would
+let an Outreach set draw the Source Reduction tileset. `RecordSetTileset` in
+`components/explorer/record-set.ts` names the tilesets whose filter type is the
+set's exactly, and the record set suite holds a `@ts-expect-error` for both
+that pair and a pair that differs more. Inside the hook the layer is cast to
+`MapTileLayer`, because TypeScript cannot follow the pairing from a generic
+tile type into the union. The Table reads neither field.
+
+`TRow` cannot be written at the call any more. `TFilters` and `TTile` are
+inferred from the set, and a call names every type argument or none. So a
+route annotates the result, `const { rows }: ExplorerResource<Row> =
+useExplorerResource({ ... })`, and `TRow` is inferred from that.
 
 Every one of them lists what the map is looking at. The rail is the map's
 list, so the box goes on the wire ahead of the surface's own filters and
@@ -238,6 +357,64 @@ is the copy the rail gave before it could tell.
 
 `holdRailOnSelect` is the switch for `useFlyToSelection`'s `holdRail`, off by
 default so the other explorers keep re-paging for the record they fly to.
+
+The hook holds the map instance, the selection and the tile layer, since
+#1423. All eleven routes used to keep a `MapboxMap` in state whose only reader
+was this hook, keep a selection whose only readers were the tile layer and the
+card, and write out the same five-field layer around both. So the hook builds
+the layer from the set's tileset and tile filters, and adds the server URL,
+the selected id and the click handler. What comes back is the
+selection, `selectedId` with a setter for the rail, and `canvas`, the bundle
+`ExplorerCanvas` takes, whose `clearSelection` closes the card. A route clears
+with `setSelectedId(null)`. The map arrives through `canvas.onMapReady`,
+which is `MapCanvas`'s own callback, so nothing changed about how a canvas
+reports its map, and the page still waits for it. Selection state is held here
+and not on the canvas because the rail sets it too, and the selected row the
+flight reads comes from this hook's page.
+
+The selection starts empty on every route, so the setter is all a route needs.
+A deep link to a selected record would be an initial value passed in, and no
+explorer has one.
+
+`canvas.layers` is the list `ExplorerCanvas` hands `MapCanvas`: the tile layer
+built from the set's tileset, with the selected row on it as `selectedRecord`. That is
+the read the selection overlay draws from on a clustered tileset (see
+`useSelectionOverlayLayer`), and every explorer passes it, so a tileset that
+starts clustering gets the overlay without its route changing.
+
+`summarize` is the switch for `useExplorerSummary`, off by default. It is a
+flag rather than a second hook the route calls because the summary has to be
+read under the exact params the page went out with, `bbox` first, and this
+hook is the one place those are built.
+
+#### useExplorerSummary
+
+The page request goes first and the summary second, and only when the page's
+`total` is over 100. The issue's first design had the summary replace the page
+above the threshold, but the client cannot know which side of 100 a viewport
+is on until something has counted it, and the page already answers `total`.
+So a zoomed-in viewport stays one request, and a zoomed-out one is two: a page
+of rows nobody draws, then the summary. The brief for #1244 settled that
+trade in favour of the zoomed-in path, which is where people work.
+
+The request waits for the page to settle as well as for the total. While a pan
+is in flight the page shows its previous answer, whose `total` belongs to the
+old box, and reading the threshold off it would send a summary for a box that
+may hold ten records. The previous summary stays on screen through the wait,
+the way the previous page does.
+
+Grouping values arrive as ids, flags and nulls, and the hook turns none of them
+into words. Which value is a button and what it is called is the surface's
+question, and on Habitats the type names come from the same catalog the filter
+chips read. A surface that adds a figure up, the larvae identified on Samples
+(#1370), answers it under `figures` beside the groups, and the hook passes it
+on as it came. A surface that declares none answers no `figures` key, which
+is why the field is optional rather than an empty object on every surface.
+A figure can also be the largest value over the box rather than the sum,
+which is how Service Requests answer the days the oldest open request has
+waited (#1371). With no open request in view that figure is left out of
+`figures`, so a surface reads an absent key as "nothing to say" and never as
+zero.
 
 #### useMapBoundsParam
 
@@ -257,31 +434,6 @@ The box is held beside the map it was read from, and a box read from another
 GL instance reads as none. The effect used to clear it when the map went
 away, which is a `set-state-in-effect` finding (#1185) and one render drawing
 the old box against no map; `useMapReadout` holds its reading the same way.
-
-#### useHeldRows
-
-The Inspections Table and the Service Requests Table both read it. The live query is rebuilt when the limit changes, so it starts empty and
-reports not-ready until the collection has answered. Rendering that as it
-comes would take the table away from under the reader at the moment they
-asked for more of it. What is already shown stays correct: the wider window
-is the same order with more of it on the end.
-
-A new sort or a new filter is the case where it is not. The same rows in the
-old order under a header that now says something else reads as a sort that
-did nothing, and rows that do not match the filter just set read as a filter
-that did nothing. So what is held is kept against the window key it was read
-under and only handed back while that still matches. Under a new one the
-reader waits on a skeleton instead.
-
-The cache is state since #1184. It was a ref written and read during render,
-which the compiler refuses, and the hook carried `"use no memo"` to say so;
-the directive never removed the bail-out, it only changed what
-`check:compiler-bailouts` logged. The last ready rows are written into state
-in the render that reads them ready, which React re-renders before
-committing, and the not-ready read is a comparison against the held window
-key. The write compares the rows by identity, which is safe because the live
-query hands back the same array until the collection changes; a caller that
-rebuilt the array every render would loop.
 
 ### map
 
@@ -317,7 +469,7 @@ one sends the whole world for a view across the line, because the endpoint
 takes one box, and a whole-world view here would hold every extent and skip a
 fit that was owed (#933).
 
-The effect depends on the four padding numbers rather than the padding object
+The effect depends on the four inset numbers rather than the inset object
 or a string key built from it. `insetPadding` returns a fresh object every
 render, so the object in the list re-runs the effect on every render, and the
 key in its place leaves the object read inside the effect and off the list,
@@ -428,29 +580,71 @@ be asked a question without a map (#630). The hook is still the door the
 forms, the toolbar and the part list know, so it re-exports the vocabulary
 rather than teaching them a second path to the same types.
 
-The hook is one file with six hooks under it, each in its own file since the
-hooks sweep. `useDrawSession` holds the five buttons that open, close and
-take back a draw, and the point request, because every one of them ends the
-same way, by putting the control somewhere new and leaving nothing of the last
-draw behind, so they share one `clear`. What a finished draw does with the
-committed parts is `applyParts`'s and stays in `useDrawPartActions`.
-`useDrawVertexActions` is its own hook because all of its gestures write the
-edit mode and nothing else in the controller does; the ones that change the
-rings land through `changeRings`, so a gesture costs exactly one Undo step and
-none of them can forget to record one. `useDrawPartActions` is its own because
-its four actions share one piece of state, the highlighted index.
-`useDrawMapEvents` is its own because an idle map should carry no extra click,
+Every transition the control makes is one pure function, `next(state, event,
+context)` in `components/map/draw-machine`, which imports neither React nor
+Mapbox and answers with the next state and a list of effects (#1425). The
+state is the mode, the placed vertices, the highlighted part, the cursor and
+the grabbed vertex. The context is what the machine reads and does not own,
+the committed `value` and the record kind. The effects are the side effects a
+transition has: report a geometry to `onChange`, resolve or reject the pending
+point request, and frame a part on the map. Before #1425 five hooks wrote the
+transitions, each handed its own selection of refs and setters, and each exit
+from a draft reset a different subset of the state, while this section claimed
+they shared one `clear`.
+
+Every exit from a draft now goes through one helper in the machine,
+`leaveDraft`. It drops the cursor and the grabbed vertex, sets the vertices to
+what the next mode opens with (empty, or the seeded outline for a
+continuation), and tells a pending point request why it ended. The highlight
+is the exit's own call: the openers clear it, and cancel, Escape, commit,
+finish, the point click and the point request leave it alone, which is the
+behaviour each had before the machine. Escape and the Cancel control are one
+event. A pending point request is rejected as cancelled when the user abandons
+it and as superseded when a new draft or a new request opens over it. The
+`point` mode is plain data, and the adapter holds the request's promise
+callbacks and runs the effect.
+
+`useMapDraw` is the adapter and the only place draw state is written. It keeps
+the whole state in one ref that `dispatch` reads, runs through `next` and
+writes back straight away, because a handler can fire several events in one
+tick. It sets the React state it renders from only when the mode, the
+vertices or the highlight changed, so a move that shifts only the cursor or the grabbed vertex repaints
+the draft source and does not re-render, which keeps the rubber band at frame
+rate. Render reads React state and never the ref, and the ref is written only
+in `dispatch`, which runs from event handlers: the React Compiler allows that
+and refuses a ref write during render (#826).
+
+Two listener hooks stay in their own files, and each takes the map, `isLoaded`,
+the mode it is live for and `dispatch`, and no setter or state ref.
+`useDrawMapEvents` turns clicks, moves, double-clicks, Enter and Escape into
+events. It is its own hook because an idle map should carry no extra click,
 move or key listener, and because the cursor and the double-click zoom it
 takes over have to be handed back on every exit, including the one where the
 map has already been removed. `useDrawEditEvents` is live only while a part is
-open for editing, because none of it belongs on a map that is drawing or idle;
-what each gesture does to the rings is the controller's, and it only says
-which ring and which vertex was meant.
+open for editing. It reads which vertex or edge is under the pointer off the
+map and hands the gesture to the machine, and it reads mouseup on the window,
+because a button released off the canvas never reaches the map. Both answer
+Enter, Escape and Delete only when the map is the key target. `dispatch` hands
+a listener the state on both sides of the event, because whether a gesture is
+claimed from Mapbox or the browser reads the state it arrived in: a
+double-click only while a segment trails the cursor, Delete only while a vertex
+is picked, and a mousedown only when the grab took. The edit listener lets go
+of a held vertex when it is torn down, since the mouseup that would land it
+has lost its listener.
 
-Frequently-changing render inputs live in refs so the rubber band can be
-repainted on mousemove without a React re-render per frame. The ref writes
-are an effect rather than render-phase assignments, which is what the React
-Compiler permits.
+The controller's readings, whether a draw is open, how far along it is and
+which part it is on, come from `drawView` in the machine module, which the
+adapter spreads into what it returns. The tests split on the same line as the
+code. The machine's suite,
+`tests/unit/components/map/draw-machine.test.ts`, holds every case about a
+reported shape, a controller reading or what the draft paints: it drives
+`next` with each reported shape fed back as the committed value, the way a
+form does, reads the controller through `drawView` and the paint through
+`buildFeatures`, and needs no jsdom and no fake map. The `useMapDraw` suite
+keeps what only the adapter does against a map: a committed shape reaching
+the source, the layers, a restyle, a teardown, the cursor, the double-click
+zoom, focus, which key target counts, the listeners that turn a double-click
+or a key into an event, and the promise a point request returns.
 
 The draft paint reads the shared selection colours from
 `packages/design-tokens`, not a private amber: the thing being drawn is the
@@ -560,13 +754,24 @@ side, a map that was destroyed while this subtree was hidden, handed straight
 back to the setup that follows.
 
 What stays with the caller is everything that makes a layer worth having, its
-specs, its colour expressions, its feature model, and any effect that
-re-scopes a layer without re-adding it, like a selection filter. The two
+specs, its colour expressions and its feature model. The two
 editing sessions, `useMapDraw` and `useMapMeasure`, keep their own state on
 top of this. Their live cursor never enters `data`, because it moves every
 frame and would cost a render per frame, so they repaint it imperatively and
 pass that same repaint as `onEnsure`, which is what puts a half-drawn shape
 back after a restyle.
+
+A selection filter is the hook's, through `selection`: the layer that draws
+it, a string key, and the function from that key to the filter. It used to be
+three effects in `useNearbyLayer`, `useActivityLayer` and `useGeoJsonLayer`,
+each re-filtering when the selection changed, and two of them built the
+selection layer from a spec holding the empty sentinel. A basemap switch is a
+`setStyle` on the same map, so `isLoaded` stays true, `style.load` re-added the
+layer with that spec, and no effect ran again: the ring was gone until the
+selection next changed (#1426). The hook now applies the filter after every
+add and re-add as well as on every change of key. The key is a string so a
+caller rebuilding an array of ids every render does not re-filter on every
+render.
 
 `removeAddedLayers` is module level rather than inline in the cleanup,
 because that loop sits inside a try block and the React Compiler cannot lower
@@ -584,6 +789,53 @@ panel that is no longer there, and every later zoom or locate is off by half
 the panel's width. One writer instead: the canvas knows what is over it, so
 the canvas owns the padding.
 
+A fit still wants a margin of its own, and a margin passed as `padding` is
+the same map state. Mapbox replaces the map's padding with a call's rather
+than adding the two, and `fitBounds` hands it on to `easeTo` or `flyTo`, which
+keep it unless the call says `retainPadding: false`. Before #1424 nothing in
+`apps/web` said so: a cluster click left a flat 48 on the map, a Region card
+left 64, and since this hook writes again only when the inset's four numbers
+change, every later selection centred on the whole canvas, under the results
+panel. So every fit takes its padding from `framingPadding` in
+`components/map/map-inset.ts`: the inset this hook last asked for plus the
+fit's margin on each side, with `retainPadding: false`. A fit can hand it an
+inset of its own, which `useMapExtentFit` does, because on a fresh map it can
+run before this hook has written anything, and a map this hook has not
+written to yet falls back to `getPadding()`.
+
+Every fit and every flight in `apps/web` goes through
+`components/map/map-camera.ts`, which is where that rule is applied: `frameOnMap`
+frames a box or a geometry and `focusOnMap` flies to a point, and each reads
+its margin, zoom cap, point zoom and duration off one table keyed by purpose.
+Ten fits and six flights used to pick their own numbers, so one record framed
+differently on a form, a detail card and an explorer card, and three fits had
+no answer for a box with no area (#1424). Outside that module only the zoom
+buttons, the north reset and this hook call `easeTo`, `flyTo` or `fitBounds`.
+The `place` focus flies for 1100 ms, the locate button's old number rather than
+the search client's 700, because a place can be anywhere on the map and a
+reader follows a long flight better than a quick one.
+
+The padding is animated over 300 ms, and anything that moves the camera inside
+that window stops the ease partway: a fit, a focus, a zoom button, a drag or a
+wheel zoom. A stopped ease leaves the transform where its last frame put it,
+so mapbox keeps the in-between padding, and the effect above never notices because
+the inset's four numbers have not changed. Later selections then centre in
+the wrong place, and `useMapExtentFit`'s in-view test, which reads
+`getBounds()` net of padding, judges against the wrong box (#1490).
+Two things cover it. The hook records the inset it asked for on the map
+(`requestCanvasInset` in `map-inset.ts`), and `framingPadding` builds on that
+record rather than on `getPadding()`, so a fit that starts mid-ease gets the
+right margin. And the hook listens for `moveend`: one frame later, if the map
+is not moving and its padding differs from the record, it eases back to the
+record. A move that ends with the padding right writes nothing.
+
+The frame is the part not to remove. Mapbox fires `moveend` for the stopped
+ease from inside the interrupting call's `stop()`, before that call has set
+the map moving, so `isMoving()` reads false at that point and a write there
+would stop the new move in turn. A frame later the interrupting call has
+started, or a gesture's own render frame has marked it in progress, and
+`isMoving()` answers true.
+
 #### useMapboxMap
 
 Keeping creation, load state, resize and basemap switching behind one
@@ -594,6 +846,12 @@ the authenticated MVT tiles itself and defaults a cross-origin request to
 `same-origin`, so without `credentials: 'include'` every tile 401s;
 `pnpm check:session-credentials` reads that marker.
 
+With no camera from the caller the map opens through `openingMapCamera` in
+`components/map/map-styles.ts`: the Organization's map centre at
+`ORGANIZATION_MAP_ZOOM`, else `DEFAULT_MAP_CAMERA` (#1413). A surface with
+rows still fits to them once the map loads, so the order only decides where an
+empty surface stays.
+
 #### useNearbyLayer
 
 It renders a role-discriminated feature set the generic overlay cannot
@@ -602,8 +860,17 @@ call; the source lifecycle underneath it is `useGeoJsonSource`'s.
 
 #### useRouteLayer
 
-Selection and cursor emphasis go through feature-state so the list and the
-map stay in sync without rebuilding the source. The stop feature is
+Selection and hover emphasis go through feature-state so the list and the
+map stay in sync without rebuilding the source. The pointer cursor is
+`registerHoverLayers`', probing the same layers the click hit-tests, and a
+handler of the hook's own that wrote the cursor would wipe another layer's
+pointer in the same event once a route map draws a second layer (#1426). The
+hovered stop comes off the registry too, through its third argument. The
+registry hands the hook the topmost feature on its own layers from the one
+hit-test it already runs, or `null` when none was hit or a restyle took the
+layers away.
+The hook used to keep a `mousemove` of its own to find the stop, which was a
+second `queryRenderedFeatures` on every move (#1443). The stop feature is
 framework-free geometry so the hook stays decoupled from the route domain
 rows that produce it.
 
@@ -615,6 +882,88 @@ addresses, chemical applications, source reduction, biocontrol, outreach.
 What varied was the tileset name and which module built the URL and the
 layers; everything about the lifecycle was the same, which is exactly the
 kind of thing that survives in one copy and rots in the others.
+
+A click on a cluster is answered here rather than by the caller, because a
+cluster is no record and `onSelectFeature` takes record ids. It fits the box
+the cluster carries and selects nothing, so a record already selected stays
+selected. The fit stops at `MAP_CLUSTER_UNTIL_ZOOM`, the zoom the tiles stop
+clustering at: any closer would land on a plain tile showing the same records.
+A box with no size, every point on one spot, has nothing to fit, so that case
+eases to its centre at the same zoom (the `cluster` purpose of `frameOnMap`).
+
+The hook takes the clustering setting as `draw.cluster` rather than reading it
+itself, so a suite can mount a tileset in either state without touching the
+shared setting. It reaches the URL through `tileLayerTileUrl`, which drops it
+for any tileset whose row in `tile-layers.ts` does not say `clusters: true`:
+the server answers 400 to the param there, so a setting that is on everywhere
+must not reach a tileset that cannot take it (#1380). A switch is a new URL on
+the source already there, the same path a filter change takes, so the camera
+does not move and the selection highlight keeps its record.
+
+Since #1382 every row whose records are points says `clusters: true`, which is
+eleven of the twelve; Regions does not, because a Region is a boundary.
+
+A click on the selection overlay is answered here too, and it comes first,
+because the overlay is drawn over the cluster holding the record and a click
+there means the record. The overlay only ever draws the selected record, so the
+click hands `onSelectFeature` the selected id rather than reading one off the
+feature, and the cluster under it is never fitted.
+
+#### useSelectionOverlayLayer
+
+Below `MAP_CLUSTER_UNTIL_ZOOM` a clustered tile can carry the selected record
+only inside a cluster's count, and the tile's selected-point layer filters by
+record id, so it has no feature to match and the selection vanished into the
+cluster (#1383). Sending the selected id to the server would have fixed that
+inside the tile and put the id in every tile URL, which re-fetches every tile
+on each click. So the record's own point is drawn client side instead, from the
+row the explorer already holds: `useExplorerResource` hands the canvas its tile
+layer with the selected row on it as `selectedRecord`, and `TileLayerMount`
+calls this hook beside `useTileLayer`. No new request is made.
+
+The rule for when it draws is `tileLayerSelectionOverlay` in `tile-layers.ts`:
+the tiles are drawn clustered, a record is selected, the row in hand is that
+record, and its geometry is a single `Point`. Drawn clustered means what puts
+`cluster=1` on the tile URL: the tileset's row says `clusters: true` and the
+map's clustering setting is on, which reaches this hook as `draw.cluster` the
+way it reaches `useTileLayer`. Switching clustering off takes the overlay off
+and gives the tile its highlight back at every zoom. A `MultiPoint` is left out
+because the tile query never folds one into a cluster.
+
+The overlay and the tile's own highlight split the zoom range at the cut-off,
+the overlay layer carrying `maxzoom` and the tile's selected point `minzoom`,
+so the record is drawn selected once at every zoom. Above the cut-off, and on a
+tileset that does not cluster, the highlight is the tile's alone, as it was
+before. The tile highlight only steps aside once the overlay has a point to
+draw, so a selection whose row is still being fetched keeps the tile's
+highlight in the meantime. One gap is left, and it is short: zooming in across
+the cut-off, Mapbox draws the clustered parent tile in place of each z15 tile
+until that one arrives, and for that moment the overlay is hidden by its
+`maxzoom` and the parent tile has no feature of the record's own to highlight.
+The highlight comes back with the z15 tile. Keeping the overlay up from the
+cut-off as well would close it and put two selected points on every plain tile. The overlay's data is the row's own geometry object
+rather than a feature built around it, because `useGeoJsonSource` holds `data`
+in an effect dependency and a new object every render would `setData` every
+render.
+
+#### useMapClustering
+
+One setting for every map, held outside React in `lib/map-clustering.ts` and
+read through `useSyncExternalStore`, so a switch on one canvas is the value on
+the next one mounted and on any other still on screen (#1380). The module
+keeps the value in a `MapClusteringStorage`, and the storage is chosen at one
+line at the bottom of it. That is the browser's `localStorage` under one key,
+`simmer.map.clustering`, so a reload opens on the choice the last visit left
+(#1381). The key is not keyed by Organization, which is the departure from
+`lib/explorer-camera.ts`: a camera is a fact about a place, and wanting clusters
+is a habit of the person at the screen. The value is stored as `on` or `off`,
+and a store that throws, an empty one, or any other value reads as nothing, so
+the maps open clustered and the switch still works for the visit. The guarded
+read and write sit in the module and not in the hook, the way
+`useActivityStripChangeMode` keeps them out, because the React Compiler cannot
+lower a try/catch inside a hook yet and would skip it. The value is read once,
+when the module loads, so a change in another tab reaches this one on its next
+reload rather than live.
 
 #### useGlobalSearch
 
@@ -754,6 +1103,56 @@ Opening is the only moment the defaults are right: a dialog mounted by a row
 menu keeps its form instance across every row it edits, so the form is
 refilled on open and again when the row changes under an open dialog.
 
+#### useOrganizationClock
+
+The hook is one line over `createOrganizationClock` in
+`lib/organization-clock.ts`, which is where the behaviour lives and where the
+suite points. A read hook, a pure view module or a suite builds the clock with
+the factory and a fixed zone, and a fixed now when the answer depends on one,
+so nothing outside a component has to mount the settings query to format a
+time.
+
+The clock replaced four copies of one `en-US` date-and-time options block and
+four close variants, each taking the zone as a `string | undefined` and each
+answering bad input its own way: `Unknown`, an empty string, `null`, and the
+value echoed in silence (#1433). `formatInstant` answers #609's way, so an
+unreadable value goes back on screen and `unreadable-input.ts` warns once,
+naming the style as `formatInstant (dueAt)`. `null` in is `null` out, which is
+what lets an assignment row hide an absent due time without a guard of its own.
+
+`missionDisplayName` takes the clock rather than a zone, and it is the one
+caller that does not echo. An unnamed mission whose start will not read is
+named by its control type alone, because `Application on Invalid Date` is a
+name nobody gave it. The mission row prints the start beside the name through
+`formatInstant`, so the value still reaches the screen and the console there.
+
+`now` defaults to `getToday`, so `TODAY_OVERRIDE` moves `today()`, `dayOf` and
+the relative style together. The comment timestamps measured "3m ago" against
+`Date.now()` before the clock, which ignored the override.
+
+It is the only reader of `useOrganizationTimeZone`. A component wanting the
+zone for a write-path helper such as `operationalDayAsTimestamp` reads
+`clock.zone`, and a child that needs the zone reads the clock itself rather
+than taking a `timeZone` prop, which is how the dashboard's strip and both
+backlog panels lost theirs. The zone parameters in `local-date.ts` are a
+`string`, so the browser's-midnight branch `zonedDayStart` used to take on an
+absent zone is gone.
+
+Three places read the current time for something other than a send stamp,
+and all three read `clock.now()`. The collect dialogs on a collection and on an
+assignment stop fall back to now when the typed day will not read, and that
+instant decides which day the collection counts on, so it is the clock the
+clamp beside it already measured against. The comment thread's correction
+window is judged against the same now as each comment's `3d ago`, so the
+controls and the label cannot disagree under `TODAY_OVERRIDE`. The stamps in
+`hooks/mutations/shared.ts` stay on `new Date()`: they are when the device
+sent the write, not the Organization's now.
+
+The clock is rebuilt when the zone changes and reused otherwise:
+the React Compiler memoizes the factory call on the zone, so there is no
+`useMemo`, which `check:manual-memo` would refuse anyway. Its formatters are
+built lazily, one per style, and live as long as the clock.
+
 ### cleanup
 
 #### useMergeSearch
@@ -816,10 +1215,48 @@ non-suspense query keeps the popover from suspending the page around it.
 
 ### pickers
 
+#### useSearchPicker
+
+What a closed search-and-pick field says is decided here, for all seven pickers
+that draw `PickerFrame`: trap, route, habitat, contact, address, the
+assignment's service request and the mission's request stop (#1434). The
+inspection form's habitat field joined in #1468 by drawing the habitat picker
+rather than a picker of its own. Each picker used to hold its own `open`,
+`search` and picked label, and seeded the label once at mount, so it went stale two ways. A list that arrived
+after mount never filled the field, which is the collection forms on a cold
+load, where the eager `traps` set has not synced when the form first renders.
+And a `value` moved from outside kept showing the record picked before it: the
+route editor's add-stop trap picker is rendered with `value={null}` and went on
+showing the trap just added, with no clear button beside it.
+
+So the label is derived on every render and never stored. `null` is `''`, the id
+last passed to `pick` shows the label it was picked with, and anything else shows
+`resolvedLabel`. The pick is held as an id and label pair, so a picked label can
+never be shown against another id. When `value` becomes `null` or an id the
+picker did not pick, the search text is dropped as well, which is a state
+adjustment during render against the previous `value` rather than an effect, so
+reopening does not start from the old record's name.
+
+A pick the caller does not bind is dropped the same way. The route editor's
+add-stop field calls `onSelect` and leaves `value` at `null`, so the pick and its
+text go, and reopening lists every trap again instead of searching for the one
+just added, which the editor no longer offers. That rule is read off the render
+after the pick, so a caller binding the pick has to set `value` in the same event
+as `pick`. Every caller does, through component state or a form field; one that
+set it later, after a request, would lose the picked label and show
+`resolvedLabel` instead.
+
+`resolvedLabel` is a string rather than a resolver callback because the
+resolutions differ in kind: a lookup over a list already in memory,
+`useSelectedRowLabel`'s row read, `useHabitatNames`. The caller runs whichever it
+needs and this hook reads no collection.
+
 #### useSelectedRowLabel
 
-An edit form arrives holding only the id, so the row is read back by id
-while nothing has been picked this session. The query passes no `limit`,
+An edit form arrives holding only the id, so the row is read back by id. It
+returns that row's label for any `value` and knows nothing of a pick: whether a
+picked label stands over it is `useSearchPicker`'s rule, so the contact and
+address pickers pass this hook's answer in as `resolvedLabel`. The query passes no `limit`,
 because an id equality already yields at most one row and the query compiler
 rejects LIMIT without an ORDER BY.
 
@@ -859,9 +1296,13 @@ A geometry still exactly the stop's is sent as no geometry, and the server
 copies the stop's stored shape. The copy the form holds came through
 `st_asgeojson`, which keeps nine decimal places, and a rounded copy need not
 cover the stored shape, so sending it would put the coverage acknowledgement
-to a crew that changed nothing. Subscribing to the stop's row warms the
-on-demand stream the page is about to write against, which is what keeps the
-write's txid confirmation from timing out; nothing reads the row itself.
+to a crew that changed nothing.
+
+The hook used to subscribe to the stop's row with nothing reading it, on the
+belief that a write into an unwatched on-demand collection waits out a txid
+that never arrives. `awaitConfirmation` skips the wait when nothing is
+subscribed, so the subscription turned a skipped wait into a real one, and
+#1429 deleted it with the other create-page anchors.
 
 ### forms
 
@@ -883,6 +1324,39 @@ rather than adding a second place to look. It is create-only: on an edit the
 thread is already on screen with its own composer, and a box on the edit
 form would silently append a new comment every time someone corrected a dip
 count.
+
+#### useRecordForm
+
+The form-level half every record form shared: `useAppForm` with the
+validator, and for a form with a map, the missing-shape check. The form keeps
+its own save and payload. The six payload shapes are each form's contract with
+its route, and the routes differ in ways #871 measured and left alone, so the
+hook hands the form its validated values and stops there.
+
+The check runs from two places, and that is what the hook exists for. Before
+#871 the 13 located forms wired it three ways:
+
+| Wiring | Forms |
+|---|---|
+| `onSubmitInvalid` and `onSubmit` both check | trap, biocontrol, source reduction, chemical application, outreach |
+| `onSubmit` checks, after clearing the error | collection, address, inspection, service request |
+| `onSubmit` checks | habitat, region, weather station, request for control |
+
+TanStack Form calls `onSubmit` only once the validators pass, so on the
+eight forms without `onSubmitInvalid` a save with a refused field and an
+empty map said the field, and the missing shape came only on the next press.
+The hook calls the check from both, so every located form says both at once.
+
+`needsShape` is the whole of the location fork. The inspection needs a shape
+only in ad hoc mode and the collection only off a trap; in the other mode the
+habitat or trap is a field the validator already refuses, and the hook clears
+any missing-shape error left from the ad hoc side. The two location sources
+were the case the shell was held for, and they turned out to need one
+predicate rather than a model of a pick.
+
+Create versus edit is not the hook's either. `useDrawLocation`'s `required`
+already carries the one signal it reads, and the others decide which fields a
+form draws.
 
 #### useSearchFilters
 
@@ -973,9 +1447,22 @@ number matters. `docs/dashboard-spec.md` is the rest.
 
 #### useActivityStrip
 
-The last-7-days strip off Electric: eight `useLiveQuery` subsets, one per
-activity type, each a 14-day window on the type's own operational date,
-folded into the 7-day count and the 7 before it in memory. It replaced a
+The last-7-days strip off Electric: seven `useLiveQuery` subsets, one per
+table, each a 14-day window on the type's own operational date, folded into
+the 7-day count and the 7 before it in memory. Which date that is comes from
+`ACTIVITY_DATES` in `hooks/queries/activity-dates.ts`, one entry per
+`OverviewRecordType`, each column written as a function over the table's ref
+so a misspelled column fails `tsc`. A collection has no single column: its
+entry is `collectedSince` and `collectionEffectiveDate` from
+`hooks/queries/collection-day.ts`, which every collection read hook windows
+and reduces its rows through, and which hands the day up as `effectiveDate` so
+no page works it out (#1427). `PERFORMED_ACTIONS` in
+`hooks/queries/performed-action-reads.ts` reads its `date` for each of the four
+performed control actions from the same register rather than naming the column
+again. A performed control action type added later takes its date column here
+and its joins there, and the heading over `useLinkedControlActions`,
+`useInspectionSamples` and `useHabitatHistory` says what that module holds. It
+replaced a
 `readActivity` on `GET /dashboard`, and two things decided that. The strip is
 what a person opens the page for, and on the server it shared one round trip
 with the untreated habitats read, which was 4.7 seconds on the production
@@ -1024,6 +1511,52 @@ share `activityBranches` on the server for the same reason, and now they share
 the subsets. A person's `records` counts entries, not rows, so a collection
 one person set and collected is two, which is what the Monitor lists for them.
 
+#### useOpenServiceRequestsQueue
+
+Two `useLiveQuery` subsets rather than one joined query. The split into new
+and in progress needs the open requests that no stop names, and those are the
+rows on a `left` join's nullable side, which gets no pushdown. So the requests
+subset is the open ones and the stops subset is the `assignment_items` rows
+naming a request, each narrowing its own shape, and the split is a set lookup
+over the rows that arrived.
+
+The overdue line (#1246) reads the same open rows rather than a third subset.
+It counts the open requests that the domain's `isServiceRequestOverdue` calls
+overdue against `overdueCutoff`. Its oldest date is the open queue's oldest whenever any request
+is overdue, because the oldest open request is then overdue too.
+
+#### useDueMissionsQueue
+
+No lower bound. A mission scheduled for last month and never started is
+overdue, and the oldest date is what says how overdue. An in-progress mission
+is on no queue, because someone is doing it, and the `started_at` predicate is
+what says so.
+
+The upper bound is the start of tomorrow, so a mission due at any hour of
+today is inside it. It is an instant from `localDayStartAsInstant` rather than
+a `YYYY-MM-DD`, because `scheduled_start_at` is a `timestamptz`, and
+`useMissions` widens its window to the start of the next day the same way.
+
+#### useInProgressAssignmentsQueue
+
+Two aggregates, a `count` and a `min`, rather than the rows. The page wants a
+count and one date, and an aggregate emits one changed number when an
+assignment finishes rather than a new array of every open one. All three
+predicates are the table's own columns, so the subset is the in-progress rows
+and nothing else.
+
+#### useProblemCollectionsQueue
+
+The one windowed queue of the four, at 14 days, because `has_problem` never
+clears and an all-time count would only grow. The window is `collectedSince`
+from `hooks/queries/collection-day.ts`, so the subset is the recent rows
+rather than every collection the Organization has written.
+
+The oldest is folded over the rows after the query rather than taken as `min`
+inside it. The effective date is a `Date` reduced to the Organization's day
+under exact timestamps and a string under date plus duration, and a `min` over
+a column holding both is not a minimum.
+
 ### overview
 
 #### useOverview
@@ -1039,13 +1572,6 @@ render and dims it. The response's `today` is the picker's upper bound and
 the partial test, so a client whose clock disagrees with the server draws the
 server's day. `docs/today-spec.md`, "The client half".
 
-### larval-surveillance
-
-#### useSpeciesName
-
-One id through the shared taxonomy read, because the catalog is eager and
-small. The habitat detail and the inspection detail used to each define it.
-
 ### adult-surveillance
 
 #### useTrapDirectory
@@ -1053,6 +1579,11 @@ small. The habitat detail and the inspection detail used to each define it.
 A method only gets a tab if an active trap uses it. An organization that has
 never run a gravid trap should not be offered an empty gravid tab, which is
 why the tabs are built from the traps rather than from the catalog.
+
+A tab's label is `null` when its method is not in the client, and the route
+draws `Unknown method` for it. The hook sorts that tab last rather than among
+the U's, because writing the words here to sort by would put a fallback label
+back in a hook (#1535).
 
 #### useTrapRoutes and useHabitatRoutes
 
@@ -1066,6 +1597,24 @@ One query, not two. This read the whole eager `traps` table into a `Map` and
 looked each stop's trap up in it. The join does the same work without
 materialising every trap the organization runs to name the twenty on this
 route.
+
+### my-organization
+
+#### useSettingsSheet
+
+The hook that `SettingsSheet` calls, and the frame's whole behaviour: open
+state, reset on open, and submit as convert, close, then write. It is a hook of
+its own rather than state inside the frame so that `SettingsSheetForm<Values>`
+names the form a body is handed. TanStack's form type takes a dozen generic
+parameters, and the rest of `apps/web` passes a form between components as
+`any`; reading it off this hook's return type keeps a body's field names
+checked against its values.
+
+A conversion that throws is caught by the form kit's `useAppForm` and recorded
+as a `SaveFailure`, which is what puts the message in the sheet's error alert.
+The hook catches nothing itself. Reset on open clears that message along with
+the values, so a sheet reopened after a refused attempt starts from what is
+saved.
 
 ### daily-work
 
@@ -1089,11 +1638,6 @@ server-only, so views needing the drawable geometry read it over HTTP the
 same way habitats and regions do. `seedAddressGeometryCache` beside it puts
 a shape the client just wrote into the cache so the detail page draws it
 before the request answers.
-
-#### useAddressSearch
-
-Clearing has to reach both the field the operator is looking at and the
-committed term on the URL, or the box empties and the list stays narrowed.
 
 #### useRegionDnd
 
@@ -1135,10 +1679,11 @@ hard to find among the JSX. The rules themselves and the metric inputs live
 in `components/gis/weather/weather-summary-form.ts`, shared with the dialog.
 
 `onWriteYear` is called before the write, not after. The card lists one year
-at a time, and a write into a year its live query does not cover waits out a
-txid that never arrives on that subset: `settleWrite` swallows the
-five-second timeout, so the dialog closes late over a row the user cannot
-see.
+at a time, so without it a save into another year closes the dialog over a
+list missing the row just saved. Calling it first starts the written year
+loading while the save waits for confirmation. The written year is not what
+lets the save confirm: `docs/sync.md` has why a txid arrives whatever a live
+query has loaded.
 
 #### useActiveYear
 
@@ -1174,30 +1719,7 @@ active, matching Traps: a retired station keeps its readings and stays
 reportable, so it is history rather than work, and a map that opens on every
 station an organization ever ran is a map nobody can read. Clearing the
 search reaches both the field and the committed term, for the reason
-`useAddressSearch` records.
-
-#### useInspectionFilterDefaults
-
-The map's window is a fixed number of days back rather than a calendar
-month, so it opens on the same amount of work whenever it is opened. `today`
-is separate from the window because the date control needs it either way:
-it is the upper bound on both pickers and what a preset counts back from.
-
-The map and the table open on different windows, and the difference is the
-surfaces rather than an oversight. The map draws every matching record at
-once, so a season of inspections is a solid block of dots over the same
-streets and it opens on the last 30 days. The table shows 50 rows whatever
-the reach, and its header says it holds every inspection the crews have
-recorded, so it opens on all of them. Once a reader sets a date, both
-surfaces read it out of the same two params and answer the same window.
-
-#### useInspectionFilterState
-
-A deep link from an overview panel, a shared link, and Back out of a record
-all land on the same view, so the state cannot live in a component. What a
-component wants back is a plain value and a setter per filter, and building
-those out of one patch function is the bulk of what either route would
-otherwise do before it renders anything.
+`useRecordSetFilters` records.
 
 #### useSpeciesComposition and useSamplesAwaiting
 
@@ -1224,6 +1746,29 @@ is one join now. The planner collects the join keys each side produces and
 asks the on-demand collections for exactly those rows, which is the same
 three subsets minus two round trips through React.
 
+The join over `habitats` is `left`, so a stop whose Habitat has not streamed
+still draws, and every `habitat.*` reads `undefined` until it does. Before
+#1565 that stop was titled `, `, because `concat` over three absent operands
+answers its separator, and its description read `''`, which the edit page
+offered to write over the Habitat's real one. The name now reads
+`joinedHabitatNameSelect`, so the `Habitat <8 hex>` fallback is reachable, and
+the description is `null` while the Habitat is resolving, and `''` for a
+Habitat with none, since the column is never null.
+
+Since #1579 the select takes `habitat.description` raw and
+`stopResolution` in the same module turns it into both `description` and
+`isResolving`. `RouteStopView` is a union on `isResolving`: a resolving stop
+has a `null` description and a resolved one a string. The two fields used to
+be independent, read off the description and the joined Habitat's id, so they
+agreed on every row while the type allowed either without the other, and a
+reader narrowing on `isResolving` still had to write `?? ''`. The select is
+raw rather than `joinedOrNull(habitat.description)` because `stopResolution`
+reads the join's presence off the column. The raw column is
+`string | undefined`, `undefined` exactly when the join is unmatched, and
+`stopResolution` takes no `null`, so a nullable
+`habitats.description` would fail `tsc` there rather than read every Habitat
+with no description as resolving.
+
 #### useHabitatRouteStopCounts
 
 Reads the organization-scoped `route_items` shape, the same on-demand
@@ -1238,14 +1783,6 @@ synced habitats client-side; this one asks the server, because the route
 picker searches by name and address over every habitat the organization
 holds.
 
-#### useInspectionDetail
-
-The `/map/inspections/:id` display projection is the single source for the
-detail page's header, map, findings and context. An inspection is not
-editable in v1, so a one-shot fetch, which also bundles the geometry Electric
-omits (ADR 0009), is simpler than reassembling the record from synced
-collections.
-
 #### useHabitatLabel
 
 One id through the shared lookup rather than its own `findOne`: the naming
@@ -1256,9 +1793,10 @@ again.
 #### useNewInspectionDraft
 
 The id is minted up front so the samples, crew and comment can be written
-the moment the inspection lands, and so their streams are live before the
-save fires: a write against a cold stream times out waiting for its txid
-confirmation.
+the moment the inspection lands. It subscribes to nothing. The samples and
+crew subscriptions it used to hold were only there to keep their streams
+open for the save, and `awaitConfirmation` already answers a write into an
+unwatched collection without waiting (#1429).
 
 #### useSampleGeoContext
 
@@ -1283,6 +1821,58 @@ reporting a refused start, complete, cancel or reopen anywhere else. A form
 keeps its refusal in-page, because a form is something the person can fix
 and resubmit; `DetailPageHeader`'s docblock carries the rule, and
 `AddMissionStopForm` is the caller that left this hook over it.
+
+#### useWorklistIndex
+
+The Missions and Assignments pages wrote the same assembly twice: the
+selection, its fallback to the first visible row, the `Unassigned` assignee
+option and the status and assignee filter (#1432). The hook owns that much
+and stops there. The load call and the stops call stay at the route, because
+missions read stop views and assignments read features and counts together,
+and each page keeps its own rows, card and filter bar under
+`components/operations/`, since the two records share no status vocabulary.
+
+The selection is computed on read rather than held in an effect: a filter, a
+date change or a delete that takes the picked row out of the list leaves the
+picked id in state, and the page draws the first visible row until the picked
+one is back. Status is matched over the loaded rows rather than in the query
+because both records derive it from three nullable timestamps. A filter one
+page has and the other does not, control type on Missions, goes in `matches`
+rather than in a third set the hook would have to name.
+
+#### useMissionFilterState
+
+The Missions index reads its filters off the URL through this, the way the
+date-windowed explorers read theirs through `useRecordSetFilters` (#1481). Before that the route built its defaults, called
+`useSearchFilters` itself and computed the default window a second time for
+the Dates chip, so the chip and the reset read two objects that agreed only by
+copy. The binding carries `defaults`, and the chip reads that.
+
+The page opens on `SCHEDULE_WINDOW`, the last week and the next two, since a
+worklist is a schedule rather than a history. The filter shape and its codecs
+sit in the hook's own module, because the route's `validateSearch` reads the
+same codec object the hook does. The status codec reads `MISSION_STATUSES`,
+which sits beside `MISSION_STATUS_LABELS` with `MissionStatus` derived from it,
+the shape #1466 gave Assignments, so the status popover narrows a selection
+against the list rather than casting it.
+
+There are three of these hooks and they stay outside `useRecordSetFilters`,
+because a worklist page is one surface with no Map/Table pair to define.
+
+#### useAssignmentFilterState
+
+The Assignments index's filters, for the reasons `useMissionFilterState`
+gives, over the same schedule window (#1481). The status codec reads
+`ASSIGNMENT_STATUSES` from `assignment-view.ts`, which #1466 put there.
+
+#### useRequestForControlFilterState
+
+The Requests for Control index's filters, for the reasons
+`useMissionFilterState` gives (#1481). This page opens on the last 90 days
+with the status on `open`, since the queue is read backwards from today to
+find work still waiting, and `open` stays out of the URL as the codec's
+fallback. The status vocabulary is a list with the type derived from it, as
+the two worklists' are.
 
 #### useMissionItemShapes
 
@@ -1341,8 +1931,7 @@ which timestamp moved. What is left is composition, the stops joined to the
 records they send a crew to, which is a page's question rather than a
 table's.
 
-`useAssignment` is also the warm-stream anchor on pages that write before
-reading. `useAssignmentItems` is unfiltered by `entityType` on purpose:
+`useAssignmentItems` is unfiltered by `entityType` on purpose:
 unlike a route, an assignment mixes traps, habitats and service requests in
 one worklist by design.
 
@@ -1356,9 +1945,7 @@ table depending on `entity_type`, so there is no column to join on.
 `usePendingTrapCollections` exists because a trap stop means one of two
 visits, set the trap or come back and empty it, and only the data says
 which. The subset is keyed on the stops' own trap ids rather than reading
-every collection, and the live query doubles as the thing that keeps the
-on-demand collections stream warm: the Collect write lands on this page, and
-a write to a cold stream times out waiting for its txid.
+every collection.
 
 `useAssigneeOptions` puts "Unassigned" first because planning drafts may
 carry nobody, and Radix Select forbids an empty-string item value, so
@@ -1474,54 +2061,86 @@ The types and pure helpers a family of hooks shared moved to a `*-view.ts`
 module beside the queries and a `*-fields.ts` module beside the mutations,
 which is the shape `hooks/queries` already used for its row views.
 
-#### The catalog roster hooks
+#### The catalog register
 
-`useHabitatTypeRoster`, `useCollectionMethodRoster`, the four control method
-rosters, `useCollectionLureRoster` and `useNotificationTypeRoster` are one
-question asked of eight tables: what may this field be set to. The explorers
-ask a narrower one through `useNamedCatalog`, which returns filter options
-and an id to name lookup and drops everything else. A form needs two things
-those drop. `isActive`, because a retired catalog row stays selectable: these
-forms are where past seasons get keyed in, and a method the organization
-dropped last year is exactly what a record from last year was worked with,
-so `lifecycleOptions` marks the row and sorts it behind everything still in
-service. `customSchema`, because a catalog row can carry extra fields the
-organization defined, and picking the method is what decides which of them
-the form renders; `collection_lures` and `notification_types` are the
-catalogs without that column, which is why the roster comes in two shapes,
-`usePlainCatalogRoster` and `useSchemaCatalogRoster`. Every catalog here is
-eager, so the reads suspend: the rows are there before a form can be
-reached.
+`catalog-register.ts` is not a hook. It holds one descriptor per Organization
+Lookup catalog: the collection, the column that holds the name, and the fields
+the records view and the roster view read beyond `id`, `name` and `isActive`.
+`useCatalogRecords`, `useCatalogRoster` and `useCatalogOptions` take a
+descriptor and write the only query each view runs, so a catalog's read side
+is declared once. Before #1430 it was about forty modules: a records hook over
+one of seven identical half hooks, an eight-line roster alias, and an options
+alias, per catalog.
 
-The generic is a helper each named hook calls once, rather than one hook
-taking a collection: a caller passing a different collection between renders
-would change which query runs under the same hook slot, and naming them
-keeps the call sites reading as what they fetch.
+Three hooks rather than one `useCatalog` returning every view, because one hook
+would open all three queries for a caller that wants one of them.
 
-#### The catalog record hooks
+A descriptor is checked where it is written. `defineCatalog` infers the row
+type from the collection, holds `nameColumn` to a string column of it, and
+types each projection as a function over that row's ref, so a column the table
+lacks fails `tsc` at the register and nowhere else. The hooks then read every
+descriptor through one erased row, which is why each casts its result to the
+type `defineCatalog` computed. A column key alone, `keyof Row`, was the other
+shape: it covers the name, but a projection carries several columns and a
+literal (`serialNumber: null` on a vehicle), which a key cannot say.
 
-The wider read behind the rosters. A roster answers "what may this field be
-set to" and returns three columns; the management pages are where the
-catalog is maintained, so they need every column the dialog edits and both
-halves of the lifecycle split, active rows and retired ones, each already in
-name order. Two queries rather than one list the page partitions:
-`is_active` is a pushed-down predicate, and the split is what the page frame
-is built around. It is also what keeps the retired half from re-rendering
-when an active row is renamed. The eight catalogs are four shapes, so there
-are four half hooks, `useCollectionMethodHalf`, `useHabitatTypeHalf`,
-`useDescribedHalf` and `useControlMethodHalf`, and eight hooks in front of
-them, each fixing its own collection for the reason the rosters record.
+A call site passes a module constant, `useCatalogRecords(catalogs.tags)`, so
+the hook slot always runs the same query. The live query takes its identity
+from the query it builds rather than from a dependency array, so a different
+descriptor in the same slot would rebuild it rather than keep the old rows.
+
+Profiles are on the register for `useCatalogOptions` alone. `useProfileRoster`,
+`useProfileNames` and `useDailyWorkRoster` stay as they are, because they are
+status-gated or sort with `localeCompare` on purpose, and their docblocks say
+why. Insecticides and formulations are off it, because they order active first
+in one query and carry many columns.
+
+Vehicles and equipment are one record shape, `ControlAssetRecord`, with
+`serialNumber: null` on a vehicle. The old code carried a `VehicleRow |
+EquipmentRow` union to the table cell and asked `isEquipmentRow(asset)` to
+decide what to render, which meant every consumer had to know both spellings.
+The tags descriptor carries no organization predicate: the shape is scoped to
+the organization server-side, so filtering by `organization_id` here re-states
+server-side authorization as a client-side filter, and a stale column spelling
+in one empties the list rather than narrowing it.
+
+`catalog-register.test.tsx` walks `catalogs` itself, so a descriptor added
+later is covered through all three hooks without a new case.
+
+#### useCatalogRoster
+
+What may this field be set to, for every catalog on the register. The explorers
+ask a narrower question through `useCatalogOptions`, which drops everything but
+the name. A form needs two things that drops. `isActive`, because a retired
+catalog row stays selectable: these forms are where past seasons get keyed in,
+and a method the organization dropped last year is exactly what a record from
+last year was worked with, so `lifecycleOptions` marks the row and sorts it
+behind everything still in service. That is also why the query applies no
+order. `customSchema`, on the descriptors whose table has the column, because a
+catalog row can carry extra fields the organization defined, and picking the
+method is what decides which of them the form renders. Every catalog here is
+eager, so the read suspends: the rows are there before a form can be reached.
+
+#### useCatalogRecords
+
+The wider read behind the roster. A roster answers "what may this field be set
+to"; the management pages are where the catalog is maintained, so they need
+every column the dialog edits and both halves of the lifecycle split, active
+rows and retired ones, each already in name order. Two queries rather than one
+list the page partitions: `is_active` is a pushed-down predicate, and the split
+is what the page frame is built around. It is also what keeps the retired half
+from re-rendering when an active row is renamed.
 
 #### The chemical roster hooks
 
-`useInsecticideRoster`, `useVehicleRoster`, `useEquipmentRoster`,
-`useFormulationRoster` and `useFormulationComponentRoster` are separate
-from the catalog rosters because these are not the same question. Those
-seven tables are all one shape, an id, a name, a lifecycle flag and a custom
-schema. These five are each their own shape: a product carries the unit it
-is measured in, a formulation carries a batch size, a component carries how
-much of what. Flattening them into one listing would mean a picker reading
-fields its catalog does not have. All five are eager, so the reads suspend.
+`useInsecticideRoster`, `useFormulationRoster` and
+`useFormulationComponentRoster` are separate from `useCatalogRoster` because
+these are not the same question. The register's tables are all one shape, an
+id, a name, a lifecycle flag and a few fields. These three are each their own
+shape: a product carries the unit it is measured in, a formulation carries a
+batch size, a component carries how much of what. Flattening them into one
+listing would mean a picker reading fields its catalog does not have. All
+three are eager, so the reads suspend.
 Field names stay camelCase, as everywhere in `hooks/queries`: the columns
 are snake_case and this is the seam that turns them over.
 
@@ -1547,19 +2166,6 @@ every component grouped by formulation, and a join would hand back one row
 per component with the recipe repeated on each. The grouping is a `Map`,
 which is the one thing a query cannot return.
 
-#### useVehicleRecords and useEquipmentRecords
-
-Two tables the organization owns that are not quite catalogs: an
-application names a vehicle and a piece of equipment, but neither carries a
-custom schema and both carry a free-form `metadata` bag instead. They
-differ from each other in two columns, the name column's spelling and a
-serial number equipment has and a vehicle does not. That difference is
-resolved in `control-asset-record-view.ts` rather than in the page. The old
-code carried a `VehicleRow | EquipmentRow` union all the way to the table
-cell and asked `isEquipmentRow(asset)` to decide what to render, which meant
-every consumer had to know both spellings. One record shape with
-`serialNumber: null` on a vehicle says the same thing once.
-
 #### useControlCatalogCounts
 
 The overview's catalog tiles used to read every row of five eager tables and
@@ -1580,6 +2186,16 @@ on a `date` column, so the bound is a plain `YYYY-MM-DD` string, no zone
 and no instant. See `use-recent-collections.ts` for the adult case, where it
 is neither.
 
+They are two files of 58 and 54 lines, and they stay two. Every join, the date
+and the measured columns already come from `PERFORMED_ACTIONS`, so what the two
+files still share is the shape of the query. One hook over both would be
+generic over the collection, and the compiler cannot relate the ref the query
+builder hands back to the `PERFORMED_ACTIONS` entry passed in beside it, so the
+call to that entry's predicates would need a cast across the two row types. A
+cast is what the module's no column map rule exists to keep out. That was
+decided in #1428 and #1498, so a duplication report naming the pair is expected
+and is not a finding to fix.
+
 #### usePeopleDirectory
 
 A Profile is who work is attributed to; a Membership is the access that
@@ -1595,19 +2211,6 @@ SIMMER, active ones first because an inactive historical Profile is the
 deepest end of the list. Each group is its own query through
 `usePersonGroup` rather than one query grouped in JavaScript, because the
 predicates and the sort differ and both push down.
-
-#### useTagCatalog
-
-`useTagOptions` is the other read and answers a different question: which
-Tags a filter may offer, in one flat list including retired ones. This is
-where the catalog is defined, so it carries the colour and the description
-the dialog edits, and it splits the lifecycle the way the page is laid out.
-Two queries through `useTagHalf` rather than one list the page partitions,
-for the reason the catalog records record. No organization predicate: the
-shape is scoped to the organization server-side, so filtering by
-`organization_id` here re-states server-side authorization as a client-side
-filter, and a stale column spelling in one empties the list rather than
-narrowing it.
 
 #### useRegistration and useRegistrationSubscriptions
 
@@ -1687,6 +2290,92 @@ the exact key through `seedHabitatGeometryCache`. The context hook returns
 card falls back to its plain single-record behaviour instead of drawing an
 empty legend.
 
+#### useLinkedControlActions, useInspectionSamples and useHabitatHistory
+
+The rows under the inspection and habitat detail pages, and each row carries
+the names it is drawn with: the Profile, the insecticide, the method, the unit
+and the species. Every name is a `left` join on an eager catalog, which costs
+no request. Before #874 the rows returned ids and the two pages resolved each
+one with a component that read a whole roster and found one entry, each behind
+its own `<Suspense>`: fourteen of them across the two pages, and two copies of
+most. A component cannot pick which hook to call from a prop, so the copies
+could not be folded into one; returning the name from the hook that already
+reads the row removes the question.
+
+Two rules keep the joins cheap. They feed a label and nothing else: sorting
+and the where clause stay on the on-demand table's own columns, because
+sorting or filtering by a joined column moves the cursor or the predicate off
+the table being loaded (see #1026). And they are `left`, so a row whose catalog
+entry the client does not hold is kept with a `null` name. A link nobody filled
+in keeps its `null` id beside the `null` name, which is how a page tells
+"Unassigned" from "Unknown". `useLinkedControlActions`' suite asserts the
+subset each action table is asked for, so a join that took the predicate over
+fails there. A join also works inside a correlated `toArray` include, which is
+how a species count gets its taxon's name.
+
+The control action joins are not written in these hooks. `PERFORMED_ACTIONS`
+in `hooks/queries/performed-action-reads.ts` holds them for the four performed
+control actions, one entry per type: a join predicate for the method, for the
+product on a Chemical Application, for the unit on every type but an Outreach
+Action, and for whoever performed it, plus `measured`, which returns the
+method, performer, amount and unit columns under one set of field names. Before
+#1428 about ten read hooks wrote those joins and columns out per type; eleven
+compose them from the module now, `useLinkedControlActions` and
+`useHabitatHistory` among them. A hook keeps its own `from`, `where`, ordering
+and the field names of the view it returns. The same module exports
+`controlActionBaseSelect`, the placement and audit fields (address, inspection,
+request, mission item, coordinates, metadata and the four audit columns) that
+`useApplication`, `useSourceReduction`, `useBiocontrolAction` and
+`useOutreachAction` project the same way. It leaves out `habitatId`, because an
+Outreach Action has no habitat.
+
+The module has no column map, for the reason `performed-action-writes.ts`
+gives on the write side. Every column is a property access on a typed ref
+inside a function, never a column name in a string, so a misspelled column
+fails `tsc` in that file rather than answering `undefined`. #1498 checked it by
+renaming two columns there and reading two TS2551s.
+
+Every hook that reads a performed control action returns each joined name,
+the performer, the method and the insecticide, as
+`joinedOrNull(joined.name)` from `queries/shared.ts`, which evaluates as
+`coalesce(joined.name, null)`. The bare `coalesce` is not enough, because its
+return type drops the nullable brand a `left` join puts on the ref, so a
+column that is non-null in its row schema is typed without `| null` while an
+unmatched join answers `null` (#1599). The name is `null` both when nothing was
+recorded and when the record is not in the client, which is permanent for a
+deleted Profile because the Profile shape streams live rows only. So the
+surface reads the id beside the name to tell the two apart and draws its own
+`Unknown method` or `No method`; the hook draws neither. A `caseWhen` guarded
+on the foreign key used to yield `undefined` for the second case under a
+`string | null` type, and the Chemical Application map card drew an empty
+applicator row for it (#1501).
+
+The rule is every read hook's, not only the performed actions'. Since #1535
+no hook under `hooks/` projects a `left`-joined column as
+`caseWhen(isNull(<fk>), null, <joined>.<column>)` or as `coalesce` over a
+literal label: the inspector and habitat type on an inspection, the type on a
+habitat, the method and lure on a trap and a collection, the request on a
+mission stop, the folder on a region, the vehicle and equipment on a Chemical
+Application and the author and editor on a comment all read as
+`joinedOrNull(joined.column)`. The six adult surveillance reads that baked
+in `Unknown method` and the comment read that baked in `Unknown` return `null`
+now, and the card, row or thread draws the same words itself. The Inspection
+map card is the case that showed: it read only the name, so an inspection
+whose inspector's Profile was deleted said `Unassigned`, and it reads the id
+first now and says `Unknown`, as the detail page does.
+
+#### useInspection and useHabitatSuspense
+
+The two larval detail pages' own records, read off the synced rows with their
+names joined: the habitat, its type, the address and the inspector on an
+inspection, and the type and the two audit Profiles on a habitat. The
+inspection page used to fetch its whole record from `/map/inspections/:id` on
+the grounds that inspections were not editable; they are, and only the
+geometry comes from that endpoint now, through `useOwnedGeometry` and
+`INSPECTION_GEOMETRY_SOURCE`, the way every control action page reads its
+shape. The edit form asks the same source, so the two pages cannot read
+different geometry.
+
 #### The catalog mutation hooks
 
 Eight tables asked the same four questions: add one, edit one, retire or
@@ -1754,9 +2443,9 @@ minted, which is two rows for one assignment.
 
 #### useTagPickerCatalog
 
-One list with each Tag's lifecycle and relevance on it, rather than
-`useTagCatalog`'s two lifecycle halves, because which section a Tag draws in is
-a question about both. `useLiveQuery` and not the suspense hook, so opening the
+One list with each Tag's lifecycle and relevance on it, rather than the two
+lifecycle halves `useCatalogRecords(catalogs.tags)` returns, because which
+section a Tag draws in is a question about both. `useLiveQuery` and not the suspense hook, so opening the
 dialog never suspends the header it opens from.
 
 #### useCommentCount
@@ -1773,6 +2462,20 @@ streamed) and move together on an add or a delete. The cost is the two
 while the tab is open. `CommentCount` in `components/comment-count.tsx` is the
 label that reads it, and `LabelCount` beside it is the number every tab and
 the thread's heading draw, nothing at zero (#1265).
+
+#### useOrganizationMapCenter
+
+The Organization's map centre, which `useMapboxMap` opens on when the surface
+names no camera of its own (#1413). It is `useLiveQuery` and not the suspense
+variant every other organization read uses, because every map surface reads it
+and a map is not worth holding behind a fallback for where it opens. In the app
+the row is eager and the shell waits for it, so nothing is lost; in a suite with
+no organization row the answer is `null` and the map opens on the continental
+US, which is what kept the map suites from each needing a seeded row.
+
+The centre is read once, when the map is created, the way the camera is. A
+centre that arrives later does not move a map already open, because by then the
+surface has either fitted its rows or the person has started panning.
 
 ## apps/admin
 

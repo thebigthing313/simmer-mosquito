@@ -170,7 +170,7 @@ export function GeocoderDialog({
 				{onUseManualCoordinates === undefined ? null : (
 					<DialogFooter>
 						<Button onClick={onUseManualCoordinates} type="button" variant="outline">
-							<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
+							<MapPinnedIcon aria-hidden="true" />
 							Use Manual Coordinates
 						</Button>
 					</DialogFooter>

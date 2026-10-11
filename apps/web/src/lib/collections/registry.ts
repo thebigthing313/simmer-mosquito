@@ -29,7 +29,7 @@
  */
 
 import type { CollectionSyncMode, SyncCollectionClientOptions } from '@simmer-mosquito/sync';
-import { BasicIndex, type Collection } from '@tanstack/db';
+import { BasicIndex, type Collection, type UtilsRecord } from '@tanstack/db';
 
 /**
  * Every synced table has a `uuid` primary key named `id`, so every row this
@@ -48,6 +48,27 @@ export interface SyncedRow {
  */
 export type CollectionOf<TRow extends SyncedRow> = Collection<TRow, string | number>;
 
+// biome-ignore lint/suspicious/noExplicitAny: the schema and its insert input are the factory's own, and a source narrows past them.
+type UncheckedFactoryArgument = any;
+
+/**
+ * What a generated factory returns for `TRow`, before it is held as a
+ * {@link CollectionOf}.
+ *
+ * The factory's collection carries its schema's insert input, where a column
+ * with a default is optional and typed `unknown`. Since `@tanstack/db` 0.10
+ * typed `update`'s key, TypeScript compares `update`'s drafts, which are that
+ * input, so the factory's type no longer assigns to a collection whose input is
+ * the row. The sources narrow it once, where they build it.
+ */
+export type FactoryCollectionOf<TRow extends SyncedRow> = Collection<
+	TRow,
+	string | number,
+	UtilsRecord,
+	UncheckedFactoryArgument,
+	UncheckedFactoryArgument
+>;
+
 /** What a table module says about its collection without building one. */
 export interface CollectionDeclaration<TRow extends SyncedRow> {
 	/** The Postgres table. Names the collection and derives both its routes. */
@@ -63,7 +84,7 @@ export interface CollectionDeclaration<TRow extends SyncedRow> {
 	 * assemble and no way to reach for a server URL of its own. The sweep that
 	 * read all fifty modules as text looking for one that had is gone with it.
 	 */
-	readonly create: (options: SyncCollectionClientOptions) => CollectionOf<TRow>;
+	readonly create: (options: SyncCollectionClientOptions) => FactoryCollectionOf<TRow>;
 	/**
 	 * Indexes beyond the primary key, for the columns a picker filters on.
 	 *
@@ -126,9 +147,8 @@ export function installCollections(next: CollectionSource): void {
 /**
  * Declare a table's collection. Building it is the installed source's job.
  *
- * Pass the row type explicitly. A `Collection<…>` instantiated inside
- * `packages/sync` arrives as `any` with no error to say so, so inference from
- * `create` would leave every column on every read hook untyped.
+ * Pass the row type explicitly. Inferred from `create`, it would carry the
+ * schema's insert input into every read hook; see {@link FactoryCollectionOf}.
  */
 export function declareCollection<TRow extends SyncedRow>(
 	declaration: CollectionDeclaration<TRow>,
@@ -146,12 +166,38 @@ function resolve<TRow extends SyncedRow>(
 		);
 	}
 
-	const existing = built.get(declaration.table);
-	if (existing !== undefined) return existing as CollectionOf<TRow>;
+	const existing = built.get(declaration.table) as CollectionOf<TRow> | undefined;
+	if (existing !== undefined) {
+		if (existing.indexes.size === 0) createIndexes(existing, declaration);
+		return existing;
+	}
 
 	const collection = source.build(declaration);
-	collection.createIndex((row) => row.id, { indexType: BasicIndex });
-	declaration.index?.(collection);
+	createIndexes(collection, declaration);
 	built.set(declaration.table, collection);
 	return collection;
+}
+
+/**
+ * The `id` index and whatever the declaration adds.
+ *
+ * Run on the first build, and again whenever the collection answers with no
+ * index at all. TanStack DB garbage-collects a collection nothing has subscribed
+ * to for its `gcTime`, five minutes by default, and that cleanup clears every
+ * index along with the rows. The next subscriber restarts sync on the same
+ * object, which is the one this module keeps, so without the rebuild every join
+ * into the table goes unindexed for the rest of the session and logs `Join
+ * requires an index` on a column the declaration indexes (#1412). Every
+ * collection carries the `id` index, so an empty index map means a cleanup.
+ *
+ * `createIndex` on a cleaned-up collection restarts its sync, so the rebuild
+ * starts the collection whether or not anything subscribes after it. The only
+ * caller is a resolve, which a read or a write is about to follow.
+ */
+function createIndexes<TRow extends SyncedRow>(
+	collection: CollectionOf<TRow>,
+	declaration: CollectionDeclaration<TRow>,
+): void {
+	collection.createIndex((row) => row.id, { indexType: BasicIndex });
+	declaration.index?.(collection);
 }

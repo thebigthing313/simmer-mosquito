@@ -12,27 +12,26 @@
  * only exists once the collection row has arrived.
  */
 
-import { caseWhen, coalesce, eq, isNull } from '@tanstack/react-db';
+import { eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { collection_lures } from '../../lib/collections/collection_lures';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { collections } from '../../lib/collections/collections';
 import { traps } from '../../lib/collections/traps';
+import { useOrganizationClock } from '../use-organization-clock';
+import { collectionEffectiveDate } from './collection-day';
 import type { AdultCollection } from './collection-view';
-import { addressSelect, useRecordById } from './shared';
+import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
-export function useAdultCollection(
-	collectionId: string | null,
-	options?: { readonly gcTime?: number },
-): {
+export function useAdultCollection(collectionId: string | null): {
 	readonly collection: AdultCollection | undefined;
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
+	const clock = useOrganizationClock();
 	const result = useRecordById({
 		collection: collections(),
 		id: collectionId,
-		gcTime: options?.gcTime,
 		query: (query) =>
 			query
 				// `left` throughout: an ad-hoc collection names no trap, most name no
@@ -66,13 +65,13 @@ export function useAdultCollection(
 					// which is the one state the name columns cannot tell apart from a
 					// trap that has no name.
 					resolvedTrapId: trap.id,
-					trapName: coalesce(trap.trap_name, null),
-					trapCode: coalesce(trap.trap_code, null),
+					trapName: joinedOrNull(trap.trap_name),
+					trapCode: joinedOrNull(trap.trap_code),
 
 					methodId: collection.collection_method_id,
-					methodName: coalesce(method.name, 'Unknown method'),
+					methodName: joinedOrNull(method.name),
 					lureId: collection.collection_lure_id,
-					lureName: caseWhen(isNull(collection.collection_lure_id), null, lure.name),
+					lureName: joinedOrNull(lure.name),
 					addressId: collection.address_id,
 
 					collectedAt: collection.collected_at,
@@ -99,5 +98,10 @@ export function useAdultCollection(
 				})),
 	});
 
-	return { collection: result.record, isReady: result.isReady, isError: result.isError };
+	const collection =
+		result.record === undefined
+			? undefined
+			: { ...result.record, effectiveDate: collectionEffectiveDate(result.record, clock.zone) };
+
+	return { collection, isReady: result.isReady, isError: result.isError };
 }

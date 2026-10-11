@@ -96,6 +96,39 @@ describe('organization settings', () => {
 		await expect(response.json()).resolves.toMatchObject({ error: 'forbidden' });
 	});
 
+	it.each([
+		'manager',
+		'collector',
+		'viewer',
+	] as const)('refuses a %s setting the service request overdue threshold', async (role) => {
+		const response = await patch(role, '/organization-settings/service-request-overdue-days', {
+			serviceRequestOverdueDays: 21,
+		});
+
+		expect(response.status).toBe(403);
+		await expect(response.json()).resolves.toMatchObject({ error: 'forbidden' });
+	});
+
+	it.each([
+		'owner',
+		'admin',
+	] as const)('admits a %s setting the service request overdue threshold', async (role) => {
+		const response = await patch(role, '/organization-settings/service-request-overdue-days', {
+			serviceRequestOverdueDays: 'off',
+		});
+
+		// Past the floor and the builder, the unusable database throws.
+		expect(response.status).toBe(500);
+	});
+
+	it('refuses a threshold the builder cannot read before the database is reached', async () => {
+		const response = await patch('admin', '/organization-settings/service-request-overdue-days', {
+			serviceRequestOverdueDays: 0,
+		});
+
+		expect(response.status).toBe(400);
+	});
+
 	it('refuses before the body is read, so nothing is learned about the payload', async () => {
 		const app = createApp('viewer');
 		const response = await app.request('/organization-settings/timezone', {

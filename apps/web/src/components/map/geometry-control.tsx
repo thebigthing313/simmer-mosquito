@@ -202,9 +202,9 @@ export function GeometryControl({
 					variant={hasGeometry ? 'outline' : 'default'}
 				>
 					{controller.isDrawing ? (
-						<Loader2Icon aria-hidden="true" className="animate-spin" data-icon="inline-start" />
+						<Loader2Icon aria-hidden="true" className="animate-spin" />
 					) : (
-						<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
+						<MapPinnedIcon aria-hidden="true" />
 					)}
 					{controller.isDrawing ? 'Drawing on the Map…' : drawLabel(geometryType, hasGeometry)}
 				</Button>
@@ -217,7 +217,7 @@ export function GeometryControl({
 						type="button"
 						variant="outline"
 					>
-						<EditIcon aria-hidden="true" data-icon="inline-start" />
+						<EditIcon aria-hidden="true" />
 						Continue
 					</Button>
 				) : null}
@@ -229,7 +229,7 @@ export function GeometryControl({
 						type="button"
 						variant="outline"
 					>
-						<SplineIcon aria-hidden="true" data-icon="inline-start" />
+						<SplineIcon aria-hidden="true" />
 						Edit Vertices
 					</Button>
 				) : null}
@@ -241,7 +241,7 @@ export function GeometryControl({
 						type="button"
 						variant="outline"
 					>
-						<AddIcon aria-hidden="true" data-icon="inline-start" />
+						<AddIcon aria-hidden="true" />
 						Add Piece
 					</Button>
 				) : null}
@@ -254,7 +254,7 @@ export function GeometryControl({
 						type="button"
 						variant="outline"
 					>
-						<CircleIcon aria-hidden="true" data-icon="inline-start" />
+						<CircleIcon aria-hidden="true" />
 						Cut Hole
 					</Button>
 				) : null}
@@ -266,14 +266,14 @@ export function GeometryControl({
 						type="button"
 						variant="ghost"
 					>
-						<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
+						<MapPinnedIcon aria-hidden="true" />
 						Move to Address
 					</Button>
 				) : null}
 				{extraActions}
 				{hasGeometry && !isBusy ? (
 					<Button onClick={onClear} size="sm" type="button" variant="ghost">
-						<XIcon aria-hidden="true" data-icon="inline-start" />
+						<XIcon aria-hidden="true" />
 						Clear
 					</Button>
 				) : null}
@@ -352,7 +352,7 @@ function GeometrySources({
 						type="button"
 						variant="outline"
 					>
-						<UploadIcon aria-hidden="true" data-icon="inline-start" />
+						<UploadIcon aria-hidden="true" />
 						File
 					</Button>
 				) : null}
@@ -444,7 +444,7 @@ export function DrawToolbar({
 							type="button"
 							variant="ghost"
 						>
-							<ArrowLeftIcon aria-hidden="true" data-icon="inline-start" />
+							<ArrowLeftIcon aria-hidden="true" />
 							Undo
 						</Button>
 					)}
@@ -462,24 +462,24 @@ export function DrawToolbar({
 							type="button"
 							variant="ghost"
 						>
-							<DeleteIcon aria-hidden="true" data-icon="inline-start" />
+							<DeleteIcon aria-hidden="true" />
 							Delete Vertex
 						</Button>
 					)}
 					{canSketch && !isSketching ? (
 						<Button onClick={controller.startReshape} size="sm" type="button" variant="ghost">
-							<ReshapeIcon aria-hidden="true" data-icon="inline-start" />
+							<ReshapeIcon aria-hidden="true" />
 							Reshape
 						</Button>
 					) : null}
 					{canSketch && !isSketching ? (
 						<Button onClick={controller.startSplit} size="sm" type="button" variant="ghost">
-							<SplitIcon aria-hidden="true" data-icon="inline-start" />
+							<SplitIcon aria-hidden="true" />
 							Split
 						</Button>
 					) : null}
 					<Button onClick={controller.cancel} size="sm" type="button" variant="ghost">
-						<XIcon aria-hidden="true" data-icon="inline-start" />
+						<XIcon aria-hidden="true" />
 						Cancel
 					</Button>
 					{isPoint ? null : (
@@ -489,7 +489,7 @@ export function DrawToolbar({
 							size="sm"
 							type="button"
 						>
-							<CheckIcon aria-hidden="true" data-icon="inline-start" />
+							<CheckIcon aria-hidden="true" />
 							Finish
 						</Button>
 					)}

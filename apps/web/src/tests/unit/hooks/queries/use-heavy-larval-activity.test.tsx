@@ -18,7 +18,12 @@ import { habitats } from '../../../../lib/collections/habitats';
 import { inspections } from '../../../../lib/collections/inspections';
 import { profiles } from '../../../../lib/collections/profiles';
 import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
-import { inspection, UNSTREAMED_HABITAT_ID } from './larval-rows';
+import {
+	inspection,
+	UNRESOLVED_INSPECTOR_AND_TYPE,
+	UNRESOLVED_INSPECTOR_AND_TYPE_NAMES,
+	UNSTREAMED_HABITAT_ID,
+} from './larval-rows';
 import { renderRead } from './read-harness';
 
 beforeEach(() => {
@@ -81,6 +86,16 @@ describe('useHeavyLarvalActivity', () => {
 
 		expect(row.habitatName).toBeNull();
 		expect(label).toBe('Habitat 1a2b3c4d');
+	});
+
+	it('reads an inspector and a type the client does not hold as null beside each id', async () => {
+		seedRows(inspections, [
+			inspection('i1', { density: 'heavy', ...UNRESOLVED_INSPECTOR_AND_TYPE }),
+		]);
+
+		const { row } = await readOne();
+
+		expect(row).toMatchObject(UNRESOLVED_INSPECTOR_AND_TYPE_NAMES);
 	});
 
 	it('reads an inspection naming no habitat as null, so the fallback runs', async () => {

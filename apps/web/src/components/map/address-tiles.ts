@@ -1,20 +1,19 @@
 import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
-import type { CircleLayerSpecification, ExpressionSpecification } from 'mapbox-gl';
-import {
-	type RegionScopedTileFilters,
-	setRegionTileParam,
-	tileExtentUrl,
-	tileTemplateUrl,
-} from './tile-urls';
+import type { ADDRESS_MAP_FILTERS, MapFiltersOf } from '@simmer-mosquito/domain';
+import type {
+	CircleLayerSpecification,
+	ExpressionSpecification,
+	SymbolLayerSpecification,
+} from 'mapbox-gl';
+import { clusterTileLayers, recordOnly } from './geometry-tiles';
 
 /**
- * Server-side filters for the address vector tiles. Mirrors the query params the
- * `/map/tiles/addresses/{z}/{x}/{y}.mvt` endpoint understands; the same `search`
- * drives the address-book list so the map and the list stay in lockstep.
+ * The filters the `addresses` tiles and extent draw under, typed off the
+ * spec in `@simmer-mosquito/domain` the server parses them with. The list
+ * request encodes the same object, so the map and the list name one set of
+ * params.
  */
-export interface AddressTileFilters extends RegionScopedTileFilters {
-	readonly search?: string;
-}
+export type AddressTileFilters = MapFiltersOf<typeof ADDRESS_MAP_FILTERS>;
 
 export const ADDRESS_SOURCE_ID = 'addresses';
 const ADDRESS_SOURCE_LAYER = 'addresses';
@@ -27,41 +26,28 @@ const colors = {
 	selectedStroke: mapInteraction.selectedStroke,
 } as const;
 
-/** Layers the user can click to select an address. */
-export const ADDRESS_INTERACTIVE_LAYER_IDS = [`${ADDRESS_SOURCE_ID}-points`] as const;
+/**
+ * Layers the user can click, in hit priority: a cluster, which zooms in, then
+ * the address a record is selected from.
+ */
+export const ADDRESS_INTERACTIVE_LAYER_IDS = [
+	`${ADDRESS_SOURCE_ID}-clusters`,
+	`${ADDRESS_SOURCE_ID}-points`,
+] as const;
 
 const ADDRESS_SELECTED_LAYER_IDS = [`${ADDRESS_SOURCE_ID}-selected-point`] as const;
 
 export const ADDRESS_LAYER_IDS = [
 	`${ADDRESS_SOURCE_ID}-points`,
+	`${ADDRESS_SOURCE_ID}-clusters`,
+	`${ADDRESS_SOURCE_ID}-cluster-counts`,
 	...ADDRESS_SELECTED_LAYER_IDS,
 ] as const;
 
-/** Build the tile template URL with the active filters folded into the query. */
-export function buildAddressTileUrl(serverUrl: string, filters?: AddressTileFilters): string {
-	return tileTemplateUrl(serverUrl, ADDRESS_SOURCE_ID, addressTileParams(filters));
-}
-
-/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
-export function buildAddressExtentUrl(serverUrl: string, filters?: AddressTileFilters): string {
-	return tileExtentUrl(serverUrl, ADDRESS_SOURCE_ID, addressTileParams(filters));
-}
-
-function addressTileParams(filters?: AddressTileFilters): URLSearchParams {
-	const params = new URLSearchParams();
-
-	const search = filters?.search?.trim();
-	if (search !== undefined && search.length > 0) {
-		params.set('search', search);
-	}
-
-	setRegionTileParam(params, filters?.regionIds);
-
-	return params;
-}
-
 /** The GL layers for the address source. `selectedId` drives the highlight. */
-export function addressTileLayers(selectedId: string | null): CircleLayerSpecification[] {
+export function addressTileLayers(
+	selectedId: string | null,
+): (CircleLayerSpecification | SymbolLayerSpecification)[] {
 	// Match the `id` property, not the feature id: tiles use the 4-arg ST_AsMVT (no
 	// native feature id) and promoteId doesn't reach render-time filters, so `['id']`
 	// evaluates to undefined here. An id no feature can carry keeps this empty when
@@ -74,6 +60,8 @@ export function addressTileLayers(selectedId: string | null): CircleLayerSpecifi
 			type: 'circle',
 			source: ADDRESS_SOURCE_ID,
 			'source-layer': ADDRESS_SOURCE_LAYER,
+			// A clustered tile draws a cluster as a point too, on the layers below.
+			filter: recordOnly,
 			paint: {
 				'circle-color': colors.point,
 				'circle-opacity': 0.9,
@@ -82,6 +70,7 @@ export function addressTileLayers(selectedId: string | null): CircleLayerSpecifi
 				'circle-stroke-width': 1.2,
 			},
 		},
+		...clusterTileLayers(ADDRESS_SOURCE_ID),
 		// --- selection highlight: drawn on top, scoped to the selected feature ---
 		{
 			id: `${ADDRESS_SOURCE_ID}-selected-point`,

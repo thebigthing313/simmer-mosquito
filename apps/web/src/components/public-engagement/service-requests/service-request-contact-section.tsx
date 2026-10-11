@@ -51,6 +51,7 @@ export function ContactSection({
 							{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 							{(field: any) => (
 								<ContactPicker
+									errors={field.state.meta.errors}
 									onSelect={(contact) => field.handleChange(contact?.id ?? null)}
 									value={field.state.value}
 								/>

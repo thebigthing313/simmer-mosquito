@@ -2,7 +2,8 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { ControlMethodsPage } from '../../../components/control-operations/control-methods-page';
 import { useSourceReductionMethodMutations } from '../../../hooks/mutations/use-source-reduction-method-mutations';
-import { useSourceReductionMethodRecords } from '../../../hooks/queries/use-source-reduction-method-records';
+import { catalogs } from '../../../hooks/queries/catalog-register';
+import { useCatalogRecords } from '../../../hooks/queries/use-catalog-records';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 
 export const Route = createFileRoute('/control-operations/source-reduction/methods')({
@@ -14,7 +15,7 @@ const SourceReductionIcon = iconRegistry.entities.sourceReduction.icon;
 function SourceReductionMethodsRoute() {
 	const { auth } = Route.useRouteContext();
 	const { canManage, canManageOperational } = useOrganizationWorkspace(auth.snapshot);
-	const records = useSourceReductionMethodRecords();
+	const records = useCatalogRecords(catalogs.sourceReductionMethods);
 	const mutations = useSourceReductionMethodMutations();
 
 	return (

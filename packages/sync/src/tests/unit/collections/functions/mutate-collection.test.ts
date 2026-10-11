@@ -36,7 +36,7 @@ function recordingCollection(): {
 	readonly calls: RecordedCall[];
 } {
 	const calls: RecordedCall[] = [];
-	const transaction: MutationTransaction = { isPersisted: { promise: Promise.resolve() } };
+	const transaction: MutationTransaction = { when: () => Promise.resolve() };
 
 	return {
 		calls,

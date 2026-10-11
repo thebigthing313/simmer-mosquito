@@ -1,5 +1,10 @@
-import type { ImportNote } from '@simmer-mosquito/mapping';
-import { IMPORT_FILE_ACCEPT, readImportFileText } from '@simmer-mosquito/mapping';
+import type { BoundingBox, ImportNote } from '@simmer-mosquito/mapping';
+import {
+	boundsFromCoordinates,
+	IMPORT_FILE_ACCEPT,
+	readImportFileText,
+	toLngLat,
+} from '@simmer-mosquito/mapping';
 import { isTxIdConfirmationTimeout } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -24,7 +29,6 @@ import {
 	PlusIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useRef, useState } from 'react';
@@ -42,10 +46,10 @@ import {
 	type ImportRefusalCounts,
 	importRowSummary,
 } from '../../../components/map/import-notes';
+import { frameOnMap } from '../../../components/map/map-camera';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
-import { regions } from '../../../lib/collections/regions';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -96,17 +100,6 @@ function ImportRegionsRoute() {
 	const navigate = useNavigate();
 	const { folders } = useRegionFolders();
 	const mutations = useRegionMutations();
-
-	// Keep the on-demand `regions` shape stream warm for the whole time the user is
-	// on this page. A region write confirms only when its txid is observed on the
-	// live shape stream; that stream opens at `offset:'now'`, so if it is cold when
-	// the import fires (the collection is GC'd ~30s after the regions list unmounts —
-	// well within the time it takes to upload and review a file) the concurrent
-	// inserts race a fresh subscription and their txids can commit before it
-	// connects, forcing a deterministic per-row confirmation timeout. Subscribing
-	// here guarantees the stream is connected and up-to-date before the first insert.
-	// The rows themselves are unused; we only need the subscription.
-	useLiveQuery({ query: (query) => query.from({ region: regions() }) });
 
 	const [items, setItems] = useState<readonly ImportItem[]>([]);
 	const [skipped, setSkipped] = useState(0);
@@ -180,7 +173,7 @@ function ImportRegionsRoute() {
 
 	const fitAll = (instance: MapboxMap) => {
 		setMap(instance);
-		fitMapToItems(instance, items);
+		frameItems(instance, items);
 	};
 
 	// Called where the item set changes rather than watched from render. It used
@@ -190,7 +183,7 @@ function ImportRegionsRoute() {
 	// what the effect reads and what should retrigger it are different things.
 	const fitToItems = (next: readonly ImportItem[]) => {
 		if (map !== null) {
-			fitMapToItems(map, next);
+			frameItems(map, next);
 		}
 	};
 
@@ -212,7 +205,7 @@ function ImportRegionsRoute() {
 		}
 		const item = items.find((entry) => entry.id === id);
 		if (item !== undefined) {
-			fitMapToItems(map, [item]);
+			frameItems(map, [item]);
 		}
 	};
 
@@ -243,8 +236,9 @@ function ImportRegionsRoute() {
 				// confirmation timeout is not a failure — the server POST already
 				// committed the write by the time the library waits for sync — so it
 				// degrades to "pending" (awaiting sync) rather than "failed".
-				const settled: Promise<'confirmed' | 'pending' | { readonly error: string }> =
-					transaction.isPersisted.promise.then(
+				const settled: Promise<'confirmed' | 'pending' | { readonly error: string }> = transaction
+					.when('settled')
+					.then(
 						() => 'confirmed' as const,
 						(error) =>
 							isTxIdConfirmationTimeout(error)
@@ -326,7 +320,7 @@ function ImportRegionsRoute() {
 								type="file"
 							/>
 							<Button onClick={() => fileInputRef.current?.click()} type="button" variant="outline">
-								<UploadIcon aria-hidden="true" data-icon="inline-start" />
+								<UploadIcon aria-hidden="true" />
 								{fileName === null ? 'Choose KML, KMZ, or GeoJSON File' : 'Choose a Different File'}
 							</Button>
 							{fileName === null ? null : (
@@ -378,7 +372,7 @@ function ImportRegionsRoute() {
 											type="button"
 											variant="outline"
 										>
-											<PlusIcon aria-hidden="true" data-icon="inline-start" />
+											<PlusIcon aria-hidden="true" />
 											Create Folder
 										</Button>
 									</div>
@@ -465,9 +459,7 @@ function ImportRegionsRoute() {
 							<Link to="/gis/regions">Cancel</Link>
 						</Button>
 						<Button disabled={!canImport} onClick={runImport} type="button">
-							{isImporting ? (
-								<Loader2Icon aria-hidden="true" className="animate-spin" data-icon="inline-start" />
-							) : null}
+							{isImporting ? <Loader2Icon aria-hidden="true" className="animate-spin" /> : null}
 							{isImporting && progress !== null
 								? `Importing ${progress.done} of ${progress.total}…`
 								: `Import ${items.length} ${items.length === 1 ? 'region' : 'regions'}`}
@@ -588,36 +580,23 @@ function regionFieldsFor(item: ImportItem, folderId: string) {
 	};
 }
 
+/** Frame the map on `items` as a collection. */
+function frameItems(map: MapboxMap, items: readonly ImportItem[]): void {
+	frameOnMap(map, boundsOfItems(items), { purpose: 'collection', animate: true });
+}
+
 /**
- * Frame the map on `items`.
+ * The box `items` cover, or null when they hold no valid position. A position
+ * with a non-finite or out-of-range coordinate is left out.
  *
  * It walks positions rather than rings, because a boundary in several pieces
  * nests one level deeper than one in a single piece. Walking rings gave a
  * multipart item `NaN` bounds, and the preview map then stopped fitting with no
  * error at all.
  */
-function fitMapToItems(map: MapboxMap, items: readonly ImportItem[]): void {
-	let west = Number.POSITIVE_INFINITY;
-	let south = Number.POSITIVE_INFINITY;
-	let east = Number.NEGATIVE_INFINITY;
-	let north = Number.NEGATIVE_INFINITY;
-	for (const item of items) {
-		for (const [lng, lat] of boundaryPositions(item.geometry)) {
-			west = Math.min(west, lng);
-			south = Math.min(south, lat);
-			east = Math.max(east, lng);
-			north = Math.max(north, lat);
-		}
-	}
-	if (!Number.isFinite(west)) {
-		return;
-	}
-	map.fitBounds(
-		[
-			[west, south],
-			[east, north],
-		],
-		{ padding: 56, maxZoom: 15, duration: 500 },
+function boundsOfItems(items: readonly ImportItem[]): BoundingBox | null {
+	return boundsFromCoordinates(
+		items.flatMap((item) => boundaryPositions(item.geometry).map(toLngLat)),
 	);
 }
 

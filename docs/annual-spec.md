@@ -86,8 +86,19 @@ in the series, is a partial year drawn whole beside full years, and the
 reference line on it plus the table's caption are what say so; the series
 never carries the cut.
 
+The five-year average is a dashed horizontal `ReferenceLine` in the average
+role, `--chart-average`, at the row's `seriesAverage`: the mean whole year over
+the five years before the picked year, under the average column's qualifying
+rule. It is whole for the reason the bars are, so on a partial year it can sit
+above the table's average cell, which is cut. The value axis extends to hold
+it when it sits above every bar, and no year qualifying draws no line. The
+legend at the right of the trend heading names it, `2021–2025 average`, beside
+a dashed swatch; the bars need no legend entry, because the axis names each
+year. When no chart draws a line, there is no legend.
+
 A ratio chart plots the ratio per year; a year whose denominator is zero has
-no bar.
+no bar, and the average line sits at the pooled numerator over the pooled
+denominator.
 
 When the series holds fewer than three years, an Organization in its first or
 second year of records, the trend section is not drawn and the table stands

@@ -28,13 +28,12 @@
  * docblock gives: the route module's `Route` hands back the params a match
  * would, the role comes from a variable, and the map is a stand-in, because the
  * page's context map calls `setCenter` on the instance it is handed and Mapbox
- * GL has no jsdom. `useNavigate` is the one departure from the shared stand-in,
- * whose navigation goes nowhere: here it writes the search back and tells the
- * hooks, because the tab is controlled by the URL and a click that wrote
- * nothing would leave the strip where it was. The mutation hook is a recorder
- * rather than the real one, since what the write does is
- * `use-service-request-mutations.test.ts`'s question and this file's is what
- * the page hands it. The component is preloaded first, since the split build's
+ * GL has no jsdom. The stand-in is handed `setSearch`, so its navigation
+ * writes the search back and tells the hooks, because the tab is controlled by
+ * the URL and a click that wrote nothing would leave the strip where it was.
+ * The mutation hook is a recorder rather than the real one, since what the
+ * write does is `use-service-request-mutations.test.ts`'s question and this
+ * file's is what the page hands it. The component is preloaded first, since the split build's
  * lazy stand-in would otherwise overrun the test timeout while it imports.
  */
 
@@ -83,23 +82,17 @@ const harness = vi.hoisted(() => ({
 }));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
-	const { notifyRouterStandIn, routerStandIn } = await import('../../route-mock-stand-ins');
-	return {
-		...routerStandIn(
-			await importOriginal<object>(),
-			() => harness.search,
-			() => harness.params,
-		),
-		// A navigation within the route: the search is rewritten the way the
-		// router would rewrite it, and every mounted `useSearch` is told.
-		useNavigate:
-			() =>
-			({ search }: { search: (previous: Record<string, unknown>) => Record<string, unknown> }) => {
-				harness.search = search(harness.search);
-				act(() => notifyRouterStandIn());
-				return Promise.resolve();
+	const { routerStandIn } = await import('../../route-mock-stand-ins');
+	return routerStandIn(
+		await importOriginal<object>(),
+		() => harness.search,
+		() => harness.params,
+		{
+			setSearch: (next) => {
+				harness.search = next;
 			},
-	};
+		},
+	);
 });
 
 vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
@@ -272,7 +265,7 @@ async function renderPage(closedAt: Date | null = null) {
 
 async function openMenu(): Promise<readonly string[]> {
 	fireEvent.pointerDown(
-		screen.getByRole('button', { name: 'More Actions' }),
+		screen.getByRole('button', { name: 'More actions' }),
 		new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
 	);
 	await screen.findAllByRole('menuitem');
@@ -405,7 +398,7 @@ describe('the service request detail page header', () => {
 
 		expect(await screen.findByText('Priority')).toBeTruthy();
 		expect(screen.queryByLabelText('Edit')).toBeNull();
-		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
 	});
 });
 

@@ -1,6 +1,6 @@
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
 import { insecticides } from '../../lib/collections/insecticides';
-import { type CatalogOptions, indexed } from './use-named-catalog';
+import { type CatalogOptions, indexed } from './use-catalog-options';
 
 /** Insecticides by trade name, as filter options and an id to name lookup. */
 export function useInsecticideOptions(): CatalogOptions {

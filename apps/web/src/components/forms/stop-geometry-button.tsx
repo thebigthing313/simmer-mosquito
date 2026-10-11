@@ -40,7 +40,7 @@ export function StopGeometryButton({ location }: { readonly location: DrawLocati
 			type="button"
 			variant="outline"
 		>
-			<MissionIcon aria-hidden="true" data-icon="inline-start" />
+			<MissionIcon aria-hidden="true" />
 			Use Stop Geometry
 		</Button>
 	);

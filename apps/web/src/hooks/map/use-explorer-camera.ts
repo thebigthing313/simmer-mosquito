@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { getServerUrl } from '../../auth';
 import type { MapCamera } from '../../components/map/map-styles';
-import { buildRegionExtentUrl } from '../../components/map/region-tiles';
+import { allRegionsExtentUrl } from '../../components/map/tile-layers';
 import { explorerCameraKey, readExplorerCamera } from '../../lib/explorer-camera';
 import { useAuthSnapshot } from '../use-auth-snapshot';
 import type { MapExtentFitSource } from './use-map-extent-fit';
@@ -44,7 +44,7 @@ export function useExplorerCamera(enabled: boolean): ExplorerCamera {
 		return {
 			initialCamera,
 			firstVisitFit:
-				initialCamera === undefined ? { url: buildRegionExtentUrl(getServerUrl()) } : null,
+				initialCamera === undefined ? { url: allRegionsExtentUrl(getServerUrl()) } : null,
 			storageKey,
 		};
 	});

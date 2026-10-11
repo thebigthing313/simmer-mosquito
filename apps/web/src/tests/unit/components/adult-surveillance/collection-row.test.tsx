@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DirectoryCollection } from '../../../../components/adult-surveillance/trap-directory-data';
+import { collectionEffectiveDate } from '../../../../hooks/queries/collection-day';
 
 // The row links to the collection's own record. Only `Link` needs standing in —
 // it is the one import that demands a live router.
@@ -20,8 +21,14 @@ const SPECIES_NAMES = new Map([
 	['species-sollicitans', 'Aedes sollicitans'],
 ]);
 
-function collection(overrides: Partial<DirectoryCollection> = {}): DirectoryCollection {
-	return {
+/**
+ * A collection as `useTrapCollections` hands it up, with its `effectiveDate`
+ * read in the Organization's zone the way the hook reads it.
+ */
+function collection(
+	overrides: Partial<Omit<DirectoryCollection, 'effectiveDate'>> = {},
+): DirectoryCollection {
+	const row: Omit<DirectoryCollection, 'effectiveDate'> = {
 		id: 'collection-1',
 		collectedAt: '2026-07-14 06:00:00+00',
 		collectionDate: null,
@@ -47,22 +54,17 @@ function collection(overrides: Partial<DirectoryCollection> = {}): DirectoryColl
 		],
 		...overrides,
 	};
+	return { ...row, effectiveDate: collectionEffectiveDate(row, ORGANIZATION_TIME_ZONE) };
 }
 
-// The organization's zone, handed in the way the pane hands it down. A US zone
-// rather than UTC so a fixture collected in the evening lands on a different
-// day in the two, which is what lets the date assertions below fail if the row
-// ever goes back to reading a raw timestamp's UTC prefix.
+// The organization's zone, the one the hook reads the day in. A US zone rather
+// than UTC so a fixture collected in the evening lands on a different day in
+// the two, which is what lets the date assertions below fail if the day ever
+// goes back to a raw timestamp's UTC prefix.
 const ORGANIZATION_TIME_ZONE = 'America/New_York';
 
 function renderRow(row: DirectoryCollection) {
-	return render(
-		<CollectionRow
-			collection={row}
-			speciesNameById={SPECIES_NAMES}
-			timeZone={ORGANIZATION_TIME_ZONE}
-		/>,
-	);
+	return render(<CollectionRow collection={row} speciesNameById={SPECIES_NAMES} />);
 }
 
 /**

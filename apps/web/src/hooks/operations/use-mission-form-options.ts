@@ -1,6 +1,7 @@
 import type { ControlType } from '@simmer-mosquito/domain';
 import { lifecycleOptions } from '../../lib/lifecycle-options';
-import { useNotificationTypeRoster } from '../queries/use-notification-type-roster';
+import { catalogs } from '../queries/catalog-register';
+import { useCatalogRoster } from '../queries/use-catalog-roster';
 import { useProfileRoster } from '../queries/use-profile-roster';
 import { useMethodsForControlType } from './use-methods-for-control-type';
 
@@ -13,7 +14,7 @@ export const NO_NOTIFICATION_TYPE = 'none';
 export function useMissionFormOptions(controlType: ControlType) {
 	const { methods } = useMethodsForControlType(controlType);
 	const profiles = useProfileRoster();
-	const notificationTypes = useNotificationTypeRoster();
+	const notificationTypes = useCatalogRoster(catalogs.notificationTypes);
 
 	return {
 		methods: [

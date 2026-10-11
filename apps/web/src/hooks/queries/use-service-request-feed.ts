@@ -40,7 +40,7 @@ import { toDbEntityType } from '@simmer-mosquito/domain';
 import { and, eq, gte, or, useLiveQuery } from '@tanstack/react-db';
 import { comments } from '../../lib/collections/comments';
 import { localDayStartAsInstant, todayInTimeZone } from '../../lib/local-date';
-import { activityGcTimeMs } from './shared';
+import { liveQueryGcTimeMs } from './shared';
 
 /**
  * What happened to a service request, as one line in the activity feed.
@@ -97,7 +97,7 @@ export function useServiceRequestFeed(
 	const since = localDayStartAsInstant(sinceDate, timeZone);
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ comment: comments() })

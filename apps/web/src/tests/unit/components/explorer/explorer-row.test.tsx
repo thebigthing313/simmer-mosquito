@@ -294,4 +294,35 @@ describe('ExplorerRow', () => {
 		expect(screen.getByLabelText('View details for Kendall Park')).toBeTruthy();
 		expect(screen.getByText('Kendall Park')).toBeTruthy();
 	});
+
+	// An overdue service request's age (#1246): the registered warning token,
+	// and a note read after it so the colour is not the only thing that says so.
+	it('draws a warning date in the warning tone with its words for a screen reader', () => {
+		const row = (tone: 'default' | 'warning') => (
+			<ul>
+				<li>
+					<ExplorerRow
+						date="15 days"
+						dateWarning={tone === 'warning' ? 'Overdue' : undefined}
+						detailLabel="View #12"
+						detailLink={DETAIL}
+						isSelected={false}
+						selectLabel="Show #12 on the map"
+						title="#12"
+					/>
+				</li>
+			</ul>
+		);
+		const { rerender } = render(row('warning'));
+		const date = () => screen.getByText('15 days').parentElement as HTMLElement;
+
+		expect(date().className).toContain('text-warning');
+		expect(date().querySelector('.sr-only')?.textContent).toBe('Overdue');
+
+		rerender(row('default'));
+
+		expect(date().className).toContain('text-muted-foreground');
+		expect(date().className).not.toContain('text-warning');
+		expect(date().querySelector('.sr-only')).toBeNull();
+	});
 });

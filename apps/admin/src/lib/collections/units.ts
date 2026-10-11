@@ -8,6 +8,7 @@
 import { createUnitsCollection, type Unit } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
 import { syncClientOptions } from './client-options';
+import { rowCollection } from './row-collection';
 
 /**
  * `eager`: a few dozen units, grouped by what they measure on the page that owns
@@ -17,10 +18,12 @@ import { syncClientOptions } from './client-options';
  * change that wrote this file — until then units were the one global catalog with
  * no domain command at all, and the console wrote them through `/admin/units`.
  */
-export const units: Collection<Unit, string | number> = createUnitsCollection({
-	...syncClientOptions,
-	syncMode: 'eager',
-	mutations: true,
-});
+export const units: Collection<Unit, string | number> = rowCollection<Unit>(
+	createUnitsCollection({
+		...syncClientOptions,
+		syncMode: 'eager',
+		mutations: true,
+	}),
+);
 
 units.createIndex((row) => row.id, { indexType: BasicIndex });

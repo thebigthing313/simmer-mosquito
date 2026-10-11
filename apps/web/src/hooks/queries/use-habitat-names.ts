@@ -29,7 +29,7 @@
 import { inArray, useLiveQuery } from '@tanstack/react-db';
 import { habitats } from '../../lib/collections/habitats';
 import { habitatNameSelect } from './habitat-view';
-import { activityGcTimeMs, unmatchableId } from './shared';
+import { liveQueryGcTimeMs, unmatchableId } from './shared';
 
 /** How many Habitats one subset will name. See above — a ceiling, not a margin. */
 const maxHabitatNameIds = 500;
@@ -41,7 +41,7 @@ export function useHabitatNames(ids: readonly string[]): ReadonlyMap<string, str
 	const sorted = [...new Set(ids)].sort().slice(0, maxHabitatNameIds);
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ habitat: habitats() })

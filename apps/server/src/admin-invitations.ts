@@ -7,7 +7,7 @@ import {
 	StageOrganizationInvitationError,
 	stageOrganizationInvitation,
 } from '@simmer-mosquito/db';
-import { SIMMER_ROLES } from '@simmer-mosquito/domain';
+import { isEmailAddress, SIMMER_ROLES } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables, createOperatorAuthContextMiddleware } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
@@ -320,10 +320,21 @@ async function readInvitePayload(request: {
 	}
 
 	const email = readRequiredText(raw.email);
-	if (email === null || !email.includes('@')) {
+	if (email === null) {
 		return {
 			ok: false,
 			reason: 'email is required.',
+		};
+	}
+
+	// Ahead of `stageMembership`, which writes the row before WorkOS is asked to
+	// send: an address no invitation can reach would otherwise leave a Membership
+	// nobody can claim, under a 502 that blames WorkOS (#1525). `email` is
+	// trimmed already, which `isEmailAddress` leaves to its caller.
+	if (!isEmailAddress(email)) {
+		return {
+			ok: false,
+			reason: 'email must be an email address.',
 		};
 	}
 

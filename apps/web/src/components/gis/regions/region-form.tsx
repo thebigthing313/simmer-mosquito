@@ -1,7 +1,7 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
 import { createRegionCommand } from '@simmer-mosquito/domain';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import { useRecordForm } from '../../../hooks/forms/use-record-form';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { RegionFields } from '../../../hooks/mutations/use-region-mutations';
@@ -10,8 +10,7 @@ import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../lib/domain-va
 import { compareNames } from '../../../lib/natural-order';
 import { CustomFieldsSection } from '../../forms/custom-fields-section';
 import { LocationBand } from '../../forms/location-band';
-import { MapCanvas } from '../../map';
-import { DrawToolbar } from '../../map/geometry-control';
+import { RecordFormFrame } from '../../forms/record-form-frame';
 
 /**
  * Domain issue path to the form field holding it. Geometry is drawn on the
@@ -96,30 +95,29 @@ export function RegionFormPage({
 		initialGeometry,
 		missingMessage: 'Draw the region boundary on the map before saving.',
 	});
-	const { draw, geometry, geometryType } = location;
+	const { geometry } = location;
 
 	const activeFolders = [...regionFolders].sort((a, b) => compareNames(a.name, b.name));
 
-	const form = useAppForm({
+	const form = useRecordForm({
 		defaultValues,
-		validators: {
-			onSubmit: domainValidator(
-				({ value }: { readonly value: RegionFormValues }) =>
-					createRegionCommand({
-						...FORM_VALIDATION_CONTEXT,
-						regionId: FORM_VALIDATION_CONTEXT.organizationId,
-						regionFolderId:
-							value.regionFolderId === noRegionFolderValue ? null : value.regionFolderId,
-						name: value.name,
-						description: value.description,
-						metadata: value.metadata,
-						geometry: geometry ?? null,
-					}),
-				REGION_FIELD_PATHS,
-			),
-		},
-		onSubmit: async ({ value }) => {
-			if (!location.requireGeometry() || geometry === null) {
+		validate: domainValidator(
+			({ value }: { readonly value: RegionFormValues }) =>
+				createRegionCommand({
+					...FORM_VALIDATION_CONTEXT,
+					regionId: FORM_VALIDATION_CONTEXT.organizationId,
+					regionFolderId:
+						value.regionFolderId === noRegionFolderValue ? null : value.regionFolderId,
+					name: value.name,
+					description: value.description,
+					metadata: value.metadata,
+					geometry: geometry ?? null,
+				}),
+			REGION_FIELD_PATHS,
+		),
+		location,
+		onSubmit: async (value) => {
+			if (geometry === null) {
 				return;
 			}
 			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
@@ -127,66 +125,53 @@ export function RegionFormPage({
 	});
 
 	return (
-		<form.AppForm>
-			<RecordFormPage
-				actions={
-					<>
-						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit} />
-					</>
-				}
-				header={header}
-				aside={
-					<>
-						<MapCanvas onMapReady={location.onMapReady} />
-						<DrawToolbar geometryKind="region" controller={draw} geometryType={geometryType} />
-						<MapLegend mode={mode} />
-					</>
-				}
-				onSubmit={() => {
-					void form.handleSubmit();
-				}}
-			>
-				<form.FormErrorAlert title="Unable to Save Region" />
-
-				<div className="grid gap-5 @md/fields:grid-cols-2">
-					<form.AppField
-						name="name"
-						validators={{
-							onSubmit: ({ value }) =>
-								value.trim().length === 0 ? 'Name is required.' : undefined,
-						}}
-					>
-						{(field) => <field.TextField label="Name" required placeholder="e.g. North district" />}
-					</form.AppField>
-					<form.AppField name="regionFolderId">
-						{(field) => (
-							<field.SelectField
-								label="Folder"
-								options={folderOptions(activeFolders)}
-								placeholder="Unfiled"
-							/>
-						)}
-					</form.AppField>
-				</div>
-
-				<LocationBand
-					description="Draw the region's area on the map."
-					geometryKind="region"
-					label="Boundary"
-					location={location}
-					title="Region Boundary"
-				/>
-
-				<form.AppField name="description">
+		<RecordFormFrame
+			canSubmit={canSubmit}
+			errorTitle="Unable to Save Region"
+			form={form}
+			header={header}
+			map={{
+				location,
+				geometryKind: 'region',
+				legend: <MapLegend mode={mode} />,
+			}}
+		>
+			<div className="grid gap-5 @md/fields:grid-cols-2">
+				<form.AppField
+					name="name"
+					validators={{
+						onSubmit: ({ value }) => (value.trim().length === 0 ? 'Name is required.' : undefined),
+					}}
+				>
+					{(field) => <field.TextField label="Name" required placeholder="e.g. North district" />}
+				</form.AppField>
+				<form.AppField name="regionFolderId">
 					{(field) => (
-						<field.TextareaField label="Description" placeholder="Describe the region…" rows={3} />
+						<field.SelectField
+							label="Folder"
+							options={folderOptions(activeFolders)}
+							placeholder="Unfiled"
+						/>
 					)}
 				</form.AppField>
+			</div>
 
-				<CustomFieldsSection form={form} framed={false} />
-			</RecordFormPage>
-		</form.AppForm>
+			<LocationBand
+				description="Draw the region's area on the map."
+				geometryKind="region"
+				label="Boundary"
+				location={location}
+				title="Region Boundary"
+			/>
+
+			<form.AppField name="description">
+				{(field) => (
+					<field.TextareaField label="Description" placeholder="Describe the region…" rows={3} />
+				)}
+			</form.AppField>
+
+			<CustomFieldsSection form={form} framed={false} />
+		</RecordFormFrame>
 	);
 }
 

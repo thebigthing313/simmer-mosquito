@@ -53,6 +53,19 @@ export const REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE: OwnedGeometrySource = {
 };
 
 /**
+ * An Inspection's stored shape, for its detail page and its edit form.
+ *
+ * Every inspection carries one, an ad hoc one its own and a habitat one a
+ * snapshot of the habitat's, so both pages ask. Neither reads anything else
+ * from the endpoint: the record comes off the synced row (#874).
+ */
+export const INSPECTION_GEOMETRY_SOURCE: OwnedGeometrySource = {
+	segment: 'inspections',
+	bodyKey: 'inspection',
+	geometryKind: 'inspection',
+};
+
+/**
  * A registration's drawn shape, for the edit form.
  *
  * The explorer never asks: it draws the buffer from the centroid the Electric

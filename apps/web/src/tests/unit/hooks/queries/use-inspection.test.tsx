@@ -20,7 +20,12 @@ import { inspections } from '../../../../lib/collections/inspections';
 import { profiles } from '../../../../lib/collections/profiles';
 import { habitatLabel } from '../../../../lib/coordinate-label';
 import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
-import { inspection, UNSTREAMED_HABITAT_ID } from './larval-rows';
+import {
+	inspection,
+	UNRESOLVED_INSPECTOR_AND_TYPE,
+	UNRESOLVED_INSPECTOR_AND_TYPE_NAMES,
+	UNSTREAMED_HABITAT_ID,
+} from './larval-rows';
 import { renderRead } from './read-harness';
 
 beforeEach(() => {
@@ -82,6 +87,31 @@ describe('useInspection', () => {
 		expect(record.habitatId).toBe(UNSTREAMED_HABITAT_ID);
 		expect(record.habitatName).toBeNull();
 		expect(titleOf(record)).toBe('Habitat 1a2b3c4d');
+	});
+
+	/**
+	 * The detail page reads this hook since #874, in place of the whole record
+	 * from `/map/inspections/:id`, so the columns its Details card prints have to
+	 * be on the row: the dip count the rate divides by, and the two stamps.
+	 */
+	it('carries the dip count and the two stamps the detail page prints', async () => {
+		seedRows(inspections, [
+			{ ...inspection('i1', { dip_count: 12 }), updated_at: new Date('2026-08-13T09:30:00Z') },
+		]);
+
+		const record = await readInspection('i1');
+
+		expect(record.dipCount).toBe(12);
+		expect(record.createdAt).toEqual(new Date('2026-08-12T10:00:00Z'));
+		expect(record.updatedAt).toEqual(new Date('2026-08-13T09:30:00Z'));
+	});
+
+	it('reads an inspector and a type the client does not hold as null beside each id', async () => {
+		seedRows(inspections, [inspection('i1', UNRESOLVED_INSPECTOR_AND_TYPE)]);
+
+		const record = await readInspection('i1');
+
+		expect(record).toMatchObject(UNRESOLVED_INSPECTOR_AND_TYPE_NAMES);
 	});
 
 	it('reads an inspection naming no habitat as null, so the fallback runs', async () => {

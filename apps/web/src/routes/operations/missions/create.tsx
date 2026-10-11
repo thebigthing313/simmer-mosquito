@@ -10,8 +10,7 @@ import {
 } from '../../../components/operations/missions/mission-form';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
-import { useMission } from '../../../hooks/queries/use-mission';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -28,16 +27,12 @@ export const Route = createFileRoute('/operations/missions/create')({
 function CreateMissionRoute() {
 	const { auth } = Route.useRouteContext();
 	const navigate = useNavigate();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
-	// Minted up front so the on-demand stream is warm when the save fires — a
-	// write to a cold collection waits out its txid confirmation, which reads as a
-	// frozen save.
 	const [missionId] = useState(() => newRecordId());
-	useMission(missionId);
 
 	const missionWrites = useMissionMutations();
 
@@ -61,7 +56,7 @@ function CreateMissionRoute() {
 	return (
 		<MissionFormPage
 			canSubmit={canAttributeWrite({ organization, actorProfileId })}
-			defaultValues={defaultMissionFormValues(timeZone)}
+			defaultValues={defaultMissionFormValues(clock.zone)}
 			errorTitle="Unable to Create Mission"
 			fieldPaths={MISSION_FIELD_PATHS}
 			header={{

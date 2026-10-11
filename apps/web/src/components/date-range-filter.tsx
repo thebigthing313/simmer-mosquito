@@ -1,17 +1,24 @@
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { DATE_PRESETS, type DatePreset } from '../lib/date-presets';
+import {
+	DATE_PRESETS_BY_DIRECTION,
+	type DateDirection,
+	type DatePreset,
+} from '../lib/date-presets';
 import { formatLocalDate, parseLocalDate } from '../lib/local-date';
 
 /**
  * Start/end date pickers over a window, with convenience presets. The pickers are
  * the primary control (an explicit range); the presets are quick shortcuts that
- * fill both. `today` bounds every selection so no future date is reachable.
+ * fill both. Under `history`, the default, `today` bounds every selection so no
+ * future date is reachable. Under `schedule` End has no upper bound and the
+ * presets are the schedule set, which can end after today.
  */
 export function DateRangeFilter({
 	from,
 	to,
 	today,
+	direction = 'history',
 	activePresetId,
 	onFromChange,
 	onToChange,
@@ -21,13 +28,15 @@ export function DateRangeFilter({
 	readonly from: string;
 	readonly to: string;
 	readonly today: string;
+	readonly direction?: DateDirection;
 	readonly activePresetId: string | null;
 	readonly onFromChange: (value: string) => void;
 	readonly onToChange: (value: string) => void;
 	readonly onApplyPreset: (preset: DatePreset) => void;
 	readonly label?: string;
 }) {
-	const todayDate = parseLocalDate(today);
+	// The latest day End can take. A schedule runs ahead of today, so it has none.
+	const endMax = direction === 'history' ? parseLocalDate(today) : undefined;
 	const fromDate = parseLocalDate(from);
 	const toDate = parseLocalDate(to);
 
@@ -39,7 +48,7 @@ export function DateRangeFilter({
 					<DatePicker
 						ariaLabel="Start date"
 						className="h-8 flex-1 text-xs"
-						max={toDate ?? todayDate}
+						max={toDate ?? endMax}
 						onChange={(date) => onFromChange(date === undefined ? '' : formatLocalDate(date))}
 						placeholder="Start"
 						value={fromDate}
@@ -48,7 +57,7 @@ export function DateRangeFilter({
 					<DatePicker
 						ariaLabel="End date"
 						className="h-8 flex-1 text-xs"
-						max={todayDate}
+						max={endMax}
 						min={fromDate}
 						onChange={(date) => onToChange(date === undefined ? '' : formatLocalDate(date))}
 						placeholder="End"
@@ -57,7 +66,7 @@ export function DateRangeFilter({
 				</div>
 			</div>
 			<div className="flex flex-wrap gap-1.5 pl-[4.25rem]">
-				{DATE_PRESETS.map((preset) => {
+				{DATE_PRESETS_BY_DIRECTION[direction].map((preset) => {
 					const isActive = preset.id === activePresetId;
 					return (
 						<button

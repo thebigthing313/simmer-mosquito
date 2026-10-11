@@ -352,6 +352,17 @@ export function addressSurface(
 		geom: sql`a.geom`,
 		properties: [sql`a.id`, sql`a.display_name as "displayName"`],
 		filterWhere: addressFilterWhere,
+		// What the Address Book rail counts by over 100 in view (#1378). Neither
+		// has a filter behind it, so both are drawn as text. They are groupings
+		// rather than breakdowns because each is a count per value, and there is
+		// no amount for a breakdown to sum. A value counts as
+		// written less its surrounding whitespace, and a blank one counts with the
+		// nulls under one null value, so an address with no locality is never
+		// split between a null and an empty string.
+		groupings: () => ({
+			locality: sql`nullif(btrim(a.locality), '')`,
+			postalCode: sql`nullif(btrim(a.postal_code), '')`,
+		}),
 		display: {
 			columns: addressDisplayColumns,
 			// Alphabetical, which is the order the address book always read in, with a

@@ -14,8 +14,15 @@
 import { calendarDateParts } from '../../lib/local-date';
 import { unreadable } from '../../lib/unreadable-input';
 
-/** Where a worklist is in its life. Derived from timestamps — there is no column. */
-export type AssignmentStatus = 'notStarted' | 'inProgress' | 'completed' | 'cancelled';
+/**
+ * Where a worklist can be in its life, in the order a filter lists them. The
+ * status filter decodes a link against this list, so a member it does not
+ * name is dropped rather than filtering the list to nothing.
+ */
+export const ASSIGNMENT_STATUSES = ['notStarted', 'inProgress', 'completed', 'cancelled'] as const;
+
+/** Derived from timestamps. There is no column. */
+export type AssignmentStatus = (typeof ASSIGNMENT_STATUSES)[number];
 
 export const ASSIGNMENT_STATUS_LABELS: Readonly<Record<AssignmentStatus, string>> = {
 	notStarted: 'Not started',
@@ -70,15 +77,31 @@ export interface ProgressCounts {
 	readonly handled: number;
 }
 
-export function assignmentDisplayName(
-	row: { readonly assignmentName: string | null; readonly assignmentDate: string },
-	assigneeName: string | null,
-): string {
+/**
+ * The name an assignment was given, trimmed, or null when it has none.
+ *
+ * A name of only whitespace is no name. The index row reads this to decide
+ * whether its second line draws the date, which it does only when the date is
+ * not already the name.
+ */
+export function assignmentOwnName(row: { readonly assignmentName: string | null }): string | null {
 	const name = row.assignmentName?.trim();
-	if (name) {
-		return name;
-	}
-	return assigneeName === null ? row.assignmentDate : `${row.assignmentDate}, ${assigneeName}`;
+	return name ? name : null;
+}
+
+/**
+ * What an assignment is called wherever it is named, on screen or announced:
+ * its own name, else its formatted day.
+ *
+ * The assignee is not part of it, because every place that draws the name
+ * draws the assignee beside it. `missionDisplayName` follows the same
+ * rule for a mission.
+ */
+export function assignmentDisplayName(row: {
+	readonly assignmentName: string | null;
+	readonly assignmentDate: string;
+}): string {
+	return assignmentOwnName(row) ?? formatAssignmentDate(row.assignmentDate);
 }
 
 /**
@@ -104,37 +127,5 @@ export function formatAssignmentDate(date: string): string {
 		month: 'short',
 		day: 'numeric',
 		year: 'numeric',
-	});
-}
-
-/**
- * A due time, shown only when one is set, on the organization's clock.
- *
- * `dueAt` is an instant; "due 4pm" is only a fact once a zone says which 4pm.
- * A worklist due at end of shift has to read the same to the crew working it
- * and to the supervisor checking on it from elsewhere.
- *
- * The opposite treatment to {@link formatAssignmentDate} directly above it, and
- * deliberately: `assignment_date` is a `date` column and names a day, `due_at` is
- * a `timestamptz` and names a moment. Naming a zone for the first would introduce
- * the shift that naming one for the second removes.
- */
-export function formatDueAt(
-	dueAt: Date | string | null,
-	timeZone: string | undefined,
-): string | null {
-	if (dueAt === null) {
-		return null;
-	}
-	const parsed = dueAt instanceof Date ? dueAt : new Date(dueAt);
-	if (Number.isNaN(parsed.getTime())) {
-		return null;
-	}
-	return parsed.toLocaleString('en-US', {
-		month: 'short',
-		day: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit',
-		...(timeZone === undefined ? {} : { timeZone }),
 	});
 }

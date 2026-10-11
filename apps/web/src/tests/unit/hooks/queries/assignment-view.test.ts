@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	assignmentDisplayName,
+	assignmentOwnName,
 	assignmentStatus,
 	formatAssignmentDate,
-	formatDueAt,
 } from '../../../../hooks/queries/assignment-view';
 
 const lifecycle = (
@@ -42,53 +42,30 @@ describe('assignmentStatus', () => {
 });
 
 describe('assignmentDisplayName', () => {
-	it('prefers an explicit name', () => {
+	it('draws an explicit name, trimmed', () => {
 		expect(
-			assignmentDisplayName(
-				{ assignmentName: 'North sweep', assignmentDate: '2026-08-04' },
-				'Rivera',
-			),
+			assignmentDisplayName({ assignmentName: '  North sweep ', assignmentDate: '2026-08-04' }),
 		).toBe('North sweep');
 	});
 
-	it('falls back to the date and assignee', () => {
-		expect(
-			assignmentDisplayName({ assignmentName: null, assignmentDate: '2026-08-04' }, 'Rivera'),
-		).toBe('2026-08-04, Rivera');
-	});
-
-	it('falls back to the date alone when nobody is assigned', () => {
-		expect(
-			assignmentDisplayName({ assignmentName: null, assignmentDate: '2026-08-04' }, null),
-		).toBe('2026-08-04');
-	});
-
-	it('ignores a name that is only whitespace', () => {
-		expect(
-			assignmentDisplayName({ assignmentName: '   ', assignmentDate: '2026-08-04' }, null),
-		).toBe('2026-08-04');
-	});
-});
-
-describe('formatDueAt', () => {
-	const instant = new Date('2026-08-04T20:30:00Z');
-
-	it('reads a due time on the organization clock, not the browser one', () => {
-		// 20:30 UTC is 4:30pm in New York and 1:30pm in Los Angeles. Two zones far
-		// enough apart that a helper ignoring the argument would agree with itself.
-		expect(formatDueAt(instant, 'America/New_York')).toContain('4:30');
-		expect(formatDueAt(instant, 'America/Los_Angeles')).toContain('1:30');
-	});
-
-	it('reads a parsed instant the same as the string it came from', () => {
-		expect(formatDueAt(instant, 'America/New_York')).toBe(
-			formatDueAt(instant.toISOString(), 'America/New_York'),
+	it('names an unnamed assignment by its formatted date', () => {
+		expect(assignmentDisplayName({ assignmentName: null, assignmentDate: '2026-08-04' })).toBe(
+			'Tue, Aug 4, 2026',
 		);
 	});
 
-	it('shows nothing rather than an invalid date', () => {
-		expect(formatDueAt(null, 'America/New_York')).toBeNull();
-		expect(formatDueAt('not a time', 'America/New_York')).toBeNull();
+	it('reads a name that is only whitespace as no name', () => {
+		expect(assignmentDisplayName({ assignmentName: '   ', assignmentDate: '2026-08-04' })).toBe(
+			'Tue, Aug 4, 2026',
+		);
+	});
+});
+
+describe('assignmentOwnName', () => {
+	it('is the trimmed name, or null when nothing is left', () => {
+		expect(assignmentOwnName({ assignmentName: '  North sweep ' })).toBe('North sweep');
+		expect(assignmentOwnName({ assignmentName: '   ' })).toBeNull();
+		expect(assignmentOwnName({ assignmentName: null })).toBeNull();
 	});
 });
 

@@ -15,12 +15,12 @@ import {
 	iconRegistry,
 	MapPinnedIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { CollectCollectionDialog } from '../../../components/collect-collection-dialog';
+import { StopSequenceMap } from '../../../components/map/stop-sequence-map';
 import {
 	type AssignmentStopView,
 	assignmentStopTone,
@@ -35,11 +35,10 @@ import {
 	TargetLink,
 	TargetTypePill,
 } from '../../../components/operations/assignments/assignment-display';
-import { WorklistMap } from '../../../components/operations/worklist-map';
 import { WorklistTabs } from '../../../components/operations/worklist-tabs';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { DetailPageHeaderSkeleton } from '../../../components/record/detail-page-header';
-import { OrdinalBadge } from '../../../components/stop-order';
+import { OrdinalBadge, StopCardFrame, type StopFocus } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
 import { useAssignmentItemMutations } from '../../../hooks/mutations/use-assignment-item-mutations';
 import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
@@ -50,12 +49,12 @@ import { useAssignmentStops } from '../../../hooks/operations/use-assignment-sto
 import { useCommandRunner } from '../../../hooks/operations/use-command-runner';
 import { assignmentDisplayName } from '../../../hooks/queries/assignment-view';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import {
 	ASSIGNMENT_DELETE_REFUSALS,
 	STOP_RECORD_REFUSALS,
 } from '../../../lib/acknowledgement-copy';
-import { operationalDayAsTimestamp, todayInTimeZone } from '../../../lib/local-date';
+import { operationalDayAsTimestamp } from '../../../lib/local-date';
 
 const AssignmentIcon = iconRegistry.entities.vehicle.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
@@ -101,7 +100,7 @@ function AssignmentRunRoute() {
 		assignment?.assignedToProfileId == null
 			? null
 			: (nameById.get(assignment.assignedToProfileId) ?? null);
-	const displayName = assignment === null ? null : assignmentDisplayName(assignment, assigneeName);
+	const displayName = assignment === null ? null : assignmentDisplayName(assignment);
 	useBreadcrumbLabel(id, displayName);
 
 	const itemAction = (stop: AssignmentStopView, action: ItemAction) => {
@@ -154,7 +153,7 @@ function AssignmentRunRoute() {
 		<>
 			<MapSplitPage
 				map={
-					<WorklistMap
+					<StopSequenceMap
 						features={features}
 						fitKey={id}
 						highlightId={highlightId}
@@ -299,12 +298,14 @@ function RunStopList({
 						assignmentId={assignmentId}
 						enabled={enabled}
 						recordEnabled={recordEnabled}
-						isHighlighted={stop.assignmentItemId === highlightId}
-						isSelected={stop.assignmentItemId === selectedStopId}
+						focus={{
+							selected: stop.assignmentItemId === selectedStopId,
+							highlighted: stop.assignmentItemId === highlightId,
+							onSelect,
+							onHover,
+						}}
 						key={stop.assignmentItemId}
 						onAction={onAction}
-						onHover={onHover}
-						onSelect={onSelect}
 						stop={stop}
 					/>
 				))}
@@ -410,7 +411,7 @@ function CollectStopButton({
 		askable: STOP_RECORD_REFUSALS,
 		ask: true,
 	});
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const { collect } = useCollectionMutations();
 
 	return (
@@ -419,11 +420,14 @@ function CollectStopButton({
 				Collect
 			</Button>
 			<CollectCollectionDialog
-				defaultDate={todayInTimeZone(timeZone)}
+				defaultDate={clock.today()}
 				onConfirm={(collectedAt) => {
 					setOpen(false);
-					void runAcknowledged((acknowledgements) =>
-						collect({
+					void runAcknowledged((acknowledgements) => {
+						// The Organization's now, because this stamp decides which day the
+						// collection counts on, and the clamp below measures against it.
+						const now = clock.now();
+						return collect({
 							acknowledgements,
 							// The stop this visit closes — which is what makes the write a
 							// `fieldWork.*` command rather than an ordinary collect.
@@ -431,10 +435,10 @@ function CollectStopButton({
 							// Midday on the organization's clock, clamped back to now on the
 							// same day — the same stamp the collection forms use, and the one
 							// every surface reads the day back with.
-							collectedAt: operationalDayAsTimestamp(collectedAt, timeZone) ?? new Date(),
+							collectedAt: operationalDayAsTimestamp(collectedAt, clock.zone, now) ?? now,
 							collectionId,
-						}),
-					);
+						});
+					});
 				}}
 				onOpenChange={setOpen}
 				open={open}
@@ -449,103 +453,77 @@ function RunStopRow({
 	assignmentId,
 	enabled,
 	recordEnabled,
-	isSelected,
-	isHighlighted,
+	focus,
 	onAction,
-	onSelect,
-	onHover,
 }: {
 	readonly stop: AssignmentStopView;
 	readonly assignmentId: string;
 	readonly enabled: boolean;
 	readonly recordEnabled: boolean;
-	readonly isSelected: boolean;
-	readonly isHighlighted: boolean;
+	readonly focus: StopFocus;
 	readonly onAction: (stop: AssignmentStopView, action: ItemAction) => void;
-	readonly onSelect: (id: string | null) => void;
-	readonly onHover: (id: string | null) => void;
 }) {
 	const actions = itemActionsFor(stop.progress);
 
 	return (
-		<li
-			className={cn(
-				'relative rounded-lg border bg-card transition-colors',
-				isSelected || isHighlighted
-					? 'border-primary/40 ring-1 ring-primary/25'
-					: 'border-border/60',
-			)}
-			onMouseEnter={() => onHover(stop.assignmentItemId)}
-			onMouseLeave={() => onHover(null)}
+		<StopCardFrame
+			focus={focus}
+			id={stop.assignmentItemId}
+			label={`Show stop ${stop.ordinal} on the map`}
 		>
-			{/* Full-card target selects the stop on the map; interactive bits opt back in. */}
-			<button
-				aria-label={`Show stop ${stop.ordinal} on the map`}
-				aria-pressed={isSelected}
-				className={cn(
-					'absolute inset-0 size-full rounded-lg transition-colors',
-					isSelected ? 'bg-primary/5' : 'hover:bg-muted/40',
-				)}
-				onClick={() => onSelect(isSelected ? null : stop.assignmentItemId)}
-				type="button"
-			/>
-			<div className="pointer-events-none relative flex items-start gap-3 p-3">
-				<OrdinalBadge ordinal={stop.ordinal} tone={assignmentStopTone(stop)} />
+			<OrdinalBadge ordinal={stop.ordinal} tone={assignmentStopTone(stop)} />
 
-				<div className="min-w-0 flex-1">
-					<div className="flex flex-wrap items-center gap-2">
-						<span className="pointer-events-auto min-w-0">
-							<TargetLink isResolving={stop.isResolving} target={stop.target} />
-						</span>
-						<TargetTypePill type={stop.entityType} />
-						<ItemProgressBadge progress={stop.progress} />
-					</div>
-
-					{stop.target?.secondary == null ? null : (
-						<p className="m-0 mt-1 truncate text-muted-foreground text-xs">
-							{stop.target.secondary}
-						</p>
-					)}
-
-					{stop.skipReason === null ? null : (
-						<p className="m-0 mt-1 text-muted-foreground text-xs">Skipped: {stop.skipReason}</p>
-					)}
-
-					{stop.directionsToNextItem === null ? null : (
-						<p className="m-0 mt-1 flex items-start gap-1.5 text-muted-foreground text-xs">
-							<ChevronRightIcon
-								aria-hidden="true"
-								className="mt-px size-3 shrink-0 rotate-90 text-muted-foreground/70"
-							/>
-							<span className="min-w-0 whitespace-pre-wrap">{stop.directionsToNextItem}</span>
-						</p>
-					)}
-
-					<WriteOnly>
-						<div className="pointer-events-auto mt-2 flex flex-wrap gap-2">
-							{stop.progress === 'pending' ? (
-								<RecordStopWorkButton
-									assignmentId={assignmentId}
-									enabled={recordEnabled}
-									stop={stop}
-								/>
-							) : null}
-							{actions.map((action) => (
-								<Button
-									disabled={!enabled}
-									key={action}
-									onClick={() => onAction(stop, action)}
-									size="sm"
-									variant="outline"
-								>
-									{ACTION_LABELS[action]}
-								</Button>
-							))}
-						</div>
-					</WriteOnly>
+			<div className="min-w-0 flex-1">
+				<div className="flex flex-wrap items-center gap-2">
+					<span className="pointer-events-auto min-w-0">
+						<TargetLink isResolving={stop.isResolving} target={stop.target} />
+					</span>
+					<TargetTypePill type={stop.entityType} />
+					<ItemProgressBadge progress={stop.progress} />
 				</div>
+
+				{stop.target?.secondary == null ? null : (
+					<p className="m-0 mt-1 truncate text-muted-foreground text-xs">{stop.target.secondary}</p>
+				)}
+
+				{stop.skipReason === null ? null : (
+					<p className="m-0 mt-1 text-muted-foreground text-xs">Skipped: {stop.skipReason}</p>
+				)}
+
+				{stop.directionsToNextItem === null ? null : (
+					<p className="m-0 mt-1 flex items-start gap-1.5 text-muted-foreground text-xs">
+						<ChevronRightIcon
+							aria-hidden="true"
+							className="mt-px size-3 shrink-0 rotate-90 text-muted-foreground/70"
+						/>
+						<span className="min-w-0 whitespace-pre-wrap">{stop.directionsToNextItem}</span>
+					</p>
+				)}
+
+				<WriteOnly>
+					<div className="pointer-events-auto mt-2 flex flex-wrap gap-2">
+						{stop.progress === 'pending' ? (
+							<RecordStopWorkButton
+								assignmentId={assignmentId}
+								enabled={recordEnabled}
+								stop={stop}
+							/>
+						) : null}
+						{actions.map((action) => (
+							<Button
+								disabled={!enabled}
+								key={action}
+								onClick={() => onAction(stop, action)}
+								size="sm"
+								variant="outline"
+							>
+								{ACTION_LABELS[action]}
+							</Button>
+						))}
+					</div>
+				</WriteOnly>
 			</div>
-		</li>
+		</StopCardFrame>
 	);
 }
 

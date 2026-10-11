@@ -40,8 +40,10 @@
 import {
 	type Context,
 	type ContextFromSource,
+	coalesce,
 	eq,
 	type GetResult,
+	type IR,
 	type QueryBuilder,
 	useLiveQuery,
 } from '@tanstack/react-db';
@@ -57,26 +59,31 @@ import type { CollectionOf, SyncedRow } from '../../lib/collections/registry';
 export const unmatchableId = '00000000-0000-0000-0000-000000000000';
 
 /**
- * How long a subset survives after the last thing watching it unmounts.
+ * How long a live query's result stays loaded after its last reader unmounts.
  *
- * Thirty seconds, which covers a user opening a map card, closing it, and opening
- * it again — the case this exists for. It is a query option rather than a
- * collection one: the collection is shared, and how long one surface's subset
- * stays warm is that surface's business.
- */
-export const mapCardGcTimeMs = 30_000;
-
-/**
- * How long an on-demand subset stays warm after the last thing watching it unmounts.
+ * It is a `useLiveQuery` option, and `useRecordById` applies it for every hook
+ * built on that factory. A call that passes nothing gets the React hook's default
+ * rather than TanStack DB's: `@tanstack/react-db` sets 1 ms for `useLiveQuery` and
+ * five seconds for `useLiveSuspenseQuery`, and either one wins over the five
+ * seconds `@tanstack/db` would otherwise apply. So a `useLiveQuery` with no
+ * `gcTime` drops its result as soon as its last reader unmounts.
  *
- * The overview panels are browsed back and forth through — yesterday, then the day
- * before, then back to yesterday — so the day just left is worth keeping for the
- * moment it takes to return to it. Every route reading an on-demand shape wants that
- * same window, and each one used to write the number out for itself: 26 private
- * copies under `routes/`, 5 of them dead (#860). Import this rather than writing 30
- * seconds out again.
+ * A read over an on-demand collection must pass this, because the result it
+ * keeps is the subset Electric loaded for the query, and dropping it means the
+ * next mount asks Electric for the whole subset again (#1628). A read over an
+ * eager collection may leave it out: the collection stays loaded either way, so
+ * all a remount costs is rebuilding the query in memory.
+ *
+ * Thirty seconds, which covers the two cases it was written for: a user opening a
+ * map card, closing it and opening it again, and an overview browsed back and forth
+ * through, yesterday, then the day before, then back to yesterday. It is a query
+ * option rather than a collection one, because the collection is shared. Every
+ * live query in the app that sets a window takes this one, and each used to write the
+ * number out for itself: 26 private copies under `routes/` (#860), then 16 more
+ * across the pickers and the query hooks and a second export for map cards
+ * (#1429). Import this rather than writing 30 seconds out again.
  */
-export const activityGcTimeMs = 30_000;
+export const liveQueryGcTimeMs = 30_000;
 
 /**
  * What every Dashboard queue read off Electric answers with: how many are
@@ -129,8 +136,6 @@ export function useRecordById<TRow extends SyncedRow, TContext extends Context>(
 	readonly collection: CollectionOf<TRow>;
 	readonly id: string | null;
 	readonly query: RecordQuery<TRow, TContext>;
-	/** Defaults to {@link mapCardGcTimeMs}, the window a map card is reopened inside. */
-	readonly gcTime?: number | undefined;
 }): {
 	readonly record: GetResult<TContext> | undefined;
 	readonly isReady: boolean;
@@ -138,7 +143,7 @@ export function useRecordById<TRow extends SyncedRow, TContext extends Context>(
 } {
 	const { collection, id } = options;
 	const result = useLiveQuery({
-		gcTime: options.gcTime ?? mapCardGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			options.query(
 				query
@@ -212,4 +217,32 @@ export function addressSelect<TAddress extends AddressColumns>(
 		region: address.region,
 		postalCode: address.postal_code,
 	};
+}
+
+/** What `coalesce` accepts, which `@tanstack/db` does not export by name. */
+type CoalesceArgument = Parameters<typeof coalesce>[0];
+
+/** The value `coalesce` would type a lone column as: its non-null type. */
+type CoalescedValue<TColumn extends CoalesceArgument> =
+	ReturnType<typeof coalesce<[TColumn]>> extends IR.BasicExpression<infer TValue> ? TValue : never;
+
+/**
+ * A column from the optional side of a `left` join, or `null` when the join
+ * matched nothing.
+ *
+ * It evaluates as `coalesce(column, null)`, which is what the #874 rule asks a
+ * joined column to be projected as. The bare call types wrong: `coalesce` reads
+ * its arguments through a type that drops the nullable brand a `left` join puts
+ * on the ref, so a column that is non-null in its own row schema comes back
+ * typed without `| null` while an unmatched join hands back `null`. This states
+ * the `| null`, so an inferred `select` type agrees with what arrives.
+ *
+ * On a ref from the source side it is redundant and harmless.
+ */
+export function joinedOrNull<TColumn extends CoalesceArgument>(
+	column: TColumn,
+): IR.BasicExpression<CoalescedValue<TColumn> | null> {
+	// The cast is inside the helper so no call site carries one. `coalesce`'s
+	// return type is a conditional over `TColumn` that stays unresolved here.
+	return coalesce(column, null) as IR.BasicExpression<CoalescedValue<TColumn> | null>;
 }

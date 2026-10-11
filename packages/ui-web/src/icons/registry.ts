@@ -31,6 +31,7 @@ import {
 	FlaskConical,
 	FolderPlus,
 	GripVertical,
+	Group,
 	Hammer,
 	History,
 	Home,
@@ -254,6 +255,7 @@ export const iconRegistry = {
 		calendar: icon('calendar', 'Calendar', 'generic', Calendar),
 		chart: icon('chart', 'Chart', 'generic', ChartColumn),
 		circle: icon('circle', 'Circle', 'generic', Circle),
+		cluster: icon('cluster', 'Cluster', 'generic', Group),
 		compass: icon('compass', 'Compass', 'generic', Compass),
 		component: icon('component', 'Component', 'generic', Component),
 		contrast: icon('contrast', 'Contrast', 'generic', Contrast),
@@ -314,6 +316,7 @@ export const ChevronsDownIcon = iconRegistry.arrows.chevronsDown.icon;
 export const ChevronsUpIcon = iconRegistry.arrows.chevronsUp.icon;
 export const CircleCheckIcon = iconRegistry.generic.success.icon;
 export const CircleIcon = iconRegistry.generic.circle.icon;
+export const ClusterIcon = iconRegistry.generic.cluster.icon;
 export const CompassIcon = iconRegistry.generic.compass.icon;
 export const ComponentIcon = iconRegistry.generic.component.icon;
 export const ContactIcon = iconRegistry.entities.contact.icon;

@@ -7,6 +7,7 @@ export {
 	type MapLifecycleState,
 	type MapProgressTone,
 	type MapStatusTone,
+	mapCluster,
 	mapContext,
 	mapDensity,
 	mapDomain,

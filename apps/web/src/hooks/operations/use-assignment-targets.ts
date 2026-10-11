@@ -8,7 +8,7 @@ import { addresses } from '../../lib/collections/addresses';
 import { habitats } from '../../lib/collections/habitats';
 import { service_requests } from '../../lib/collections/service_requests';
 import { traps } from '../../lib/collections/traps';
-import { activityGcTimeMs, unmatchableId } from '../queries/shared';
+import { liveQueryGcTimeMs, unmatchableId } from '../queries/shared';
 import { trapDisplayName } from '../queries/trap-view';
 import type { AssignmentItemView } from './use-assignment-items';
 
@@ -27,7 +27,7 @@ export function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 	// subset request — but asking for the stops' traps by id keeps the three
 	// branches reading the same way.
 	const trapResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ trap: traps() })
@@ -45,7 +45,7 @@ export function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 	});
 
 	const habitatResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ habitat: habitats() })
@@ -65,7 +65,7 @@ export function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 	});
 
 	const requestResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ request: service_requests() })
@@ -90,7 +90,7 @@ export function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 	const addressIds = addressIdsOf({ trapRows, habitatRows, requestRows });
 
 	const addressResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ address: addresses() })

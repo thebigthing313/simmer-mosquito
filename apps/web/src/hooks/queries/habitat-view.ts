@@ -56,7 +56,7 @@
  * `isUndefined` and not `isNull`, because the engine's `isNull` is a strict
  * `=== null` and an unmatched join is `undefined`. The guard is in the `select`
  * and never in a `where`, since a predicate on a joined column takes the limit
- * pushdown off an on-demand primary table, and `use-inspection-table.ts` pages.
+ * pushdown off an on-demand primary table.
  */
 
 import { caseWhen, coalesce, concat, type IR, isUndefined } from '@tanstack/react-db';
@@ -134,6 +134,17 @@ export interface Habitat {
 	readonly updatedAt: Date;
 	readonly createdByProfileId: string | null;
 	readonly updatedByProfileId: string | null;
+}
+
+/**
+ * A Habitat as its detail page reads one: every column, and the two Profiles
+ * its audit rows name, joined rather than looked up (#874). Each name is `null`
+ * when nobody was recorded or the Profile is not in the client; the id beside
+ * it says which.
+ */
+export interface AuditedHabitat extends Habitat {
+	readonly createdByName: string | null;
+	readonly updatedByName: string | null;
 }
 
 /** Enough to name a Habitat in a list, a label, or a map cluster. */

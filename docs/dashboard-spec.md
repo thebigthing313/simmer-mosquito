@@ -198,7 +198,7 @@ limit.
 A `Panel` titled `In the field today` with the `entities.contact` icon, its
 count pill the number of rows, holding a `Table` of three columns: `Person`,
 `Records` right-aligned, `Last record` right-aligned in muted text as
-`11:54 AM`, the Monitor's own `formatActivityTime` in the Organization's zone.
+`11:54 AM`, the Organization clock's `time` style, as the Monitor's rows read.
 The person's name is a `Link` to `/daily-work/$profileId?date=today`, the
 Activity Monitor's day, stretched over its row with a pseudo-element so the
 whole row is the target and a screen reader meets one link. Rows are
@@ -242,7 +242,11 @@ which reads the same collection.
 - `useOpenServiceRequestsQueue`: `service_requests` where `closed_at` is null,
   plus `assignment_items` where `entity_type = 'service_request'`, joined on
   the client for the split. Two subsets rather than a joined query, because
-  the count needs the requests that have no stop.
+  the count needs the requests that have no stop. The overdue line (#1246)
+  reads the same open rows through `isServiceRequestOverdue` against the
+  Organization's threshold, so it is one table's own columns and stays on
+  Electric. It is a subset of the open line and is left out of the panel's
+  total, and it is not drawn while the threshold is off.
 - `useInProgressAssignmentsQueue`: `assignments` where `started_at` is set and
   `completed_at` and `cancelled_at` are null.
 - `useDueMissionsQueue`: `missions` where `started_at`, `completed_at` and
@@ -348,9 +352,9 @@ endpoint and load rows over sync by `inArray`. That was written before reading
 the explorers, and it is wrong for three of the four: the samples, collections
 and habitats explorers read `/map/samples`, `/map/collections` and
 `/map/habitats`, server reads with server-parsed filters, plus their tiles. A
-new filter there is a new `defineFilters` entry and one `where` clause, the
-shape `problem` already takes on collections, and the Dashboard reader shares
-the fragment. There is no `GET /dashboard/queues/:queue/ids`.
+new filter there is a new entry in its spec in `@simmer-mosquito/domain` and
+one `where` clause, the shape `problem` already takes on collections, and the
+Dashboard reader shares the fragment. There is no `GET /dashboard/queues/:queue/ids`.
 
 - **Samples, `status=awaiting`**: exists. `parseSampleTileFilters` reads
   `status` as a `sampleStatus` and the surface resolves it. The link passes

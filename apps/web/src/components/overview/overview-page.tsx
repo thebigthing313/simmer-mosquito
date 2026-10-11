@@ -31,11 +31,11 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { useOverview } from '../../hooks/overview/use-overview';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { todayInTimeZone } from '../../lib/local-date';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { OverviewChart, type OverviewChartSeries } from './overview-chart';
 import { OverviewChartZoom } from './overview-chart-zoom';
 import {
+	averageValues,
 	drawsTrend,
 	OVERVIEW_LABELS,
 	OVERVIEW_RATIO_LABELS,
@@ -61,8 +61,8 @@ const GRAIN_ICONS = {
 } as const;
 
 export function OverviewPage({ grain }: { readonly grain: OverviewGrain }) {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const current = currentOverviewPeriod(grain, today);
 	const search = useSearch({ strict: false }) as Record<string, unknown>;
 	const navigate = useNavigate();
@@ -100,7 +100,12 @@ export function OverviewPage({ grain }: { readonly grain: OverviewGrain }) {
 	const state = tableState(read);
 
 	return (
-		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
+		<div
+			className={cn(
+				pageContainer({ gap: 'overview', measure: 'record', padding: 'page' }),
+				'@container',
+			)}
+		>
 			<PageHeader
 				actions={
 					<OverviewPicker
@@ -154,7 +159,7 @@ function earliestPeriod(grain: OverviewGrain, earliest: string | null): string |
 	return earliest === null ? null : currentOverviewPeriod(grain, earliest);
 }
 
-const TREND_GRID = 'grid gap-4 md:grid-cols-2 xl:grid-cols-3';
+const TREND_GRID = 'grid gap-4 @2xl:grid-cols-2 @6xl:grid-cols-3';
 
 /** How many years Annual's series needs before its trend section is drawn. */
 const TREND_MINIMUM_YEARS = 3;
@@ -190,21 +195,32 @@ function TrendSection({
 			.map((row) => ({
 				key: row.type,
 				title: OVERVIEW_LABELS[row.type],
-				series: { kind: 'count', points: row.series } as const,
+				series: { kind: 'count', points: row.series, average: row.seriesAverage } as const,
 			})),
 		...response.ratios
 			.filter((ratio) => drawsTrend(grain, ratio.series))
 			.map((ratio) => ({
 				key: ratio.ratio,
 				title: OVERVIEW_RATIO_LABELS[ratio.ratio],
-				series: { kind: 'ratio', ratio: ratio.ratio, points: ratio.series } as const,
+				series: {
+					kind: 'ratio',
+					ratio: ratio.ratio,
+					points: ratio.series,
+					average: ratio.seriesAverage,
+				} as const,
 			})),
 	];
 	return (
 		<section className={cn('grid gap-3', dimmed && 'opacity-60 transition-opacity')}>
 			<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
 				<h2 className="m-0 font-semibold text-foreground text-sm">{trendHeading(grain, period)}</h2>
-				{grain === 'month' ? <OverviewLegend year={overviewPeriodYear(period)} /> : null}
+				<OverviewLegend
+					average={charts.some((chart) =>
+						averageValues(chart.series).some((value) => value !== null),
+					)}
+					grain={grain}
+					year={overviewPeriodYear(period)}
+				/>
 			</div>
 			<div className={TREND_GRID}>
 				{charts.map((chart) => (

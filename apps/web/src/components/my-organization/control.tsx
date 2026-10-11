@@ -2,9 +2,8 @@ import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Link } from '@tanstack/react-router';
 import type { CatalogRecords, ControlMethodRecord } from '../../hooks/queries/catalog-record-view';
-import { useApplicationMethodRecords } from '../../hooks/queries/use-application-method-records';
-import { useBiocontrolMethodRecords } from '../../hooks/queries/use-biocontrol-method-records';
-import { useSourceReductionMethodRecords } from '../../hooks/queries/use-source-reduction-method-records';
+import { catalogs } from '../../hooks/queries/catalog-register';
+import { useCatalogRecords } from '../../hooks/queries/use-catalog-records';
 import { ArrowRightIcon, controlMethodListConfigs } from './constants';
 import { EquipmentLookupList, VehicleLookupList } from './control-asset-lookup';
 import { LookupListFrame } from './layout/lookup-list-frame';
@@ -19,9 +18,9 @@ export function ControlOperationsSettings({
 	 */
 	readonly canManageAssets: boolean;
 }) {
-	const applicationMethods = useApplicationMethodRecords();
-	const sourceReductionMethods = useSourceReductionMethodRecords();
-	const biocontrolMethods = useBiocontrolMethodRecords();
+	const applicationMethods = useCatalogRecords(catalogs.applicationMethods);
+	const sourceReductionMethods = useCatalogRecords(catalogs.sourceReductionMethods);
+	const biocontrolMethods = useCatalogRecords(catalogs.biocontrolMethods);
 
 	return (
 		<div className="grid gap-3">

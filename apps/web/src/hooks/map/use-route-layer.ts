@@ -4,6 +4,7 @@ import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
 	FillLayerSpecification,
+	GeoJSONFeature,
 	LineLayerSpecification,
 	Map as MapboxMap,
 	MapMouseEvent,
@@ -11,6 +12,7 @@ import type {
 } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
 import { toMapboxGeometry } from '../../components/map/geojson-adapter';
+import { registerHoverLayers } from '../../components/map/hover-cursor';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
@@ -277,6 +279,15 @@ function shapeSignature(geometry: GeoJsonGeometry | null | undefined): string {
 }
 
 /**
+ * The stop a hit feature belongs to. The id rides in `properties`, because the
+ * shape feature carries a feature id of its own.
+ */
+function stopIdOf(feature: GeoJSONFeature | null | undefined): string | null {
+	const id = feature?.properties?.id;
+	return typeof id === 'string' ? id : null;
+}
+
+/**
  * Push selection and hover onto the pin and, where there is one, the shape.
  *
  * They are two features with two ids — the pin is keyed by the stop's id so the
@@ -361,52 +372,40 @@ export function useRouteLayer(
 		},
 	});
 
-	// Click and hover are this hook's own: a stop's shape is as clickable as its
-	// pin, a miss must not clear the selection, and the hover id is reported back
-	// so the list and the map can highlight together.
+	// Click is this hook's own: a stop's shape is as clickable as its pin, and a
+	// miss must not clear the selection. Hover is the shared registry's, which
+	// probes the same layers in its one hit-test per move, draws the cursor, and
+	// hands back the topmost stop feature so the list and the map can highlight
+	// together; another layer on this map cannot wipe the pointer in that event.
 	useEffect(() => {
 		if (!isMapLive(map) || !isLoaded || !enabled) {
 			return;
 		}
 		const activeMap = map;
 
-		function stopAt(event: MapMouseEvent): string | null {
-			// The stop id rides in `properties`, because the shape feature carries a
-			// feature id of its own.
-			const layers = INTERACTIVE_LAYER_IDS.filter(
-				(layerId) => activeMap.getLayer(layerId) !== undefined,
-			);
-			if (layers.length === 0) {
-				return null;
-			}
-			const id = activeMap.queryRenderedFeatures(event.point, { layers })[0]?.properties?.id;
-			return typeof id === 'string' ? id : null;
+		function presentInteractiveLayers(): string[] {
+			return INTERACTIVE_LAYER_IDS.filter((layerId) => activeMap.getLayer(layerId) !== undefined);
 		}
 
 		function handleClick(event: MapMouseEvent) {
-			const id = stopAt(event);
+			const layers = presentInteractiveLayers();
+			if (layers.length === 0) {
+				return;
+			}
+			const id = stopIdOf(activeMap.queryRenderedFeatures(event.point, { layers })[0]);
 			if (id !== null) {
 				onSelectRef.current?.(id);
 			}
 		}
 
-		function handleMove(event: MapMouseEvent) {
-			const id = stopAt(event);
-			activeMap.getCanvas().style.cursor = id === null ? '' : 'pointer';
-			onHoverRef.current?.(id);
-		}
-
 		activeMap.on('click', handleClick);
-		activeMap.on('mousemove', handleMove);
+		const releaseHover = registerHoverLayers(activeMap, presentInteractiveLayers, (feature) => {
+			onHoverRef.current?.(stopIdOf(feature));
+		});
 
 		return () => {
 			activeMap.off('click', handleClick);
-			activeMap.off('mousemove', handleMove);
-			try {
-				activeMap.getCanvas().style.cursor = '';
-			} catch {
-				// Map already removed; nothing left to reset.
-			}
+			releaseHover();
 		};
 	}, [map, isLoaded, enabled]);
 

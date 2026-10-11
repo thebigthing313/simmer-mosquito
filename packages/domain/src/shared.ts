@@ -17,6 +17,17 @@ export class DomainValidationError extends Error {
 	}
 }
 
+/**
+ * Whether `value` has the shape of an email address: no whitespace, one `@`,
+ * and a dot somewhere after it.
+ *
+ * The domain's builders and the web form both read this, so the shape is
+ * written once. It trims nothing, so a caller trims first.
+ */
+export function isEmailAddress(value: string): boolean {
+	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 export type GeometryPrecisionPolicy = 'preserve' | 'snap_5_decimal';
 
 /**

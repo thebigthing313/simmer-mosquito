@@ -1,240 +1,97 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useState } from 'react';
-import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { formatAmount } from '../../../components/control-operations/control-display';
+import {
+	SourceReductionFilterFields,
+	sourceReductionFilterDeclarations,
+} from '../../../components/control-operations/source-reduction/source-reduction-filters';
+import {
+	linkedHabitatIds,
+	type SourceReductionListRow,
+	sourceReductionMethodName,
+	sourceReductionTechnicianName,
+} from '../../../components/control-operations/source-reduction/source-reduction-row-parts';
+import { sourceReductionSummaryFigures } from '../../../components/control-operations/source-reduction/source-reduction-summary';
+import {
+	sourceReductionFilterCodecs,
+	sourceReductionRecordSet,
+} from '../../../components/control-operations/source-reduction/source-reductions-search';
 import { SourceReductionMapCard } from '../../../components/control-operations/source-reduction-map-card';
-import { DateRangeFilter } from '../../../components/date-range-filter';
-import {
-	ActiveFilterBar,
-	ExplorerMapPage,
-	ExplorerRow,
-	FilterChip,
-	FilterGrid,
-	MultiSelectFilter,
-	toggle,
-	whenAny,
-	whenText,
-} from '../../../components/explorer';
-import { ExplorerPagination } from '../../../components/explorer-pagination';
-import {
-	MAP_CREATE_TARGETS,
-	MapCanvas,
-	type MapTileLayer,
-	type SourceReductionTileFilters,
-} from '../../../components/map';
-import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
+import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
+import { DeclaredSummary } from '../../../components/explorer/declared-summary';
+import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
+import { MAP_CREATE_TARGETS } from '../../../components/map';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
-import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
-import { useSourceReductionMethodOptions } from '../../../hooks/explorer/use-source-reduction-method-options';
+import {
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { useSearchFilters } from '../../../hooks/use-search-filters';
-import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
-import { type RecordType, recordNoun } from '../../../lib/record-nouns';
-import {
-	DATE_RANGE_COUNTING,
-	dateParam,
-	type FilterCodecs,
-	idSetParam,
-	searchValidator,
-} from '../../../lib/search-filters';
-
-interface SourceReductionRow {
-	readonly id: string;
-	readonly lat: number;
-	readonly lng: number;
-	readonly sourceReductionMethodId: string;
-	readonly sourceReductionDate: string;
-	readonly sourcesEliminatedAmount: number;
-	readonly sourcesEliminatedUnitId: string;
-	readonly technicianProfileId: string | null;
-	readonly habitatId: string | null;
-	readonly inspectionId: string | null;
-}
-
-interface SourceReductionFilters {
-	readonly from: string;
-	readonly to: string;
-	readonly people: ReadonlySet<string>;
-	readonly methods: ReadonlySet<string>;
-	readonly regions: ReadonlySet<string>;
-}
-
-const FILTER_CODECS: FilterCodecs<SourceReductionFilters> = {
-	from: dateParam,
-	to: dateParam,
-	people: idSetParam,
-	methods: idSetParam,
-	regions: idSetParam,
-};
+import { formatListDate } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
+import { searchValidator } from '../../../lib/search-filters';
 
 const SourceReductionEntityIcon = iconRegistry.entities.sourceReduction.icon;
 
 export const Route = createFileRoute('/control-operations/source-reduction/')({
 	component: SourceReductionExplorerRoute,
-	validateSearch: searchValidator(FILTER_CODECS),
+	validateSearch: searchValidator(sourceReductionFilterCodecs),
 });
 
-const DEFAULT_WINDOW_DAYS = 90;
-const RECORD_TYPE: RecordType = 'sourceReduction';
-const PATH = '/map/source-reduction';
-
 function SourceReductionExplorerRoute() {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
-	const defaultFrom = addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1));
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
-	const filterDefaults: SourceReductionFilters = {
-		from: defaultFrom,
-		to: today,
-		people: new Set(),
-		methods: new Set(),
-		regions: new Set(),
-	};
-	const {
-		filters: query,
-		setFilters,
-		reset,
-		activeCount: activeFilterCount,
-	} = useSearchFilters(filterDefaults, FILTER_CODECS, DATE_RANGE_COUNTING);
-	const dateFrom = query.from;
-	const dateTo = query.to;
-	const personIds = query.people;
-	const methodIds = query.methods;
-	const regionIds = query.regions;
-	const setPersonIds = (next: ReadonlySet<string>) => setFilters({ people: next });
-	const setMethodIds = (next: ReadonlySet<string>) => setFilters({ methods: next });
-	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const binding = useRecordSetFilters(sourceReductionRecordSet, 'map');
+	const { reset: clearAll, activeCount: activeFilterCount } = binding;
 	const panel = useExplorerPanel();
-	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
-	const { options: methodOptions, nameById: methodNameById } = useSourceReductionMethodOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.sourceReductionMethods);
+	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 	const unitById = useUnitLabels().byId;
 
-	// The server tiles + list read the same filter shape, so the map and the paged
-	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
-	const personnel = usePersonnelOptions();
-	const regions = useRegionOptions();
-	const filters: SourceReductionTileFilters = {
-		...whenAny('sourceReductionMethodIds', methodIds),
-		...whenAny('technicianProfileIds', personIds),
-		...whenAny('regionIds', regionIds),
-		...whenText('dateFrom', dateFrom),
-		...whenText('dateTo', dateTo),
-	};
-	const layer: MapTileLayer = {
-		kind: 'source-reduction',
-		serverUrl: getServerUrl(),
-		filters,
+	const routeSearch = Route.useSearch();
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		empty,
+		summary,
+		canvas,
 		selectedId,
-		onSelectFeature: setSelectedId,
-	};
-	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<SourceReductionRow>({
-			path: PATH,
-			rowsKey: 'sourceReductions',
-			rowKey: 'sourceReduction',
-			recordType: 'sourceReduction',
-			params: {
-				sourceReductionMethodId: filters.sourceReductionMethodIds,
-				technician: filters.technicianProfileIds,
-				regionId: filters.regionIds,
-				dateFrom: filters.dateFrom,
-				dateTo: filters.dateTo,
-			},
-			layer,
-			map,
-			selectedId,
-		});
+		setSelectedId,
+	}: ExplorerResource<SourceReductionListRow> = useExplorerResource({
+		set: sourceReductionRecordSet,
+		binding,
+		summarize: true,
+	});
 
 	// `habitats` syncs on demand, so resolve only the referenced ids as a bounded
 	// live subset rather than reading the whole collection eagerly.
-	const habitatIds = rows.flatMap((row) => (row.habitatId === null ? [] : [row.habitatId]));
-	const habitatNameById = useHabitatNames(habitatIds);
-
-	const handleMapReady = (instance: MapboxMap) => setMap(instance);
-
-	const clearAll = reset;
+	const habitatNameById = useHabitatNames(linkedHabitatIds(rows));
 
 	return (
 		<ExplorerMapPage
-			activeFilterCount={activeFilterCount}
-			filters={
-				<>
-					<DateRangeFilter {...dateRange} />
-
-					<FilterGrid>
-						<MultiSelectFilter
-							empty="No source reduction methods"
-							label="Method"
-							onChange={setMethodIds}
-							options={methodOptions}
-							selected={methodIds}
-						/>
-						<MultiSelectFilter
-							empty="No people"
-							label="Technician"
-							onChange={setPersonIds}
-							options={personnel.options}
-							selected={personIds}
-						/>
-						<MultiSelectFilter
-							empty="No regions"
-							label="Region"
-							onChange={setRegionIds}
-							options={regions.options}
-							selected={regionIds}
-						/>
-					</FilterGrid>
-
-					{activeFilterCount > 0 ? (
-						<ActiveFilterBar onClearAll={clearAll}>
-							{[...methodIds].map((id) => (
-								<FilterChip
-									key={id}
-									label={methodNameById.get(id) ?? 'Unknown method'}
-									onRemove={() => setMethodIds(toggle(methodIds, id))}
-								/>
-							))}
-							{[...personIds].map((id) => (
-								<FilterChip
-									key={`person-${id}`}
-									label={personnel.nameById.get(id) ?? 'Unknown person'}
-									onRemove={() => setPersonIds(toggle(personIds, id))}
-								/>
-							))}
-							{[...regionIds].map((id) => (
-								<FilterChip
-									key={`region-${id}`}
-									label={regions.nameById.get(id) ?? 'Unknown region'}
-									onRemove={() => setRegionIds(toggle(regionIds, id))}
-								/>
-							))}
-						</ActiveFilterBar>
-					) : null}
-				</>
-			}
-			footer={
-				<ExplorerPagination
-					noun={recordNoun(RECORD_TYPE)}
-					onPageChange={setPage}
-					page={page}
-					pageCount={pageCount}
-					total={total}
+			actions={
+				<RecordSetSwitch
+					compact
+					current="map"
+					search={routeSearch}
+					set={sourceReductionRecordSet}
 				/>
 			}
+			activeFilterCount={activeFilterCount}
+			filters={<SourceReductionFilterFields binding={binding} />}
 			heading={{
-				title: recordNoun(RECORD_TYPE).titleMany,
+				title: recordNoun('sourceReduction').titleMany,
 				icon: SourceReductionEntityIcon,
 				total,
 				isLoading,
@@ -245,25 +102,12 @@ function SourceReductionExplorerRoute() {
 			}}
 			onResetFilters={clearAll}
 			map={
-				<>
-					<MapCanvas
-						inset={panel.inset}
-						searchWidth={panel.width}
-						contextMenu={{ create: [MAP_CREATE_TARGETS.sourceReduction] }}
-						controls={{ measure: true, readout: true }}
-						fitToData
-						rememberCamera
-						layers={layers}
-						onMapReady={handleMapReady}
-					/>
-					{selected === null ? null : (
-						<SourceReductionMapCard
-							id={selected.id}
-							inset={panel.inset}
-							onClose={() => setSelectedId(null)}
-						/>
-					)}
-				</>
+				<ExplorerCanvas
+					canvas={canvas}
+					card={(props) => <SourceReductionMapCard {...props} />}
+					contextMenu={{ create: [MAP_CREATE_TARGETS.sourceReduction] }}
+					panel={panel}
+				/>
 			}
 			panel={panel}
 			results={{
@@ -271,6 +115,24 @@ function SourceReductionExplorerRoute() {
 				isError,
 				onRetry: retry,
 				empty,
+				// Over 100 in view the rows would not fit on one page, so the panel
+				// says what is in view instead (#1375).
+				summary: summary.isShown ? (
+					<DeclaredSummary
+						binding={binding}
+						chips={
+							<DeclaredFilterChips
+								binding={binding}
+								declarations={sourceReductionFilterDeclarations}
+							/>
+						}
+						declarations={sourceReductionFilterDeclarations}
+						figures={(data) => sourceReductionSummaryFigures(data, unitById)}
+						order={['methods', 'people']}
+						recordType="sourceReduction"
+						state={summary}
+					/>
+				) : undefined,
 				renderRow: (row) => (
 					<SourceReductionListItem
 						amountLabel={formatAmount(
@@ -282,14 +144,10 @@ function SourceReductionExplorerRoute() {
 						}
 						isSelected={row.id === selectedId}
 						key={row.id}
-						methodName={methodNameById.get(row.sourceReductionMethodId) ?? 'Unknown method'}
+						methodName={sourceReductionMethodName(row, methodNameById)}
 						onSelect={setSelectedId}
 						row={row}
-						technicianName={
-							row.technicianProfileId === null
-								? null
-								: (personnel.nameById.get(row.technicianProfileId) ?? null)
-						}
+						technicianName={sourceReductionTechnicianName(row, personNameById)}
 					/>
 				),
 			}}
@@ -306,7 +164,7 @@ function SourceReductionListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly row: SourceReductionRow;
+	readonly row: SourceReductionListRow;
 	readonly methodName: string;
 	readonly amountLabel: string;
 	readonly habitatName: string | null;

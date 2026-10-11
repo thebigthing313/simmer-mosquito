@@ -37,6 +37,8 @@ import {
 	createSurfaceNames,
 	preloadRouteComponent,
 	renderExplorer,
+	SUMMARY_CASE_TIMEOUT,
+	SUMMARY_WAIT,
 	stubPanelLayout,
 } from '../../explorer-route-harness';
 
@@ -110,6 +112,10 @@ const harness = vi.hoisted(() => ({
 	}[],
 	/** Who is signed in, for the role floor the create pointer sits behind. */
 	role: 'admin' as string,
+	/** A total to answer in place of the rows' count, to put more in view than fit on a page. */
+	total: null as number | null,
+	/** What the summary endpoint answers. */
+	summary: null as unknown,
 }));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
@@ -121,11 +127,12 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
 	const { sessionFetchStandIn } = await import('../../route-mock-stand-ins');
 	return {
 		...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
-		sessionFetch: sessionFetchStandIn(harness.sent, (url) =>
-			url.pathname.endsWith('/extent')
-				? { extent: harness.extent }
-				: pageInsideBox(url.searchParams),
-		),
+		sessionFetch: sessionFetchStandIn(harness.sent, (url) => {
+			if (url.pathname.endsWith('/extent')) {
+				return { extent: harness.extent };
+			}
+			return url.pathname.endsWith('/summary') ? harness.summary : pageInsideBox(url.searchParams);
+		}),
 	};
 });
 
@@ -157,7 +164,7 @@ function pageInsideBox(params: URLSearchParams) {
 			(status === null || (status === 'open') === (row.closedAt === null)) &&
 			(`#${row.displayName}`.includes(needle) || row.details.toLowerCase().includes(needle)),
 	);
-	return { serviceRequests, total: serviceRequests.length };
+	return { serviceRequests, total: harness.total ?? serviceRequests.length };
 }
 
 vi.mock('../../../../../hooks/use-can-write', async () => {
@@ -195,6 +202,8 @@ beforeEach(() => {
 	harness.extent = null;
 	harness.requests = [];
 	harness.role = 'admin';
+	harness.total = null;
+	harness.summary = null;
 });
 
 afterEach(() => {
@@ -235,7 +244,7 @@ describe('the service requests explorer paging the viewport', () => {
 		expect(screen.getByText('#13')).toBeTruthy();
 		expect(screen.queryByText('#99')).toBeNull();
 		expect(pageRequest()?.search).toBe(
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&dateFrom=2026-01-01&dateTo=2026-09-15',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&dateFrom=2026-01-01&dateTo=2026-09-15',
 		);
 		expect(requestCounts()).toEqual({ page: 1, extent: 1 });
 	});
@@ -248,8 +257,9 @@ describe('the service requests explorer paging the viewport', () => {
 
 		await screen.findByText('#12');
 		expect(screen.getByText('#13')).toBeTruthy();
-		// Expanded, the count is the pager's, under the register's noun.
-		expect(screen.getByText('2 service requests')).toBeTruthy();
+		// Expanded, the header counts it, since no pager sits under the rail.
+		expect(screen.getByText('2 in view')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
 
 		fireEvent.click(screen.getByRole('button', { name: 'Hide results' }));
 
@@ -272,7 +282,7 @@ describe('the service requests explorer paging the viewport', () => {
 		expect(await screen.findByText('#13')).toBeTruthy();
 		expect(screen.queryByText('#12')).toBeNull();
 		expect(pageRequest()?.search).toBe(
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&status=closed&search=%2313' +
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&status=closed&search=%2313' +
 				'&tagId=e1b2c3d4-0000-4000-8000-000000000007' +
 				'&regionId=b1b2c3d4-0000-4000-8000-000000000009',
 		);
@@ -296,6 +306,47 @@ describe('the service requests explorer paging the viewport', () => {
 		expect(pageRequest()?.searchParams.get('oldest')).toBe('true');
 		expect(extentRequest()?.searchParams.has('oldest')).toBe(false);
 	});
+
+	// Over 100 in view the rail draws the summary in place of the rows (#1371),
+	// asked for under the page's own box and filters. What a click writes is
+	// `service-request-summary.test.tsx`'s.
+	// The summary waits on three requests in turn, so this case outlasts the
+	// 5000ms default; `SUMMARY_WAIT` in the harness says why.
+	it(
+		'draws the summary instead of the rows over 100 in view, with no pager',
+		async () => {
+			harness.search = { ...ALL_TIME, status: 'closed' };
+			harness.requests = [INSIDE_OPEN, INSIDE_CLOSED, OUTSIDE];
+			harness.total = 150;
+			harness.summary = {
+				total: 150,
+				groups: {
+					status: [{ value: 'closed', count: 150 }],
+					tagId: [],
+					intakeType: [{ value: 'phone', count: 150 }],
+				},
+				figures: {},
+			};
+			harness.extent = { west: 0, south: -1, east: 1, north: 0 };
+			renderServiceRequests();
+
+			// The status the URL holds is drawn as the selected group.
+			const closed = await screen.findByRole(
+				'button',
+				{ name: 'Closed, 150 service requests' },
+				SUMMARY_WAIT,
+			);
+			expect(closed.getAttribute('aria-pressed')).toBe('true');
+			expect(screen.queryByText('#13')).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
+			const summaryRequest = harness.sent.find(
+				(url) => url.pathname === '/map/service-requests/summary',
+			);
+			expect(summaryRequest?.searchParams.get('bbox')).toBe('0,-0.8,1,0');
+			expect(summaryRequest?.searchParams.get('status')).toBe('closed');
+		},
+		SUMMARY_CASE_TIMEOUT,
+	);
 });
 
 describe('the service requests explorer with nothing on the page', () => {
@@ -313,7 +364,7 @@ describe('the service requests explorer with nothing on the page', () => {
 		renderServiceRequests();
 
 		expect(await screen.findByText('No service requests yet')).toBeTruthy();
-		expect(screen.getByText('Create Service Request is in the More Actions menu.')).toBeTruthy();
+		expect(screen.getByText('Create Service Request is in the More actions menu.')).toBeTruthy();
 	});
 
 	// The sidebar entry, the header's menu item and the pointer read one string
@@ -329,7 +380,7 @@ describe('the service requests explorer with nothing on the page', () => {
 		expect(names).toEqual({
 			sidebar: 'Create Service Request',
 			header: 'Create Service Request',
-			pointer: 'Create Service Request is in the More Actions menu.',
+			pointer: 'Create Service Request is in the More actions menu.',
 		});
 	});
 
@@ -339,7 +390,7 @@ describe('the service requests explorer with nothing on the page', () => {
 		renderServiceRequests();
 
 		expect(await screen.findByText('No service requests yet')).toBeTruthy();
-		expect(screen.queryByText('Create Service Request is in the More Actions menu.')).toBeNull();
+		expect(screen.queryByText('Create Service Request is in the More actions menu.')).toBeNull();
 	});
 
 	// The route opens on this year, and the extent it sends says so. A null

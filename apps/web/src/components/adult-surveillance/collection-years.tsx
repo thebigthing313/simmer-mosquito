@@ -22,7 +22,6 @@ export function CollectionYears({
 	isReady,
 	isError,
 	speciesNameById,
-	timeZone,
 	header,
 	onLoadEarlier,
 }: {
@@ -30,8 +29,6 @@ export function CollectionYears({
 	readonly isReady: boolean;
 	readonly isError: boolean;
 	readonly speciesNameById: ReadonlyMap<string, string>;
-	/** Resolved once for the pane and handed down, not read per row. */
-	readonly timeZone: string;
 	/** The trap this history belongs to, pinned above its own scroll. */
 	readonly header: ReactNode;
 	/** Lifts the default season window. Absent once every season is loaded. */
@@ -111,7 +108,6 @@ export function CollectionYears({
 								collection={collection}
 								key={collection.id}
 								speciesNameById={speciesNameById}
-								timeZone={timeZone}
 							/>
 						))}
 					</ul>

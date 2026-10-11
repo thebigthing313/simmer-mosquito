@@ -336,6 +336,55 @@ describe('the series', () => {
 	});
 });
 
+describe('the chart average', () => {
+	// Whole months even on a cut read, because the bars beside it are whole;
+	// 2020 is six years back and outside the five.
+	it('averages each calendar month over the qualifying years, uncut', () => {
+		const response = read('month', '2026-09', '2026-09-10', {
+			inspections: [
+				day('2020-09-01', 100),
+				day('2021-09-05', 4),
+				day('2021-09-20', 2),
+				day('2023-01-15', 1),
+				day('2025-09-25', 3),
+				day('2026-09-01', 9),
+			],
+		});
+
+		const average = row(response, 'inspections').seriesAverage;
+		expect(average).toHaveLength(12);
+		expect(average[0]).toBeCloseTo(1 / 3);
+		expect(average[8]).toBe(3);
+		expect(average[5]).toBe(0);
+	});
+
+	it('averages whole years on the year grain while the column stays cut', () => {
+		const response = read('year', '2026', '2026-03-01', {
+			inspections: [day('2024-02-01', 2), day('2024-11-01', 4), day('2025-06-01', 3)],
+		});
+
+		expect(row(response, 'inspections')).toMatchObject({
+			values: [0, 0, 1],
+			seriesAverage: [4.5],
+		});
+	});
+
+	it('is null where no year qualifies and empty on the day grain', () => {
+		expect(row(read('year', '2026', '2026-03-01'), 'inspections').seriesAverage).toEqual([null]);
+		expect(row(read('day', '2026-09-21', '2026-09-21'), 'inspections').seriesAverage).toEqual([]);
+	});
+
+	it('pools a ratio by month over the qualifying years', () => {
+		const response = read('month', '2026-09', '2026-09-10', {
+			inspections: [day('2024-07-01', 2, [1, 2]), day('2025-07-03', 4, [3, 4])],
+		});
+
+		const positive = response.ratios.find((entry) => entry.ratio === 'positiveInspections');
+		expect(positive?.seriesAverage[6]).toEqual({ numerator: 4, denominator: 6 });
+		expect(positive?.seriesAverage[7]).toEqual({ numerator: 0, denominator: 0 });
+	});
+});
+
 describe('the hidden-type rule', () => {
 	it('answers every type with whether it was ever recorded', () => {
 		const response = read('day', '2026-09-21', '2026-09-21', {}, { outreachActions: '2026-05-01' });

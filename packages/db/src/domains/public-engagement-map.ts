@@ -8,10 +8,12 @@ import { searchClauses } from './map-search-filter.js';
 import {
 	type MapByIdInput,
 	type MapDisplayColumns,
+	type MapReadContext,
 	type MapRecordSurfaceReaders,
 	mapRecordSurface,
 } from './map-surface.js';
-import { tagMembershipClauses } from './map-tag-filter.js';
+import { tagIdsSql, tagMembershipClauses } from './map-tag-filter.js';
+import { assertIanaTimeZone, localDateSql } from './record-display-sql.js';
 
 /**
  * A notification registration's drawn shape, read back by id.
@@ -85,6 +87,14 @@ export interface ServiceRequestMapFilters {
 	/** Inclusive upper bound on `request_date` (`YYYY-MM-DD`). */
 	readonly dateTo?: string;
 	/**
+	 * Overdue requests only: open, and received before this day (`YYYY-MM-DD`).
+	 * The client computes the day from the Organization's threshold and its
+	 * today with `serviceRequestOverdueCutoff`, so the rule is written once, and
+	 * sends nothing when the threshold is off. It narrows inside the date window
+	 * rather than replacing it.
+	 */
+	readonly overdueBefore?: string;
+	/**
 	 * Page the oldest request first rather than the newest. An order, not a
 	 * filter: it narrows nothing, and only the paged read looks at it.
 	 */
@@ -96,7 +106,7 @@ export interface ServiceRequestMapFilters {
  *
  * The contact and the address are ids rather than joined columns, because the
  * rail resolves both for the page it draws out of their on-demand collections
- * (`useRequestParties`), and a page of fifty ids is a subset those load
+ * (`useRequestParties`), and a page of a hundred ids is a subset those load
  * reliably. `closedAt` is the status: a request is open until it is stamped.
  */
 export interface SafeServiceRequestDisplayRow {
@@ -170,6 +180,15 @@ export function serviceRequestSurface(
 		geom: sql`sr.geom`,
 		properties: [sql`sr.id`, sql`(sr.closed_at is null) as "isOpen"`],
 		filterWhere: serviceRequestFilterWhere,
+		// What the Service Requests rail counts by over 100 in view (#1371). The
+		// first two are named for the params of the filters they narrow to;
+		// `intakeType` has no filter and is drawn as text.
+		groupings: () => ({
+			status: sql`case when sr.closed_at is null then 'open' else 'closed' end`,
+			tagId: { each: tagIdsSql({ id: sql`sr.id`, entityType: 'service_request' }) },
+			intakeType: sql`sr.intake_type::text`,
+		}),
+		figures: (context) => ({ oldestOpenDays: { max: openRequestAgeDaysSql(context) } }),
 		display: {
 			columns: serviceRequestDisplayColumns,
 			// Newest first, which is the order the explorer always read in, and the
@@ -184,16 +203,36 @@ export function serviceRequestSurface(
 	});
 }
 
+/**
+ * How many days an open request has waited, counted from its request date to
+ * the organization's today, the way the rail's age slot counts it. Null on a
+ * closed request, so the oldest open one is the largest value in the box.
+ */
+function openRequestAgeDaysSql(context: MapReadContext): RawBuilder<number | null> {
+	const today = sql.raw(localDateSql('now()', assertIanaTimeZone(context.timeZone)));
+	return sql<number | null>`case when sr.closed_at is null then ${today} - sr.request_date end`;
+}
+
+/** Open or closed, and overdue: the filters that read `closed_at`. */
+function statusClauses(filters: ServiceRequestMapFilters | undefined): RawBuilder<boolean>[] {
+	const clauses: RawBuilder<boolean>[] = [];
+	if (filters?.isOpen !== undefined) {
+		clauses.push(
+			filters.isOpen ? sql<boolean>`sr.closed_at is null` : sql<boolean>`sr.closed_at is not null`,
+		);
+	}
+	if (filters?.overdueBefore !== undefined) {
+		clauses.push(
+			sql<boolean>`(sr.closed_at is null and sr.request_date < ${filters.overdueBefore})`,
+		);
+	}
+	return clauses;
+}
+
 function serviceRequestFilterWhere(
 	filters: ServiceRequestMapFilters | undefined,
 ): RawBuilder<boolean>[] {
-	const whereClauses: RawBuilder<boolean>[] = [];
-
-	if (filters?.isOpen === true) {
-		whereClauses.push(sql<boolean>`sr.closed_at is null`);
-	} else if (filters?.isOpen === false) {
-		whereClauses.push(sql<boolean>`sr.closed_at is not null`);
-	}
+	const whereClauses: RawBuilder<boolean>[] = [...statusClauses(filters)];
 
 	whereClauses.push(...dateWindowClauses(sql`sr.request_date`, filters ?? {}));
 

@@ -6,6 +6,7 @@ import type {
 	CollectionYear,
 	DirectoryCollection,
 } from '../../../../components/adult-surveillance/trap-directory-data';
+import { collectionEffectiveDate } from '../../../../hooks/queries/collection-day';
 
 // Each collection row links to its record, and `Link` is the one import that
 // demands a live router.
@@ -24,7 +25,7 @@ const ORGANIZATION_TIME_ZONE = 'America/New_York';
 
 /** One collection on 14 July of `year`, so each season's rows read differently. */
 function collection(year: number, index: number): DirectoryCollection {
-	return {
+	const row = {
 		id: `collection-${year}-${index}`,
 		collectedAt: `${year}-07-${String(10 + index).padStart(2, '0')} 16:00:00+00`,
 		collectionDate: null,
@@ -34,6 +35,7 @@ function collection(year: number, index: number): DirectoryCollection {
 		hasBycatch: false,
 		species: [],
 	};
+	return { ...row, effectiveDate: collectionEffectiveDate(row, ORGANIZATION_TIME_ZONE) };
 }
 
 /** Twenty seasons, 2026 back to 2007, each one to five collections long. */
@@ -58,7 +60,6 @@ function renderYears(
 			isReady={true}
 			onLoadEarlier={onLoadEarlier}
 			speciesNameById={new Map()}
-			timeZone={ORGANIZATION_TIME_ZONE}
 			years={years}
 		/>,
 	);

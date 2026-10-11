@@ -25,12 +25,12 @@ import {
 import { useState } from 'react';
 import type { CatalogMutations } from '../../hooks/mutations/catalog-fields';
 import { useNotificationTypeMutations } from '../../hooks/mutations/use-notification-type-mutations';
-import { useOrganizationSettingsMutations } from '../../hooks/mutations/use-organization-settings-mutations';
 import { useOutreachMethodMutations } from '../../hooks/mutations/use-outreach-method-mutations';
 import type { DescribedCatalogRecord } from '../../hooks/queries/catalog-record-view';
-import { useNotificationTypeRecords } from '../../hooks/queries/use-notification-type-records';
-import { useOutreachMethodRecords } from '../../hooks/queries/use-outreach-method-records';
+import { catalogs } from '../../hooks/queries/catalog-register';
+import { useCatalogRecords } from '../../hooks/queries/use-catalog-records';
 import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
+import { countPhrase } from '../../lib/format-count';
 import {
 	type CatalogFormValues,
 	catalogFields,
@@ -39,8 +39,6 @@ import {
 } from '../catalog';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import { ControlMethodLookupList } from './control-method-lookup';
-import { serviceRequestContextFrom } from './helpers';
-import { EditSettingsSheet } from './layout/edit-settings-sheet';
 import { LookupListFrame } from './layout/lookup-list-frame';
 
 export function PublicEngagementSettings({
@@ -53,12 +51,13 @@ export function PublicEngagementSettings({
 	readonly canEditMethods: boolean;
 	readonly settings: OrganizationSettings;
 }) {
-	const outreachMethods = useOutreachMethodRecords();
+	const outreachMethods = useCatalogRecords(catalogs.outreachMethods);
 	const outreachMethodMutations = useOutreachMethodMutations();
 
 	return (
 		<div className="grid gap-3">
 			<ServiceRequestContextGuide settings={settings} />
+			<ServiceRequestOverdueGuide settings={settings} />
 			<div className="grid gap-2">
 				<h3 className={eyebrow({ tone: 'primary', className: 'mt-0.5' })}>Setup Lists</h3>
 				<div className="grid gap-3">
@@ -83,8 +82,7 @@ function ServiceRequestContextGuide({ settings }: { readonly settings: Organizat
 			<div className="grid gap-1">
 				<span className="font-medium text-sm text-foreground">Service request context</span>
 				<p className="m-0 text-sm leading-snug text-muted-foreground">
-					These defaults decide which nearby records are shown alongside a resident service request
-					so staff can see recent local activity.
+					This setting decides which nearby records a service request shows.
 				</p>
 			</div>
 			<div className="grid gap-2 md:grid-cols-3">
@@ -108,6 +106,19 @@ function ServiceRequestContextGuide({ settings }: { readonly settings: Organizat
 	);
 }
 
+function ServiceRequestOverdueGuide({ settings }: { readonly settings: OrganizationSettings }) {
+	const days = settings.publicEngagement.serviceRequestOverdueDays;
+	return (
+		<section className="grid gap-2 rounded-md border border-border/30 bg-muted/30 p-2.5">
+			<PublicSettingTile
+				detail="An open service request older than this is marked overdue on the map, the table and the dashboard."
+				label="Overdue after"
+				value={days === 'off' ? 'Off' : countPhrase(days, { one: 'day', many: 'days' })}
+			/>
+		</section>
+	);
+}
+
 function PublicSettingTile({
 	detail,
 	label,
@@ -126,64 +137,10 @@ function PublicSettingTile({
 	);
 }
 
-export function PublicSettingsDrawer({
-	canManage,
-	settings,
-}: {
-	readonly canManage: boolean;
-	readonly settings: OrganizationSettings;
-}) {
-	const { setServiceRequestContext } = useOrganizationSettingsMutations();
-
-	return (
-		<EditSettingsSheet
-			fields={[
-				{
-					kind: 'text',
-					label: 'Search radius',
-					value: String(settings.publicEngagement.serviceRequestContext.radius.amount),
-					editable: canManage,
-					inputType: 'number',
-				},
-				{
-					kind: 'text',
-					label: 'Radius unit',
-					value: settings.publicEngagement.serviceRequestContext.radius.unitCode,
-					editable: canManage,
-				},
-				{
-					kind: 'text',
-					label: 'Days before',
-					value: String(settings.publicEngagement.serviceRequestContext.timeWindow.daysBefore),
-					editable: canManage,
-					inputType: 'number',
-				},
-				{
-					kind: 'text',
-					label: 'Days after',
-					value: String(settings.publicEngagement.serviceRequestContext.timeWindow.daysAfter),
-					editable: canManage,
-					inputType: 'number',
-				},
-			]}
-			onSave={(formData) =>
-				setServiceRequestContext(
-					serviceRequestContextFrom({
-						radiusAmount: Number(formData.get('Search radius')),
-						radiusUnitCode: String(formData.get('Radius unit') ?? ''),
-						daysBefore: Number(formData.get('Days before')),
-						daysAfter: Number(formData.get('Days after')),
-					}),
-				)
-			}
-			title="Edit Public Engagement"
-		/>
-	);
-}
-
 function NotificationTypeLookupList({ canManage }: { readonly canManage: boolean }) {
-	const { activeRecords: activeTypes, inactiveRecords: inactiveTypes } =
-		useNotificationTypeRecords();
+	const { activeRecords: activeTypes, inactiveRecords: inactiveTypes } = useCatalogRecords(
+		catalogs.notificationTypes,
+	);
 	const mutations = useNotificationTypeMutations();
 
 	return (
@@ -380,7 +337,7 @@ function NotificationTypeDrawer({
 										<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
 										<DrawerClose asChild>
 											<Button type="button" variant="outline">
-												<CloseIcon data-icon="inline-start" aria-hidden="true" />
+												<CloseIcon aria-hidden="true" />
 												Cancel
 											</Button>
 										</DrawerClose>

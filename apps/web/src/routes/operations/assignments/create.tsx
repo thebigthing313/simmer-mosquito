@@ -25,13 +25,11 @@ import type { RouteSummary } from '../../../components/route-planning/route-summ
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
 import { useAssigneeOptions } from '../../../hooks/operations/use-assignee-options';
-import { useAssignment } from '../../../hooks/operations/use-assignment';
-import { useAssignmentItems } from '../../../hooks/operations/use-assignment-items';
 import { useRouteSnapshotItems } from '../../../hooks/operations/use-route-snapshot-items';
 import { useRouteStopCounts } from '../../../hooks/queries/use-route-stop-counts';
 import { useRouteCatalog } from '../../../hooks/queries/use-routes';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { todayInTimeZone } from '../../../lib/local-date';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
+import { stopCountPhrase } from '../../../lib/format-count';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
@@ -50,14 +48,9 @@ function AssignmentCreateRoute() {
 	const navigate = useNavigate();
 	const { create, createFromRoute, canWrite } = useAssignmentMutations();
 
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
-	// Minted up front so the streams below can be warmed against it before the
-	// write lands (a write to a cold on-demand collection waits out its txid
-	// confirmation, which reads as a frozen save).
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const [assignmentId] = useState(() => newRecordId());
-	useAssignment(assignmentId);
-	useAssignmentItems(assignmentId);
 
 	const [mode, setMode] = useState<Mode>('blank');
 	const [values, setValues] = useState<AssignmentDetailValues>(() =>
@@ -130,7 +123,7 @@ function AssignmentCreateRoute() {
 				assignmentDate: values.assignmentDate,
 				assignmentName: assignmentNameOrNull(values),
 				assignedToProfileId: assigneeOrNull(values),
-				dueAt: toDueAt(values, timeZone),
+				dueAt: toDueAt(values, clock.zone),
 			};
 			if (copiedRouteId !== null) {
 				await createFromRoute({
@@ -214,7 +207,7 @@ function AssignmentCreateRoute() {
 						{routeId === null ? null : (
 							<p className="m-0 text-muted-foreground text-xs">
 								{routeItemsReady
-									? `${routeStopCount === 1 ? '1 stop' : `${routeStopCount} stops`} will be copied in order.`
+									? `${stopCountPhrase(routeStopCount)} will be copied in order.`
 									: 'Loading this route’s stops…'}
 							</p>
 						)}

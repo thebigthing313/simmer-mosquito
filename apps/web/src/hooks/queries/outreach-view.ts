@@ -17,8 +17,11 @@ export interface OutreachAction {
 	/** `YYYY-MM-DD`. A `date` column, so a string — never a `Date`. */
 	readonly outreachDate: string;
 	readonly methodId: string;
-	/** Never null — outreach must name a method. `Unknown method` while streaming. */
-	readonly methodName: string;
+	/**
+	 * Outreach must name a method, so `null` means only that the method is not in
+	 * the client. The surface draws its own stand-in.
+	 */
+	readonly methodName: string | null;
 	readonly technicianProfileId: string | null;
 	readonly technicianName: string | null;
 	/** How many people it reached. Format with `formatReach`. */

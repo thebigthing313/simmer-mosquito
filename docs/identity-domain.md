@@ -130,6 +130,19 @@ mails the replacement and leaves nothing behind.
 `identity.updateOrganizationDetails`. `organizations.settings` is seven
 `organizationSettings.*` commands on their own routes.
 
+The map centre rides on the same command. `map_center_lat` and
+`map_center_lng` are where a map with no rows of its own opens, and the client
+fills them by geocoding the mailing address when a save moves it, sending the
+top result in the same write. Each sits inside -90..90 or -180..180, and the
+builder refuses anything else by field name. The row holds both or neither:
+the writer refuses a body that would leave half, and a CHECK holds it again. A body may still carry one number alone, because the
+client sends only the columns that changed and a new geocode can land on the
+stored latitude; clearing is the one thing sent as a pair, both `null`. A
+geocoder that is not configured or finds nothing costs the centre and nothing
+else, so the address saves and the stored centre stays. They are not `lat` and `lng` on purpose: the client strips
+those two names from every command body, because a trigger owns them on the
+geometry tables (#1413).
+
 The split is no longer a split in contract, only in mechanism: a JSON document
 has no column diff to read an intent off, so the settings commands cannot go on
 the per-table surface. See "The nine commands that are not on it" in the
@@ -142,6 +155,15 @@ is upper-cased and must be one of the 51 state and district codes.
 `mailingCountry` is upper-cased and must be `US`. Either one can be `null`,
 because an organization that has not filled its address in is not an error, but
 neither can name somewhere else.
+
+The operator console's `POST /admin/organizations` holds a new Organization to
+the same rules. Both read them from `normalizeOrganizationContactDetails` in
+`packages/domain`, which also carries the per-field length limits and the Main
+contact's email check, and the create route refuses before it calls WorkOS
+(#1524). The billing contact is a create field the details command does not
+carry, so its rules sit beside those in `normalizeOrganizationBillingContact`:
+the name at 200 characters, and the email at 320 and refused with the message
+the Main contact's email gets (#1550).
 
 The reason is that SIMMER does not expect an organization outside the US. A
 mosquito control district is a US institution, and the assumption is already

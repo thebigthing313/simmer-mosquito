@@ -1,10 +1,9 @@
-import type { PlanarPath, PlanarPosition } from '@simmer-mosquito/mapping';
+import { closeRing, type PlanarPath, type PlanarPosition } from '@simmer-mosquito/mapping';
 import { describe, expect, it } from 'vitest';
 import type {
 	DrawGeometry,
 	DrawGeometryType,
 	DrawMode,
-	DrawPartGeometry,
 	DrawTarget,
 	EditMode,
 	Mode,
@@ -27,58 +26,22 @@ import {
 	undoneEdit,
 	withParts,
 } from '../../../../components/map/draw-parts';
+import {
+	ACROSS_BLOCK,
+	BLOCK,
+	ESCAPING_POND,
+	FIRST_TRIANGLE,
+	POND,
+	polygon,
+	SECOND_TRIANGLE,
+} from './draw-fixtures';
 
 /*
- * The same shapes the gesture suite next door draws, so a case that used to be
- * asserted through a fake map and `act()` asserts the same coordinates here
- * (#630). No jsdom environment, no map and no React: every function below takes
- * geometry and answers with geometry.
+ * The same shapes the gesture suite draws, read from one fixtures module, so a
+ * case that used to be asserted through a fake map and `act()` asserts the same
+ * coordinates here (#630). No jsdom environment, no map and no React: every
+ * function below takes geometry and answers with geometry.
  */
-
-const FIRST_SQUARE = [
-	[-90, 35],
-	[-90, 36],
-	[-89, 36],
-] as const;
-const SECOND_SQUARE = [
-	[-80, 35],
-	[-80, 36],
-	[-79, 36],
-] as const;
-/** A four-corner area with room inside it, so a hole has somewhere to go. */
-const BLOCK = [
-	[-91, 34],
-	[-91, 37],
-	[-88, 37],
-	[-88, 34],
-] as const;
-/** Well inside {@link BLOCK}. */
-const POND = [
-	[-90, 35],
-	[-90, 36],
-	[-89, 36],
-	[-89, 35],
-] as const;
-/** Two corners inside {@link BLOCK} and two outside its eastern edge. */
-const ESCAPING_POND = [
-	[-89, 35],
-	[-89, 36],
-	[-85, 36],
-	[-85, 35],
-] as const;
-/** A line straight down the middle of {@link BLOCK}, out both sides. */
-const ACROSS_BLOCK = [
-	[-89.5, 33],
-	[-89.5, 38],
-] as const;
-
-function closed(ring: readonly (readonly [number, number])[]): PlanarPath {
-	return [...ring, ring[0] as PlanarPosition];
-}
-
-function polygon(...rings: readonly (readonly (readonly [number, number])[])[]): DrawPartGeometry {
-	return { type: 'Polygon', coordinates: rings.map(closed) };
-}
 
 /** An edit open on `rings`, which is what {@link EditMode} holds mid-gesture. */
 function editing({
@@ -178,7 +141,7 @@ describe('continuationProblem', () => {
 
 	it('has nothing to say about a draw that is not a continuation', () => {
 		expect(
-			continuationProblem(polygon(FIRST_SQUARE), drawing({ kind: 'replace' }), null),
+			continuationProblem(polygon(FIRST_TRIANGLE), drawing({ kind: 'replace' }), null),
 		).toBeNull();
 	});
 });
@@ -222,7 +185,7 @@ describe('editProblem', () => {
 	});
 
 	it('refuses an edit that pushes a hole out of its outline', () => {
-		expect(editProblem(editing({ rings: [[...FIRST_SQUARE], [...POND]] }))).toBe('holesEscape');
+		expect(editProblem(editing({ rings: [[...FIRST_TRIANGLE], [...POND]] }))).toBe('holesEscape');
 	});
 
 	it('refuses a reshape line that never crosses the boundary twice', () => {
@@ -340,7 +303,7 @@ describe('drawParts', () => {
 	it('takes a multi shape apart and puts it back', () => {
 		const multi: DrawGeometry = {
 			type: 'MultiPolygon',
-			coordinates: [[closed(FIRST_SQUARE)], [closed(SECOND_SQUARE)]],
+			coordinates: [[closeRing(FIRST_TRIANGLE)], [closeRing(SECOND_TRIANGLE)]],
 		};
 
 		const parts = drawParts(multi);
@@ -365,7 +328,7 @@ describe('drawParts', () => {
 
 describe('drawHoles', () => {
 	it('reads every ring past the outline as a hole', () => {
-		expect(drawHoles(polygon(BLOCK, POND))).toEqual([closed(POND)]);
+		expect(drawHoles(polygon(BLOCK, POND))).toEqual([closeRing(POND)]);
 	});
 
 	it('reads a shape that cannot hold one as holding none', () => {
@@ -376,7 +339,7 @@ describe('drawHoles', () => {
 
 describe('toDrawGeometry', () => {
 	it('reads a stored multi shape back, now that pieces can be edited', () => {
-		const multi = { type: 'MultiPolygon', coordinates: [[closed(FIRST_SQUARE)]] };
+		const multi = { type: 'MultiPolygon', coordinates: [[closeRing(FIRST_TRIANGLE)]] };
 
 		expect(toDrawGeometry(multi)).toEqual(multi);
 	});
@@ -387,7 +350,7 @@ describe('toDrawGeometry', () => {
 });
 
 describe('withParts', () => {
-	const existing = [polygon(FIRST_SQUARE), polygon(SECOND_SQUARE)];
+	const existing = [polygon(FIRST_TRIANGLE), polygon(SECOND_TRIANGLE)];
 	const drawn = polygon(BLOCK);
 
 	it('throws the committed pieces away for a replace', () => {
@@ -467,7 +430,7 @@ describe('dedupeTrailing', () => {
 	});
 
 	it('leaves a ring whose last two corners differ', () => {
-		const ring: readonly PlanarPosition[] = [...FIRST_SQUARE];
+		const ring: readonly PlanarPosition[] = [...FIRST_TRIANGLE];
 
 		expect(dedupeTrailing(ring)).toEqual(ring);
 	});
@@ -508,7 +471,7 @@ describe('finishedParts', () => {
 	it('says where a finished draw goes and what it commits', () => {
 		const target: DrawTarget = { kind: 'part' };
 
-		expect(finishedParts(drawing(target), polygon(FIRST_SQUARE), [...BLOCK])).toEqual({
+		expect(finishedParts(drawing(target), polygon(FIRST_TRIANGLE), [...BLOCK])).toEqual({
 			target,
 			parts: [polygon(BLOCK)],
 		});
@@ -533,7 +496,7 @@ describe('draftProgress', () => {
 	it('counts the vertices placed and offers Finish once they make a shape', () => {
 		const mode = drawing({ kind: 'replace' });
 
-		expect(draftProgress(mode, null, [...FIRST_SQUARE])).toEqual({
+		expect(draftProgress(mode, null, [...FIRST_TRIANGLE])).toEqual({
 			drawType: 'Polygon',
 			vertexCount: 3,
 			canFinish: true,

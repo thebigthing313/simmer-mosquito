@@ -138,29 +138,31 @@ describe('localDayStartAsTimestamp', () => {
 	}
 
 	it('writes a timestamptz literal Electric accepts, not a bare date', () => {
-		expect(localDayStartAsTimestamp('2026-07-24', undefined)).toMatch(
+		expect(localDayStartAsTimestamp('2026-07-24', 'America/New_York')).toMatch(
 			/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\+00$/,
 		);
 	});
 
-	it('names the instant local midnight began', () => {
-		const bound = localDayStartAsTimestamp('2026-07-24', undefined);
+	it('names the instant the zone midnight began', () => {
+		const bound = localDayStartAsTimestamp('2026-07-24', 'America/New_York');
 		const asInstant = new Date(`${bound.replace(' ', 'T').replace('+00', 'Z')}`);
-		expect(asInstant.getTime()).toBe(new Date(2026, 6, 24).getTime());
+		expect(asInstant.getTime()).toBe(Date.UTC(2026, 6, 24, 4));
 	});
 
 	it('sorts as a string exactly where it sorts as an instant', () => {
-		// The bound is compared twice — once by Electric, once by TanStack DB as a
+		// The bound is compared twice, once by Electric and once by TanStack DB as a
 		// plain JS string `>=`. Both have to land on the same boundary.
-		const bound = localDayStartAsTimestamp('2026-07-24', undefined);
-		expect(asElectricTimestamp(new Date(2026, 6, 24, 0, 0, 1)) >= bound).toBe(true);
-		expect(asElectricTimestamp(new Date(2026, 6, 24, 12, 30)) >= bound).toBe(true);
-		expect(asElectricTimestamp(new Date(2026, 6, 23, 23, 59, 59)) >= bound).toBe(false);
+		const bound = localDayStartAsTimestamp('2026-07-24', 'America/New_York');
+		expect(asElectricTimestamp(new Date(Date.UTC(2026, 6, 24, 4, 0, 1))) >= bound).toBe(true);
+		expect(asElectricTimestamp(new Date(Date.UTC(2026, 6, 24, 16, 30))) >= bound).toBe(true);
+		expect(asElectricTimestamp(new Date(Date.UTC(2026, 6, 24, 3, 59, 59))) >= bound).toBe(false);
 	});
 
 	it('falls back to the epoch rather than an unusable bound', () => {
-		expect(localDayStartAsTimestamp('not-a-date', undefined)).toBe('1970-01-01 00:00:00+00');
-		expect(localDayStartAsTimestamp(null, undefined)).toBe('1970-01-01 00:00:00+00');
+		expect(localDayStartAsTimestamp('not-a-date', 'America/New_York')).toBe(
+			'1970-01-01 00:00:00+00',
+		);
+		expect(localDayStartAsTimestamp(null, 'America/New_York')).toBe('1970-01-01 00:00:00+00');
 	});
 
 	// The whole point of the zone argument: the same requested day has to mean the
@@ -214,12 +216,6 @@ describe('localDayStartAsTimestamp', () => {
 			day: '2-digit',
 		}).format(new Date(bound.replace(' ', 'T').replace('+00', 'Z')));
 		expect(local).toBe('2026-09-06');
-	});
-
-	it('falls back to the browser when the organization zone has not streamed yet', () => {
-		expect(localDayStartAsTimestamp('2026-07-24', undefined)).toBe(
-			localDayStartAsTimestamp('2026-07-24', ''),
-		);
 	});
 });
 

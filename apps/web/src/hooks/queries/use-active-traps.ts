@@ -28,6 +28,7 @@ import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { traps } from '../../lib/collections/traps';
 import { NATURAL_ORDER } from '../../lib/natural-order';
+import { joinedOrNull } from './shared';
 
 /** A Trap as a list of them shows one: its label, and what it collects with. */
 export interface TrapListing {
@@ -35,7 +36,8 @@ export interface TrapListing {
 	readonly trapName: string | null;
 	readonly trapCode: string | null;
 	readonly methodId: string;
-	readonly methodName: string;
+	/** `null` only when the method is not in the client, since the id is never `null`. */
+	readonly methodName: string | null;
 	/** What the trap is, in the operator's words — the second line of a picker row. */
 	readonly description: string | null;
 	/**
@@ -68,7 +70,7 @@ export function useActiveTraps(): {
 				trapName: trap.trap_name,
 				trapCode: trap.trap_code,
 				methodId: trap.collection_method_id,
-				methodName: coalesce(method.name, 'Unknown method'),
+				methodName: joinedOrNull(method.name),
 				description: trap.description,
 				isActive: trap.is_active,
 			})),

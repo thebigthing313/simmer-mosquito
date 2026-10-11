@@ -10,7 +10,7 @@
  *
  * Nothing here knows about a domain. Validation that depends on SIMMER's command
  * builders stays in the app that owns the command — see
- * `apps/web/src/forms/domain-validation.ts`.
+ * `apps/web/src/lib/domain-validation.ts`.
  */
 
 export { useAppForm } from './app-form';

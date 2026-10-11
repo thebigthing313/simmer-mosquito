@@ -431,6 +431,16 @@ const NOUN_CONSUMERS = [
 		prop: 'recordType',
 		keys: 'RECORD_TYPE_BY_TABLE',
 	},
+	{
+		name: 'RecordTableEmpty',
+		module: 'components/record/record-table-empty.tsx',
+		prop: 'recordType',
+	},
+	{
+		name: 'RecordTableUnavailable',
+		module: 'components/record/record-table-unavailable.tsx',
+		prop: 'recordType',
+	},
 	{ name: 'DangerZoneCard', module: 'components/danger-zone-card.tsx', prop: 'recordType' },
 	{ name: 'ExplorerHeader', module: 'components/explorer/explorer-header.tsx', prop: 'counts' },
 	{

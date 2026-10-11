@@ -1,12 +1,17 @@
 /**
  * The layer stack every record tileset draws.
  *
- * Nine domains — habitats, traps, collections, inspections, samples, chemical
- * applications, source reduction, biocontrol, outreach — render the same eight
- * GL layers over the same three geometry types: a polygon fill and outline, a
- * line, a point, and four highlight layers scoped to the selected feature. Only
- * the tileset name and the palette differ, and inspections and samples colour
- * their points by a data ramp instead of a flat domain colour.
+ * Nine domains render the same ten GL layers: habitats, traps, collections,
+ * inspections, samples, chemical applications, source reduction, biocontrol and
+ * outreach, over the same three geometry types: a polygon fill and outline, a
+ * line, a point, a cluster circle and its count, and four highlight layers
+ * scoped to the selected feature. Only the tileset name and the palette differ,
+ * and inspections and samples colour their points by a data ramp instead of a
+ * flat domain colour. A cluster takes none of that: every tileset paints its
+ * clusters in the one {@link TILE_CLUSTER_COLOR}, because a cluster can hold
+ * records in several states or bands at once, and because the count drawn on
+ * it reads on the slate and not on most domain hues. The two cluster layers
+ * draw only when the tiles were asked for clusters and are empty otherwise.
  *
  * This existed as nine near-identical copies. That is how habitat selection
  * broke: `e0bcd8e` fixed the render-time selection filter across seven of them
@@ -18,18 +23,22 @@
  * params genuinely differ per endpoint. See `tile-urls.ts`.
  */
 
-import { mapInteraction } from '@simmer-mosquito/design-tokens';
+import { mapCluster, mapInteraction } from '@simmer-mosquito/design-tokens';
+import { MAP_CLUSTER_UNTIL_ZOOM } from '@simmer-mosquito/mapping';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
 	FillLayerSpecification,
+	LayerSpecification,
 	LineLayerSpecification,
+	SymbolLayerSpecification,
 } from 'mapbox-gl';
 
 export type GeometryTileLayer =
 	| FillLayerSpecification
 	| LineLayerSpecification
-	| CircleLayerSpecification;
+	| CircleLayerSpecification
+	| SymbolLayerSpecification;
 
 /**
  * A colour a layer paints with: a literal, or an expression reading it off the
@@ -56,13 +65,40 @@ export interface GeometryTilePalette {
 	readonly point?: TileColor | undefined;
 }
 
+/**
+ * What a cluster circle paints, and the only place a legend reads it from.
+ * Every tileset draws its clusters in this one colour, whatever its own palette:
+ * the off-white count holds 9.15:1 on it, where it holds 3.19:1 on the source
+ * reduction mark and 3.22:1 on the biocontrol one.
+ */
+export const TILE_CLUSTER_COLOR = mapCluster.fill;
+
 const polygonOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Polygon'];
 const lineOnly: ExpressionSpecification = ['==', ['geometry-type'], 'LineString'];
-const pointOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Point'];
+/**
+ * A clustered tile marks a cluster with `cluster: true` and writes no such key
+ * on a record, so the presence of the key is the whole test.
+ */
+const clusterOnly: ExpressionSpecification = ['has', 'cluster'];
+/**
+ * A record rather than a cluster. Exported for the Addresses stack, whose point
+ * layer would otherwise draw every cluster as an address.
+ */
+export const recordOnly: ExpressionSpecification = ['!', clusterOnly];
+/** A record's own point: a cluster is drawn as a point too, by its own layer. */
+const pointOnly: ExpressionSpecification = ['all', ['==', ['geometry-type'], 'Point'], recordOnly];
 
-/** Layers the user can click to select a record. Order = hit priority. */
+/**
+ * Layers the user can click, in hit priority: a cluster, which zooms in, then
+ * the three a record is selected from.
+ */
 export function interactiveLayerIds(sourceId: string): readonly string[] {
-	return [`${sourceId}-points`, `${sourceId}-lines`, `${sourceId}-polygon-fill`];
+	return [
+		`${sourceId}-clusters`,
+		`${sourceId}-points`,
+		`${sourceId}-lines`,
+		`${sourceId}-polygon-fill`,
+	];
 }
 
 /** The highlight layers, drawn above the base stack. */
@@ -82,7 +118,52 @@ export function allLayerIds(sourceId: string): readonly string[] {
 		`${sourceId}-polygon-outline`,
 		`${sourceId}-lines`,
 		`${sourceId}-points`,
+		`${sourceId}-clusters`,
+		`${sourceId}-cluster-counts`,
 		...selectedLayerIds(sourceId),
+	];
+}
+
+/**
+ * The cluster circle and its count, drawn from the features a clustered tile
+ * marks `cluster: true`. Exported for the one tileset that builds its own stack,
+ * Addresses, so its clusters draw the way every other tileset's do.
+ */
+export function clusterTileLayers(
+	sourceId: string,
+): [CircleLayerSpecification, SymbolLayerSpecification] {
+	return [
+		{
+			id: `${sourceId}-clusters`,
+			type: 'circle',
+			source: sourceId,
+			'source-layer': sourceId,
+			filter: clusterOnly,
+			paint: {
+				'circle-color': TILE_CLUSTER_COLOR,
+				'circle-opacity': 0.9,
+				// Wider as the count grows, in steps so a circle does not resize
+				// between two counts nobody could tell apart.
+				'circle-radius': ['step', ['get', 'point_count'], 11, 10, 14, 50, 18, 200, 22],
+				'circle-stroke-color': mapCluster.stroke,
+				'circle-stroke-width': 1.5,
+			},
+		},
+		{
+			id: `${sourceId}-cluster-counts`,
+			type: 'symbol',
+			source: sourceId,
+			'source-layer': sourceId,
+			filter: clusterOnly,
+			layout: {
+				'text-field': ['to-string', ['get', 'point_count']],
+				'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+				'text-size': 12,
+				'text-allow-overlap': true,
+				'text-ignore-placement': true,
+			},
+			paint: { 'text-color': mapCluster.label },
+		},
 	];
 }
 
@@ -156,6 +237,7 @@ export function geometryTileLayers(
 				'circle-stroke-width': 1.2,
 			},
 		},
+		...clusterTileLayers(sourceId),
 		// --- selection highlight: drawn on top, scoped to the selected feature ---
 		{
 			id: `${sourceId}-selected-fill`,
@@ -182,17 +264,74 @@ export function geometryTileLayers(
 			paint: { 'line-color': mapInteraction.selected, 'line-width': 5 },
 		},
 		{
-			id: `${sourceId}-selected-point`,
+			id: selectedPointLayerId(sourceId),
 			type: 'circle',
 			source: sourceId,
 			'source-layer': sourceId,
 			filter: selectedPoint,
-			paint: {
-				'circle-color': mapInteraction.selected,
-				'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 6, 16, 10],
-				'circle-stroke-color': mapInteraction.pointStroke,
-				'circle-stroke-width': 2.5,
-			},
+			paint: selectedPointPaint,
 		},
 	];
+}
+
+/** What a selected point paints, on the tile and on the selection overlay alike. */
+const selectedPointPaint: NonNullable<CircleLayerSpecification['paint']> = {
+	'circle-color': mapInteraction.selected,
+	'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 6, 16, 10],
+	'circle-stroke-color': mapInteraction.pointStroke,
+	'circle-stroke-width': 2.5,
+};
+
+function selectedPointLayerId(sourceId: string): string {
+	return `${sourceId}-selected-point`;
+}
+
+// --- the selection overlay ---------------------------------------------------
+//
+// Below the cut-off zoom a clustered tile can carry the selected record only as
+// part of a cluster's count, so the selected-point layer above has no feature to
+// match. The overlay is the record's own point, drawn from the row the explorer
+// already holds, in a GeoJSON source of its own above the tile stack. The two
+// split the zoom range at `MAP_CLUSTER_UNTIL_ZOOM`, so one selected point is
+// drawn at every zoom and never two.
+
+/** The GeoJSON source the selection overlay for a tileset draws from. */
+export function selectionOverlaySourceId(sourceId: string): string {
+	return `${sourceId}-selection`;
+}
+
+/** The overlay's one layer, which a click on it selects the record from. */
+export function selectionOverlayLayerId(sourceId: string): string {
+	return `${sourceId}-selection-point`;
+}
+
+/**
+ * The overlay's circle: the tile's selected point, drawn only below the zoom
+ * the tiles stop clustering at.
+ */
+export function selectionOverlayLayer(sourceId: string): CircleLayerSpecification {
+	return {
+		id: selectionOverlayLayerId(sourceId),
+		type: 'circle',
+		source: selectionOverlaySourceId(sourceId),
+		maxzoom: MAP_CLUSTER_UNTIL_ZOOM,
+		paint: selectedPointPaint,
+	};
+}
+
+/**
+ * The tile layers with the selected point handed to the overlay below the
+ * cut-off, for a tileset whose overlay is drawing. The tile's own highlight
+ * keeps the zooms from the cut-off up, where every record is drawn as itself.
+ */
+export function withSelectedPointFromCutOff(
+	sourceId: string,
+	layers: readonly LayerSpecification[],
+): LayerSpecification[] {
+	const id = selectedPointLayerId(sourceId);
+	return layers.map((layer) =>
+		layer.id === id && layer.type === 'circle'
+			? { ...layer, minzoom: MAP_CLUSTER_UNTIL_ZOOM }
+			: layer,
+	);
 }

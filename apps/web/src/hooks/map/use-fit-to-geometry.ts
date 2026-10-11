@@ -1,11 +1,11 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
-import { fitMapToGeometry } from '../../components/map/fit-map-to-geometry';
+import { frameOnMap } from '../../components/map/map-camera';
 
 /**
- * Eases the map to frame `geometry` when the geometry itself changes, and never
- * while `isDrawing`.
+ * Frames `geometry` as a record (see `frameOnMap`) when the geometry itself
+ * changes, and never while `isDrawing`.
  */
 export function useFitToGeometry(
 	map: MapboxMap | null,
@@ -24,6 +24,6 @@ export function useFitToGeometry(
 			return;
 		}
 		lastFitRef.current = signature;
-		fitMapToGeometry(map, geometry);
+		frameOnMap(map, geometry, { purpose: 'record', animate: true });
 	}, [map, geometry, isDrawing]);
 }

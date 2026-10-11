@@ -58,3 +58,75 @@ describe('routerStandIn', () => {
 		expect(link.getAttribute('search')).toBeNull();
 	});
 });
+
+/**
+ * The navigation the stand-in hands out. With no `setSearch` it goes nowhere,
+ * which is what most route suites rely on. With one, it computes the next
+ * search the way the router would, hands it to `setSearch` and tells every
+ * mounted `useSearch`, so a suite whose page is controlled by the URL reads its
+ * own write back (#1482).
+ */
+describe('routerStandIn navigation', () => {
+	function standInOver(initial: Record<string, unknown>, writes = true) {
+		const store = { search: initial };
+		const standIn = routerStandIn(
+			{},
+			() => store.search,
+			undefined,
+			writes
+				? {
+						setSearch: (next) => {
+							store.search = next;
+						},
+					}
+				: undefined,
+		);
+		return { store, standIn };
+	}
+
+	it('applies an updater function to the current search', async () => {
+		const { store, standIn } = standInOver({ tab: 'details', page: 2 });
+		await standIn.useNavigate()({ search: (previous) => ({ ...previous, tab: 'comments' }) });
+		expect(store.search).toEqual({ tab: 'comments', page: 2 });
+	});
+
+	it('replaces the search with an object', async () => {
+		const { store, standIn } = standInOver({ tab: 'details', page: 2 });
+		await standIn.useNavigate()({ search: { tab: 'nearby' } });
+		expect(store.search).toEqual({ tab: 'nearby' });
+	});
+
+	it('keeps the current search when none is passed', async () => {
+		const { store, standIn } = standInOver({ tab: 'details' });
+		await standIn.useNavigate()({ replace: true });
+		expect(store.search).toEqual({ tab: 'details' });
+	});
+
+	it('re-renders a mounted useSearch with the new value', async () => {
+		const { standIn } = standInOver({ tab: 'details' });
+		function Tab() {
+			return <p>{String(standIn.useSearch().tab)}</p>;
+		}
+		render(<Tab />);
+		expect(screen.getByText('details')).toBeTruthy();
+
+		await standIn.useNavigate()({ search: () => ({ tab: 'comments' }) });
+
+		expect(screen.getByText('comments')).toBeTruthy();
+	});
+
+	it('changes nothing without setSearch', async () => {
+		const { store, standIn } = standInOver({ tab: 'details' }, false);
+		const initial = store.search;
+		function Tab() {
+			return <p>{String(standIn.useSearch().tab)}</p>;
+		}
+		render(<Tab />);
+
+		const result = await standIn.useNavigate()({ search: () => ({ tab: 'comments' }) });
+
+		expect(result).toBeUndefined();
+		expect(store.search).toBe(initial);
+		expect(screen.getByText('details')).toBeTruthy();
+	});
+});

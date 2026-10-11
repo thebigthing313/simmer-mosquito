@@ -7,25 +7,25 @@
  * the opposite; that is `use-habitat-suspense.ts`.
  */
 
-import { caseWhen, eq, isNull } from '@tanstack/react-db';
+import { eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
 import { type Habitat, habitatNameSelect } from './habitat-view';
-import { addressSelect, useRecordById } from './shared';
+import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
 /**
  * Takes a nullable id so a form can ask before the user has chosen a Habitat,
  * which is {@link useRecordById}'s absent case.
  */
-export function useHabitat(
-	habitatId: string | null,
-	options?: { readonly gcTime?: number },
-): { readonly habitat: Habitat | undefined; readonly isReady: boolean; readonly isError: boolean } {
+export function useHabitat(habitatId: string | null): {
+	readonly habitat: Habitat | undefined;
+	readonly isReady: boolean;
+	readonly isError: boolean;
+} {
 	const result = useRecordById({
 		collection: habitats(),
 		id: habitatId,
-		gcTime: options?.gcTime,
 		query: (query) =>
 			query
 				// `left`: a Habitat need not have a type, and an `inner` join would make
@@ -46,9 +46,7 @@ export function useHabitat(
 					name: habitatNameSelect(habitat),
 					description: habitat.description,
 					typeId: habitat.habitat_type_id,
-					// Guarded on the Habitat's own column, so an unmatched join reads as
-					// `null` rather than as `undefined`.
-					typeName: caseWhen(isNull(habitat.habitat_type_id), null, type.name),
+					typeName: joinedOrNull(type.name),
 					addressId: habitat.address_id,
 					isActive: habitat.is_active,
 					isInaccessible: habitat.is_inaccessible,

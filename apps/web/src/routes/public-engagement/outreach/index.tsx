@@ -1,229 +1,84 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useState } from 'react';
-import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
-import { DateRangeFilter } from '../../../components/date-range-filter';
+import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
+import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
+import { DeclaredSummary } from '../../../components/explorer/declared-summary';
+import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
+import { MAP_CREATE_TARGETS } from '../../../components/map';
 import {
-	ActiveFilterBar,
-	ExplorerMapPage,
-	ExplorerRow,
-	FilterChip,
-	FilterGrid,
-	MultiSelectFilter,
-	toggle,
-	whenAny,
-	whenText,
-} from '../../../components/explorer';
-import { ExplorerPagination } from '../../../components/explorer-pagination';
+	outreachFilterCodecs,
+	outreachRecordSet,
+} from '../../../components/public-engagement/outreach/outreach-actions-search';
 import {
-	MAP_CREATE_TARGETS,
-	MapCanvas,
-	type MapTileLayer,
-	type OutreachTileFilters,
-} from '../../../components/map';
+	OutreachFilterFields,
+	outreachFilterDeclarations,
+} from '../../../components/public-engagement/outreach/outreach-filters';
+import {
+	type OutreachListRow,
+	outreachMethodName,
+	outreachTechnicianName,
+} from '../../../components/public-engagement/outreach/outreach-row-parts';
+import { outreachSummaryFigures } from '../../../components/public-engagement/outreach/outreach-summary';
 import { OutreachMapCard } from '../../../components/public-engagement/outreach-map-card';
 import { formatReach } from '../../../components/public-engagement/public-engagement-display';
-import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { useOutreachMethodOptions } from '../../../hooks/explorer/use-outreach-method-options';
-import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
-import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { useSearchFilters } from '../../../hooks/use-search-filters';
-import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
-import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
-	DATE_RANGE_COUNTING,
-	dateParam,
-	type FilterCodecs,
-	idSetParam,
-	searchValidator,
-} from '../../../lib/search-filters';
-
-interface OutreachRow {
-	readonly id: string;
-	readonly lat: number;
-	readonly lng: number;
-	readonly outreachMethodId: string;
-	readonly outreachDate: string;
-	readonly reach: number;
-	readonly reachDescription: string | null;
-	readonly technicianProfileId: string | null;
-	readonly inspectionId: string | null;
-}
-
-interface OutreachFilters {
-	readonly from: string;
-	readonly to: string;
-	readonly people: ReadonlySet<string>;
-	readonly methods: ReadonlySet<string>;
-	readonly regions: ReadonlySet<string>;
-}
-
-const FILTER_CODECS: FilterCodecs<OutreachFilters> = {
-	from: dateParam,
-	to: dateParam,
-	people: idSetParam,
-	methods: idSetParam,
-	regions: idSetParam,
-};
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
+import { catalogs } from '../../../hooks/queries/catalog-register';
+import { formatListDate } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
+import { searchValidator } from '../../../lib/search-filters';
 
 const OutreachEntityIcon = iconRegistry.entities.outreachAction.icon;
 
 export const Route = createFileRoute('/public-engagement/outreach/')({
 	component: OutreachExplorerRoute,
-	validateSearch: searchValidator(FILTER_CODECS),
+	validateSearch: searchValidator(outreachFilterCodecs),
 });
 
-const DEFAULT_WINDOW_DAYS = 90;
-const RECORD_TYPE: RecordType = 'outreachAction';
-const PATH = '/map/outreach';
-
 function OutreachExplorerRoute() {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
-	const defaultFrom = addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1));
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
-	const filterDefaults: OutreachFilters = {
-		from: defaultFrom,
-		to: today,
-		people: new Set(),
-		methods: new Set(),
-		regions: new Set(),
-	};
-	const {
-		filters: query,
-		setFilters,
-		reset,
-		activeCount: activeFilterCount,
-	} = useSearchFilters(filterDefaults, FILTER_CODECS, DATE_RANGE_COUNTING);
-	const dateFrom = query.from;
-	const dateTo = query.to;
-	const personIds = query.people;
-	const methodIds = query.methods;
-	const regionIds = query.regions;
-	const setPersonIds = (next: ReadonlySet<string>) => setFilters({ people: next });
-	const setMethodIds = (next: ReadonlySet<string>) => setFilters({ methods: next });
-	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const binding = useRecordSetFilters(outreachRecordSet, 'map');
+	const { reset, activeCount: activeFilterCount } = binding;
 	const panel = useExplorerPanel();
-	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
-	const { options: methodOptions, nameById: methodNameById } = useOutreachMethodOptions();
+	const { nameById: methodNameById } = useCatalogOptions(catalogs.outreachMethods);
+	const { nameById: personNameById } = useCatalogOptions(catalogs.profiles);
 
-	// The server tiles + list read the same filter shape, so the map and the paged
-	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
-	const personnel = usePersonnelOptions();
-	const regions = useRegionOptions();
-	const filters: OutreachTileFilters = {
-		...whenAny('outreachMethodIds', methodIds),
-		...whenAny('technicianProfileIds', personIds),
-		...whenAny('regionIds', regionIds),
-		...whenText('dateFrom', dateFrom),
-		...whenText('dateTo', dateTo),
-	};
-	const layer: MapTileLayer = {
-		kind: 'outreach',
-		serverUrl: getServerUrl(),
-		filters,
+	const routeSearch = Route.useSearch();
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		empty,
+		summary,
+		canvas,
 		selectedId,
-		onSelectFeature: setSelectedId,
-	};
-	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<OutreachRow>({
-			path: PATH,
-			rowsKey: 'outreachActions',
-			rowKey: 'outreachAction',
-			recordType: 'outreachAction',
-			params: {
-				outreachMethodId: filters.outreachMethodIds,
-				technician: filters.technicianProfileIds,
-				regionId: filters.regionIds,
-				dateFrom: filters.dateFrom,
-				dateTo: filters.dateTo,
-			},
-			layer,
-			map,
-			selectedId,
-		});
-
-	const handleMapReady = (instance: MapboxMap) => setMap(instance);
+		setSelectedId,
+	}: ExplorerResource<OutreachListRow> = useExplorerResource({
+		set: outreachRecordSet,
+		binding,
+		summarize: true,
+	});
 
 	return (
 		<ExplorerMapPage
+			actions={
+				<RecordSetSwitch compact current="map" search={routeSearch} set={outreachRecordSet} />
+			}
 			activeFilterCount={activeFilterCount}
-			filters={
-				<>
-					<DateRangeFilter {...dateRange} />
-
-					<FilterGrid>
-						<MultiSelectFilter
-							empty="No outreach methods"
-							label="Method"
-							onChange={setMethodIds}
-							options={methodOptions}
-							selected={methodIds}
-						/>
-						<MultiSelectFilter
-							empty="No people"
-							label="Technician"
-							onChange={setPersonIds}
-							options={personnel.options}
-							selected={personIds}
-						/>
-						<MultiSelectFilter
-							empty="No regions"
-							label="Region"
-							onChange={setRegionIds}
-							options={regions.options}
-							selected={regionIds}
-						/>
-					</FilterGrid>
-
-					{activeFilterCount > 0 ? (
-						<ActiveFilterBar onClearAll={reset}>
-							{[...methodIds].map((id) => (
-								<FilterChip
-									key={id}
-									label={methodNameById.get(id) ?? 'Unknown method'}
-									onRemove={() => setMethodIds(toggle(methodIds, id))}
-								/>
-							))}
-							{[...personIds].map((id) => (
-								<FilterChip
-									key={`person-${id}`}
-									label={personnel.nameById.get(id) ?? 'Unknown person'}
-									onRemove={() => setPersonIds(toggle(personIds, id))}
-								/>
-							))}
-							{[...regionIds].map((id) => (
-								<FilterChip
-									key={`region-${id}`}
-									label={regions.nameById.get(id) ?? 'Unknown region'}
-									onRemove={() => setRegionIds(toggle(regionIds, id))}
-								/>
-							))}
-						</ActiveFilterBar>
-					) : null}
-				</>
-			}
-			footer={
-				<ExplorerPagination
-					noun={recordNoun(RECORD_TYPE)}
-					onPageChange={setPage}
-					page={page}
-					pageCount={pageCount}
-					total={total}
-				/>
-			}
+			filters={<OutreachFilterFields binding={binding} />}
 			heading={{
-				title: recordNoun(RECORD_TYPE).titleMany,
+				title: recordNoun('outreachAction').titleMany,
 				icon: OutreachEntityIcon,
 				total,
 				isLoading,
@@ -231,27 +86,14 @@ function OutreachExplorerRoute() {
 			}}
 			onResetFilters={reset}
 			map={
-				<>
-					<MapCanvas
-						inset={panel.inset}
-						searchWidth={panel.width}
-						contextMenu={{
-							create: [MAP_CREATE_TARGETS.outreach, MAP_CREATE_TARGETS.serviceRequest],
-						}}
-						controls={{ measure: true, readout: true }}
-						fitToData
-						rememberCamera
-						layers={layers}
-						onMapReady={handleMapReady}
-					/>
-					{selected === null ? null : (
-						<OutreachMapCard
-							id={selected.id}
-							inset={panel.inset}
-							onClose={() => setSelectedId(null)}
-						/>
-					)}
-				</>
+				<ExplorerCanvas
+					canvas={canvas}
+					card={(props) => <OutreachMapCard {...props} />}
+					contextMenu={{
+						create: [MAP_CREATE_TARGETS.outreach, MAP_CREATE_TARGETS.serviceRequest],
+					}}
+					panel={panel}
+				/>
 			}
 			panel={panel}
 			results={{
@@ -259,18 +101,29 @@ function OutreachExplorerRoute() {
 				isError,
 				onRetry: retry,
 				empty,
+				// Over 100 in view the rows would not fit on one page, so the panel
+				// says what is in view instead (#1377).
+				summary: summary.isShown ? (
+					<DeclaredSummary
+						binding={binding}
+						chips={
+							<DeclaredFilterChips binding={binding} declarations={outreachFilterDeclarations} />
+						}
+						declarations={outreachFilterDeclarations}
+						figures={outreachSummaryFigures}
+						order={['methods', 'people']}
+						recordType="outreachAction"
+						state={summary}
+					/>
+				) : undefined,
 				renderRow: (row) => (
 					<OutreachListItem
 						isSelected={row.id === selectedId}
 						key={row.id}
-						methodName={methodNameById.get(row.outreachMethodId) ?? 'Unknown method'}
+						methodName={outreachMethodName(row, methodNameById)}
 						onSelect={setSelectedId}
 						row={row}
-						technicianName={
-							row.technicianProfileId === null
-								? null
-								: (personnel.nameById.get(row.technicianProfileId) ?? null)
-						}
+						technicianName={outreachTechnicianName(row, personNameById)}
 					/>
 				),
 			}}
@@ -285,7 +138,7 @@ function OutreachListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly row: OutreachRow;
+	readonly row: OutreachListRow;
 	readonly methodName: string;
 	readonly technicianName: string | null;
 	readonly isSelected: boolean;

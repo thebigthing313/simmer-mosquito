@@ -70,7 +70,7 @@ export function TrapMapCard({
 		>
 			<div className="grid gap-1.5">
 				<MapCardDetail icon={TrapEntityIcon}>
-					{trap.methodName}
+					{trap.methodName ?? 'Unknown method'}
 					{lureName === null ? '' : ` · ${lureName} lure`}
 				</MapCardDetail>
 				<MapCardAddress address={trap.address} addressId={trap.addressId} />

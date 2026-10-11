@@ -11,15 +11,21 @@
  */
 
 import { syncClientOptions } from './client-options';
-import { type CollectionSource, installCollections } from './registry';
+import {
+	type CollectionDeclaration,
+	type CollectionOf,
+	type CollectionSource,
+	installCollections,
+	type SyncedRow,
+} from './registry';
 
 const syncCollectionSource: CollectionSource = {
-	build: (declaration) =>
+	build: <TRow extends SyncedRow>(declaration: CollectionDeclaration<TRow>) =>
 		declaration.create({
 			...syncClientOptions,
 			syncMode: declaration.syncMode,
 			mutations: declaration.mutations,
-		}),
+		}) as CollectionOf<TRow>,
 };
 
 export function installSyncCollections(): void {

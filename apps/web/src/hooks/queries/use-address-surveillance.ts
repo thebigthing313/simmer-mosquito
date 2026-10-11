@@ -23,7 +23,7 @@ import { habitats } from '../../lib/collections/habitats';
 import { traps } from '../../lib/collections/traps';
 import { compareNames } from '../../lib/natural-order';
 import { habitatNameSelect } from './habitat-view';
-import { activityGcTimeMs, unmatchableId } from './shared';
+import { liveQueryGcTimeMs, unmatchableId } from './shared';
 import { trapDisplayName } from './trap-view';
 
 /** One Habitat or Trap, as a link to it needs it. */
@@ -59,7 +59,7 @@ export function useAddressSurveillance(addressIds: readonly string[]): AddressSu
 	const queryIds = ids.length > 0 ? ids : [unmatchableId];
 
 	const habitatResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ habitat: habitats() })
@@ -73,7 +73,7 @@ export function useAddressSurveillance(addressIds: readonly string[]): AddressSu
 	});
 
 	const trapResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ trap: traps() })

@@ -1,5 +1,6 @@
 import type { ProfileListing } from '../hooks/queries/use-profile-roster';
-import { type LifecycleOption, lifecycleOptions } from './lifecycle-options';
+import type { LifecycleOption } from './lifecycle-options';
+import { profileOptions } from './profile-options';
 
 /**
  * What a technician select carries when nobody is assigned.
@@ -39,12 +40,5 @@ export const noTechnicianValue = 'none';
  * a `FilterOption` for a filter bar, keyed by `id`, and is not a select option.
  */
 export function technicianOptions(profiles: readonly ProfileListing[]): readonly LifecycleOption[] {
-	return [
-		{ label: 'Unassigned', value: noTechnicianValue },
-		...lifecycleOptions(
-			profiles,
-			(profile) => profile.isActive,
-			(profile) => profile.displayName,
-		),
-	];
+	return [{ label: 'Unassigned', value: noTechnicianValue }, ...profileOptions(profiles)];
 }

@@ -7,6 +7,7 @@
  */
 
 import { createSampleSpeciesCollection, type SampleSpecies } from '@simmer-mosquito/sync';
+import { BasicIndex } from '@tanstack/db';
 import { declareCollection } from './registry';
 
 /**
@@ -21,4 +22,13 @@ export const sample_species = declareCollection<SampleSpecies>({
 	syncMode: 'on-demand',
 	mutations: true,
 	create: createSampleSpeciesCollection,
+
+	/*
+	 * The key a correlated include loads this table by. The habitat history and
+	 * an inspection's sample list read each sample's species counts as a
+	 * `toArray` subquery on `sample_id`.
+	 */
+	index: (collection) => {
+		collection.createIndex((row) => row.sample_id, { indexType: BasicIndex });
+	},
 });

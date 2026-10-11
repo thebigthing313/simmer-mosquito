@@ -19,7 +19,7 @@
  * to answer the same questions.
  */
 
-import { caseWhen, coalesce, eq, isNull, useLiveQuery } from '@tanstack/react-db';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { application_methods } from '../../lib/collections/application_methods';
 import { applications } from '../../lib/collections/applications';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
@@ -29,7 +29,14 @@ import { profiles } from '../../lib/collections/profiles';
 import { source_reduction_methods } from '../../lib/collections/source_reduction_methods';
 import { source_reductions } from '../../lib/collections/source_reductions';
 import { units } from '../../lib/collections/units';
-import { activityGcTimeMs } from './shared';
+import { PERFORMED_ACTIONS } from './performed-action-reads';
+import { joinedOrNull, liveQueryGcTimeMs } from './shared';
+
+const {
+	applications: applicationReads,
+	sourceReductions: reductionReads,
+	releases: releaseReads,
+} = PERFORMED_ACTIONS;
 
 /** What kind of control action a row is — the icon and detail link follow from it. */
 export type ControlActionKind = 'application' | 'sourceReduction' | 'biocontrol';
@@ -41,13 +48,19 @@ export interface DailyControlAction {
 	/** Applicator or technician: whoever performed the work. */
 	readonly performedByProfileId: string | null;
 	readonly performedByName: string | null;
-	/** The product (applications) or the control method (the other two). */
-	readonly subjectName: string;
+	/**
+	 * The product (applications) or the control method (the other two). `null`
+	 * while that record is not in the client; the surface draws its own stand-in.
+	 */
+	readonly subjectName: string | null;
 	/**
 	 * How it was done, where that is a separate fact from the subject. Only
 	 * applications have one — for the other two the method *is* the subject, so
-	 * repeating it in the secondary line would say the same thing twice.
+	 * repeating it in the secondary line would say the same thing twice, and both
+	 * fields are `null` there. On an application, a `null` id is no method
+	 * recorded and a `null` name beside a set id is a method not in the client.
 	 */
+	readonly methodId: string | null;
 	readonly methodName: string | null;
 	readonly amount: number;
 	readonly unitAbbreviation: string | null;
@@ -60,123 +73,117 @@ export function useControlActionsForDay(date: string): {
 	readonly isError: boolean;
 } {
 	const applicationResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ application: applications() })
-				.where(({ application }) => eq(application.application_date, date))
+				.where(({ application }) => eq(applicationReads.date(application), date))
 				.join(
 					{ product: insecticides() },
-					({ application, product }) => eq(application.insecticide_id, product.id),
+					({ application, product }) => applicationReads.joinProduct(application, product),
 					'left',
 				)
 				.join(
 					{ method: application_methods() },
-					({ application, method }) => eq(application.application_method_id, method.id),
+					({ application, method }) => applicationReads.joinMethod(application, method),
 					'left',
 				)
 				.join(
 					{ unit: units() },
-					({ application, unit }) => eq(application.application_unit_id, unit.id),
+					({ application, unit }) => applicationReads.joinUnit(application, unit),
 					'left',
 				)
 				.join(
 					{ performer: profiles() },
-					({ application, performer }) => eq(application.applicator_profile_id, performer.id),
+					({ application, performer }) => applicationReads.joinPerformer(application, performer),
 					'left',
 				)
 				.orderBy(({ application }) => application.created_at, 'asc')
-				.select(({ application, product, method, unit, performer }) => ({
-					id: application.id,
-					actionDate: application.application_date,
-					performedByProfileId: application.applicator_profile_id,
-					performedByName: caseWhen(
-						isNull(application.applicator_profile_id),
-						null,
-						performer.display_name,
-					),
-					subjectName: coalesce(product.trade_name, 'Unknown insecticide'),
-					methodName: caseWhen(
-						isNull(application.application_method_id),
-						'No method',
-						coalesce(method.name, 'Unknown method'),
-					),
-					amount: application.amount_applied,
-					unitAbbreviation: coalesce(unit.abbreviation, null),
-					createdAt: application.created_at,
-				})),
+				.select(({ application, product, method, unit, performer }) => {
+					const measured = applicationReads.measured(application);
+					return {
+						id: application.id,
+						actionDate: applicationReads.date(application),
+						performedByProfileId: measured.performerProfileId,
+						performedByName: joinedOrNull(performer.display_name),
+						subjectName: joinedOrNull(product.trade_name),
+						methodId: measured.methodId,
+						methodName: joinedOrNull(method.name),
+						amount: measured.amount,
+						unitAbbreviation: joinedOrNull(unit.abbreviation),
+						createdAt: application.created_at,
+					};
+				}),
 	});
 
 	const sourceReductionResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ action: source_reductions() })
-				.where(({ action }) => eq(action.source_reduction_date, date))
+				.where(({ action }) => eq(reductionReads.date(action), date))
 				.join(
 					{ method: source_reduction_methods() },
-					({ action, method }) => eq(action.source_reduction_method_id, method.id),
+					({ action, method }) => reductionReads.joinMethod(action, method),
 					'left',
 				)
 				.join(
 					{ unit: units() },
-					({ action, unit }) => eq(action.sources_eliminated_unit_id, unit.id),
+					({ action, unit }) => reductionReads.joinUnit(action, unit),
 					'left',
 				)
 				.join(
 					{ performer: profiles() },
-					({ action, performer }) => eq(action.technician_profile_id, performer.id),
+					({ action, performer }) => reductionReads.joinPerformer(action, performer),
 					'left',
 				)
 				.orderBy(({ action }) => action.created_at, 'asc')
-				.select(({ action, method, unit, performer }) => ({
-					id: action.id,
-					actionDate: action.source_reduction_date,
-					performedByProfileId: action.technician_profile_id,
-					performedByName: caseWhen(
-						isNull(action.technician_profile_id),
-						null,
-						performer.display_name,
-					),
-					subjectName: coalesce(method.name, 'Unknown method'),
-					amount: action.sources_eliminated_amount,
-					unitAbbreviation: coalesce(unit.abbreviation, null),
-					createdAt: action.created_at,
-				})),
+				.select(({ action, method, unit, performer }) => {
+					const measured = reductionReads.measured(action);
+					return {
+						id: action.id,
+						actionDate: reductionReads.date(action),
+						performedByProfileId: measured.performerProfileId,
+						performedByName: joinedOrNull(performer.display_name),
+						subjectName: joinedOrNull(method.name),
+						amount: measured.amount,
+						unitAbbreviation: joinedOrNull(unit.abbreviation),
+						createdAt: action.created_at,
+					};
+				}),
 	});
 
 	const biocontrolResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ action: biocontrol_actions() })
-				.where(({ action }) => eq(action.biocontrol_date, date))
+				.where(({ action }) => eq(releaseReads.date(action), date))
 				.join(
 					{ method: biocontrol_methods() },
-					({ action, method }) => eq(action.biocontrol_method_id, method.id),
+					({ action, method }) => releaseReads.joinMethod(action, method),
 					'left',
 				)
-				.join({ unit: units() }, ({ action, unit }) => eq(action.release_unit_id, unit.id), 'left')
+				.join({ unit: units() }, ({ action, unit }) => releaseReads.joinUnit(action, unit), 'left')
 				.join(
 					{ performer: profiles() },
-					({ action, performer }) => eq(action.technician_profile_id, performer.id),
+					({ action, performer }) => releaseReads.joinPerformer(action, performer),
 					'left',
 				)
 				.orderBy(({ action }) => action.created_at, 'asc')
-				.select(({ action, method, unit, performer }) => ({
-					id: action.id,
-					actionDate: action.biocontrol_date,
-					performedByProfileId: action.technician_profile_id,
-					performedByName: caseWhen(
-						isNull(action.technician_profile_id),
-						null,
-						performer.display_name,
-					),
-					subjectName: coalesce(method.name, 'Unknown method'),
-					amount: action.amount_released,
-					unitAbbreviation: coalesce(unit.abbreviation, null),
-					createdAt: action.created_at,
-				})),
+				.select(({ action, method, unit, performer }) => {
+					const measured = releaseReads.measured(action);
+					return {
+						id: action.id,
+						actionDate: releaseReads.date(action),
+						performedByProfileId: measured.performerProfileId,
+						performedByName: joinedOrNull(performer.display_name),
+						subjectName: joinedOrNull(method.name),
+						amount: measured.amount,
+						unitAbbreviation: joinedOrNull(unit.abbreviation),
+						createdAt: action.created_at,
+					};
+				}),
 	});
 
 	const applicationRows = applicationResult.data;
@@ -188,11 +195,13 @@ export function useControlActionsForDay(date: string): {
 		...sourceReductionRows.map((row) => ({
 			...row,
 			kind: 'sourceReduction' as const,
+			methodId: null,
 			methodName: null,
 		})),
 		...biocontrolRows.map((row) => ({
 			...row,
 			kind: 'biocontrol' as const,
+			methodId: null,
 			methodName: null,
 		})),
 		// Recording order, which is the order the crew worked in — the three

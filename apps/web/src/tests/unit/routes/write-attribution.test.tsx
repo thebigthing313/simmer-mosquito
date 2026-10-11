@@ -223,12 +223,8 @@ vi.mock('../../../components/cleanup/habitat-merge', async (original) => ({
 vi.mock('../../../components/app-shell/outlet/map-split-page', () => ({
 	MapSplitPage: ({ children }: { readonly children?: ReactNode }) => <>{children}</>,
 }));
-vi.mock('../../../components/route-planning', async (original) => ({
-	...(await original<Record<string, unknown>>()),
-	RouteMap: () => null,
-}));
-vi.mock('../../../components/operations/worklist-map', () => ({
-	WorklistMap: () => null,
+vi.mock('../../../components/map/stop-sequence-map', () => ({
+	StopSequenceMap: () => null,
 }));
 
 vi.mock('../../../components/record', async (importOriginal) => ({

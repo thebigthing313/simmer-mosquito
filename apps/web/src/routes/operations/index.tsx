@@ -7,11 +7,9 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link, type LinkProps } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useControlMethodNames } from '../../hooks/explorer/use-control-method-names';
-import { assignmentStatus } from '../../hooks/queries/assignment-view';
+import { assignmentDisplayName, assignmentStatus } from '../../hooks/queries/assignment-view';
 import {
 	controlTypeLabel,
-	formatRequestedAt,
-	formatScheduledStart,
 	MISSION_STATUS_LABELS,
 	missionDisplayName,
 	missionStatus,
@@ -24,8 +22,9 @@ import { useMissionItemCounts } from '../../hooks/queries/use-mission-item-count
 import { useMissions } from '../../hooks/queries/use-missions';
 import { useProfileRoster } from '../../hooks/queries/use-profile-roster';
 import { useRequestedControlActions } from '../../hooks/queries/use-requested-control-actions';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { addCalendarDays, todayInTimeZone } from '../../lib/local-date';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
+import { datePresetRange, SCHEDULE_WINDOW } from '../../lib/date-presets';
+import { addCalendarDays } from '../../lib/local-date';
 
 const OperationsIcon = iconRegistry.entities.vehicle.icon;
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
@@ -37,21 +36,18 @@ export const Route = createFileRoute('/operations/')({
 	component: OperationsOverviewRoute,
 });
 
-// The overview reads the same schedule window the three map pages open on: the
-// week just gone plus the fortnight ahead. Requests look further back, because an
-// unresolved one from a month ago is still work that has not been done.
-const SCHEDULE_DAYS_BACK = 7;
-const SCHEDULE_DAYS_AHEAD = 14;
+// The schedule panels read SCHEDULE_WINDOW, the window the Missions and
+// Assignments pages open on. Requests look further back, because an unresolved
+// one from a month ago is still work that has not been done.
 const REQUEST_WINDOW_DAYS = 90;
 
 /** Enough rows to see the shape of the queue without turning a panel into a list page. */
 const PANEL_ROW_LIMIT = 8;
 
 function OperationsOverviewRoute() {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
-	const scheduleFrom = addCalendarDays(today, -SCHEDULE_DAYS_BACK);
-	const scheduleTo = addCalendarDays(today, SCHEDULE_DAYS_AHEAD);
+	const clock = useOrganizationClock();
+	const today = clock.today();
+	const { from: scheduleFrom, to: scheduleTo } = datePresetRange(SCHEDULE_WINDOW, today);
 	const requestFrom = addCalendarDays(today, -(REQUEST_WINDOW_DAYS - 1));
 
 	const profiles = useProfileRoster();
@@ -140,7 +136,7 @@ function OpenRequestsPanel({
 }) {
 	const { requests, isReady, isError } = useRequestedControlActions(from, to);
 	const methodNameById = useControlMethodNames();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const open = requests.filter((request) => requestStatus(request) === 'open');
 
 	return (
@@ -176,7 +172,7 @@ function OpenRequestsPanel({
 										? 'No requester'
 										: (nameById.get(request.requestedByProfileId) ?? 'Unknown requester')
 								}`}
-								trailing={formatRequestedAt(request.requestedAt, timeZone)}
+								trailing={clock.formatInstant(request.requestedAt, 'date')}
 							/>
 						))}
 					</ul>
@@ -231,9 +227,7 @@ function AssignmentsPanel({
 								<OverviewRow
 									icon={<AssignmentIcon aria-hidden="true" className="size-4" />}
 									key={assignment.id}
-									primary={
-										assignment.assignmentName?.trim() || `Assignment ${assignment.assignmentDate}`
-									}
+									primary={assignmentDisplayName(assignment)}
 									secondary={`${
 										assignment.assignedToProfileId === null
 											? 'Unassigned'
@@ -268,7 +262,7 @@ function MissionsPanel({
 	const { missions, isReady, isError } = useMissions(from, to);
 	const ids = missions.map((mission) => mission.id);
 	const { countsById } = useMissionItemCounts(ids);
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 
 	const active = missions.filter((mission) => {
 		const status = missionStatus(mission);
@@ -298,7 +292,7 @@ function MissionsPanel({
 								<OverviewRow
 									icon={<MissionIcon aria-hidden="true" className="size-4" />}
 									key={mission.id}
-									primary={missionDisplayName(mission, timeZone)}
+									primary={missionDisplayName(mission, clock)}
 									secondary={`${MISSION_STATUS_LABELS[missionStatus(mission)]} · ${
 										mission.assignedToProfileId === null
 											? 'Unassigned'
@@ -308,7 +302,7 @@ function MissionsPanel({
 											? 'No stops'
 											: `${counts.handled} of ${counts.total} done`
 									}`}
-									trailing={formatScheduledStart(mission.scheduledStartAt, timeZone)}
+									trailing={clock.formatInstant(mission.scheduledStartAt, 'dateTime')}
 								/>
 							);
 						})}

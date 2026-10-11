@@ -155,7 +155,7 @@ function SpeciesResultRow({
 						disabled={busy}
 						onClick={() => void remove()}
 						size="icon-xs"
-						title="Remove Species"
+						title="Remove species"
 						variant="ghost"
 					>
 						<XIcon aria-hidden="true" />

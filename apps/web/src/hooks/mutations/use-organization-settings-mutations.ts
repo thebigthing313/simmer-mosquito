@@ -1,11 +1,11 @@
 /**
  * Configuring the organization.
  *
- * Eight operations, each naming exactly one thing a Profile can change about
- * the organization: the seven `organizationSettings.*` commands, and the
+ * Nine operations, each naming exactly one thing a Profile can change about
+ * the organization: the eight `organizationSettings.*` commands, and the
  * organization's details. The details are columns, so since ADR 0013's first
  * slice they are `identity.updateOrganizationDetails` through
- * `mutateCollection` like every other table's writes. The seven are a JSON
+ * `mutateCollection` like every other table's writes. The eight are a JSON
  * document and keep their own routes See `organization-writes.ts` for why.
  *
  * What each operation sends is only its own sub-document. The server merges it
@@ -21,6 +21,14 @@
  * changed, and hands the `updated_at` the first produced to the second. Without
  * that handoff the second write conflicts with the write the same click just
  * made.
+ *
+ * ## A moved address carries a map centre
+ *
+ * When the save moves the mailing address, the address is geocoded first and
+ * the top result rides in the details write as `map_center_lat` and
+ * `map_center_lng`. That is where a map with no rows of its own opens (#1413).
+ * A geocoder that is not configured, fails or finds nothing costs the centre
+ * and nothing else: the address still saves and the stored centre stays.
  */
 
 import type {
@@ -28,6 +36,7 @@ import type {
 	OrganizationSettings,
 	ResolvedLarvalInspectionEntryPolicy,
 	ServiceRequestContextSettings,
+	ServiceRequestOverdueDays,
 	SpeciesKeyBinding,
 	UnitDefaults,
 } from '@simmer-mosquito/domain';
@@ -37,6 +46,7 @@ import { CommandError, settleWrite } from '@simmer-mosquito/sync';
 import { useLiveQuery } from '@tanstack/react-db';
 import { useRef } from 'react';
 import { getServerUrl } from '../../auth';
+import { pointFromGeocoderResult, searchGeocoder } from '../../components/pickers/geocoder-dialog';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { organizations } from '../../lib/collections/organizations';
 import { OrganizationConflictError, writeOrganization } from './organization-writes';
@@ -63,16 +73,17 @@ export interface OrganizationSettingsMutations {
 	) => Promise<void>;
 	readonly setInsecticideBatchTracking: (trackInsecticideBatches: boolean) => Promise<void>;
 	readonly setServiceRequestContext: (context: ServiceRequestContextSettings) => Promise<void>;
+	readonly setServiceRequestOverdueDays: (days: ServiceRequestOverdueDays) => Promise<void>;
 	readonly setSpeciesKeyBindings: (bindings: readonly SpeciesKeyBinding[]) => Promise<void>;
 	/** False while the organization's row is still arriving; every write throws until then. */
 	readonly canWrite: boolean;
 }
 
 /**
- * The seven settings commands, as the routes that carry them.
+ * The eight settings commands, as the routes that carry them.
  *
  * A union rather than a map from command name to path: the path *is* how the
- * command is named on this surface, so a second spelling of the same seven
+ * command is named on this surface, so a second spelling of the same eight
  * facts would only be somewhere for them to disagree.
  */
 type SettingsRoute =
@@ -82,6 +93,7 @@ type SettingsRoute =
 	| 'larval-inspection-entry-policy'
 	| 'insecticide-batch-tracking'
 	| 'service-request-context'
+	| 'service-request-overdue-days'
 	| 'species-key-bindings';
 
 /** The columns `identity.updateOrganizationDetails` writes. */
@@ -149,6 +161,56 @@ export function organizationDetailsPlan(
 	};
 }
 
+/**
+ * What the mailing address geocodes as, or `null` when there is nothing to ask.
+ *
+ * Nothing to ask is a save that left the address as it was, which keeps a phone
+ * number fix from spending a geocoder request, and an address with every line
+ * empty. The second line is left out: a suite number moves nothing on a map and
+ * is the line a geocoder is most likely to misread.
+ */
+export function mapCenterQuery(
+	details: OrganizationDetailsColumns,
+	current: Organization,
+): string | null {
+	const moved =
+		details.mailingAddressLine1 !== current.mailing_address_line_1 ||
+		details.mailingAddressLine2 !== current.mailing_address_line_2 ||
+		details.mailingLocality !== current.mailing_locality ||
+		details.mailingRegion !== current.mailing_region ||
+		details.mailingPostalCode !== current.mailing_postal_code;
+	if (!moved) {
+		return null;
+	}
+	const regionLine = [details.mailingRegion, details.mailingPostalCode]
+		.filter((part) => part !== null)
+		.join(' ');
+	const query = [details.mailingAddressLine1, details.mailingLocality, regionLine]
+		.filter((part) => part !== null && part !== '')
+		.join(', ');
+	return query === '' ? null : query;
+}
+
+/**
+ * The two centre columns a details write carries: the top geocoder result for
+ * a moved address, or nothing at all for every way of not having one, so the
+ * stored centre stays.
+ */
+async function mapCenterChanges(
+	details: OrganizationDetailsColumns,
+	current: Organization,
+): Promise<{ readonly map_center_lat?: number; readonly map_center_lng?: number }> {
+	const query = mapCenterQuery(details, current);
+	if (query === null) {
+		return {};
+	}
+	const [top] = await searchGeocoder(query, details.mailingCountry).catch(() => []);
+	const point = top === undefined ? null : pointFromGeocoderResult(top);
+	return point === null
+		? {}
+		: { map_center_lat: point.coordinates[1], map_center_lng: point.coordinates[0] };
+}
+
 export function useOrganizationSettingsMutations(): OrganizationSettingsMutations {
 	// Not suspense: this is a write hook, and a form that has not been submitted
 	// should not be what holds a page behind a fallback. Until the row arrives
@@ -188,7 +250,11 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 		}
 
 		const organizationId = row.id;
-		const settings = resolveOrganizationSettings(row.settings).settings;
+		// Off the collection rather than the render's copy, so a second write from
+		// one Save builds on the first instead of putting its old value back on
+		// screen until sync answers.
+		const latest = organizations().get(organizationId) ?? row;
+		const settings = resolveOrganizationSettings(latest.settings).settings;
 		const result = await writeOrganization({
 			url: `${getServerUrl()}/organization-settings/${route}`,
 			body: { ...payload, expectedUpdatedAt: expectedUpdatedAt() },
@@ -216,15 +282,18 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 
 		if (plan.details !== null) {
 			const details = plan.details;
+			// Before the write rather than inside its try, which only reads the
+			// command's refusals. This never throws: a failed lookup is no centre.
+			const centerChanges = await mapCenterChanges(details, row);
 			try {
 				await settleWrite(
 					mutateCollection(organizations(), {
 						operation: 'update',
 						intent: 'identity.updateOrganizationDetails',
 						key: organizationId,
-						// All nine, and the library sends only the ones that differ.
-						// `organizationDetailsPlan` decided whether to write at all; the diff
-						// decides what the body says.
+						// All nine, plus the centre when the geocoder answered, and the library
+						// sends only the ones that differ. `organizationDetailsPlan` decided
+						// whether to write at all; the diff decides what the body says.
 						changes: {
 							name: details.name,
 							main_contact_email: details.mainContactEmail,
@@ -235,6 +304,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 							mailing_locality: details.mailingLocality,
 							mailing_region: details.mailingRegion,
 							mailing_postal_code: details.mailingPostalCode,
+							...centerChanges,
 						},
 						arguments: { expectedUpdatedAt: expectedUpdatedAt() },
 					}),
@@ -294,6 +364,12 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 			publicEngagement: { ...current.publicEngagement, serviceRequestContext },
 		}));
 
+	const setServiceRequestOverdueDays = (serviceRequestOverdueDays: ServiceRequestOverdueDays) =>
+		writeSettings('service-request-overdue-days', { serviceRequestOverdueDays }, (current) => ({
+			...current,
+			publicEngagement: { ...current.publicEngagement, serviceRequestOverdueDays },
+		}));
+
 	const setSpeciesKeyBindings = (bindings: readonly SpeciesKeyBinding[]) =>
 		writeSettings('species-key-bindings', { speciesKeyBindings: { bindings } }, (current) => ({
 			...current,
@@ -307,6 +383,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 		setLarvalInspectionEntryPolicy,
 		setInsecticideBatchTracking,
 		setServiceRequestContext,
+		setServiceRequestOverdueDays,
 		setSpeciesKeyBindings,
 		canWrite: row !== undefined,
 	};

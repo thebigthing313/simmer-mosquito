@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { z } from 'zod';
 import {
 	CollectionFormPage,
+	CollectionFormSkeleton,
 	type CollectionSaveInput,
 } from '../../../components/adult-surveillance/collections/collection-form';
 import {
@@ -20,18 +21,16 @@ import {
 	type CollectionPlacement,
 	useCollectionMutations,
 } from '../../../hooks/mutations/use-collection-mutations';
-import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
-import { useCollectionLureRoster } from '../../../hooks/queries/use-collection-lure-roster';
-import { useCollectionMethodRoster } from '../../../hooks/queries/use-collection-method-roster';
+import { catalogs } from '../../../hooks/queries/catalog-register';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useTrapOptions } from '../../../hooks/queries/use-trap-options';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
-import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
@@ -88,20 +87,19 @@ function CreateCollectionRoute() {
 	const assignmentId = search.assignmentId ?? null;
 	const navigate = useNavigate();
 	const { settings } = useOrganizationWorkspace(auth.snapshot);
-	const { traps } = useTrapOptions();
-	const methods = useCollectionMethodRoster();
-	const lures = useCollectionLureRoster();
+	const { traps, isReady: trapsReady } = useTrapOptions();
+	const methods = useCatalogRoster(catalogs.collectionMethods);
+	const lures = useCatalogRoster(catalogs.collectionLures);
 	const profiles = useProfileRoster();
 	const { all: units } = useUnitLabels();
 	const mutations = useCollectionMutations();
 
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 
 	// Minted up front so the crew rows can be written the moment the collection
-	// lands — and so their on-demand stream is already warm when the save fires.
+	// lands.
 	const [collectionId] = useState(() => newRecordId());
-	useAdditionalPersonnel({ type: 'collection', id: collectionId });
 	const recordExtras = useRecordExtras();
 
 	// The whole save re-runs on a confirmed acknowledgement, crew rows included;
@@ -139,7 +137,7 @@ function CreateCollectionRoute() {
 				geometry: isTrap ? null : geometry,
 			});
 
-			const fields = collectionFieldsFrom(values, timeZone);
+			const fields = collectionFieldsFrom(values, clock.zone);
 			await mutations.record({
 				collectionId,
 				fields,
@@ -168,6 +166,12 @@ function CreateCollectionRoute() {
 			}
 			await navigate({ to: '/adult-surveillance/collections/$id', params: { id: collectionId } });
 		});
+
+	// The form reads the trap it opens on once, to frame the map, so it waits for
+	// the trap list rather than opening on an empty one (#1436).
+	if (!trapsReady) {
+		return <CollectionFormSkeleton />;
+	}
 
 	return (
 		<>

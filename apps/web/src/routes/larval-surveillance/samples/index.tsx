@@ -1,31 +1,36 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useState } from 'react';
-import { getServerUrl } from '../../../auth';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
-import { ExplorerPagination } from '../../../components/explorer-pagination';
+import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
+import { DeclaredSummary } from '../../../components/explorer/declared-summary';
+import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { SampleMapCard } from '../../../components/larval-surveillance/sample-map-card';
 import { sampleLegend } from '../../../components/larval-surveillance/samples/legend';
-import { SampleFilterFields } from '../../../components/larval-surveillance/samples/sample-filters';
+import {
+	SampleFilterFields,
+	sampleFilterDeclarations,
+} from '../../../components/larval-surveillance/samples/sample-filters';
 import {
 	SampleContext,
 	type SampleListRow,
 	SpeciesResults,
 	sampleSwatch,
 } from '../../../components/larval-surveillance/samples/sample-row-parts';
-import { SampleSurfaceSwitch } from '../../../components/larval-surveillance/samples/sample-surface-switch';
+import { sampleSummaryFigures } from '../../../components/larval-surveillance/samples/sample-summary';
 import {
 	sampleFilterCodecs,
-	sampleListParams,
-	sampleTileFilters,
-	sharedSampleSearch,
+	sampleRecordSet,
 } from '../../../components/larval-surveillance/samples-search';
-import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
+import { MAP_CREATE_TARGETS } from '../../../components/map';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import {
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { useSpeciesOptions } from '../../../hooks/explorer/use-species-options';
-import { useSampleFilterState } from '../../../hooks/larval-surveillance/use-sample-filter-state';
+import { useMapClustering } from '../../../hooks/map/use-map-clustering';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { sampleName } from '../../../lib/sample-name';
@@ -41,62 +46,42 @@ export const Route = createFileRoute('/larval-surveillance/samples/')({
 /** How many species result chips a narrow list row shows before collapsing to "+N". */
 const RESULT_CHIP_LIMIT = 1;
 
-const PATH = '/map/samples';
-
 function SamplesExplorerRoute() {
 	// The filter state lives in the URL, so a deep link, a shared link, and Back
 	// out of a record all land on the same view.
-	const binding = useSampleFilterState();
+	const binding = useRecordSetFilters(sampleRecordSet, 'map');
 	const { filters: query, reset: clearAll, activeCount: activeFilterCount } = binding;
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
 	const { nameById } = useSpeciesOptions();
 
-	const filters = sampleTileFilters(query);
-	// What a move to the Table takes with it: every filter, since the Table
-	// applies each one.
-	const carried = sharedSampleSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
-	const layer: MapTileLayer = {
-		kind: 'samples',
-		serverUrl: getServerUrl(),
-		filters,
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		empty,
+		summary,
+		canvas,
 		selectedId,
-		onSelectFeature: setSelectedId,
-	};
-	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<SampleListRow>({
-			path: PATH,
-			rowsKey: 'samples',
-			rowKey: 'sample',
-			recordType: 'sample',
-			params: sampleListParams(filters),
-			layer,
-			map,
-			selectedId,
-		});
+		setSelectedId,
+	}: ExplorerResource<SampleListRow> = useExplorerResource({
+		set: sampleRecordSet,
+		binding,
+		summarize: true,
+	});
 
-	const handleMapReady = (instance: MapboxMap) => setMap(instance);
-
-	const legend = sampleLegend(query.status);
+	const [clustered] = useMapClustering();
+	const legend = sampleLegend(query.status, clustered);
 
 	return (
 		<ExplorerMapPage
-			actions={<SampleSurfaceSwitch compact current="map" search={carried} />}
+			actions={<RecordSetSwitch compact current="map" search={routeSearch} set={sampleRecordSet} />}
 			activeFilterCount={activeFilterCount}
 			filters={<SampleFilterFields binding={binding} />}
-			footer={
-				<ExplorerPagination
-					noun={recordNoun('sample')}
-					onPageChange={setPage}
-					page={page}
-					pageCount={pageCount}
-					total={total}
-				/>
-			}
 			heading={{
 				title: recordNoun('sample').titleMany,
 				icon: SampleIcon,
@@ -105,26 +90,13 @@ function SamplesExplorerRoute() {
 			}}
 			onResetFilters={clearAll}
 			map={
-				<>
-					<MapCanvas
-						inset={panel.inset}
-						searchWidth={panel.width}
-						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection] }}
-						controls={{ measure: true, readout: true }}
-						fitToData
-						rememberCamera
-						layers={layers}
-						legend={legend}
-						onMapReady={handleMapReady}
-					/>
-					{selected === null ? null : (
-						<SampleMapCard
-							id={selected.id}
-							inset={panel.inset}
-							onClose={() => setSelectedId(null)}
-						/>
-					)}
-				</>
+				<ExplorerCanvas
+					canvas={canvas}
+					card={(props) => <SampleMapCard {...props} />}
+					contextMenu={{ create: [MAP_CREATE_TARGETS.inspection] }}
+					legend={legend}
+					panel={panel}
+				/>
 			}
 			panel={panel}
 			results={{
@@ -133,6 +105,21 @@ function SamplesExplorerRoute() {
 				onRetry: retry,
 				skeletonClassName: 'h-[64px]',
 				empty,
+				// Over 100 in view the rows would not fit on one page, so the panel
+				// says what is in view instead (#1370).
+				summary: summary.isShown ? (
+					<DeclaredSummary
+						binding={binding}
+						chips={
+							<DeclaredFilterChips binding={binding} declarations={sampleFilterDeclarations} />
+						}
+						declarations={sampleFilterDeclarations}
+						figures={sampleSummaryFigures}
+						order={['status', 'species', 'nonMosquito']}
+						recordType="sample"
+						state={summary}
+					/>
+				) : undefined,
 				renderRow: (sample) => (
 					<SampleListItem
 						isSelected={sample.id === selectedId}

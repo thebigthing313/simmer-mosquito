@@ -18,11 +18,15 @@
  * `expectedUpdatedAt` is camelCase because it names no column: it is the stamp
  * the editor was looking at, and the server refuses with 409 when the row has
  * moved since. Everything else is a column of `organizations`.
+ *
+ * `map_center_lat` and `map_center_lng` are the two numbers among them. The
+ * client geocodes the mailing address and sends the top result beside it, and
+ * the builder refuses a value outside its range or a centre half cleared.
  */
 
 import type { IdentityCommand, OrganizationDetailChanges } from '@simmer-mosquito/domain';
 import { DomainValidationError, updateOrganizationDetailsCommand } from '@simmer-mosquito/domain';
-import { type CommandPayload, readNullableText } from '../command-payload.js';
+import { type CommandPayload, readNullableText, readNumber } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import {
 	type IdentityRow,
@@ -82,14 +86,33 @@ export function organizationTableCommands(
  * body is JSON and JSON has no other spelling for it.
  */
 function detailChanges(payload: OrganizationPayload): OrganizationDetailChanges {
-	const changes: Record<string, string | null> = {};
+	const changes: Record<string, string | number | null> = {};
 	for (const [column, field] of ORGANIZATION_DETAIL_COLUMNS) {
 		if (payload[column] !== undefined) {
-			changes[field] = readNullableText(payload[column]);
+			changes[field] = MAP_CENTER_FIELDS.has(field)
+				? readNullableCoordinate(payload[column])
+				: readNullableText(payload[column]);
 		}
 	}
 	// Every field but `name` is nullable, and `name` arriving blank is what the
 	// builder refuses. It reads `null` as absent and answers "name is required"
 	// rather than writing an organization with no name.
 	return changes as OrganizationDetailChanges;
+}
+
+/** The details that are numbers rather than text. */
+const MAP_CENTER_FIELDS: ReadonlySet<keyof OrganizationDetailChanges> = new Set([
+	'mapCenterLat',
+	'mapCenterLng',
+]);
+
+/**
+ * A coordinate as the builder should judge it.
+ *
+ * `null` clears and a finite number is a value. Anything else, a string or
+ * `NaN` among them, becomes `NaN` rather than absent, so the builder refuses it
+ * by name instead of the write leaving the column alone in silence.
+ */
+function readNullableCoordinate(value: unknown): number | null {
+	return value === null ? null : (readNumber(value) ?? Number.NaN);
 }

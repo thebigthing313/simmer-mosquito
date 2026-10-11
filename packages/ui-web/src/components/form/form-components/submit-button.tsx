@@ -31,11 +31,7 @@ export function SubmitButton({
 		>
 			{([canSubmit, isSubmitting]) => (
 				<Button type="submit" disabled={disabled || !canSubmit || isSubmitting}>
-					{isSubmitting ? (
-						<Spinner data-icon="inline-start" />
-					) : (
-						<SaveIcon data-icon="inline-start" aria-hidden="true" />
-					)}
+					{isSubmitting ? <Spinner /> : <SaveIcon aria-hidden="true" />}
 					{children}
 				</Button>
 			)}

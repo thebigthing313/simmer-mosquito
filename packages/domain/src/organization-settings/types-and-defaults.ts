@@ -38,6 +38,14 @@ export interface ServiceRequestContextSettings {
 }
 
 /**
+ * How many whole days an open service request may age, counted from its
+ * request date, before it is overdue; or `'off'`, which marks nothing overdue.
+ * Off is its own value rather than `0` because a missing value resolves to the
+ * default, so turning the threshold off has to be stored.
+ */
+export type ServiceRequestOverdueDays = number | 'off';
+
+/**
  * One key press records one species. Sex and physiological status are not bound
  * to the key — the adult entry modal carries a sticky mode that every press
  * inherits — so an organization needs one key per species rather than one per
@@ -73,6 +81,7 @@ export interface OrganizationSettings {
 	}>;
 	readonly publicEngagement: Readonly<{
 		readonly serviceRequestContext: ServiceRequestContextSettings;
+		readonly serviceRequestOverdueDays: ServiceRequestOverdueDays;
 	}>;
 }
 
@@ -90,6 +99,7 @@ export type OrganizationSettingsCommandType =
 	| 'organizationSettings.updateLarvalInspectionEntryPolicy'
 	| 'organizationSettings.updateInsecticideBatchTracking'
 	| 'organizationSettings.updateServiceRequestContext'
+	| 'organizationSettings.updateServiceRequestOverdueDays'
 	| 'organizationSettings.updateSpeciesKeyBindings';
 
 export interface OrganizationSettingsDomainCommand<
@@ -173,6 +183,18 @@ export type UpdateServiceRequestContextCommand = OrganizationSettingsDomainComma
 	}
 >;
 
+export interface UpdateServiceRequestOverdueDaysCommandInput
+	extends OrganizationSettingsCommandInput {
+	readonly serviceRequestOverdueDays: ServiceRequestOverdueDays;
+}
+
+export type UpdateServiceRequestOverdueDaysCommand = OrganizationSettingsDomainCommand<
+	'organizationSettings.updateServiceRequestOverdueDays',
+	OrganizationSettingsCommandPayload & {
+		readonly serviceRequestOverdueDays: ServiceRequestOverdueDays;
+	}
+>;
+
 export interface UpdateSpeciesKeyBindingsCommandInput extends OrganizationSettingsCommandInput {
 	readonly speciesKeyBindings: SpeciesKeyBindings;
 }
@@ -189,6 +211,7 @@ export type OrganizationSettingsCommand =
 	| UpdateLarvalInspectionEntryPolicyCommand
 	| UpdateInsecticideBatchTrackingCommand
 	| UpdateServiceRequestContextCommand
+	| UpdateServiceRequestOverdueDaysCommand
 	| UpdateSpeciesKeyBindingsCommand;
 
 export const ORGANIZATION_SETTINGS_SCHEMA_VERSION = 1;
@@ -223,6 +246,12 @@ export const DEFAULT_SERVICE_REQUEST_CONTEXT: ServiceRequestContextSettings = {
 	},
 } as const;
 
+/** An open request is overdue once it is older than this many days, until an Organization says otherwise. */
+export const DEFAULT_SERVICE_REQUEST_OVERDUE_DAYS = 14;
+
+/** The longest threshold an Organization may set: a year. */
+export const MAX_SERVICE_REQUEST_OVERDUE_DAYS = 365;
+
 /** No bindings until an organization sets them up; key entry stays unavailable until then. */
 export const DEFAULT_SPECIES_KEY_BINDINGS: SpeciesKeyBindings = {
 	bindings: [],
@@ -244,5 +273,6 @@ export const DEFAULT_ORGANIZATION_SETTINGS: OrganizationSettings = {
 	},
 	publicEngagement: {
 		serviceRequestContext: DEFAULT_SERVICE_REQUEST_CONTEXT,
+		serviceRequestOverdueDays: DEFAULT_SERVICE_REQUEST_OVERDUE_DAYS,
 	},
 } as const;

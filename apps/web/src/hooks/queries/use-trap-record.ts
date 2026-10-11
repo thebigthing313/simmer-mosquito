@@ -3,9 +3,7 @@
  *
  * The counterpart of `use-habitat-record.ts` and `use-inspection-record.ts`, and
  * here for the same reason: `use-trap.ts` joins the method, the lure and the
- * address so a card can name them, and a form writes ids rather than names. It
- * also coalesces the method name to `Unknown method`, which is right on a card
- * and wrong in a field.
+ * address so a card can name them, and a form writes ids rather than names.
  *
  * `organizationId` rides along because the form's address picker is scoped by it,
  * and `updatedAt` because the form keys its geometry fetch on it — a re-opened

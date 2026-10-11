@@ -34,8 +34,9 @@ export interface LarvalActivityRow extends LifeStageFlags {
 	readonly inspectedByProfileId: string | null;
 	/**
 	 * The Profile that made the inspection, already resolved. `null` when nobody was
-	 * recorded — which the panels group under "Unassigned" rather than treating as a
-	 * missing name.
+	 * recorded, which the panels group under "Unassigned", and also when the
+	 * Profile is not in the client, which is permanent for a deleted one. Read
+	 * `inspectedByProfileId` to tell the two apart.
 	 */
 	readonly inspectedByName: string | null;
 	readonly isWet: boolean;
@@ -86,20 +87,11 @@ export interface InspectionCard extends LarvalActivityRow {
 	readonly addressId: string | null;
 	/** Joined, not looked up — see `address-view.ts` for why it is nested here. */
 	readonly address: LinkedAddress;
-}
-
-/**
- * One Habitat Inspection as a row of the inspections table.
- *
- * The activity row plus the two things the table shows and the day panels do
- * not: the dip count, which is the effort the density band is a rate over, and
- * the linked Address, which names an Ad Hoc Inspection made at a place the
- * address book already holds.
- */
-export interface InspectionTableRow extends LarvalActivityRow {
+	/** The effort the density band is a rate over. */
 	readonly dipCount: number | null;
-	/** Joined, not looked up. `address-view.ts` says why it is nested here. */
-	readonly address: LinkedAddress;
+	readonly createdAt: Date;
+	/** Also what the geometry fetch is keyed on, so an edited shape is not read back stale. */
+	readonly updatedAt: Date;
 }
 
 /**

@@ -26,18 +26,24 @@ import { Suspense } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActivityEntry } from '../../components/activity/activity-data';
 import { ActivityLog } from '../../components/activity/activity-log';
+import { collectionRecordSet } from '../../components/adult-surveillance/collections/collections-search';
+import { trapRecordSet } from '../../components/adult-surveillance/traps/traps-search';
+import { biocontrolRecordSet } from '../../components/control-operations/biocontrol/biocontrol-actions-search';
+import { applicationRecordSet } from '../../components/control-operations/chemical/applications-search';
+import { sourceReductionRecordSet } from '../../components/control-operations/source-reduction/source-reductions-search';
 import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
 import { DashboardPage } from '../../components/dashboard/dashboard-page';
+import { surfaceCodecs } from '../../components/explorer/record-set';
+import { RecordSetSwitch } from '../../components/explorer/record-set-switch';
+import { addressRecordSet } from '../../components/gis/addresses/addresses-search';
 import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
-import { HabitatSurfaceSwitch } from '../../components/larval-surveillance/habitats/habitat-surface-switch';
-import { sharedHabitatSearch } from '../../components/larval-surveillance/habitats/habitats-search';
-import { InspectionSurfaceSwitch } from '../../components/larval-surveillance/inspection-surface-switch';
-import { sharedInspectionSearch } from '../../components/larval-surveillance/inspections-search';
-import { SampleSurfaceSwitch } from '../../components/larval-surveillance/samples/sample-surface-switch';
-import { sharedSampleSearch } from '../../components/larval-surveillance/samples-search';
+import { habitatRecordSet } from '../../components/larval-surveillance/habitats/habitats-search';
+import { inspectionRecordSet } from '../../components/larval-surveillance/inspections-search';
+import { sampleRecordSet } from '../../components/larval-surveillance/samples-search';
 import { PeopleSection } from '../../components/my-organization/people';
 import { OverviewTable } from '../../components/overview/overview-table';
 import { UpwardLine } from '../../components/overview/overview-upward-line';
+import { outreachRecordSet } from '../../components/public-engagement/outreach/outreach-actions-search';
 import { ServiceRequestDetailHeader } from '../../components/public-engagement/service-requests/service-request-detail-header';
 import type {
 	NearbyCategory,
@@ -45,9 +51,8 @@ import type {
 	NearbyItem,
 } from '../../components/public-engagement/service-requests/service-request-nearby';
 import { NearbyResultList } from '../../components/public-engagement/service-requests/service-request-nearby-rows';
-import { ServiceRequestSurfaceSwitch } from '../../components/public-engagement/service-requests/service-request-surface-switch';
 import { mapFamiliesForTab } from '../../components/public-engagement/service-requests/service-request-tabs';
-import { sharedServiceRequestSearch } from '../../components/public-engagement/service-requests/service-requests-search';
+import { serviceRequestRecordSet } from '../../components/public-engagement/service-requests/service-requests-search';
 import { applications } from '../../lib/collections/applications';
 import { inspections } from '../../lib/collections/inspections';
 import { memberships } from '../../lib/collections/memberships';
@@ -57,6 +62,7 @@ import { requested_control_actions } from '../../lib/collections/requested_contr
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 import { source_reductions } from '../../lib/collections/source_reductions';
+import { searchValidator } from '../../lib/search-filters';
 import { dayOverview, monthOverview, yearOverview } from './components/overview/overview-fixtures';
 import { installMemoryCollections, seedRows } from './lib/collections/memory-collections';
 import { STUB_ROW_HEIGHT, stubRailViewportHeight } from './rail-viewport-stub';
@@ -321,55 +327,63 @@ describe('the People roster', () => {
  *
  * The fixture sets five of the eight filters and both of the table's sort
  * params, so a link that carried everything and a link that carried only the
- * shared contract resolve to different addresses.
+ * filters resolve to different addresses. Region is one of the five, and the
+ * Table does not apply it, so the Table's address cannot hold it and the
+ * switch carries it in neither direction.
  */
 describe('the Inspections Map/Table switch', () => {
-	const TABLE_ADDRESS = {
+	const HAND_TYPED_TABLE_ADDRESS = {
 		from: '2026-08-01',
 		to: '2026-08-31',
 		water: 'wet',
-		density: ['low'],
+		density: ['light'],
 		regions: ['region-1'],
 		sort: 'dips',
 		direction: 'asc',
 	} as const;
 
 	/**
-	 * The five filters as the router writes them: a string param as itself, an
-	 * array JSON-encoded and percent-escaped. Spelled out rather than built from
-	 * the fixture, so a case cannot agree with a mistake in the encoder.
+	 * The four filters both surfaces apply, as the router writes them: a string
+	 * param as itself, an array JSON-encoded and percent-escaped. Spelled out
+	 * rather than built from the fixture, so a case cannot agree with a mistake
+	 * in the encoder.
 	 */
-	const CARRIED =
-		'from=2026-08-01&to=2026-08-31&water=wet&density=%5B%22low%22%5D&regions=%5B%22region-1%22%5D';
+	const SHARED = 'from=2026-08-01&to=2026-08-31&water=wet&density=%5B%22light%22%5D';
 
-	it('carries the filters from the Table to the Map, and leaves the sort behind', () => {
-		renderWithRouter(
-			<InspectionSurfaceSwitch current="table" search={sharedInspectionSearch(TABLE_ADDRESS)} />,
+	it('carries the filters from the Table to the Map, and leaves the sort and Region behind', () => {
+		// The Table's own validated search: Region has no codec the Table reads,
+		// so a hand-typed one is gone before the switch sees the address.
+		const tableAddress = searchValidator(surfaceCodecs(inspectionRecordSet, 'table'))(
+			HAND_TYPED_TABLE_ADDRESS,
 		);
 
-		expect(linkHref('Map')).toBe(`/larval-surveillance/inspections?${CARRIED}`);
+		renderWithRouter(
+			<RecordSetSwitch current="table" search={tableAddress} set={inspectionRecordSet} />,
+		);
+
+		expect(linkHref('Map')).toBe(`/larval-surveillance/inspections?${SHARED}`);
 	});
 
-	it('carries the filters from the Map to the Table', () => {
+	it('carries the filters from the Map to the Table, and leaves Region behind', () => {
 		// The map's own validated search, which is the shared contract already: the
 		// sort has no codec here, so an address carrying one arrives without it.
 		const mapAddress = {
 			from: '2026-08-01',
 			to: '2026-08-31',
 			water: 'wet',
-			density: ['low'],
+			density: ['light'],
 			regions: ['region-1'],
 		};
 
 		renderWithRouter(
-			<InspectionSurfaceSwitch current="map" search={sharedInspectionSearch(mapAddress)} />,
+			<RecordSetSwitch current="map" search={mapAddress} set={inspectionRecordSet} />,
 		);
 
-		expect(linkHref('Table')).toBe(`/larval-surveillance/inspections/table?${CARRIED}`);
+		expect(linkHref('Table')).toBe(`/larval-surveillance/inspections/table?${SHARED}`);
 	});
 
 	it('offers the two surfaces and nothing else', () => {
-		renderWithRouter(<InspectionSurfaceSwitch current="map" search={{}} />);
+		renderWithRouter(<RecordSetSwitch current="map" search={{}} set={inspectionRecordSet} />);
 
 		expect(linkHrefs()).toEqual([
 			'/larval-surveillance/inspections',
@@ -379,9 +393,33 @@ describe('the Inspections Map/Table switch', () => {
 });
 
 /**
+ * What a screen reader calls each switch. The name comes from the noun
+ * register, so it is spelled out here rather than built the same way.
+ */
+describe('the name of each Map/Table switch', () => {
+	it.each([
+		['Habitats view', habitatRecordSet],
+		['Inspections view', inspectionRecordSet],
+		['Samples view', sampleRecordSet],
+		['Traps view', trapRecordSet],
+		['Collections view', collectionRecordSet],
+		['Chemical applications view', applicationRecordSet],
+		['Biocontrol actions view', biocontrolRecordSet],
+		['Source reductions view', sourceReductionRecordSet],
+		['Outreach actions view', outreachRecordSet],
+		['Service requests view', serviceRequestRecordSet],
+		['Addresses view', addressRecordSet],
+	] as const)('is %s', async (name, set) => {
+		renderWithRouter(<RecordSetSwitch current="map" search={{}} set={set} />);
+
+		expect(await screen.findByRole('navigation', { name })).toBeTruthy();
+	});
+});
+
+/**
  * The Service Requests Map/Table switch. It carries status and the date window
- * and nothing else: the Table cannot apply the Map's search, Tags or Regions,
- * and carrying one would leave rows on the Table that the filter says are gone.
+ * and nothing else: the Table has no control for the Map's search, Tags or
+ * Regions, so `serviceRequestRecordSet` leaves them behind.
  */
 describe('the Service Requests Map/Table switch', () => {
 	const CARRIED = 'status=open&from=2026-08-01&to=2026-08-31';
@@ -397,7 +435,7 @@ describe('the Service Requests Map/Table switch', () => {
 		};
 
 		renderWithRouter(
-			<ServiceRequestSurfaceSwitch current="map" search={sharedServiceRequestSearch(mapAddress)} />,
+			<RecordSetSwitch current="map" search={mapAddress} set={serviceRequestRecordSet} />,
 		);
 
 		expect(linkHref('Table')).toBe(`/public-engagement/service-requests/table?${CARRIED}`);
@@ -413,10 +451,7 @@ describe('the Service Requests Map/Table switch', () => {
 		};
 
 		renderWithRouter(
-			<ServiceRequestSurfaceSwitch
-				current="table"
-				search={sharedServiceRequestSearch(tableAddress)}
-			/>,
+			<RecordSetSwitch current="table" search={tableAddress} set={serviceRequestRecordSet} />,
 		);
 
 		expect(linkHref('Map')).toBe(`/public-engagement/service-requests?${CARRIED}`);
@@ -441,16 +476,14 @@ describe('the Habitats Map/Table switch', () => {
 
 	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
 		renderWithRouter(
-			<HabitatSurfaceSwitch current="map" search={sharedHabitatSearch({ ...ADDRESS, page: 3 })} />,
+			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={habitatRecordSet} />,
 		);
 
 		expect(linkHref('Table')).toBe(`/larval-surveillance/habitats/table?${CARRIED}`);
 	});
 
 	it('carries every filter from the Table to the Map', () => {
-		renderWithRouter(
-			<HabitatSurfaceSwitch current="table" search={sharedHabitatSearch(ADDRESS)} />,
-		);
+		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={habitatRecordSet} />);
 
 		expect(linkHref('Map')).toBe(`/larval-surveillance/habitats?${CARRIED}`);
 	});
@@ -472,15 +505,234 @@ describe('the Samples Map/Table switch', () => {
 		'from=2026-08-01&to=2026-08-31&status=identified&species=%5B%22species-1%22%5D&regions=%5B%22region-1%22%5D';
 
 	it('carries every filter from the Map to the Table', () => {
-		renderWithRouter(<SampleSurfaceSwitch current="map" search={sharedSampleSearch(ADDRESS)} />);
+		renderWithRouter(<RecordSetSwitch current="map" search={ADDRESS} set={sampleRecordSet} />);
 
 		expect(linkHref('Table')).toBe(`/larval-surveillance/samples/table?${CARRIED}`);
 	});
 
 	it('carries every filter from the Table to the Map', () => {
-		renderWithRouter(<SampleSurfaceSwitch current="table" search={sharedSampleSearch(ADDRESS)} />);
+		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={sampleRecordSet} />);
 
 		expect(linkHref('Map')).toBe(`/larval-surveillance/samples?${CARRIED}`);
+	});
+});
+
+/**
+ * The Traps Map/Table switch. Both surfaces read `/map/traps`, so every filter
+ * is carried, collection methods and regions included.
+ */
+describe('the Traps Map/Table switch', () => {
+	const ADDRESS = {
+		search: 'gravid',
+		status: 'all',
+		methods: ['method-1'],
+		regions: ['region-1'],
+	};
+	const CARRIED =
+		'search=gravid&status=all&methods=%5B%22method-1%22%5D&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={trapRecordSet} />,
+		);
+
+		expect(linkHref('Table')).toBe(`/adult-surveillance/traps/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={trapRecordSet} />);
+
+		expect(linkHref('Map')).toBe(`/adult-surveillance/traps?${CARRIED}`);
+	});
+});
+
+/**
+ * The Collections Map/Table switch. Both surfaces read `/map/collections`, so
+ * every filter is carried, the date window and both flags included.
+ */
+describe('the Collections Map/Table switch', () => {
+	const ADDRESS = {
+		from: '2026-09-01',
+		to: '2026-09-28',
+		methods: ['method-1'],
+		problems: true,
+		awaiting: true,
+		regions: ['region-1'],
+	};
+	const CARRIED =
+		'from=2026-09-01&to=2026-09-28&methods=%5B%22method-1%22%5D&problems=true&awaiting=true&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={collectionRecordSet} />,
+		);
+
+		expect(linkHref('Table')).toBe(`/adult-surveillance/collections/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(
+			<RecordSetSwitch current="table" search={ADDRESS} set={collectionRecordSet} />,
+		);
+
+		expect(linkHref('Map')).toBe(`/adult-surveillance/collections?${CARRIED}`);
+	});
+});
+
+/**
+ * The Chemical Applications Map/Table switch. Both surfaces read
+ * `/map/chemical`, so every filter is carried, the date window included.
+ */
+describe('the Chemical Applications Map/Table switch', () => {
+	const ADDRESS = {
+		from: '2026-09-01',
+		to: '2026-09-28',
+		insecticides: ['insecticide-1'],
+		people: ['person-1'],
+		methods: ['method-1'],
+		regions: ['region-1'],
+	};
+	const CARRIED =
+		'from=2026-09-01&to=2026-09-28&insecticides=%5B%22insecticide-1%22%5D&people=%5B%22person-1%22%5D&methods=%5B%22method-1%22%5D&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={applicationRecordSet} />,
+		);
+
+		expect(linkHref('Table')).toBe(`/control-operations/chemical/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(
+			<RecordSetSwitch current="table" search={ADDRESS} set={applicationRecordSet} />,
+		);
+
+		expect(linkHref('Map')).toBe(`/control-operations/chemical?${CARRIED}`);
+	});
+});
+
+/**
+ * The Source Reductions Map/Table switch. Both surfaces read
+ * `/map/source-reduction`, so every filter is carried, the date window
+ * included.
+ */
+describe('the Source Reductions Map/Table switch', () => {
+	const ADDRESS = {
+		from: '2026-09-01',
+		to: '2026-09-28',
+		people: ['person-1'],
+		methods: ['method-1'],
+		regions: ['region-1'],
+	};
+	const CARRIED =
+		'from=2026-09-01&to=2026-09-28&people=%5B%22person-1%22%5D&methods=%5B%22method-1%22%5D&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<RecordSetSwitch
+				current="map"
+				search={{ ...ADDRESS, page: 3 }}
+				set={sourceReductionRecordSet}
+			/>,
+		);
+
+		expect(linkHref('Table')).toBe(`/control-operations/source-reduction/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(
+			<RecordSetSwitch current="table" search={ADDRESS} set={sourceReductionRecordSet} />,
+		);
+
+		expect(linkHref('Map')).toBe(`/control-operations/source-reduction?${CARRIED}`);
+	});
+});
+
+/**
+ * The Biocontrol Actions Map/Table switch. Both surfaces read
+ * `/map/biocontrol`, so every filter is carried, the date window and the
+ * habitat flag included.
+ */
+describe('the Biocontrol Actions Map/Table switch', () => {
+	const ADDRESS = {
+		from: '2026-09-01',
+		to: '2026-09-28',
+		people: ['person-1'],
+		methods: ['method-1'],
+		habitat: true,
+		regions: ['region-1'],
+	};
+	const CARRIED =
+		'from=2026-09-01&to=2026-09-28&people=%5B%22person-1%22%5D&methods=%5B%22method-1%22%5D&habitat=true&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={biocontrolRecordSet} />,
+		);
+
+		expect(linkHref('Table')).toBe(`/control-operations/biocontrol/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(
+			<RecordSetSwitch current="table" search={ADDRESS} set={biocontrolRecordSet} />,
+		);
+
+		expect(linkHref('Map')).toBe(`/control-operations/biocontrol?${CARRIED}`);
+	});
+});
+
+/**
+ * The Outreach Actions Map/Table switch. Both surfaces read `/map/outreach`,
+ * so every filter is carried, the date window included.
+ */
+describe('the Outreach Actions Map/Table switch', () => {
+	const ADDRESS = {
+		from: '2026-09-01',
+		to: '2026-09-28',
+		people: ['person-1'],
+		methods: ['method-1'],
+		regions: ['region-1'],
+	};
+	const CARRIED =
+		'from=2026-09-01&to=2026-09-28&people=%5B%22person-1%22%5D&methods=%5B%22method-1%22%5D&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={outreachRecordSet} />,
+		);
+
+		expect(linkHref('Table')).toBe(`/public-engagement/outreach/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={outreachRecordSet} />);
+
+		expect(linkHref('Map')).toBe(`/public-engagement/outreach?${CARRIED}`);
+	});
+});
+
+/**
+ * The Addresses Map/Table switch. Both surfaces read `/map/addresses`, so
+ * both filters are carried, the search and the regions.
+ */
+describe('the Addresses Map/Table switch', () => {
+	const ADDRESS = { search: 'elm', regions: ['region-1'] };
+	const CARRIED = 'search=elm&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={addressRecordSet} />,
+		);
+
+		expect(linkHref('Table')).toBe(`/gis/addresses/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={addressRecordSet} />);
+
+		expect(linkHref('Map')).toBe(`/gis/addresses?${CARRIED}`);
 	});
 });
 
@@ -562,6 +814,10 @@ describe('the Dashboard', () => {
 		// All time: an open request received last year is still open.
 		expect(linkHref('Open service requests')).toBe(
 			'/public-engagement/service-requests?status=open&from=any&to=any',
+		);
+		// The overdue line opens the same explorer with its Overdue filter on (#1246).
+		expect(linkHref('Overdue service requests')).toBe(
+			'/public-engagement/service-requests?overdue=true&from=any&to=any',
 		);
 	});
 
@@ -976,7 +1232,6 @@ describe('the Daily Work log', () => {
 				message={null}
 				onSelect={() => {}}
 				selectedKey={null}
-				timeZone={undefined}
 			/>,
 		);
 

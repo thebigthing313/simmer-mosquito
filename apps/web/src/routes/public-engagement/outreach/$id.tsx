@@ -23,10 +23,10 @@ import {
 	RecordDetailPage,
 } from '../../../components/record';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { OutreachAction } from '../../../hooks/queries/outreach-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useOutreachAction } from '../../../hooks/queries/use-outreach-action';
-import { useOutreachMethodRoster } from '../../../hooks/queries/use-outreach-method-roster';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { CONTROL_ACTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
@@ -48,7 +48,7 @@ function RouteComponent() {
 	// One query for the action, its method, technician and address — the lookups
 	// this page used to do for itself. `outreach_actions` is on-demand, so this is
 	// status-gated rather than suspending; see the hook.
-	const { action, isReady, isError } = useOutreachAction(id, { gcTime: activityGcTimeMs });
+	const { action, isReady, isError } = useOutreachAction(id);
 
 	return (
 		<RecordDetailPage
@@ -71,10 +71,10 @@ function OutreachDetailContent({
 }) {
 	// The roster is still read, but only for the custom-field schema the chosen
 	// method declares — the method's *name* arrives joined.
-	const methods = useOutreachMethodRoster();
+	const methods = useCatalogRoster(catalogs.outreachMethods);
 	const { remove } = useOutreachActionMutations();
 
-	const methodName = action.methodName;
+	const methodName = action.methodName ?? 'Unknown method';
 	const technicianName = action.technicianName;
 
 	useBreadcrumbLabel(action.id, `${methodName} · ${formatActionDate(action.outreachDate)}`);

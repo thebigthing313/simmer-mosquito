@@ -58,19 +58,20 @@ export function MissionStopList({
 			{stops.map((stop, index) => (
 				<MissionStopRow
 					controlType={controlType}
+					count={stops.length}
+					focus={{
+						selected: stop.missionItemId === selectedStopId,
+						highlighted: stop.missionItemId === highlightId,
+						onSelect,
+						onHover,
+					}}
 					index={index}
-					isFirst={index === 0}
-					isHighlighted={stop.missionItemId === highlightId}
-					isLast={index === stops.length - 1}
-					isSelected={stop.missionItemId === selectedStopId}
 					key={stop.missionItemId}
 					onAction={onAction}
-					onHover={onHover}
 					onMove={onMove}
 					onRemove={onRemove}
 					onRename={onRename}
 					missionId={missionId}
-					onSelect={onSelect}
 					ordinal={index + 1}
 					planEditable={planEditable}
 					progressEnabled={progressEnabled}

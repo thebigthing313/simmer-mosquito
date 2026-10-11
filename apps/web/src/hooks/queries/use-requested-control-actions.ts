@@ -15,9 +15,9 @@
 import { and, gte, lte, useLiveQuery } from '@tanstack/react-db';
 import { requested_control_actions } from '../../lib/collections/requested_control_actions';
 import { addCalendarDays, localDayStartAsInstant } from '../../lib/local-date';
-import { useOrganizationTimeZone } from '../use-organization-time-zone';
+import { useOrganizationClock } from '../use-organization-clock';
 import type { RequestListing } from './operations-view';
-import { activityGcTimeMs } from './shared';
+import { liveQueryGcTimeMs } from './shared';
 
 /**
  * The bounds an unset half of the window gets.
@@ -42,15 +42,15 @@ export function useRequestedControlActions(
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const timeZone = useOrganizationTimeZone();
-	const fromBound = from === '' ? EARLIEST_INSTANT : localDayStartAsInstant(from, timeZone);
+	const clock = useOrganizationClock();
+	const fromBound = from === '' ? EARLIEST_INSTANT : localDayStartAsInstant(from, clock.zone);
 	// The upper bound is the start of the day *after* `to`, so a request raised at
 	// any hour of the closing day is still inside the window.
 	const toBound =
-		to === '' ? LATEST_INSTANT : localDayStartAsInstant(addCalendarDays(to, 1), timeZone);
+		to === '' ? LATEST_INSTANT : localDayStartAsInstant(addCalendarDays(to, 1), clock.zone);
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ request: requested_control_actions() })

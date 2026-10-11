@@ -27,6 +27,7 @@
  * assertion would then be about a request nobody made.
  */
 
+import type { PersistableTransaction } from '@simmer-mosquito/sync';
 import { renderHook } from '@testing-library/react';
 import { expect, vi } from 'vitest';
 import { getServerUrl } from '../../../../auth';
@@ -55,12 +56,9 @@ const sent: SentRequest[] = [];
  * reads a result back, and a write that never settles would hang every test in
  * the file rather than fail one.
  */
-export function recordDispatch(
-	collection: unknown,
-	write: unknown,
-): { readonly isPersisted: { readonly promise: Promise<unknown> } } {
+export function recordDispatch(collection: unknown, write: unknown): PersistableTransaction {
 	dispatched.push({ collection, write: write as Record<string, unknown> });
-	return { isPersisted: { promise: Promise.resolve() } };
+	return { when: () => Promise.resolve() };
 }
 
 /** Everything dispatched since the last {@link resetDispatches}, in order. */

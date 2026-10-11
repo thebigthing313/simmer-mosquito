@@ -10,18 +10,19 @@ import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../c
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { OutreachAction } from '../../../hooks/queries/outreach-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
 } from '../../../hooks/queries/use-additional-personnel';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useOutreachAction } from '../../../hooks/queries/use-outreach-action';
-import { useOutreachMethodRoster } from '../../../hooks/queries/use-outreach-method-roster';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
+import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { noTechnicianValue } from '../../../lib/no-technician';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -43,10 +44,10 @@ function EditOutreachActionRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const methods = useOutreachMethodRoster();
+	const methods = useCatalogRoster(catalogs.outreachMethods);
 	const profiles = useProfileRoster();
 
-	const { action, isReady, isError } = useOutreachAction(id, { gcTime: activityGcTimeMs });
+	const { action, isReady, isError } = useOutreachAction(id);
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
@@ -143,11 +144,19 @@ function EditOutreachActionLoader({
 						},
 					}),
 		});
-		await setPersonnel({
-			target: { type: 'outreachAction', id: action.id },
-			existing: personnel.rows,
-			profileIds: values.additionalPersonnelIds,
-		});
+		// The update has landed by now, so a crew miss is reported rather than
+		// thrown (see attachLinksBestEffort). The crew can lose rows here as well as
+		// gain them, so the report is a change to retry from this form.
+		await attachLinksBestEffort(
+			'the additional personnel',
+			() =>
+				setPersonnel({
+					target: { type: 'outreachAction', id: action.id },
+					existing: personnel.rows,
+					profileIds: values.additionalPersonnelIds,
+				}),
+			{ write: 'change', recordType: 'outreachAction' },
+		);
 		await navigate({ to: '/public-engagement/outreach/$id', params: { id: action.id } });
 	};
 

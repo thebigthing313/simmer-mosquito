@@ -11,19 +11,20 @@ import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../c
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
 } from '../../../hooks/queries/use-additional-personnel';
 import { useBiocontrolAction } from '../../../hooks/queries/use-biocontrol-action';
-import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-biocontrol-method-roster';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
+import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { noTechnicianValue } from '../../../lib/no-technician';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -45,11 +46,11 @@ function EditBiocontrolActionRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const methods = useBiocontrolMethodRoster();
+	const methods = useCatalogRoster(catalogs.biocontrolMethods);
 	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
 
-	const { action, isReady, isError } = useBiocontrolAction(id, { gcTime: activityGcTimeMs });
+	const { action, isReady, isError } = useBiocontrolAction(id);
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
@@ -139,11 +140,19 @@ function EditBiocontrolActionLoader({
 						},
 					}),
 		});
-		await setPersonnel({
-			target: { type: 'biocontrolAction', id: action.id },
-			existing: personnel.rows,
-			profileIds: values.additionalPersonnelIds,
-		});
+		// The update has landed by now, so a crew miss is reported rather than
+		// thrown (see attachLinksBestEffort). The crew can lose rows here as well as
+		// gain them, so the report is a change to retry from this form.
+		await attachLinksBestEffort(
+			'the additional personnel',
+			() =>
+				setPersonnel({
+					target: { type: 'biocontrolAction', id: action.id },
+					existing: personnel.rows,
+					profileIds: values.additionalPersonnelIds,
+				}),
+			{ write: 'change', recordType: 'biocontrolAction' },
+		);
 		await navigate({ to: '/control-operations/biocontrol/$id', params: { id: action.id } });
 	};
 

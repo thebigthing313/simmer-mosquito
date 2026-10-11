@@ -7,7 +7,8 @@ import { createPortal } from 'react-dom';
 import type { DrawGeometryType } from '../../hooks/map/use-map-draw';
 import { newRecordId } from '../../hooks/mutations/shared';
 import { useNotificationRegistrationMutations } from '../../hooks/mutations/use-notification-registration-mutations';
-import { useNotificationTypeRoster } from '../../hooks/queries/use-notification-type-roster';
+import { catalogs } from '../../hooks/queries/catalog-register';
+import { useCatalogRoster } from '../../hooks/queries/use-catalog-roster';
 import {
 	type RegistrationRecord,
 	useRegistration,
@@ -79,10 +80,6 @@ function CreateDraft({
 	toolbarSlot,
 }: RegistrationDraftProps) {
 	const mutations = useNotificationRegistrationMutations();
-	// Queried before it exists: `notification_registrations` is on-demand, and a
-	// write into a collection nothing is querying waits out a txid confirmation
-	// that never arrives, which reads as a frozen save rather than a slow one.
-	useRegistration(draft.registrationId);
 
 	const onSave = async (values: RegistrationFormValues, geometry: NonNullable<DraftGeometry>) => {
 		await mutations.record({
@@ -291,7 +288,7 @@ function DraftForm({
 	const { all: units } = useUnitLabels();
 	// Active only: the domain refuses a subscription to a retired type, and a
 	// retired one on the list is a choice that fails at save.
-	const notificationTypes = useNotificationTypeRoster()
+	const notificationTypes = useCatalogRoster(catalogs.notificationTypes)
 		.filter((type) => type.isActive)
 		.map((type) => ({ id: type.id, label: type.name }));
 

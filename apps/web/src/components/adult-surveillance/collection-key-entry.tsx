@@ -11,9 +11,8 @@ import {
 	type CollectionIdentification,
 	useCollectionIdentifications,
 } from '../../hooks/queries/use-collection-identifications';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { useSpeciesKeyBindings } from '../../hooks/use-species-key-bindings';
-import { todayInTimeZone } from '../../lib/local-date';
 import { type CommitBaseline, flushedKeysAfter, planCommit } from '../key-entry/commit-plan';
 import { KeyEntryDialog, type VariantMode } from '../key-entry/key-entry-dialog';
 import {
@@ -55,7 +54,7 @@ export function CollectionKeyEntryDialog({
 	readonly collectionId: string;
 }) {
 	const bindings = useSpeciesKeyBindings();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const { identifications } = useCollectionIdentifications(collectionId);
 	const mutations = useCollectionSpeciesMutations();
 
@@ -103,7 +102,7 @@ export function CollectionKeyEntryDialog({
 				.add({
 					collectionId,
 					collectionSpeciesId,
-					identifiedDate: todayInTimeZone(timeZone),
+					identifiedDate: clock.today(),
 					fields: {
 						speciesId: step.speciesId,
 						count: step.count,

@@ -1551,7 +1551,12 @@ CREATE TABLE public.organizations (
     mailing_locality text,
     mailing_region text,
     mailing_postal_code text,
-    updated_by_profile_id uuid
+    updated_by_profile_id uuid,
+    map_center_lat double precision,
+    map_center_lng double precision,
+    CONSTRAINT organizations_map_center_lat_range CHECK (((map_center_lat >= ('-90'::integer)::double precision) AND (map_center_lat <= (90)::double precision))),
+    CONSTRAINT organizations_map_center_lng_range CHECK (((map_center_lng >= ('-180'::integer)::double precision) AND (map_center_lng <= (180)::double precision))),
+    CONSTRAINT organizations_map_center_pair CHECK (((map_center_lat IS NULL) = (map_center_lng IS NULL)))
 );
 
 
@@ -6750,4 +6755,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('202609220001'),
     ('202609230001'),
     ('202609240001'),
-    ('202609290001');
+    ('202609290001'),
+    ('202610080001');

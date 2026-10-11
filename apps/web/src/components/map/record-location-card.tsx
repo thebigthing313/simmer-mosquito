@@ -1,10 +1,10 @@
 import { mapContext } from '@simmer-mosquito/design-tokens';
 import {
 	type BoundingBox,
+	boundsFromCoordinates,
 	boundsFromGeoJson,
 	centroidFromGeoJson,
 	countGeoJsonVertices,
-	extendBounds,
 	formatGeometryTypeLabel,
 	type GeoJsonGeometry,
 } from '@simmer-mosquito/mapping';
@@ -32,6 +32,7 @@ import {
 import { LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useRef } from 'react';
+import { type FramePurpose, frameOnMap } from './map-camera';
 import { MapCanvas } from './map-canvas';
 import type { MapCamera } from './map-styles';
 
@@ -98,6 +99,9 @@ export function RecordLocationCard({
 }) {
 	const contextGeojson = context?.geojson ?? null;
 	const bounds = unionBounds(geojson, contextGeojson);
+	// With a context the point is seeing the record inside it, which frames tighter
+	// and moves quicker than the record on its own.
+	const purpose: FramePurpose = contextGeojson === null ? 'record' : 'context';
 	const focus = geojson ?? contextGeojson;
 	const centroid = focus === null ? null : centroidFromGeoJson(focus);
 	const camera: MapCamera | undefined =
@@ -111,17 +115,18 @@ export function RecordLocationCard({
 	const mapRef = useRef<MapboxMap | null>(null);
 	const handleMapReady = (map: MapboxMap) => {
 		mapRef.current = map;
-		fitToBounds(map, bounds);
+		frameOnMap(map, bounds, { purpose, animate: false });
 	};
 	const boundsKey =
 		bounds === null ? null : `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`;
-	const latestBounds = useRef(bounds);
+	const latestFrame = useRef({ bounds, purpose });
 	useEffect(() => {
-		latestBounds.current = bounds;
+		latestFrame.current = { bounds, purpose };
 	});
 	useEffect(() => {
 		if (mapRef.current !== null && boundsKey !== null) {
-			fitToBounds(mapRef.current, latestBounds.current);
+			const frame = latestFrame.current;
+			frameOnMap(mapRef.current, frame.bounds, { purpose: frame.purpose, animate: false });
 		}
 	}, [boundsKey]);
 
@@ -129,7 +134,7 @@ export function RecordLocationCard({
 	// navigate back by, so the header keeps a way to return to the geometry.
 	const recenter = () => {
 		if (mapRef.current !== null) {
-			fitToBounds(mapRef.current, bounds, true);
+			frameOnMap(mapRef.current, bounds, { purpose, animate: true });
 		}
 	};
 
@@ -292,48 +297,20 @@ function ContextLegend({ context }: { readonly context: RecordLocationContext })
 	);
 }
 
-/** Frame the record and its context together — the point is seeing one inside the other. */
-/**
- * Frame a map on the record's geometry. It takes the bounds as an argument
- * rather than closing over them so the effect below can depend on the bounds
- * themselves, which is what changes when a late fetch lands.
- */
-function fitToBounds(map: MapboxMap, bounds: BoundingBox | null, animate = false): void {
-	if (bounds === null) {
-		return;
-	}
-	const duration = animate ? 400 : 0;
-	const hasArea = bounds.west !== bounds.east || bounds.south !== bounds.north;
-	if (hasArea) {
-		map.fitBounds(
-			[
-				[bounds.west, bounds.south],
-				[bounds.east, bounds.north],
-			],
-			{ padding: 48, maxZoom: 17, duration },
-		);
-		return;
-	}
-	map.easeTo({ center: [bounds.west, bounds.south], zoom: 16, duration });
-}
-
 function unionBounds(
 	geojson: GeoJsonGeometry | null,
 	contextGeojson: GeoJsonGeometry | null,
 ): BoundingBox | null {
-	let bounds: BoundingBox | null = null;
-	for (const geometry of [geojson, contextGeojson]) {
-		if (geometry === null) {
-			continue;
-		}
-		const next = boundsFromGeoJson(geometry);
-		if (next === null) {
-			continue;
-		}
-		bounds = extendBounds(bounds, { lng: next.west, lat: next.south });
-		bounds = extendBounds(bounds, { lng: next.east, lat: next.north });
-	}
-	return bounds;
+	const corners = [geojson, contextGeojson].flatMap((geometry) => {
+		const box = geometry === null ? null : boundsFromGeoJson(geometry);
+		return box === null
+			? []
+			: [
+					{ lng: box.west, lat: box.south },
+					{ lng: box.east, lat: box.north },
+				];
+	});
+	return boundsFromCoordinates(corners);
 }
 
 /**

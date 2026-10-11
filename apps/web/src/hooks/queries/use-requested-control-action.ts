@@ -4,11 +4,6 @@
  * An entity hook, which the folder keeps for the few records that are what a
  * page is *about*: the detail page, the edit form that seeds from it, and the
  * map card beside them.
- *
- * It is also the warm-stream anchor for the create page.
- * `requested_control_actions` is on-demand, so a write into it settles only if
- * something is querying the row — a create page that navigated away before this
- * ran would wait out a txid that never arrives, rather than waiting slowly.
  */
 
 import { requested_control_actions } from '../../lib/collections/requested_control_actions';

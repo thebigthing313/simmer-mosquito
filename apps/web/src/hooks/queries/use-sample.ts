@@ -26,14 +26,14 @@
  * which side to drive a page from.
  */
 
-import { coalesce, eq } from '@tanstack/react-db';
+import { eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { habitats } from '../../lib/collections/habitats';
 import { inspections } from '../../lib/collections/inspections';
 import { samples } from '../../lib/collections/samples';
 import { joinedHabitatNameSelect } from './habitat-view';
 import type { Sample } from './sample-view';
-import { addressSelect, useRecordById } from './shared';
+import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
 export function useSample(sampleId: string): {
 	readonly sample: Sample | undefined;
@@ -80,18 +80,18 @@ export function useSample(sampleId: string): {
 					// `sample.inspection_id` is not nullable, so the Sample's own column
 					// cannot say whether the Inspection has arrived. Here "unmatched" only
 					// ever means "still streaming".
-					inspectionDate: coalesce(inspection.inspection_date, null),
+					inspectionDate: joinedOrNull(inspection.inspection_date),
 
-					habitatId: coalesce(inspection.habitat_id, null),
+					habitatId: joinedOrNull(inspection.habitat_id),
 					// Guarded on the joined Habitat row and not on `inspection.habitat_id`.
 					// That column is `undefined` while the Inspection is arriving and `null`
 					// for an Ad Hoc Inspection, and a guard reading it let the coordinate
 					// fallback build `, ` out of an absent row in the first case (#998).
 					habitatName: joinedHabitatNameSelect(habitat),
 
-					latitude: coalesce(inspection.lat, null),
-					longitude: coalesce(inspection.lng, null),
-					geometryKind: coalesce(inspection.geom_type, null),
+					latitude: joinedOrNull(inspection.lat),
+					longitude: joinedOrNull(inspection.lng),
+					geometryKind: joinedOrNull(inspection.geom_type),
 				})),
 	});
 

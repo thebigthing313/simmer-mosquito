@@ -38,6 +38,8 @@ export const organizationSchema = z.object({
 	mailing_locality: z.string().nullable(),
 	mailing_region: z.string().nullable(),
 	mailing_postal_code: z.string().nullable(),
+	map_center_lat: z.number().nullable(),
+	map_center_lng: z.number().nullable(),
 	created_at: z.coerce.date().default(() => new Date()),
 	updated_at: z.coerce.date().default(() => new Date()),
 	updated_by_profile_id: z.uuid().nullable().default(null),

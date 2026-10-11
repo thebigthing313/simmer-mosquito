@@ -7,6 +7,7 @@
  */
 
 import { createRouteItemsCollection, type RouteItem } from '@simmer-mosquito/sync';
+import { BasicIndex } from '@tanstack/db';
 import { declareCollection } from './registry';
 
 /**
@@ -20,4 +21,13 @@ export const route_items = declareCollection<RouteItem>({
 	syncMode: 'on-demand',
 	mutations: true,
 	create: createRouteItemsCollection,
+
+	/*
+	 * The key a Route's stops are joined and read by. `useRecordRoutes` joins a
+	 * record's stops to `routes` on `route_id`, and the Routes pages read one
+	 * Route's stops by it.
+	 */
+	index: (collection) => {
+		collection.createIndex((row) => row.route_id, { indexType: BasicIndex });
+	},
 });

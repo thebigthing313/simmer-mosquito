@@ -140,7 +140,7 @@ export function ColorPicker({
 					</div>
 					{selectedColor !== null ? (
 						<Button type="button" variant="ghost" size="sm" onClick={clearColor}>
-							<XIcon data-icon="inline-start" aria-hidden="true" />
+							<XIcon aria-hidden="true" />
 							Clear color
 						</Button>
 					) : null}

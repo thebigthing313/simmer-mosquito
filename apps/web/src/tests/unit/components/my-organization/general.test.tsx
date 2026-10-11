@@ -3,7 +3,7 @@ import type { OrganizationSettings } from '@simmer-mosquito/domain';
 import type { Organization } from '@simmer-mosquito/sync';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { TagRecord } from '../../../../hooks/queries/use-tag-catalog';
+import type { TagRecord } from '../../../../hooks/queries/catalog-record-view';
 
 /**
  * The width the Tags table draws at.
@@ -37,8 +37,8 @@ vi.mock('../../../../hooks/mutations/use-tag-mutations', () => ({
 		remove: vi.fn(),
 	}),
 }));
-vi.mock('../../../../hooks/queries/use-tag-catalog', () => ({
-	useTagCatalog: () => ({ activeTags: [ACTIVE_TAG], inactiveTags: [] }),
+vi.mock('../../../../hooks/queries/use-catalog-records', () => ({
+	useCatalogRecords: () => ({ activeRecords: [ACTIVE_TAG], inactiveRecords: [] }),
 }));
 
 const { GeneralOrganizationSection } = await import(
@@ -65,6 +65,8 @@ const ORGANIZATION = {
 	mailing_locality: null,
 	mailing_region: null,
 	mailing_postal_code: null,
+	map_center_lat: null,
+	map_center_lng: null,
 	mailing_country: null,
 } as unknown as Organization;
 
@@ -109,7 +111,6 @@ function renderSection() {
 			canManage={true}
 			canManageTags={true}
 			organization={ORGANIZATION}
-			organizationFields={[]}
 			organizationName="Test Organization"
 			settings={SETTINGS}
 			timezone="America/Chicago"

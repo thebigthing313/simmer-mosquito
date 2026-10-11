@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { MAP_CLUSTER_UNTIL_ZOOM } from '@simmer-mosquito/mapping';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { MapTileLayer } from '../../../../components/map';
 import { tileLayerExtentUrl } from '../../../../components/map/tile-layers';
@@ -16,11 +17,16 @@ afterEach(() => {
 
 const SERVER = 'https://api.test';
 
-function mount(fake: FakeMap, layer: MapTileLayer | undefined) {
-	return renderHook(
-		(props: { readonly layer: MapTileLayer | undefined }) =>
-			useTileLayer(fake.map, true, props.layer),
-		{ layer },
+interface MountProps {
+	readonly layer: MapTileLayer | undefined;
+	/** The clustering setting; a rerender that leaves it out keeps the mounted one. */
+	readonly cluster?: boolean;
+}
+
+function mount(fake: FakeMap, layer: MapTileLayer | undefined, cluster = false) {
+	return renderHook<MountProps, void>(
+		(props) => useTileLayer(fake.map, true, props.layer, { cluster: props.cluster ?? cluster }),
+		{ layer, cluster },
 	);
 }
 
@@ -82,6 +88,124 @@ describe('useTileLayer', () => {
 		fake.click(-90, 35);
 
 		expect(selected).toEqual(['sample-1', null]);
+	});
+
+	// A cluster is no record: a click on one zooms to the records under it and
+	// leaves the selection alone, never closer than the zoom clustering stops at.
+	it('zooms to a clicked cluster without selecting anything', () => {
+		const fake = createFakeMap();
+		const selected: (string | null)[] = [];
+		mount(fake, { kind: 'traps', serverUrl: SERVER, onSelectFeature: (id) => selected.push(id) });
+
+		fake.queryRenderedFeatures.mockReturnValueOnce([
+			{
+				properties: {
+					cluster: true,
+					point_count: 3,
+					cluster_west: -74.5,
+					cluster_south: 40.3,
+					cluster_east: -74.4,
+					cluster_north: 40.4,
+				},
+			},
+		]);
+		fake.click(-74.45, 40.35);
+
+		expect(selected).toEqual([]);
+		expect(fake.cameraCalls).toEqual([
+			expect.objectContaining({
+				kind: 'fitBounds',
+				padding: { top: 48, right: 48, bottom: 48, left: 48 },
+				retainPadding: false,
+			}),
+		]);
+	});
+
+	// A fit that kept its own padding replaced the panel inset for good, and every
+	// later selection then centred on the whole canvas, under the panel (#1424).
+	it('frames a clicked cluster clear of the panel and leaves the panel inset on the map', () => {
+		const fake = createFakeMap();
+		mount(fake, { kind: 'traps', serverUrl: SERVER, onSelectFeature: () => {} });
+		const inset = { top: 0, right: 0, bottom: 0, left: 416 };
+		fake.map.easeTo({ padding: inset, duration: 0 });
+
+		fake.queryRenderedFeatures.mockReturnValueOnce([
+			{
+				properties: {
+					cluster: true,
+					point_count: 3,
+					cluster_west: -74.5,
+					cluster_south: 40.3,
+					cluster_east: -74.4,
+					cluster_north: 40.4,
+				},
+			},
+		]);
+		fake.click(-74.45, 40.35);
+
+		expect(fake.cameraCalls.at(-1)).toEqual(
+			expect.objectContaining({
+				kind: 'fitBounds',
+				padding: { top: 48, right: 48, bottom: 48, left: 464 },
+				retainPadding: false,
+			}),
+		);
+		expect(fake.map.getPadding()).toEqual(inset);
+	});
+
+	it('centres on a cluster whose points share one spot, at the zoom clustering stops', () => {
+		const fake = createFakeMap();
+		mount(fake, { kind: 'traps', serverUrl: SERVER, onSelectFeature: () => {} });
+
+		fake.queryRenderedFeatures.mockReturnValueOnce([
+			{
+				properties: {
+					cluster: true,
+					point_count: 2,
+					cluster_west: -74.4,
+					cluster_south: 40.3,
+					cluster_east: -74.4,
+					cluster_north: 40.3,
+				},
+			},
+		]);
+		fake.click(-74.4, 40.3);
+
+		expect(fake.cameraCalls).toEqual([
+			expect.objectContaining({ kind: 'easeTo', zoom: MAP_CLUSTER_UNTIL_ZOOM }),
+		]);
+	});
+
+	it('asks the trap tiles for clusters when clustering is on', () => {
+		const fake = createFakeMap();
+		mount(fake, { kind: 'traps', serverUrl: SERVER }, true);
+
+		expect(fake.tilesOf('traps')).toEqual([
+			'https://api.test/map/tiles/traps/{z}/{x}/{y}.mvt?cluster=1',
+		]);
+		expect(fake.layerIds()).toEqual(
+			expect.arrayContaining(['traps-clusters', 'traps-cluster-counts']),
+		);
+	});
+
+	// Switching is a new tile URL on the source already there, the way a filter
+	// change is: no camera move, and the highlight keeps the selected record.
+	it('swaps the tiles in place when clustering is switched', () => {
+		const fake = createFakeMap();
+		const layer: MapTileLayer = { kind: 'traps', serverUrl: SERVER, selectedId: 'trap-1' };
+		const handle = mount(fake, layer, true);
+		const before = fake.sourceSpecs.get('traps');
+
+		handle.rerender({ layer, cluster: false });
+		expect(fake.sourceSpecs.get('traps')).toBe(before);
+		expect(fake.tilesOf('traps')).toEqual(['https://api.test/map/tiles/traps/{z}/{x}/{y}.mvt']);
+
+		handle.rerender({ layer, cluster: true });
+		expect(fake.tilesOf('traps')).toEqual([
+			'https://api.test/map/tiles/traps/{z}/{x}/{y}.mvt?cluster=1',
+		]);
+		expect(fake.cameraCalls).toEqual([]);
+		expect(JSON.stringify(fake.layers.get('traps-selected-point')?.filter)).toContain('trap-1');
 	});
 
 	it('does nothing at all without a layer', () => {

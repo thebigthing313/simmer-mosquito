@@ -1,35 +1,19 @@
+import { OVERVIEW_RECORD_TYPES, type OverviewRecordType } from '@simmer-mosquito/domain';
 import { PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { useActivityStrip } from '../../hooks/dashboard/use-activity-strip';
 import { useActivityStripChangeMode } from '../../hooks/dashboard/use-activity-strip-change-mode';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { type CountNoun, formatCount } from '../../lib/format-count';
 import { formatMonthDay } from '../../lib/local-date';
 import { recordNoun } from '../../lib/record-nouns';
-import {
-	ACTIVITY_TYPE_KEYS,
-	type ActivityTypeKey,
-	type ChangeMode,
-	changeLabel,
-	changeSentence,
-	comparisonPhrase,
-} from './dashboard-data';
+import { OVERVIEW_LABELS } from '../overview/overview-data';
+import { type ChangeMode, changeLabel, changeSentence, comparisonPhrase } from './dashboard-data';
 
 const ACTIVITY_UNAVAILABLE = 'Activity is unavailable right now.';
 
-/** What each strip cell is called, by the type the hook counts it as. */
-const ACTIVITY_LABELS: Readonly<Record<ActivityTypeKey, string>> = {
-	inspections: recordNoun('inspection').titleMany,
-	samples: recordNoun('sample').titleMany,
-	collections: recordNoun('collection').titleMany,
-	applications: recordNoun('application').titleMany,
-	sourceReductions: recordNoun('sourceReduction').titleMany,
-	releases: recordNoun('biocontrolAction').titleMany,
-	serviceRequests: `${recordNoun('serviceRequest').titleMany} received`,
-	outreachActions: recordNoun('outreachAction').titleMany,
-};
-
 /** What each cell counts, as the sentence a screen reader hears names it. */
-const ACTIVITY_NOUNS: Readonly<Record<ActivityTypeKey, CountNoun>> = {
+const ACTIVITY_NOUNS: Readonly<Record<OverviewRecordType, CountNoun>> = {
 	inspections: recordNoun('inspection'),
 	samples: recordNoun('sample'),
 	collections: recordNoun('collection'),
@@ -60,14 +44,9 @@ const CHANGE_MODES: readonly {
  * Organization has recorded none. Reads the synced tables through
  * `useActivityStrip`, so a cell moves when a write syncs.
  */
-export function ActivityStrip({
-	today,
-	timeZone,
-}: {
-	readonly today: string;
-	readonly timeZone: string;
-}) {
-	const activity = useActivityStrip(today, timeZone);
+export function ActivityStrip({ today }: { readonly today: string }) {
+	const clock = useOrganizationClock();
+	const activity = useActivityStrip(today, clock.zone);
 	const [mode, setMode] = useActivityStripChangeMode();
 	return (
 		<section className="grid gap-2">
@@ -119,8 +98,8 @@ export function ActivityStrip({
 					<RowSkeleton count={1} />
 				</div>
 			) : (
-				<div className="grid grid-cols-2 divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 sm:grid-cols-4 xl:grid-cols-8">
-					{ACTIVITY_TYPE_KEYS.map((key) => (
+				<div className="grid grid-cols-2 divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 @3xl:grid-cols-4 @6xl:grid-cols-8">
+					{OVERVIEW_RECORD_TYPES.map((key) => (
 						<ActivityCell
 							cell={activity.types[key]}
 							key={key}
@@ -150,7 +129,7 @@ function ActivityCell({
 	mode,
 	windowDays,
 }: {
-	readonly type: ActivityTypeKey;
+	readonly type: OverviewRecordType;
 	readonly cell: { readonly count: number; readonly prior: number };
 	readonly mode: ChangeMode;
 	readonly windowDays: number;
@@ -168,7 +147,7 @@ function ActivityCell({
 				<span className="text-muted-foreground text-xs tabular-nums">{change.text}</span>
 			</span>
 			<span aria-hidden="true" className="truncate text-muted-foreground text-xs">
-				{ACTIVITY_LABELS[type]}
+				{OVERVIEW_LABELS[type]}
 			</span>
 		</div>
 	);

@@ -11,12 +11,15 @@
  * carries rather than as a column of `x === '' ? {} : { x }`.
  */
 
-/** The ids under `key`, or nothing when none are selected. */
-export function whenAny<K extends string>(
+/**
+ * The ids under `key`, or nothing when none are selected. A set of vocabulary
+ * members, such as density bands, keeps its member type.
+ */
+export function whenAny<K extends string, V extends string>(
 	key: K,
-	ids: ReadonlySet<string>,
-): Record<K, readonly string[]> | Record<string, never> {
-	return ids.size === 0 ? {} : ({ [key]: [...ids] } as unknown as Record<K, readonly string[]>);
+	ids: ReadonlySet<V>,
+): Record<K, readonly V[]> | Record<string, never> {
+	return ids.size === 0 ? {} : ({ [key]: [...ids] } as unknown as Record<K, readonly V[]>);
 }
 
 /** The text under `key`, or nothing when it is blank. */

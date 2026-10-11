@@ -62,6 +62,7 @@ import { Route as AdultSurveillanceCollectionsIndexRouteImport } from './routes/
 import { Route as PublicEngagementServiceRequestsTableRouteImport } from './routes/public-engagement/service-requests/table'
 import { Route as PublicEngagementServiceRequestsCreateRouteImport } from './routes/public-engagement/service-requests/create'
 import { Route as PublicEngagementServiceRequestsIdRouteImport } from './routes/public-engagement/service-requests/$id'
+import { Route as PublicEngagementOutreachTableRouteImport } from './routes/public-engagement/outreach/table'
 import { Route as PublicEngagementOutreachStatsRouteImport } from './routes/public-engagement/outreach/stats'
 import { Route as PublicEngagementOutreachMethodsRouteImport } from './routes/public-engagement/outreach/methods'
 import { Route as PublicEngagementOutreachCreateRouteImport } from './routes/public-engagement/outreach/create'
@@ -93,26 +94,32 @@ import { Route as GisWeatherIdRouteImport } from './routes/gis/weather/$id'
 import { Route as GisRegionsImportRouteImport } from './routes/gis/regions/import'
 import { Route as GisRegionsCreateRouteImport } from './routes/gis/regions/create'
 import { Route as GisRegionsIdRouteImport } from './routes/gis/regions/$id'
+import { Route as GisAddressesTableRouteImport } from './routes/gis/addresses/table'
 import { Route as GisAddressesCreateRouteImport } from './routes/gis/addresses/create'
 import { Route as GisAddressesCleanupRouteImport } from './routes/gis/addresses/cleanup'
 import { Route as GisAddressesIdRouteImport } from './routes/gis/addresses/$id'
+import { Route as ControlOperationsSourceReductionTableRouteImport } from './routes/control-operations/source-reduction/table'
 import { Route as ControlOperationsSourceReductionStatsRouteImport } from './routes/control-operations/source-reduction/stats'
 import { Route as ControlOperationsSourceReductionMethodsRouteImport } from './routes/control-operations/source-reduction/methods'
 import { Route as ControlOperationsSourceReductionCreateRouteImport } from './routes/control-operations/source-reduction/create'
 import { Route as ControlOperationsSourceReductionIdRouteImport } from './routes/control-operations/source-reduction/$id'
+import { Route as ControlOperationsChemicalTableRouteImport } from './routes/control-operations/chemical/table'
 import { Route as ControlOperationsChemicalStatsRouteImport } from './routes/control-operations/chemical/stats'
 import { Route as ControlOperationsChemicalMethodsRouteImport } from './routes/control-operations/chemical/methods'
 import { Route as ControlOperationsChemicalInsecticidesRouteImport } from './routes/control-operations/chemical/insecticides'
 import { Route as ControlOperationsChemicalFormulationsRouteImport } from './routes/control-operations/chemical/formulations'
 import { Route as ControlOperationsChemicalCreateRouteImport } from './routes/control-operations/chemical/create'
 import { Route as ControlOperationsChemicalIdRouteImport } from './routes/control-operations/chemical/$id'
+import { Route as ControlOperationsBiocontrolTableRouteImport } from './routes/control-operations/biocontrol/table'
 import { Route as ControlOperationsBiocontrolStatsRouteImport } from './routes/control-operations/biocontrol/stats'
 import { Route as ControlOperationsBiocontrolMethodsRouteImport } from './routes/control-operations/biocontrol/methods'
 import { Route as ControlOperationsBiocontrolCreateRouteImport } from './routes/control-operations/biocontrol/create'
 import { Route as ControlOperationsBiocontrolIdRouteImport } from './routes/control-operations/biocontrol/$id'
+import { Route as AdultSurveillanceTrapsTableRouteImport } from './routes/adult-surveillance/traps/table'
 import { Route as AdultSurveillanceTrapsStatsRouteImport } from './routes/adult-surveillance/traps/stats'
 import { Route as AdultSurveillanceTrapsCreateRouteImport } from './routes/adult-surveillance/traps/create'
 import { Route as AdultSurveillanceTrapsIdRouteImport } from './routes/adult-surveillance/traps/$id'
+import { Route as AdultSurveillanceCollectionsTableRouteImport } from './routes/adult-surveillance/collections/table'
 import { Route as AdultSurveillanceCollectionsStatsRouteImport } from './routes/adult-surveillance/collections/stats'
 import { Route as AdultSurveillanceCollectionsCreateRouteImport } from './routes/adult-surveillance/collections/create'
 import { Route as AdultSurveillanceCollectionsIdRouteImport } from './routes/adult-surveillance/collections/$id'
@@ -434,6 +441,12 @@ const PublicEngagementServiceRequestsIdRoute =
     path: '/public-engagement/service-requests/$id',
     getParentRoute: () => rootRouteImport,
   } as any)
+const PublicEngagementOutreachTableRoute =
+  PublicEngagementOutreachTableRouteImport.update({
+    id: '/public-engagement/outreach/table',
+    path: '/public-engagement/outreach/table',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PublicEngagementOutreachStatsRoute =
   PublicEngagementOutreachStatsRouteImport.update({
     id: '/public-engagement/outreach/stats',
@@ -612,6 +625,11 @@ const GisRegionsIdRoute = GisRegionsIdRouteImport.update({
   path: '/gis/regions/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GisAddressesTableRoute = GisAddressesTableRouteImport.update({
+  id: '/gis/addresses/table',
+  path: '/gis/addresses/table',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GisAddressesCreateRoute = GisAddressesCreateRouteImport.update({
   id: '/gis/addresses/create',
   path: '/gis/addresses/create',
@@ -627,6 +645,12 @@ const GisAddressesIdRoute = GisAddressesIdRouteImport.update({
   path: '/gis/addresses/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ControlOperationsSourceReductionTableRoute =
+  ControlOperationsSourceReductionTableRouteImport.update({
+    id: '/control-operations/source-reduction/table',
+    path: '/control-operations/source-reduction/table',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ControlOperationsSourceReductionStatsRoute =
   ControlOperationsSourceReductionStatsRouteImport.update({
     id: '/control-operations/source-reduction/stats',
@@ -649,6 +673,12 @@ const ControlOperationsSourceReductionIdRoute =
   ControlOperationsSourceReductionIdRouteImport.update({
     id: '/control-operations/source-reduction/$id',
     path: '/control-operations/source-reduction/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ControlOperationsChemicalTableRoute =
+  ControlOperationsChemicalTableRouteImport.update({
+    id: '/control-operations/chemical/table',
+    path: '/control-operations/chemical/table',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ControlOperationsChemicalStatsRoute =
@@ -687,6 +717,12 @@ const ControlOperationsChemicalIdRoute =
     path: '/control-operations/chemical/$id',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ControlOperationsBiocontrolTableRoute =
+  ControlOperationsBiocontrolTableRouteImport.update({
+    id: '/control-operations/biocontrol/table',
+    path: '/control-operations/biocontrol/table',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ControlOperationsBiocontrolStatsRoute =
   ControlOperationsBiocontrolStatsRouteImport.update({
     id: '/control-operations/biocontrol/stats',
@@ -711,6 +747,12 @@ const ControlOperationsBiocontrolIdRoute =
     path: '/control-operations/biocontrol/$id',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AdultSurveillanceTrapsTableRoute =
+  AdultSurveillanceTrapsTableRouteImport.update({
+    id: '/adult-surveillance/traps/table',
+    path: '/adult-surveillance/traps/table',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdultSurveillanceTrapsStatsRoute =
   AdultSurveillanceTrapsStatsRouteImport.update({
     id: '/adult-surveillance/traps/stats',
@@ -727,6 +769,12 @@ const AdultSurveillanceTrapsIdRoute =
   AdultSurveillanceTrapsIdRouteImport.update({
     id: '/adult-surveillance/traps/$id',
     path: '/adult-surveillance/traps/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AdultSurveillanceCollectionsTableRoute =
+  AdultSurveillanceCollectionsTableRouteImport.update({
+    id: '/adult-surveillance/collections/table',
+    path: '/adult-surveillance/collections/table',
     getParentRoute: () => rootRouteImport,
   } as any)
 const AdultSurveillanceCollectionsStatsRoute =
@@ -937,26 +985,32 @@ export interface FileRoutesByFullPath {
   '/adult-surveillance/collections/$id': typeof AdultSurveillanceCollectionsIdRoute
   '/adult-surveillance/collections/create': typeof AdultSurveillanceCollectionsCreateRoute
   '/adult-surveillance/collections/stats': typeof AdultSurveillanceCollectionsStatsRoute
+  '/adult-surveillance/collections/table': typeof AdultSurveillanceCollectionsTableRoute
   '/adult-surveillance/traps/$id': typeof AdultSurveillanceTrapsIdRoute
   '/adult-surveillance/traps/create': typeof AdultSurveillanceTrapsCreateRoute
   '/adult-surveillance/traps/stats': typeof AdultSurveillanceTrapsStatsRoute
+  '/adult-surveillance/traps/table': typeof AdultSurveillanceTrapsTableRoute
   '/control-operations/biocontrol/$id': typeof ControlOperationsBiocontrolIdRoute
   '/control-operations/biocontrol/create': typeof ControlOperationsBiocontrolCreateRoute
   '/control-operations/biocontrol/methods': typeof ControlOperationsBiocontrolMethodsRoute
   '/control-operations/biocontrol/stats': typeof ControlOperationsBiocontrolStatsRoute
+  '/control-operations/biocontrol/table': typeof ControlOperationsBiocontrolTableRoute
   '/control-operations/chemical/$id': typeof ControlOperationsChemicalIdRoute
   '/control-operations/chemical/create': typeof ControlOperationsChemicalCreateRoute
   '/control-operations/chemical/formulations': typeof ControlOperationsChemicalFormulationsRoute
   '/control-operations/chemical/insecticides': typeof ControlOperationsChemicalInsecticidesRoute
   '/control-operations/chemical/methods': typeof ControlOperationsChemicalMethodsRoute
   '/control-operations/chemical/stats': typeof ControlOperationsChemicalStatsRoute
+  '/control-operations/chemical/table': typeof ControlOperationsChemicalTableRoute
   '/control-operations/source-reduction/$id': typeof ControlOperationsSourceReductionIdRoute
   '/control-operations/source-reduction/create': typeof ControlOperationsSourceReductionCreateRoute
   '/control-operations/source-reduction/methods': typeof ControlOperationsSourceReductionMethodsRoute
   '/control-operations/source-reduction/stats': typeof ControlOperationsSourceReductionStatsRoute
+  '/control-operations/source-reduction/table': typeof ControlOperationsSourceReductionTableRoute
   '/gis/addresses/$id': typeof GisAddressesIdRoute
   '/gis/addresses/cleanup': typeof GisAddressesCleanupRoute
   '/gis/addresses/create': typeof GisAddressesCreateRoute
+  '/gis/addresses/table': typeof GisAddressesTableRoute
   '/gis/regions/$id': typeof GisRegionsIdRoute
   '/gis/regions/create': typeof GisRegionsCreateRoute
   '/gis/regions/import': typeof GisRegionsImportRoute
@@ -988,6 +1042,7 @@ export interface FileRoutesByFullPath {
   '/public-engagement/outreach/create': typeof PublicEngagementOutreachCreateRoute
   '/public-engagement/outreach/methods': typeof PublicEngagementOutreachMethodsRoute
   '/public-engagement/outreach/stats': typeof PublicEngagementOutreachStatsRoute
+  '/public-engagement/outreach/table': typeof PublicEngagementOutreachTableRoute
   '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
   '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
   '/public-engagement/service-requests/table': typeof PublicEngagementServiceRequestsTableRoute
@@ -1071,26 +1126,32 @@ export interface FileRoutesByTo {
   '/adult-surveillance/collections/$id': typeof AdultSurveillanceCollectionsIdRoute
   '/adult-surveillance/collections/create': typeof AdultSurveillanceCollectionsCreateRoute
   '/adult-surveillance/collections/stats': typeof AdultSurveillanceCollectionsStatsRoute
+  '/adult-surveillance/collections/table': typeof AdultSurveillanceCollectionsTableRoute
   '/adult-surveillance/traps/$id': typeof AdultSurveillanceTrapsIdRoute
   '/adult-surveillance/traps/create': typeof AdultSurveillanceTrapsCreateRoute
   '/adult-surveillance/traps/stats': typeof AdultSurveillanceTrapsStatsRoute
+  '/adult-surveillance/traps/table': typeof AdultSurveillanceTrapsTableRoute
   '/control-operations/biocontrol/$id': typeof ControlOperationsBiocontrolIdRoute
   '/control-operations/biocontrol/create': typeof ControlOperationsBiocontrolCreateRoute
   '/control-operations/biocontrol/methods': typeof ControlOperationsBiocontrolMethodsRoute
   '/control-operations/biocontrol/stats': typeof ControlOperationsBiocontrolStatsRoute
+  '/control-operations/biocontrol/table': typeof ControlOperationsBiocontrolTableRoute
   '/control-operations/chemical/$id': typeof ControlOperationsChemicalIdRoute
   '/control-operations/chemical/create': typeof ControlOperationsChemicalCreateRoute
   '/control-operations/chemical/formulations': typeof ControlOperationsChemicalFormulationsRoute
   '/control-operations/chemical/insecticides': typeof ControlOperationsChemicalInsecticidesRoute
   '/control-operations/chemical/methods': typeof ControlOperationsChemicalMethodsRoute
   '/control-operations/chemical/stats': typeof ControlOperationsChemicalStatsRoute
+  '/control-operations/chemical/table': typeof ControlOperationsChemicalTableRoute
   '/control-operations/source-reduction/$id': typeof ControlOperationsSourceReductionIdRoute
   '/control-operations/source-reduction/create': typeof ControlOperationsSourceReductionCreateRoute
   '/control-operations/source-reduction/methods': typeof ControlOperationsSourceReductionMethodsRoute
   '/control-operations/source-reduction/stats': typeof ControlOperationsSourceReductionStatsRoute
+  '/control-operations/source-reduction/table': typeof ControlOperationsSourceReductionTableRoute
   '/gis/addresses/$id': typeof GisAddressesIdRoute
   '/gis/addresses/cleanup': typeof GisAddressesCleanupRoute
   '/gis/addresses/create': typeof GisAddressesCreateRoute
+  '/gis/addresses/table': typeof GisAddressesTableRoute
   '/gis/regions/$id': typeof GisRegionsIdRoute
   '/gis/regions/create': typeof GisRegionsCreateRoute
   '/gis/regions/import': typeof GisRegionsImportRoute
@@ -1122,6 +1183,7 @@ export interface FileRoutesByTo {
   '/public-engagement/outreach/create': typeof PublicEngagementOutreachCreateRoute
   '/public-engagement/outreach/methods': typeof PublicEngagementOutreachMethodsRoute
   '/public-engagement/outreach/stats': typeof PublicEngagementOutreachStatsRoute
+  '/public-engagement/outreach/table': typeof PublicEngagementOutreachTableRoute
   '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
   '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
   '/public-engagement/service-requests/table': typeof PublicEngagementServiceRequestsTableRoute
@@ -1207,26 +1269,32 @@ export interface FileRoutesById {
   '/adult-surveillance/collections/$id': typeof AdultSurveillanceCollectionsIdRoute
   '/adult-surveillance/collections/create': typeof AdultSurveillanceCollectionsCreateRoute
   '/adult-surveillance/collections/stats': typeof AdultSurveillanceCollectionsStatsRoute
+  '/adult-surveillance/collections/table': typeof AdultSurveillanceCollectionsTableRoute
   '/adult-surveillance/traps/$id': typeof AdultSurveillanceTrapsIdRoute
   '/adult-surveillance/traps/create': typeof AdultSurveillanceTrapsCreateRoute
   '/adult-surveillance/traps/stats': typeof AdultSurveillanceTrapsStatsRoute
+  '/adult-surveillance/traps/table': typeof AdultSurveillanceTrapsTableRoute
   '/control-operations/biocontrol/$id': typeof ControlOperationsBiocontrolIdRoute
   '/control-operations/biocontrol/create': typeof ControlOperationsBiocontrolCreateRoute
   '/control-operations/biocontrol/methods': typeof ControlOperationsBiocontrolMethodsRoute
   '/control-operations/biocontrol/stats': typeof ControlOperationsBiocontrolStatsRoute
+  '/control-operations/biocontrol/table': typeof ControlOperationsBiocontrolTableRoute
   '/control-operations/chemical/$id': typeof ControlOperationsChemicalIdRoute
   '/control-operations/chemical/create': typeof ControlOperationsChemicalCreateRoute
   '/control-operations/chemical/formulations': typeof ControlOperationsChemicalFormulationsRoute
   '/control-operations/chemical/insecticides': typeof ControlOperationsChemicalInsecticidesRoute
   '/control-operations/chemical/methods': typeof ControlOperationsChemicalMethodsRoute
   '/control-operations/chemical/stats': typeof ControlOperationsChemicalStatsRoute
+  '/control-operations/chemical/table': typeof ControlOperationsChemicalTableRoute
   '/control-operations/source-reduction/$id': typeof ControlOperationsSourceReductionIdRoute
   '/control-operations/source-reduction/create': typeof ControlOperationsSourceReductionCreateRoute
   '/control-operations/source-reduction/methods': typeof ControlOperationsSourceReductionMethodsRoute
   '/control-operations/source-reduction/stats': typeof ControlOperationsSourceReductionStatsRoute
+  '/control-operations/source-reduction/table': typeof ControlOperationsSourceReductionTableRoute
   '/gis/addresses/$id': typeof GisAddressesIdRoute
   '/gis/addresses/cleanup': typeof GisAddressesCleanupRoute
   '/gis/addresses/create': typeof GisAddressesCreateRoute
+  '/gis/addresses/table': typeof GisAddressesTableRoute
   '/gis/regions/$id': typeof GisRegionsIdRoute
   '/gis/regions/create': typeof GisRegionsCreateRoute
   '/gis/regions/import': typeof GisRegionsImportRoute
@@ -1258,6 +1326,7 @@ export interface FileRoutesById {
   '/public-engagement/outreach/create': typeof PublicEngagementOutreachCreateRoute
   '/public-engagement/outreach/methods': typeof PublicEngagementOutreachMethodsRoute
   '/public-engagement/outreach/stats': typeof PublicEngagementOutreachStatsRoute
+  '/public-engagement/outreach/table': typeof PublicEngagementOutreachTableRoute
   '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
   '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
   '/public-engagement/service-requests/table': typeof PublicEngagementServiceRequestsTableRoute
@@ -1344,26 +1413,32 @@ export interface FileRouteTypes {
     | '/adult-surveillance/collections/$id'
     | '/adult-surveillance/collections/create'
     | '/adult-surveillance/collections/stats'
+    | '/adult-surveillance/collections/table'
     | '/adult-surveillance/traps/$id'
     | '/adult-surveillance/traps/create'
     | '/adult-surveillance/traps/stats'
+    | '/adult-surveillance/traps/table'
     | '/control-operations/biocontrol/$id'
     | '/control-operations/biocontrol/create'
     | '/control-operations/biocontrol/methods'
     | '/control-operations/biocontrol/stats'
+    | '/control-operations/biocontrol/table'
     | '/control-operations/chemical/$id'
     | '/control-operations/chemical/create'
     | '/control-operations/chemical/formulations'
     | '/control-operations/chemical/insecticides'
     | '/control-operations/chemical/methods'
     | '/control-operations/chemical/stats'
+    | '/control-operations/chemical/table'
     | '/control-operations/source-reduction/$id'
     | '/control-operations/source-reduction/create'
     | '/control-operations/source-reduction/methods'
     | '/control-operations/source-reduction/stats'
+    | '/control-operations/source-reduction/table'
     | '/gis/addresses/$id'
     | '/gis/addresses/cleanup'
     | '/gis/addresses/create'
+    | '/gis/addresses/table'
     | '/gis/regions/$id'
     | '/gis/regions/create'
     | '/gis/regions/import'
@@ -1395,6 +1470,7 @@ export interface FileRouteTypes {
     | '/public-engagement/outreach/create'
     | '/public-engagement/outreach/methods'
     | '/public-engagement/outreach/stats'
+    | '/public-engagement/outreach/table'
     | '/public-engagement/service-requests/$id'
     | '/public-engagement/service-requests/create'
     | '/public-engagement/service-requests/table'
@@ -1478,26 +1554,32 @@ export interface FileRouteTypes {
     | '/adult-surveillance/collections/$id'
     | '/adult-surveillance/collections/create'
     | '/adult-surveillance/collections/stats'
+    | '/adult-surveillance/collections/table'
     | '/adult-surveillance/traps/$id'
     | '/adult-surveillance/traps/create'
     | '/adult-surveillance/traps/stats'
+    | '/adult-surveillance/traps/table'
     | '/control-operations/biocontrol/$id'
     | '/control-operations/biocontrol/create'
     | '/control-operations/biocontrol/methods'
     | '/control-operations/biocontrol/stats'
+    | '/control-operations/biocontrol/table'
     | '/control-operations/chemical/$id'
     | '/control-operations/chemical/create'
     | '/control-operations/chemical/formulations'
     | '/control-operations/chemical/insecticides'
     | '/control-operations/chemical/methods'
     | '/control-operations/chemical/stats'
+    | '/control-operations/chemical/table'
     | '/control-operations/source-reduction/$id'
     | '/control-operations/source-reduction/create'
     | '/control-operations/source-reduction/methods'
     | '/control-operations/source-reduction/stats'
+    | '/control-operations/source-reduction/table'
     | '/gis/addresses/$id'
     | '/gis/addresses/cleanup'
     | '/gis/addresses/create'
+    | '/gis/addresses/table'
     | '/gis/regions/$id'
     | '/gis/regions/create'
     | '/gis/regions/import'
@@ -1529,6 +1611,7 @@ export interface FileRouteTypes {
     | '/public-engagement/outreach/create'
     | '/public-engagement/outreach/methods'
     | '/public-engagement/outreach/stats'
+    | '/public-engagement/outreach/table'
     | '/public-engagement/service-requests/$id'
     | '/public-engagement/service-requests/create'
     | '/public-engagement/service-requests/table'
@@ -1613,26 +1696,32 @@ export interface FileRouteTypes {
     | '/adult-surveillance/collections/$id'
     | '/adult-surveillance/collections/create'
     | '/adult-surveillance/collections/stats'
+    | '/adult-surveillance/collections/table'
     | '/adult-surveillance/traps/$id'
     | '/adult-surveillance/traps/create'
     | '/adult-surveillance/traps/stats'
+    | '/adult-surveillance/traps/table'
     | '/control-operations/biocontrol/$id'
     | '/control-operations/biocontrol/create'
     | '/control-operations/biocontrol/methods'
     | '/control-operations/biocontrol/stats'
+    | '/control-operations/biocontrol/table'
     | '/control-operations/chemical/$id'
     | '/control-operations/chemical/create'
     | '/control-operations/chemical/formulations'
     | '/control-operations/chemical/insecticides'
     | '/control-operations/chemical/methods'
     | '/control-operations/chemical/stats'
+    | '/control-operations/chemical/table'
     | '/control-operations/source-reduction/$id'
     | '/control-operations/source-reduction/create'
     | '/control-operations/source-reduction/methods'
     | '/control-operations/source-reduction/stats'
+    | '/control-operations/source-reduction/table'
     | '/gis/addresses/$id'
     | '/gis/addresses/cleanup'
     | '/gis/addresses/create'
+    | '/gis/addresses/table'
     | '/gis/regions/$id'
     | '/gis/regions/create'
     | '/gis/regions/import'
@@ -1664,6 +1753,7 @@ export interface FileRouteTypes {
     | '/public-engagement/outreach/create'
     | '/public-engagement/outreach/methods'
     | '/public-engagement/outreach/stats'
+    | '/public-engagement/outreach/table'
     | '/public-engagement/service-requests/$id'
     | '/public-engagement/service-requests/create'
     | '/public-engagement/service-requests/table'
@@ -1741,26 +1831,32 @@ export interface RootRouteChildren {
   AdultSurveillanceCollectionsIdRoute: typeof AdultSurveillanceCollectionsIdRoute
   AdultSurveillanceCollectionsCreateRoute: typeof AdultSurveillanceCollectionsCreateRoute
   AdultSurveillanceCollectionsStatsRoute: typeof AdultSurveillanceCollectionsStatsRoute
+  AdultSurveillanceCollectionsTableRoute: typeof AdultSurveillanceCollectionsTableRoute
   AdultSurveillanceTrapsIdRoute: typeof AdultSurveillanceTrapsIdRoute
   AdultSurveillanceTrapsCreateRoute: typeof AdultSurveillanceTrapsCreateRoute
   AdultSurveillanceTrapsStatsRoute: typeof AdultSurveillanceTrapsStatsRoute
+  AdultSurveillanceTrapsTableRoute: typeof AdultSurveillanceTrapsTableRoute
   ControlOperationsBiocontrolIdRoute: typeof ControlOperationsBiocontrolIdRoute
   ControlOperationsBiocontrolCreateRoute: typeof ControlOperationsBiocontrolCreateRoute
   ControlOperationsBiocontrolMethodsRoute: typeof ControlOperationsBiocontrolMethodsRoute
   ControlOperationsBiocontrolStatsRoute: typeof ControlOperationsBiocontrolStatsRoute
+  ControlOperationsBiocontrolTableRoute: typeof ControlOperationsBiocontrolTableRoute
   ControlOperationsChemicalIdRoute: typeof ControlOperationsChemicalIdRoute
   ControlOperationsChemicalCreateRoute: typeof ControlOperationsChemicalCreateRoute
   ControlOperationsChemicalFormulationsRoute: typeof ControlOperationsChemicalFormulationsRoute
   ControlOperationsChemicalInsecticidesRoute: typeof ControlOperationsChemicalInsecticidesRoute
   ControlOperationsChemicalMethodsRoute: typeof ControlOperationsChemicalMethodsRoute
   ControlOperationsChemicalStatsRoute: typeof ControlOperationsChemicalStatsRoute
+  ControlOperationsChemicalTableRoute: typeof ControlOperationsChemicalTableRoute
   ControlOperationsSourceReductionIdRoute: typeof ControlOperationsSourceReductionIdRoute
   ControlOperationsSourceReductionCreateRoute: typeof ControlOperationsSourceReductionCreateRoute
   ControlOperationsSourceReductionMethodsRoute: typeof ControlOperationsSourceReductionMethodsRoute
   ControlOperationsSourceReductionStatsRoute: typeof ControlOperationsSourceReductionStatsRoute
+  ControlOperationsSourceReductionTableRoute: typeof ControlOperationsSourceReductionTableRoute
   GisAddressesIdRoute: typeof GisAddressesIdRoute
   GisAddressesCleanupRoute: typeof GisAddressesCleanupRoute
   GisAddressesCreateRoute: typeof GisAddressesCreateRoute
+  GisAddressesTableRoute: typeof GisAddressesTableRoute
   GisRegionsIdRoute: typeof GisRegionsIdRoute
   GisRegionsCreateRoute: typeof GisRegionsCreateRoute
   GisRegionsImportRoute: typeof GisRegionsImportRoute
@@ -1792,6 +1888,7 @@ export interface RootRouteChildren {
   PublicEngagementOutreachCreateRoute: typeof PublicEngagementOutreachCreateRoute
   PublicEngagementOutreachMethodsRoute: typeof PublicEngagementOutreachMethodsRoute
   PublicEngagementOutreachStatsRoute: typeof PublicEngagementOutreachStatsRoute
+  PublicEngagementOutreachTableRoute: typeof PublicEngagementOutreachTableRoute
   PublicEngagementServiceRequestsIdRoute: typeof PublicEngagementServiceRequestsIdRoute
   PublicEngagementServiceRequestsCreateRoute: typeof PublicEngagementServiceRequestsCreateRoute
   PublicEngagementServiceRequestsTableRoute: typeof PublicEngagementServiceRequestsTableRoute
@@ -2213,6 +2310,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicEngagementServiceRequestsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/public-engagement/outreach/table': {
+      id: '/public-engagement/outreach/table'
+      path: '/public-engagement/outreach/table'
+      fullPath: '/public-engagement/outreach/table'
+      preLoaderRoute: typeof PublicEngagementOutreachTableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/public-engagement/outreach/stats': {
       id: '/public-engagement/outreach/stats'
       path: '/public-engagement/outreach/stats'
@@ -2430,6 +2534,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GisRegionsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gis/addresses/table': {
+      id: '/gis/addresses/table'
+      path: '/gis/addresses/table'
+      fullPath: '/gis/addresses/table'
+      preLoaderRoute: typeof GisAddressesTableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gis/addresses/create': {
       id: '/gis/addresses/create'
       path: '/gis/addresses/create'
@@ -2449,6 +2560,13 @@ declare module '@tanstack/react-router' {
       path: '/gis/addresses/$id'
       fullPath: '/gis/addresses/$id'
       preLoaderRoute: typeof GisAddressesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/control-operations/source-reduction/table': {
+      id: '/control-operations/source-reduction/table'
+      path: '/control-operations/source-reduction/table'
+      fullPath: '/control-operations/source-reduction/table'
+      preLoaderRoute: typeof ControlOperationsSourceReductionTableRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/control-operations/source-reduction/stats': {
@@ -2477,6 +2595,13 @@ declare module '@tanstack/react-router' {
       path: '/control-operations/source-reduction/$id'
       fullPath: '/control-operations/source-reduction/$id'
       preLoaderRoute: typeof ControlOperationsSourceReductionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/control-operations/chemical/table': {
+      id: '/control-operations/chemical/table'
+      path: '/control-operations/chemical/table'
+      fullPath: '/control-operations/chemical/table'
+      preLoaderRoute: typeof ControlOperationsChemicalTableRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/control-operations/chemical/stats': {
@@ -2521,6 +2646,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ControlOperationsChemicalIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/control-operations/biocontrol/table': {
+      id: '/control-operations/biocontrol/table'
+      path: '/control-operations/biocontrol/table'
+      fullPath: '/control-operations/biocontrol/table'
+      preLoaderRoute: typeof ControlOperationsBiocontrolTableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/control-operations/biocontrol/stats': {
       id: '/control-operations/biocontrol/stats'
       path: '/control-operations/biocontrol/stats'
@@ -2549,6 +2681,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ControlOperationsBiocontrolIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/adult-surveillance/traps/table': {
+      id: '/adult-surveillance/traps/table'
+      path: '/adult-surveillance/traps/table'
+      fullPath: '/adult-surveillance/traps/table'
+      preLoaderRoute: typeof AdultSurveillanceTrapsTableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/adult-surveillance/traps/stats': {
       id: '/adult-surveillance/traps/stats'
       path: '/adult-surveillance/traps/stats'
@@ -2568,6 +2707,13 @@ declare module '@tanstack/react-router' {
       path: '/adult-surveillance/traps/$id'
       fullPath: '/adult-surveillance/traps/$id'
       preLoaderRoute: typeof AdultSurveillanceTrapsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adult-surveillance/collections/table': {
+      id: '/adult-surveillance/collections/table'
+      path: '/adult-surveillance/collections/table'
+      fullPath: '/adult-surveillance/collections/table'
+      preLoaderRoute: typeof AdultSurveillanceCollectionsTableRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/adult-surveillance/collections/stats': {
@@ -2836,15 +2982,19 @@ const rootRouteChildren: RootRouteChildren = {
     AdultSurveillanceCollectionsCreateRoute,
   AdultSurveillanceCollectionsStatsRoute:
     AdultSurveillanceCollectionsStatsRoute,
+  AdultSurveillanceCollectionsTableRoute:
+    AdultSurveillanceCollectionsTableRoute,
   AdultSurveillanceTrapsIdRoute: AdultSurveillanceTrapsIdRoute,
   AdultSurveillanceTrapsCreateRoute: AdultSurveillanceTrapsCreateRoute,
   AdultSurveillanceTrapsStatsRoute: AdultSurveillanceTrapsStatsRoute,
+  AdultSurveillanceTrapsTableRoute: AdultSurveillanceTrapsTableRoute,
   ControlOperationsBiocontrolIdRoute: ControlOperationsBiocontrolIdRoute,
   ControlOperationsBiocontrolCreateRoute:
     ControlOperationsBiocontrolCreateRoute,
   ControlOperationsBiocontrolMethodsRoute:
     ControlOperationsBiocontrolMethodsRoute,
   ControlOperationsBiocontrolStatsRoute: ControlOperationsBiocontrolStatsRoute,
+  ControlOperationsBiocontrolTableRoute: ControlOperationsBiocontrolTableRoute,
   ControlOperationsChemicalIdRoute: ControlOperationsChemicalIdRoute,
   ControlOperationsChemicalCreateRoute: ControlOperationsChemicalCreateRoute,
   ControlOperationsChemicalFormulationsRoute:
@@ -2853,6 +3003,7 @@ const rootRouteChildren: RootRouteChildren = {
     ControlOperationsChemicalInsecticidesRoute,
   ControlOperationsChemicalMethodsRoute: ControlOperationsChemicalMethodsRoute,
   ControlOperationsChemicalStatsRoute: ControlOperationsChemicalStatsRoute,
+  ControlOperationsChemicalTableRoute: ControlOperationsChemicalTableRoute,
   ControlOperationsSourceReductionIdRoute:
     ControlOperationsSourceReductionIdRoute,
   ControlOperationsSourceReductionCreateRoute:
@@ -2861,9 +3012,12 @@ const rootRouteChildren: RootRouteChildren = {
     ControlOperationsSourceReductionMethodsRoute,
   ControlOperationsSourceReductionStatsRoute:
     ControlOperationsSourceReductionStatsRoute,
+  ControlOperationsSourceReductionTableRoute:
+    ControlOperationsSourceReductionTableRoute,
   GisAddressesIdRoute: GisAddressesIdRoute,
   GisAddressesCleanupRoute: GisAddressesCleanupRoute,
   GisAddressesCreateRoute: GisAddressesCreateRoute,
+  GisAddressesTableRoute: GisAddressesTableRoute,
   GisRegionsIdRoute: GisRegionsIdRoute,
   GisRegionsCreateRoute: GisRegionsCreateRoute,
   GisRegionsImportRoute: GisRegionsImportRoute,
@@ -2899,6 +3053,7 @@ const rootRouteChildren: RootRouteChildren = {
   PublicEngagementOutreachCreateRoute: PublicEngagementOutreachCreateRoute,
   PublicEngagementOutreachMethodsRoute: PublicEngagementOutreachMethodsRoute,
   PublicEngagementOutreachStatsRoute: PublicEngagementOutreachStatsRoute,
+  PublicEngagementOutreachTableRoute: PublicEngagementOutreachTableRoute,
   PublicEngagementServiceRequestsIdRoute:
     PublicEngagementServiceRequestsIdRoute,
   PublicEngagementServiceRequestsCreateRoute:

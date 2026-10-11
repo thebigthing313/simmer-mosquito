@@ -21,6 +21,7 @@ import { ArrowLeftIcon, iconRegistry, MapPinnedIcon } from '@simmer-mosquito/ui-
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { StopSequenceMap } from '../../../components/map/stop-sequence-map';
 import { MissionDetailHeader } from '../../../components/operations/missions/mission-detail-header';
 import {
 	MissionNotificationCount,
@@ -29,7 +30,6 @@ import {
 import { MissionStopList } from '../../../components/operations/missions/mission-stops';
 import { RenameStopDialog } from '../../../components/operations/missions/rename-stop-dialog';
 import { RequestStopPicker } from '../../../components/operations/missions/request-stop-picker';
-import { WorklistMap } from '../../../components/operations/worklist-map';
 import { WorklistTabs } from '../../../components/operations/worklist-tabs';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { DetailPageHeaderSkeleton } from '../../../components/record/detail-page-header';
@@ -80,7 +80,7 @@ function MissionDetailRoute() {
 		<>
 			<MapSplitPage
 				map={
-					<WorklistMap
+					<StopSequenceMap
 						features={run.features}
 						fitKey={id}
 						highlightId={run.highlightId}

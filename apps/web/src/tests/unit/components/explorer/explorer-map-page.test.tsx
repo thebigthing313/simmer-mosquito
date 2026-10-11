@@ -128,7 +128,7 @@ const ROWS: readonly Row[] = [
 ];
 
 /** A full page of results, which is what `PAGE_SIZE` hands the rail. */
-const PAGE_OF_ROWS: readonly Row[] = Array.from({ length: 50 }, (_, index) => ({
+const PAGE_OF_ROWS: readonly Row[] = Array.from({ length: 100 }, (_, index) => ({
 	id: `r${index + 1}`,
 	name: `Site ${index + 1}`,
 }));
@@ -144,6 +144,7 @@ function Page({
 	activeFilterCount = 2,
 	body,
 	bodyIsEmpty = false,
+	summary,
 	hasCreate = true,
 	hasPager = true,
 	hasReset = true,
@@ -158,6 +159,8 @@ function Page({
 	readonly activeFilterCount?: number;
 	readonly body?: ReactNode;
 	readonly bodyIsEmpty?: boolean;
+	/** Drawn in place of the rows, the way a surface over 100 in view hands it over. */
+	readonly summary?: ReactNode;
 	readonly hasCreate?: boolean;
 	readonly hasPager?: boolean;
 	readonly hasReset?: boolean;
@@ -199,6 +202,7 @@ function Page({
 								rows,
 								emptyTitle: 'No habitats in view',
 								emptyDescription: 'Loosen the filters to bring habitats into range.',
+								summary,
 								// The list item belongs to the rail, which positions and measures
 								// it. A caller renders the row's contents.
 								renderRow: (row) => <span key={row.id}>{row.name}</span>,
@@ -220,6 +224,31 @@ function skeletonCount() {
 }
 
 describe('ExplorerMapPage', () => {
+	// Over 100 in view a surface hands over a summary with its rows, and the
+	// frame draws the summary alone: the rows are on the page the request
+	// already fetched, and none of them is drawn (#1244).
+	it('draws a summary in place of the rows while one is handed over', () => {
+		render(<Page hasPager={false} summary={<p>in-view summary</p>} />);
+
+		expect(screen.getByText('in-view summary')).toBeTruthy();
+		expect(screen.queryByText('Culvert 12')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Skip to paging' })).toBeNull();
+		// No pager, so a footer under the summary states the count.
+		expect(
+			screen.getByText('in-view summary').compareDocumentPosition(screen.getByText('2 habitats')) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+	});
+
+	it('draws the rows again once the summary is taken away', () => {
+		const { rerender } = render(<Page hasPager={false} summary={<p>in-view summary</p>} />);
+
+		rerender(<Page hasPager={false} />);
+
+		expect(screen.queryByText('in-view summary')).toBeNull();
+		expect(screen.getByText('Culvert 12')).toBeTruthy();
+	});
+
 	it('keeps the result count and the active filter count readable once the panel is collapsed', () => {
 		render(<Page />);
 		// Expanded, the count belongs to the panel's footer. A header that also
@@ -351,7 +380,7 @@ describe('ExplorerMapPage', () => {
 		signedInRole = 'collector';
 		const { rerender } = render(<Page create={{ to: '/x', label: 'Create Habitat' }} />);
 		fireEvent.pointerDown(
-			screen.getByRole('button', { name: 'More Actions' }),
+			screen.getByRole('button', { name: 'More actions' }),
 			new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
 		);
 		expect(await screen.findByText('Create Habitat')).toBeTruthy();
@@ -364,17 +393,23 @@ describe('ExplorerMapPage', () => {
 	it('leaves the menu out when the surface has neither action', () => {
 		render(<Page hasCreate={false} hasReset={false} />);
 
-		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
 	});
 
-	// The pager states the count, so the header would be saying it twice. Without
-	// a pager the header is the only place left.
-	it('states the count in the header only when there is no pager under it', () => {
+	// The pager states the count, so a second one would be saying it twice.
+	// Without a pager the frame draws the count in a footer of its own, under the
+	// rows, and never in the header row, where it crowded the title (#1244).
+	it('states the count under the rows, and only when there is no pager to state it', () => {
 		const { rerender } = render(<Page />);
 		expect(screen.queryByText('2 habitats')).toBeNull();
 
 		rerender(<Page hasPager={false} />);
-		expect(screen.getByText('2 habitats')).toBeTruthy();
+		const count = screen.getByText('2 habitats');
+		expect(
+			screen.getByText('Culvert 12').compareDocumentPosition(count) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+		expect(count.closest('[data-slot="scroll-area-viewport"]')).toBeNull();
 	});
 
 	it('shows neither rows nor a reason while the first page is still loading', () => {
@@ -442,7 +477,7 @@ describe('ExplorerMapPage', () => {
 			render(<Page create={{ to: '/x', label: 'Create Habitat' }} emptyReason="none" rows={[]} />);
 
 			expect(screen.getByText('No habitats yet')).toBeTruthy();
-			expect(screen.getByText('Create Habitat is in the More Actions menu.')).toBeTruthy();
+			expect(screen.getByText('Create Habitat is in the More actions menu.')).toBeTruthy();
 		});
 
 		// The pointer sits behind the same floor the control does. A reader who
@@ -452,7 +487,7 @@ describe('ExplorerMapPage', () => {
 			render(<Page create={{ to: '/x', label: 'Create Habitat' }} emptyReason="none" rows={[]} />);
 
 			expect(screen.getByText('No habitats yet')).toBeTruthy();
-			expect(screen.queryByText('Create Habitat is in the More Actions menu.')).toBeNull();
+			expect(screen.queryByText('Create Habitat is in the More actions menu.')).toBeNull();
 		});
 
 		it('draws placeholders rather than a reason while the extent is still out', () => {
@@ -616,6 +651,18 @@ describe('the inset the panel hands the map', () => {
 			bottom: 56,
 			left: 472,
 		});
+		expect(lastCall(fake, 'fitBounds')?.retainPadding).toBe(false);
+
+		probe.unmount();
+	});
+
+	// The fit's margin used to stay on the map, so the rail's viewport read 56px
+	// short on every side and a later fly-to centred on a box that was not the
+	// panel's (#1424).
+	it('leaves the panel inset on the map after framing an extent', () => {
+		const probe = mountProbe({ selected: SELECTED });
+
+		expect(fake.map.getPadding()).toEqual({ top: 0, right: 0, bottom: 0, left: 416 });
 
 		probe.unmount();
 	});

@@ -12,7 +12,9 @@ import {
 	type Kysely,
 	listMissionItemGeometry,
 	MAP_SURFACES,
+	type MapBoundsSummaryInput,
 	type MapExtent,
+	type MapSummaryResult,
 	type MapTilesetLayer,
 	type OutreachMapFilters,
 	type RegionMvtTileFilters,
@@ -25,7 +27,25 @@ import {
 	searchHabitatSites,
 	type TrapMapFilters,
 } from '@simmer-mosquito/db';
-import { LARVAL_DENSITIES } from '@simmer-mosquito/domain';
+import {
+	ADDRESS_MAP_FILTERS,
+	BIOCONTROL_MAP_FILTERS,
+	CHEMICAL_MAP_FILTERS,
+	COLLECTION_MAP_FILTERS,
+	HABITAT_MAP_FILTERS,
+	INSPECTION_MAP_FILTERS,
+	LARVAL_DENSITIES,
+	type MapFilterField,
+	type MapFilterSpec,
+	type MapFiltersOf,
+	OUTREACH_MAP_FILTERS,
+	REGION_MAP_FILTERS,
+	SAMPLE_MAP_FILTERS,
+	SERVICE_REQUEST_MAP_FILTERS,
+	SERVICE_REQUEST_ORDER_FILTERS,
+	SOURCE_REDUCTION_MAP_FILTERS,
+	TRAP_MAP_FILTERS,
+} from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 
@@ -35,13 +55,14 @@ const maxSupportedZoom = 22;
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * The region narrowing every map surface accepts. Regions are the
- * organization's own operational geography, so "only this district" is asked of
- * habitats, traps, applications, and everything else alike — one param name
- * across every tileset keeps a deep link from one explorer readable by the
- * next.
+ * The param that asks a tile for its points grouped by grid cell.
+ *
+ * Read beside the filters rather than as one: it changes how the rows are drawn
+ * and not which rows they are, so the extent route drops it, and a tileset that
+ * does not cluster refuses it rather than drawing the plain tile under a URL
+ * that says otherwise.
  */
-const regionFilterParam = 'regionId';
+const clusterParam = 'cluster';
 
 type TileDb = Kysely<SimmerDatabase>;
 
@@ -70,56 +91,67 @@ const defaultMapReaders = {
 	getHabitatTile: MAP_SURFACES.habitats.getTile,
 	getHabitatExtent: MAP_SURFACES.habitats.getExtent,
 	listHabitatDisplayRows: MAP_SURFACES.habitats.listByBounds,
+	summarizeHabitats: MAP_SURFACES.habitats.summarizeByBounds,
 	getHabitatDisplayRow: MAP_SURFACES.habitats.getById,
 
 	getInspectionTile: MAP_SURFACES.inspections.getTile,
 	getInspectionExtent: MAP_SURFACES.inspections.getExtent,
 	listInspectionDisplayRows: MAP_SURFACES.inspections.listByBounds,
+	summarizeInspections: MAP_SURFACES.inspections.summarizeByBounds,
 	getInspectionDisplayRow: MAP_SURFACES.inspections.getById,
 
 	getSampleTile: MAP_SURFACES.samples.getTile,
 	getSampleExtent: MAP_SURFACES.samples.getExtent,
 	listSampleDisplayRows: MAP_SURFACES.samples.listByBounds,
+	summarizeSamples: MAP_SURFACES.samples.summarizeByBounds,
 	getSampleDisplayRow: MAP_SURFACES.samples.getById,
 
 	getTrapTile: MAP_SURFACES.traps.getTile,
 	getTrapExtent: MAP_SURFACES.traps.getExtent,
 	listTrapDisplayRows: MAP_SURFACES.traps.listByBounds,
+	summarizeTraps: MAP_SURFACES.traps.summarizeByBounds,
 	getTrapDisplayRow: MAP_SURFACES.traps.getById,
 
 	getCollectionTile: MAP_SURFACES.collections.getTile,
 	getCollectionExtent: MAP_SURFACES.collections.getExtent,
 	listCollectionDisplayRows: MAP_SURFACES.collections.listByBounds,
+	summarizeCollections: MAP_SURFACES.collections.summarizeByBounds,
 	getCollectionDisplayRow: MAP_SURFACES.collections.getById,
 
 	getApplicationTile: MAP_SURFACES.chemical.getTile,
 	getApplicationExtent: MAP_SURFACES.chemical.getExtent,
 	listApplicationDisplayRows: MAP_SURFACES.chemical.listByBounds,
+	summarizeApplications: MAP_SURFACES.chemical.summarizeByBounds,
 	getApplicationDisplayRow: MAP_SURFACES.chemical.getById,
 
 	getSourceReductionTile: MAP_SURFACES['source-reduction'].getTile,
 	getSourceReductionExtent: MAP_SURFACES['source-reduction'].getExtent,
 	listSourceReductionDisplayRows: MAP_SURFACES['source-reduction'].listByBounds,
+	summarizeSourceReductions: MAP_SURFACES['source-reduction'].summarizeByBounds,
 	getSourceReductionDisplayRow: MAP_SURFACES['source-reduction'].getById,
 
 	getBiocontrolTile: MAP_SURFACES.biocontrol.getTile,
 	getBiocontrolExtent: MAP_SURFACES.biocontrol.getExtent,
 	listBiocontrolDisplayRows: MAP_SURFACES.biocontrol.listByBounds,
+	summarizeBiocontrolActions: MAP_SURFACES.biocontrol.summarizeByBounds,
 	getBiocontrolDisplayRow: MAP_SURFACES.biocontrol.getById,
 
 	getOutreachTile: MAP_SURFACES.outreach.getTile,
 	getOutreachExtent: MAP_SURFACES.outreach.getExtent,
 	listOutreachDisplayRows: MAP_SURFACES.outreach.listByBounds,
+	summarizeOutreachActions: MAP_SURFACES.outreach.summarizeByBounds,
 	getOutreachDisplayRow: MAP_SURFACES.outreach.getById,
 
 	getAddressTile: MAP_SURFACES.addresses.getTile,
 	getAddressExtent: MAP_SURFACES.addresses.getExtent,
 	listAddressDisplayRows: MAP_SURFACES.addresses.listByBounds,
+	summarizeAddresses: MAP_SURFACES.addresses.summarizeByBounds,
 	getAddressDisplayRow: MAP_SURFACES.addresses.getById,
 
 	getServiceRequestTile: MAP_SURFACES['service-requests'].getTile,
 	getServiceRequestExtent: MAP_SURFACES['service-requests'].getExtent,
 	listServiceRequestDisplayRows: MAP_SURFACES['service-requests'].listByBounds,
+	summarizeServiceRequests: MAP_SURFACES['service-requests'].summarizeByBounds,
 	getServiceRequestDisplayRow: MAP_SURFACES['service-requests'].getById,
 
 	// Regions are drawn from their surface and read as rows through their own
@@ -170,12 +202,20 @@ type BboxPageInput<TFilters> = PageInput<TFilters> & { readonly bounds: MapBound
 // filters crosses the boundary, and the pair is defined together so they can't drift.
 interface TileSetDefinition {
 	readonly parseFilters: (searchParams: URLSearchParams) => FilterResult<unknown>;
+	/**
+	 * Whether the tile route takes `cluster=1` for this tileset. Every tileset
+	 * whose records are points says so, and Regions, a boundary, does not. The
+	 * client's tile table says the same per row, and `pnpm check:tileset-keys`
+	 * holds the two sets to each other.
+	 */
+	readonly clusters?: true;
 	readonly getTile: (
 		db: TileDb,
 		input: TileCoordinate & {
 			readonly organizationId: string;
 			readonly timeZone: string;
 			readonly filters: unknown;
+			readonly cluster?: true;
 		},
 	) => Promise<Uint8Array>;
 	readonly getExtent: (
@@ -190,12 +230,14 @@ interface TileSetDefinition {
 
 function defineTileSet<F>(def: {
 	readonly parseFilters: (searchParams: URLSearchParams) => FilterResult<F>;
+	readonly clusters?: true;
 	readonly getTile: (
 		db: TileDb,
 		input: TileCoordinate & {
 			readonly organizationId: string;
 			readonly timeZone: string;
 			readonly filters: F;
+			readonly cluster?: true;
 		},
 	) => Promise<Uint8Array>;
 	readonly getExtent: (
@@ -236,6 +278,14 @@ export function registerMapTileRoutes(
 		});
 
 		return context.json({ usage });
+	});
+
+	// What the Habitats rail draws in place of the page over 100 in view (#1244).
+	// Registered before `/:id` so the literal segment wins over the UUID param.
+	registerSummaryRoute(app, options, {
+		path: '/map/habitats/summary',
+		parseFilters: parseHabitatTileFilters,
+		summarize: readers.summarizeHabitats,
 	});
 
 	// Name/address search for pickers (e.g. adding a stop to a route). Non-spatial.
@@ -290,6 +340,14 @@ export function registerMapTileRoutes(
 		list: readers.listAddressDisplayRows,
 	});
 
+	// What the Address Book rail draws in place of the page over 100 in view
+	// (#1378). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/addresses/summary',
+		parseFilters: parseAddressTileFilters,
+		summarize: readers.summarizeAddresses,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/addresses/:id',
 		key: 'address',
@@ -304,6 +362,14 @@ export function registerMapTileRoutes(
 		list: readers.listInspectionDisplayRows,
 	});
 
+	// What the Inspections rail draws in place of the page over 100 in view
+	// (#1369). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/inspections/summary',
+		parseFilters: parseInspectionTileFilters,
+		summarize: readers.summarizeInspections,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/inspections/:id',
 		key: 'inspection',
@@ -316,6 +382,14 @@ export function registerMapTileRoutes(
 		key: 'samples',
 		parseQuery: parseSampleDisplayQuery,
 		list: readers.listSampleDisplayRows,
+	});
+
+	// What the Samples rail draws in place of the page over 100 in view
+	// (#1370). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/samples/summary',
+		parseFilters: parseSampleTileFilters,
+		summarize: readers.summarizeSamples,
 	});
 
 	registerByIdRoute(app, options, {
@@ -333,6 +407,14 @@ export function registerMapTileRoutes(
 		list: readers.listApplicationDisplayRows,
 	});
 
+	// What the Chemical Applications rail draws in place of the page over 100 in
+	// view (#1374). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/chemical/summary',
+		parseFilters: parseApplicationMapFilters,
+		summarize: readers.summarizeApplications,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/chemical/:id',
 		key: 'application',
@@ -346,6 +428,14 @@ export function registerMapTileRoutes(
 		parseQuery: (searchParams, organizationId, timeZone) =>
 			parseBboxPageQuery(searchParams, organizationId, timeZone, parseSourceReductionMapFilters),
 		list: readers.listSourceReductionDisplayRows,
+	});
+
+	// What the Source Reductions rail draws in place of the page over 100 in
+	// view (#1375). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/source-reduction/summary',
+		parseFilters: parseSourceReductionMapFilters,
+		summarize: readers.summarizeSourceReductions,
 	});
 
 	registerByIdRoute(app, options, {
@@ -363,6 +453,14 @@ export function registerMapTileRoutes(
 		list: readers.listBiocontrolDisplayRows,
 	});
 
+	// What the Biocontrol Actions rail draws in place of the page over 100 in
+	// view (#1376). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/biocontrol/summary',
+		parseFilters: parseBiocontrolMapFilters,
+		summarize: readers.summarizeBiocontrolActions,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/biocontrol/:id',
 		key: 'biocontrolAction',
@@ -377,6 +475,14 @@ export function registerMapTileRoutes(
 		parseQuery: (searchParams, organizationId, timeZone) =>
 			parseBboxPageQuery(searchParams, organizationId, timeZone, parseOutreachMapFilters),
 		list: readers.listOutreachDisplayRows,
+	});
+
+	// What the Outreach Actions rail draws in place of the page over 100 in
+	// view (#1377). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/outreach/summary',
+		parseFilters: parseOutreachMapFilters,
+		summarize: readers.summarizeOutreachActions,
 	});
 
 	registerByIdRoute(app, options, {
@@ -398,6 +504,14 @@ export function registerMapTileRoutes(
 		parseQuery: (searchParams, organizationId, timeZone) =>
 			parseBboxPageQuery(searchParams, organizationId, timeZone, parseServiceRequestMapFilters),
 		list: readers.listServiceRequestDisplayRows,
+	});
+
+	// What the Service Requests rail draws in place of the page over 100 in view
+	// (#1371). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/service-requests/summary',
+		parseFilters: parseServiceRequestMapFilters,
+		summarize: readers.summarizeServiceRequests,
 	});
 
 	registerByIdRoute(app, options, {
@@ -456,6 +570,14 @@ export function registerMapTileRoutes(
 		list: readers.listTrapDisplayRows,
 	});
 
+	// What the Traps rail draws in place of the page over 100 in view (#1372).
+	// Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/traps/summary',
+		parseFilters: parseTrapMapFilters,
+		summarize: readers.summarizeTraps,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/traps/:id',
 		key: 'trap',
@@ -469,6 +591,14 @@ export function registerMapTileRoutes(
 		parseQuery: (searchParams, organizationId, timeZone) =>
 			parseBboxPageQuery(searchParams, organizationId, timeZone, parseCollectionMapFilters),
 		list: readers.listCollectionDisplayRows,
+	});
+
+	// What the Collections rail draws in place of the page over 100 in view
+	// (#1373). Registered before `/:id` so the literal segment wins.
+	registerSummaryRoute(app, options, {
+		path: '/map/collections/summary',
+		parseFilters: parseCollectionMapFilters,
+		summarize: readers.summarizeCollections,
 	});
 
 	registerByIdRoute(app, options, {
@@ -490,7 +620,10 @@ export function registerMapTileRoutes(
 			return context.json({ error: 'invalid_tileset', reason: 'Unknown map tileset.' }, 400);
 		}
 
-		const filterResult = tileSet.parseFilters(new URL(context.req.url).searchParams);
+		// How the points are drawn does not move what the map frames.
+		const searchParams = new URL(context.req.url).searchParams;
+		searchParams.delete(clusterParam);
+		const filterResult = tileSet.parseFilters(searchParams);
 		if (!filterResult.ok) {
 			return context.json({ error: 'invalid_filter', reason: filterResult.reason }, 400);
 		}
@@ -528,7 +661,13 @@ export function registerMapTileRoutes(
 				);
 			}
 
-			const filterResult = tileSet.parseFilters(new URL(context.req.url).searchParams);
+			const searchParams = new URL(context.req.url).searchParams;
+			const clusterResult = parseClusterParam(searchParams, tileSet);
+			if (!clusterResult.ok) {
+				return context.json({ error: 'invalid_cluster', reason: clusterResult.reason }, 400);
+			}
+
+			const filterResult = tileSet.parseFilters(searchParams);
 			if (!filterResult.ok) {
 				return context.json({ error: 'invalid_filter', reason: filterResult.reason }, 400);
 			}
@@ -539,6 +678,9 @@ export function registerMapTileRoutes(
 				organizationId: authContext.organization.id,
 				timeZone: authContext.timeZone,
 				filters: filterResult.filters,
+				// Absent rather than false, so a plain tile is read with the input it
+				// always was.
+				...(clusterResult.cluster ? { cluster: true } : {}),
 			});
 
 			return new Response(tile, {
@@ -593,6 +735,45 @@ function registerPagedRoute<TInput, TRow>(
 		const page = await route.list(options.db, queryResult.input);
 
 		return context.json({ [route.key]: page.rows, total: page.total });
+	});
+}
+
+/**
+ * A summary read: the box and the filters of a page, without the paging,
+ * answered with the total and the counts per grouping.
+ *
+ * Generic over the surface because the Habitats rail is the first of the
+ * paged surfaces to draw one, and the rest are filed against this.
+ */
+function registerSummaryRoute<TFilters>(
+	app: Hono<{ Variables: AuthVariables }>,
+	options: {
+		readonly db: TileDb;
+		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+	},
+	route: {
+		readonly path: string;
+		readonly parseFilters: (params: URLSearchParams) => FilterResult<TFilters>;
+		readonly summarize: (
+			db: TileDb,
+			input: MapBoundsSummaryInput<TFilters>,
+		) => Promise<MapSummaryResult>;
+	},
+): void {
+	app.get(route.path, options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const queryResult = parseBboxSummaryQuery(
+			new URL(context.req.url).searchParams,
+			authContext.organization.id,
+			authContext.timeZone,
+			route.parseFilters,
+		);
+
+		if (!queryResult.ok) {
+			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
+		}
+
+		return context.json(await route.summarize(options.db, queryResult.input));
 	});
 }
 
@@ -686,6 +867,7 @@ function createTileSetRegistry(readers: MapReaders): ReadonlyMap<string, TileSet
 	const tileSets: Record<MapTilesetLayer, TileSetDefinition> = {
 		habitats: defineTileSet({
 			parseFilters: parseHabitatTileFilters,
+			clusters: true,
 			getTile: readers.getHabitatTile,
 			getExtent: readers.getHabitatExtent,
 		}),
@@ -696,51 +878,61 @@ function createTileSetRegistry(readers: MapReaders): ReadonlyMap<string, TileSet
 		}),
 		addresses: defineTileSet({
 			parseFilters: parseAddressTileFilters,
+			clusters: true,
 			getTile: readers.getAddressTile,
 			getExtent: readers.getAddressExtent,
 		}),
 		inspections: defineTileSet({
 			parseFilters: parseInspectionTileFilters,
+			clusters: true,
 			getTile: readers.getInspectionTile,
 			getExtent: readers.getInspectionExtent,
 		}),
 		samples: defineTileSet({
 			parseFilters: parseSampleTileFilters,
+			clusters: true,
 			getTile: readers.getSampleTile,
 			getExtent: readers.getSampleExtent,
 		}),
 		chemical: defineTileSet({
 			parseFilters: parseApplicationMapFilters,
+			clusters: true,
 			getTile: readers.getApplicationTile,
 			getExtent: readers.getApplicationExtent,
 		}),
 		'source-reduction': defineTileSet({
 			parseFilters: parseSourceReductionMapFilters,
+			clusters: true,
 			getTile: readers.getSourceReductionTile,
 			getExtent: readers.getSourceReductionExtent,
 		}),
 		biocontrol: defineTileSet({
 			parseFilters: parseBiocontrolMapFilters,
+			clusters: true,
 			getTile: readers.getBiocontrolTile,
 			getExtent: readers.getBiocontrolExtent,
 		}),
 		outreach: defineTileSet({
 			parseFilters: parseOutreachMapFilters,
+			clusters: true,
 			getTile: readers.getOutreachTile,
 			getExtent: readers.getOutreachExtent,
 		}),
 		traps: defineTileSet({
 			parseFilters: parseTrapMapFilters,
+			clusters: true,
 			getTile: readers.getTrapTile,
 			getExtent: readers.getTrapExtent,
 		}),
 		collections: defineTileSet({
 			parseFilters: parseCollectionMapFilters,
+			clusters: true,
 			getTile: readers.getCollectionTile,
 			getExtent: readers.getCollectionExtent,
 		}),
 		'service-requests': defineTileSet({
 			parseFilters: parseServiceRequestMapFilters,
+			clusters: true,
 			getTile: readers.getServiceRequestTile,
 			getExtent: readers.getServiceRequestExtent,
 		}),
@@ -829,6 +1021,37 @@ function parseBboxPageQuery<TFilters>(
 	return { ok: true, input: { ...page.input, bounds: bbox.bounds } };
 }
 
+/**
+ * The box and the surface's filters, for a summary.
+ *
+ * {@link parseBboxPageQuery} less the paging: `limit` and `offset` mean
+ * nothing to a count, so they are not stripped here, and the filter parser
+ * refuses them as it refuses any param it does not know.
+ */
+function parseBboxSummaryQuery<TFilters>(
+	searchParams: URLSearchParams,
+	organizationId: string,
+	timeZone: string,
+	parseFilters: (params: URLSearchParams) => FilterResult<TFilters>,
+): PageQueryResult<MapBoundsSummaryInput<TFilters>> {
+	const bbox = parseBoundingBoxParam(searchParams.get('bbox'));
+	if (!bbox.ok) {
+		return bbox;
+	}
+
+	const filterParams = new URLSearchParams(searchParams);
+	filterParams.delete('bbox');
+	const filterResult = parseFilters(filterParams);
+	if (!filterResult.ok) {
+		return filterResult;
+	}
+
+	return {
+		ok: true,
+		input: { organizationId, timeZone, bounds: bbox.bounds, filters: filterResult.filters },
+	};
+}
+
 function withoutPageParams(searchParams: URLSearchParams): URLSearchParams {
 	const filterParams = new URLSearchParams(searchParams);
 	filterParams.delete('limit');
@@ -869,40 +1092,17 @@ interface PageInput<TFilters> {
  * parse body naming the same params again. Two lists that had to agree, with
  * nothing checking that they did — a param in the `Set` but not the body was
  * silently ignored, and one in the body but not the `Set` was a 400 nobody could
- * explain. Here they are the same list.
+ * explain. Here they are the same list, and since #1420 the list is the spec in
+ * `@simmer-mosquito/domain` that the web encodes its requests from.
  *
  * `trueOnly` is its own kind rather than a boolean because three surfaces had
  * written the rule out longhand: `nonMosquito=false` is the same as omitting
  * it, so only `true` reaches the reader.
  */
-interface FilterField {
-	/** The query param, as the client sends it. */
-	readonly param: string;
-	/** The filter key the reader expects, when it differs from the param. */
-	readonly as?: string;
-	readonly kind:
-		| 'boolean'
-		| 'trueOnly'
-		| 'uuidList'
-		| 'text'
-		| 'date'
-		| 'density'
-		| 'sampleStatus'
-		| 'trapStatus'
-		| 'requestStatus';
-}
-
-/** The region filter is spatial, not an FK, and every surface carries it. */
-const regionField = { param: regionFilterParam, as: 'regionIds', kind: 'uuidList' } as const;
-const dateFields = [
-	{ param: 'dateFrom', kind: 'date' },
-	{ param: 'dateTo', kind: 'date' },
-] as const satisfies readonly FilterField[];
-
 function defineFilters<TFilters>(
 	/** The noun in `Unsupported <noun> filter: x.` */
 	noun: string,
-	fields: readonly FilterField[],
+	fields: MapFilterSpec,
 ): (searchParams: URLSearchParams) => FilterResult<TFilters> {
 	const admitted = new Set(fields.map((field) => field.param));
 
@@ -929,9 +1129,36 @@ function defineFilters<TFilters>(
 	};
 }
 
+/**
+ * The parser for a spec, typed as the filters its reader takes, and refused by
+ * `tsc` when the spec's filter object is not that interface key for key.
+ *
+ * Assignability alone would pass a rename: every key on both sides is
+ * optional, so a spec whose `habitatLinkedOnly` became `habitatLinked` still
+ * assigns to `BiocontrolMapFilters`, and the filter is dropped on the floor.
+ * So the keys are compared both ways as well, and the spec argument is
+ * `never` when they differ. Curried so the reader's interface is written and
+ * the spec's type is inferred.
+ */
+function readerFilters<TFilters>() {
+	return <const TSpec extends MapFilterSpec>(
+		noun: string,
+		spec: TSpec & ReadAs<MapFiltersOf<TSpec>, TFilters>,
+	) => defineFilters<TFilters>(noun, spec);
+}
+
+/** `unknown` when `TSpecFilters` is `TFilters` key for key, otherwise `never`. */
+type ReadAs<TSpecFilters, TFilters> = [keyof TSpecFilters] extends [keyof TFilters]
+	? [keyof TFilters] extends [keyof TSpecFilters]
+		? TSpecFilters extends TFilters
+			? unknown
+			: never
+		: never
+	: never;
+
 function parseFilterField(
 	searchParams: URLSearchParams,
-	field: FilterField,
+	field: MapFilterField,
 ):
 	| { readonly ok: true; readonly value: unknown }
 	| { readonly ok: false; readonly reason: string } {
@@ -969,116 +1196,91 @@ function parseFilterField(
 	}
 }
 
-export const parseHabitatTileFilters = defineFilters<HabitatMvtTileFilters>('habitat tile', [
-	{ param: 'isActive', kind: 'boolean' },
-	{ param: 'isInaccessible', kind: 'boolean' },
-	{ param: 'habitatTypeId', as: 'habitatTypeIds', kind: 'uuidList' },
-	{ param: 'tagId', as: 'tagIds', kind: 'uuidList' },
-	regionField,
-	{ param: 'search', kind: 'text' },
-	// The Dashboard's banner links here; the surface reads the same fragment.
-	{ param: 'untreated', as: 'untreatedOnly', kind: 'trueOnly' },
-]);
+export const parseHabitatTileFilters = readerFilters<HabitatMvtTileFilters>()(
+	'habitat tile',
+	HABITAT_MAP_FILTERS,
+);
 
-export const parseAddressTileFilters = defineFilters<AddressMvtTileFilters>('address tile', [
-	{ param: 'search', kind: 'text' },
-	regionField,
-]);
+export const parseAddressTileFilters = readerFilters<AddressMvtTileFilters>()(
+	'address tile',
+	ADDRESS_MAP_FILTERS,
+);
 
-export const parseRegionTileFilters = defineFilters<RegionMvtTileFilters>('region tile', [
-	{ param: 'regionFolderId', kind: 'text' },
-	{ param: 'search', kind: 'text' },
-	// The regions explorer draws one checkbox-picked set rather than every region
-	// its other filters allow, so its extent request names the ids outright.
-	{ param: 'id', as: 'ids', kind: 'uuidList' },
-]);
+export const parseRegionTileFilters = readerFilters<RegionMvtTileFilters>()(
+	'region tile',
+	REGION_MAP_FILTERS,
+);
 
-export const parseInspectionTileFilters = defineFilters<InspectionMvtTileFilters>(
+export const parseInspectionTileFilters = readerFilters<InspectionMvtTileFilters>()(
 	'inspection tile',
-	[
-		{ param: 'isWet', kind: 'boolean' },
-		{ param: 'density', as: 'densities', kind: 'density' },
-		{ param: 'positive', as: 'positiveOnly', kind: 'boolean' },
-		{ param: 'habitatTypeId', as: 'habitatTypeIds', kind: 'uuidList' },
-		{ param: 'inspectedBy', as: 'inspectedByProfileIds', kind: 'uuidList' },
-		regionField,
-		...dateFields,
-	],
+	INSPECTION_MAP_FILTERS,
 );
 
-export const parseSampleTileFilters = defineFilters<SampleListFilters>('sample tile', [
-	{ param: 'species', as: 'speciesIds', kind: 'uuidList' },
-	{ param: 'status', kind: 'sampleStatus' },
-	{ param: 'nonMosquito', as: 'nonMosquitoOnly', kind: 'trueOnly' },
-	regionField,
-	...dateFields,
-]);
+export const parseSampleTileFilters = readerFilters<SampleListFilters>()(
+	'sample tile',
+	SAMPLE_MAP_FILTERS,
+);
 
-export const parseApplicationMapFilters = defineFilters<ApplicationMapFilters>('chemical', [
-	{ param: 'insecticideId', as: 'insecticideIds', kind: 'uuidList' },
-	{ param: 'applicationMethodId', as: 'applicationMethodIds', kind: 'uuidList' },
-	{ param: 'applicator', as: 'applicatorProfileIds', kind: 'uuidList' },
-	regionField,
-	...dateFields,
-]);
+export const parseApplicationMapFilters = readerFilters<ApplicationMapFilters>()(
+	'chemical',
+	CHEMICAL_MAP_FILTERS,
+);
 
-export const parseSourceReductionMapFilters = defineFilters<SourceReductionMapFilters>(
+export const parseSourceReductionMapFilters = readerFilters<SourceReductionMapFilters>()(
 	'source-reduction',
-	[
-		{ param: 'sourceReductionMethodId', as: 'sourceReductionMethodIds', kind: 'uuidList' },
-		{ param: 'technician', as: 'technicianProfileIds', kind: 'uuidList' },
-		regionField,
-		...dateFields,
-	],
+	SOURCE_REDUCTION_MAP_FILTERS,
 );
 
-export const parseBiocontrolMapFilters = defineFilters<BiocontrolMapFilters>('biocontrol', [
-	{ param: 'biocontrolMethodId', as: 'biocontrolMethodIds', kind: 'uuidList' },
-	{ param: 'habitatLinked', as: 'habitatLinkedOnly', kind: 'trueOnly' },
-	{ param: 'technician', as: 'technicianProfileIds', kind: 'uuidList' },
-	regionField,
-	...dateFields,
-]);
+export const parseBiocontrolMapFilters = readerFilters<BiocontrolMapFilters>()(
+	'biocontrol',
+	BIOCONTROL_MAP_FILTERS,
+);
 
-export const parseOutreachMapFilters = defineFilters<OutreachMapFilters>('outreach', [
-	{ param: 'outreachMethodId', as: 'outreachMethodIds', kind: 'uuidList' },
-	{ param: 'technician', as: 'technicianProfileIds', kind: 'uuidList' },
-	regionField,
-	...dateFields,
-]);
+export const parseOutreachMapFilters = readerFilters<OutreachMapFilters>()(
+	'outreach',
+	OUTREACH_MAP_FILTERS,
+);
 
-export const parseTrapMapFilters = defineFilters<TrapMapFilters>('traps', [
-	{ param: 'collectionMethodId', as: 'collectionMethodIds', kind: 'uuidList' },
-	{ param: 'status', as: 'isActive', kind: 'trapStatus' },
-	{ param: 'search', kind: 'text' },
-	regionField,
-]);
+export const parseTrapMapFilters = readerFilters<TrapMapFilters>()('traps', TRAP_MAP_FILTERS);
 
-export const parseCollectionMapFilters = defineFilters<CollectionMapFilters>('collections', [
-	{ param: 'collectionMethodId', as: 'collectionMethodIds', kind: 'uuidList' },
-	{ param: 'problem', as: 'problemOnly', kind: 'trueOnly' },
-	// The Dashboard's queue links here; the surface reads the same fragment.
-	{ param: 'awaiting', as: 'awaitingOnly', kind: 'trueOnly' },
-	regionField,
-	...dateFields,
-]);
+export const parseCollectionMapFilters = readerFilters<CollectionMapFilters>()(
+	'collections',
+	COLLECTION_MAP_FILTERS,
+);
 
-// The date fields carry no default on the explorer: #920 decided a date
-// default there is not a substitute for the viewport, and a filter with no
-// default is a different thing. They exist so a count on the period-in-review
-// pages lands on the rows it counted (docs/today-spec.md, "Links").
-export const parseServiceRequestMapFilters = defineFilters<ServiceRequestMapFilters>(
+// The rail's order rides beside the filters: the tiles and the extent take it
+// and ignore it, and only the list request sends it.
+export const parseServiceRequestMapFilters = readerFilters<ServiceRequestMapFilters>()(
 	'service-requests',
-	[
-		{ param: 'status', as: 'isOpen', kind: 'requestStatus' },
-		{ param: 'search', kind: 'text' },
-		{ param: 'tagId', as: 'tagIds', kind: 'uuidList' },
-		// The rail's order. The tiles and the extent take it and ignore it.
-		{ param: 'oldest', as: 'oldestFirst', kind: 'trueOnly' },
-		regionField,
-		...dateFields,
-	],
+	[...SERVICE_REQUEST_MAP_FILTERS, ...SERVICE_REQUEST_ORDER_FILTERS],
 );
+
+/**
+ * Read and remove `cluster` from a tile request's params.
+ *
+ * Removed because every filter parser refuses a param it does not admit. `1` is
+ * the only value: an absent param is the plain tile, and anything else is a
+ * mistake worth a 400 rather than a guess.
+ */
+function parseClusterParam(
+	searchParams: URLSearchParams,
+	tileSet: { readonly clusters?: true },
+):
+	| { readonly ok: true; readonly cluster: boolean }
+	| { readonly ok: false; readonly reason: string } {
+	const values = searchParams.getAll(clusterParam);
+	searchParams.delete(clusterParam);
+	if (values.length === 0) {
+		return { ok: true, cluster: false };
+	}
+	if (values.length > 1 || values[0] !== '1') {
+		return { ok: false, reason: 'cluster must be 1 when given.' };
+	}
+	if (tileSet.clusters !== true) {
+		return { ok: false, reason: 'This tileset does not cluster its points.' };
+	}
+	return { ok: true, cluster: true };
+}
 
 export function parseTileCoordinate(input: {
 	readonly z: string;
@@ -1234,7 +1436,8 @@ function parseHabitatSearchQuery(
 	return { ok: true, search: search.value ?? '', limit: parsed };
 }
 
-const maxDisplayLimit = 50;
+/** A rail page, which is also where the rail draws a summary instead (#1244). */
+const maxDisplayLimit = 100;
 const maxSearchLength = 200;
 
 function parseInteger(value: string): number | null {

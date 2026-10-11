@@ -2,6 +2,7 @@
 // parameter is structural rather than a row type, so both read paths satisfy
 // it.
 
+import { isServiceRequestOverdue } from '@simmer-mosquito/domain';
 import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import type { ServiceRequestEventKind } from '../../hooks/queries/use-service-request-feed';
 import { countPhrase } from '../../lib/format-count';
@@ -166,6 +167,19 @@ export function requestAgeOrDate(
 	return isServiceRequestOpen(request)
 		? formatRequestAge(request.requestDate, today)
 		: formatRequestDate(request.requestDate);
+}
+
+/**
+ * The tone a request's age is drawn in: `warning` when it is overdue against
+ * `cutoff`, the day {@link serviceRequestOverdueCutoff} gives for the
+ * Organization's threshold and today, and `default` otherwise. A `null` cutoff
+ * is a threshold that is off.
+ */
+export function requestAgeTone(
+	request: { readonly requestDate: string; readonly closedAt: Date | string | null },
+	cutoff: string | null,
+): 'warning' | 'default' {
+	return isServiceRequestOverdue(request, cutoff) ? 'warning' : 'default';
 }
 
 function firstNonEmpty(...values: readonly (string | null)[]): string | null {

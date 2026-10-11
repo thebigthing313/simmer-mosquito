@@ -14,14 +14,14 @@
  */
 
 import type { LarvalDensity } from '@simmer-mosquito/domain';
-import { and, caseWhen, eq, gte, inArray, isNull, useLiveQuery } from '@tanstack/react-db';
+import { and, eq, gte, inArray, useLiveQuery } from '@tanstack/react-db';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
 import { inspections } from '../../lib/collections/inspections';
 import { profiles } from '../../lib/collections/profiles';
 import { joinedHabitatNameSelect } from './habitat-view';
 import type { LarvalActivityRow } from './larval-activity-view';
-import { activityGcTimeMs } from './shared';
+import { joinedOrNull, liveQueryGcTimeMs } from './shared';
 
 /** What this panel means by heavy. The two top bands of the density scale. */
 const heavyDensities: LarvalDensity[] = ['heavy', 'very_heavy'];
@@ -32,7 +32,7 @@ export function useHeavyLarvalActivity(sinceDate: string): {
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ inspection: inspections() })
@@ -69,11 +69,7 @@ export function useHeavyLarvalActivity(sinceDate: string): {
 					id: inspection.id,
 					inspectionDate: inspection.inspection_date,
 					inspectedByProfileId: inspection.inspected_by_profile_id,
-					inspectedByName: caseWhen(
-						isNull(inspection.inspected_by_profile_id),
-						null,
-						inspector.display_name,
-					),
+					inspectedByName: joinedOrNull(inspector.display_name),
 					isWet: inspection.is_wet,
 					density: inspection.density,
 					larvaeCount: inspection.larvae_count,
@@ -83,7 +79,7 @@ export function useHeavyLarvalActivity(sinceDate: string): {
 					// arriving, and `habitat-view.ts` says what that reads as (#998).
 					habitatName: joinedHabitatNameSelect(habitat),
 					habitatTypeId: inspection.habitat_type_id,
-					typeName: caseWhen(isNull(inspection.habitat_type_id), null, type.name),
+					typeName: joinedOrNull(type.name),
 
 					latitude: inspection.lat,
 					longitude: inspection.lng,

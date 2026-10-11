@@ -1,8 +1,12 @@
 /**
- * One Habitat Inspection, with everything a card shows it beside.
+ * One Habitat Inspection, with everything a card or its detail page shows it
+ * beside.
  *
  * The map focus card, which appears next to a map that is already drawn — so it
  * renders its own skeleton rather than suspending and blanking what surrounds it.
+ * The detail page reads the same row (#874): it used to fetch the whole record
+ * from `/map/inspections/:id`, and now only the geometry comes from there,
+ * through `useOwnedGeometry`.
  *
  * ## What this replaces
  *
@@ -23,7 +27,7 @@
  * same collection, is one subset.
  */
 
-import { caseWhen, eq, isNull } from '@tanstack/react-db';
+import { eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
@@ -31,7 +35,7 @@ import { inspections } from '../../lib/collections/inspections';
 import { profiles } from '../../lib/collections/profiles';
 import { joinedHabitatNameSelect } from './habitat-view';
 import type { InspectionCard } from './larval-activity-view';
-import { addressSelect, useRecordById } from './shared';
+import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
 export function useInspection(inspectionId: string): {
 	readonly inspection: InspectionCard | undefined;
@@ -72,15 +76,9 @@ export function useInspection(inspectionId: string): {
 					id: inspection.id,
 					inspectionDate: inspection.inspection_date,
 					inspectedByProfileId: inspection.inspected_by_profile_id,
-					// Guarded on the inspection's own column rather than read off the joined
-					// row: an unmatched `left` join yields `undefined` for every `x.*`, and
-					// the guard is what turns that into the `null` this row speaks in.
-					inspectedByName: caseWhen(
-						isNull(inspection.inspected_by_profile_id),
-						null,
-						inspector.display_name,
-					),
+					inspectedByName: joinedOrNull(inspector.display_name),
 					isWet: inspection.is_wet,
+					dipCount: inspection.dip_count,
 					density: inspection.density,
 					larvaeCount: inspection.larvae_count,
 
@@ -89,7 +87,7 @@ export function useInspection(inspectionId: string): {
 					// arriving, and `habitat-view.ts` says what that reads as (#998).
 					habitatName: joinedHabitatNameSelect(habitat),
 					habitatTypeId: inspection.habitat_type_id,
-					typeName: caseWhen(isNull(inspection.habitat_type_id), null, type.name),
+					typeName: joinedOrNull(type.name),
 
 					latitude: inspection.lat,
 					longitude: inspection.lng,
@@ -102,6 +100,9 @@ export function useInspection(inspectionId: string): {
 					hasThirdInstar: inspection.has_third_instar,
 					hasFourthInstar: inspection.has_fourth_instar,
 					hasPupae: inspection.has_pupae,
+
+					createdAt: inspection.created_at,
+					updatedAt: inspection.updated_at,
 				})),
 	});
 

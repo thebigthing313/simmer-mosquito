@@ -42,7 +42,7 @@ export function OutreachMapCard({
 			eyebrow={<MapCardEyebrow date={action.outreachDate} recordType="outreachAction" />}
 			inset={inset}
 			onClose={onClose}
-			title={action.methodName}
+			title={action.methodName ?? 'Unknown method'}
 			viewDetailLink={(content) => (
 				<Link params={{ id: action.id }} to="/public-engagement/outreach/$id">
 					{content}

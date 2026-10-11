@@ -6,7 +6,7 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import type { TagRecord } from '../../hooks/queries/use-tag-catalog';
+import type { TagRecord } from '../../hooks/queries/catalog-record-view';
 import { TagDisplayTableRow } from './tag-display-table-row';
 import { TagEditorTableRow } from './tag-editor-table-row';
 

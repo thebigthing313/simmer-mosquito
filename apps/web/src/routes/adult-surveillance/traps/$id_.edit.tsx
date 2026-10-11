@@ -9,12 +9,12 @@ import {
 } from '../../../components/adult-surveillance/traps/trap-form';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type {
 	CatalogListing,
 	SchemaCatalogListing,
 } from '../../../hooks/queries/catalog-roster-view';
-import { useCollectionLureRoster } from '../../../hooks/queries/use-collection-lure-roster';
-import { useCollectionMethodRoster } from '../../../hooks/queries/use-collection-method-roster';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { type TrapRecord, useTrapRecord } from '../../../hooks/queries/use-trap-record';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { TRAP_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
@@ -36,8 +36,8 @@ export const Route = createFileRoute('/adult-surveillance/traps/$id_/edit')({
 
 function EditTrapRoute() {
 	const { id } = Route.useParams();
-	const methods = useCollectionMethodRoster();
-	const lures = useCollectionLureRoster();
+	const methods = useCatalogRoster(catalogs.collectionMethods);
+	const lures = useCatalogRoster(catalogs.collectionLures);
 	const { trap, isReady, isError } = useTrapRecord(id);
 
 	return (

@@ -4,9 +4,7 @@
  * The counterpart of `use-habitat-record.ts` and `use-inspection-record.ts`, and
  * here for the same reason: `use-adult-collection.ts` joins the trap, the
  * method, the lure and the address so a card can name them, and every one of
- * those is a join a form does not need — it writes ids. It also coalesces the
- * method name to `Unknown method`, which is right on a card and wrong in a
- * field.
+ * those is a join a form does not need — it writes ids.
  *
  * `trapId` decides which kind of collection this is — an ad hoc one owns its
  * point and its address, a trap one inherits both — so it is here even though
@@ -15,6 +13,8 @@
 
 import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import { collections } from '../../lib/collections/collections';
+import { useOrganizationClock } from '../use-organization-clock';
+import { collectionEffectiveDate } from './collection-day';
 import { useRecordById } from './shared';
 
 /** An Adult Collection as its edit form holds one. */
@@ -34,6 +34,8 @@ export interface CollectionRecord {
 	readonly collectedAt: Date | null;
 	/** Date+duration mode: the day it is filed under, `YYYY-MM-DD`. */
 	readonly collectionDate: string | null;
+	/** The day it counts on, in the Organization's zone. See `collection-day.ts`. */
+	readonly effectiveDate: string | null;
 	readonly durationAmount: number | null;
 	readonly durationUnitId: string | null;
 	readonly setByProfileId: string | null;
@@ -50,6 +52,7 @@ export function useCollectionRecord(collectionId: string | null | undefined): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
+	const clock = useOrganizationClock();
 	const result = useRecordById({
 		collection: collections(),
 		id: collectionId ?? null,
@@ -76,5 +79,10 @@ export function useCollectionRecord(collectionId: string | null | undefined): {
 			})),
 	});
 
-	return { collection: result.record, isReady: result.isReady, isError: result.isError };
+	const collection =
+		result.record === undefined
+			? undefined
+			: { ...result.record, effectiveDate: collectionEffectiveDate(result.record, clock.zone) };
+
+	return { collection, isReady: result.isReady, isError: result.isError };
 }

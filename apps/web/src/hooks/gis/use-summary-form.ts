@@ -5,7 +5,6 @@ import {
 	parseMetrics,
 	summaryIssue,
 } from '../../components/gis/weather/weather-summary-form';
-import { todayInTimeZone } from '../../lib/local-date';
 import { errorMessageForSave } from '../../lib/save-error';
 import { newRecordId } from '../mutations/shared';
 import {
@@ -13,7 +12,7 @@ import {
 	type WeatherSummaryFields,
 } from '../mutations/use-weather-summary-mutations';
 import { summaryYear, type WeatherSummaryListing } from '../queries/weather-summary-view';
-import { useOrganizationTimeZone } from '../use-organization-time-zone';
+import { useOrganizationClock } from '../use-organization-clock';
 
 /**
  * Everything the weather summary dialog holds while it is open, and the one
@@ -27,8 +26,8 @@ export function useSummaryForm(input: {
 	readonly onWriteYear: (year: number) => void;
 }) {
 	const { stationId, summary, onClose, onWriteYear } = input;
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const mutations = useWeatherSummaryMutations();
 
 	const [startDate, setStartDate] = useState(summary?.startDate ?? today);
@@ -69,10 +68,10 @@ export function useSummaryForm(input: {
 		setIsSaving(true);
 		setError(null);
 		const fields: WeatherSummaryFields = { startDate, endDate, ...parsed };
-		// Before the write, not after. The card lists one year at a time, and a
-		// write into a year its live query does not cover waits out a txid that
-		// never arrives on that subset: `settleWrite` swallows the five-second
-		// timeout, so the dialog closes late over a row the user cannot see.
+		// Before the write, not after. The card lists one year at a time, and
+		// moving it to the written year means the list the dialog closes over
+		// shows the row the user saved. Moving first starts that year loading
+		// while the save waits for confirmation.
 		onWriteYear(summaryYear(endDate));
 		try {
 			if (summary === null) {

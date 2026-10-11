@@ -7,19 +7,19 @@
  * Three sequential queries before: the action, then its method, then its unit.
  */
 
-import { caseWhen, coalesce, eq, isNull } from '@tanstack/react-db';
+import { eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
 import { biocontrol_methods } from '../../lib/collections/biocontrol_methods';
 import { profiles } from '../../lib/collections/profiles';
 import { units } from '../../lib/collections/units';
 import type { BiocontrolAction } from './control-action-view';
-import { addressSelect, useRecordById } from './shared';
+import { controlActionBaseSelect, PERFORMED_ACTIONS } from './performed-action-reads';
+import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
-export function useBiocontrolAction(
-	actionId: string | null,
-	options?: { readonly gcTime?: number },
-): {
+const releaseReads = PERFORMED_ACTIONS.releases;
+
+export function useBiocontrolAction(actionId: string | null): {
 	readonly action: BiocontrolAction | undefined;
 	readonly isReady: boolean;
 	/**
@@ -32,24 +32,23 @@ export function useBiocontrolAction(
 	const result = useRecordById({
 		collection: biocontrol_actions(),
 		id: actionId,
-		gcTime: options?.gcTime,
 		query: (query) =>
 			query
 				// `left` throughout: a release need not record a technician and most
 				// name no address.
 				.join(
 					{ method: biocontrol_methods() },
-					({ record: action, method }) => eq(action.biocontrol_method_id, method.id),
+					({ record: action, method }) => releaseReads.joinMethod(action, method),
 					'left',
 				)
 				.join(
 					{ unit: units() },
-					({ record: action, unit }) => eq(action.release_unit_id, unit.id),
+					({ record: action, unit }) => releaseReads.joinUnit(action, unit),
 					'left',
 				)
 				.join(
 					{ technician: profiles() },
-					({ record: action, technician }) => eq(action.technician_profile_id, technician.id),
+					({ record: action, technician }) => releaseReads.joinPerformer(action, technician),
 					'left',
 				)
 				.join(
@@ -57,39 +56,25 @@ export function useBiocontrolAction(
 					({ record: action, address }) => eq(action.address_id, address.id),
 					'left',
 				)
-				.select(({ record: action, method, unit, technician, address }) => ({
-					id: action.id,
-					address: addressSelect(address),
-					actionDate: action.biocontrol_date,
+				.select(({ record: action, method, unit, technician, address }) => {
+					const measured = releaseReads.measured(action);
+					return {
+						id: action.id,
+						address: addressSelect(address),
+						actionDate: releaseReads.date(action),
 
-					methodId: action.biocontrol_method_id,
-					methodName: coalesce(method.name, 'Unknown method'),
-					technicianProfileId: action.technician_profile_id,
-					technicianName: caseWhen(
-						isNull(action.technician_profile_id),
-						null,
-						technician.display_name,
-					),
+						methodId: measured.methodId,
+						methodName: joinedOrNull(method.name),
+						technicianProfileId: measured.performerProfileId,
+						technicianName: joinedOrNull(technician.display_name),
 
-					amountReleased: action.amount_released,
-					unitId: action.release_unit_id,
-					unitAbbreviation: coalesce(unit.abbreviation, null),
-
-					addressId: action.address_id,
-					habitatId: action.habitat_id,
-					inspectionId: action.inspection_id,
-					requestedControlActionId: action.requested_control_action_id,
-					missionItemId: action.mission_item_id,
-
-					latitude: action.lat,
-					longitude: action.lng,
-					geometryKind: action.geom_type,
-					metadata: action.metadata,
-					createdAt: action.created_at,
-					updatedAt: action.updated_at,
-					createdByProfileId: action.created_by_profile_id,
-					updatedByProfileId: action.updated_by_profile_id,
-				})),
+						amountReleased: measured.amount,
+						unitId: measured.unitId,
+						unitAbbreviation: joinedOrNull(unit.abbreviation),
+						habitatId: action.habitat_id,
+						...controlActionBaseSelect(action),
+					};
+				}),
 	});
 
 	return { action: result.record, isReady: result.isReady, isError: result.isError };

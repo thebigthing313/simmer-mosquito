@@ -15,14 +15,21 @@
  * no key can go missing without a string moving.
  */
 
+import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { act, type ReactNode } from 'react';
+import { act, type ReactNode, useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getServerUrl } from '../../../../auth';
+import type {
+	RecordSet,
+	RecordSetContext,
+	RecordSetTiles,
+} from '../../../../components/explorer/record-set';
 import type { MapTileLayer } from '../../../../components/map/tile-layers';
 import type { ExplorerResource } from '../../../../hooks/explorer/use-explorer-resource';
-import type { MapQueryValue } from '../../../../hooks/explorer/use-paged-map-resource';
+import type { MapQueryValue } from '../../../../lib/map-query-params';
 import type { RecordType } from '../../../../lib/record-nouns';
 import { cleanupRenderedHooks, createFakeMap, type FakeMap } from '../../components/map/fake-map';
 
@@ -58,13 +65,104 @@ const { useMapExtent } = await import('../../../../hooks/map/use-map-extent');
 const { useMapExtentFit } = await import('../../../../hooks/map/use-map-extent-fit');
 const { RAIL_HOLDS_MOVE } = await import('../../../../hooks/explorer/use-map-bounds-param');
 
+const { addressRecordSet } = await import('../../../../components/gis/addresses/addresses-search');
+const { outreachRecordSet } = await import(
+	'../../../../components/public-engagement/outreach/outreach-actions-search'
+);
+
+/** What a set's conversions read besides the filters. No case here reads it. */
+const CONTEXT: RecordSetContext = {
+	today: '2026-01-31',
+	settings: resolveOrganizationSettings({}).settings,
+};
+
 /**
- * The tile layer each route hands the hook beside its params: the same entry
- * `MapCanvas` frames, whose extent URL is what the empty state reads. Bare, so
- * the extent request carries no filter and the case that wants one says so.
+ * One case's surface: the endpoint, the record type, the page's filter params
+ * and the tiles, each stated on its own.
  */
-function bareLayer(kind: MapTileLayer['kind']): MapTileLayer {
-	return { kind, serverUrl: 'http://api.test' } as MapTileLayer;
+interface ResourceOptions {
+	readonly path: `/map/${string}`;
+	readonly rowsKey: string;
+	readonly rowKey: string;
+	readonly recordType: RecordType;
+	readonly params: Readonly<Record<string, MapQueryValue>>;
+	readonly tiles: RecordSetTiles;
+	readonly normalizeRow?: (row: Row) => Row;
+	readonly holdRailOnSelect?: boolean;
+	readonly summarize?: boolean;
+}
+
+/**
+ * The hook over a record set built from one case's surface. The set's
+ * `tileFilters` answers the case's tile filters and its spec encodes nothing,
+ * while the case's params go in as the route's own, so a case can state the
+ * page and the tiles apart, which is what most of the cases below are about. That a route's set
+ * pairs the two is covered under "what the record set decides", with real
+ * sets, and that its tileset is checked against its tile filters is
+ * `defineRecordSet`'s, in the record set suite.
+ */
+function useSurfaceResource({
+	path,
+	rowsKey,
+	rowKey,
+	recordType,
+	params,
+	tiles,
+	...options
+}: ResourceOptions): ExplorerResource<Row> {
+	// The tiles' filter type moves with `kind`, which a set built per case
+	// cannot carry, so the set is held to no tile type at all.
+	const set = {
+		endpoint: { path, rowsKey, rowKey },
+		tileset: tiles.kind,
+		recordType,
+		tileFilters: () => tiles.filters,
+		filterSpec: [],
+	} as unknown as RecordSet<null, never>;
+	return useExplorerResource<Row, null, never>({
+		set,
+		binding: { filters: null, context: CONTEXT },
+		params,
+		...options,
+	});
+}
+
+/**
+ * The hook as a route mounts it, with the canvas's half played by two effects:
+ * the map reported ready once there is one, and the selection a click would
+ * make. Both run after the first render, which is when `MapCanvas` reports its
+ * map too, so a case that passes a map and a selection up front reads the way
+ * a deep link with a warm map does.
+ */
+function useResourceOnCanvas({
+	map,
+	selectedId,
+	...options
+}: ResourceOptions & {
+	readonly map: MapboxMap | null;
+	readonly selectedId: string | null;
+}): ExplorerResource<Row> {
+	const resource = useSurfaceResource(options);
+	const { onMapReady } = resource.canvas;
+	const { setSelectedId } = resource;
+	useEffect(() => {
+		if (map !== null) {
+			onMapReady(map);
+		}
+	}, [map, onMapReady]);
+	useEffect(() => {
+		setSelectedId(selectedId);
+	}, [selectedId, setSelectedId]);
+	return resource;
+}
+
+/**
+ * The layer the hook builds from `tiles`, for a case that runs the canvas's
+ * extent read beside it. The server URL is the one the hook reads, so the two
+ * reads share one query the way they do under `MapCanvas`.
+ */
+function layerOf(tiles: RecordSetTiles): MapTileLayer {
+	return { ...tiles, serverUrl: getServerUrl() };
 }
 
 interface Row {
@@ -138,14 +236,14 @@ const DATE_TO = '2026-01-31';
 /** One surface as its route calls the hook, with the string it has always sent. */
 interface SurfaceCase {
 	readonly name: string;
-	readonly path: string;
+	readonly path: `/map/${string}`;
 	readonly rowsKey: string;
 	readonly rowKey: string;
 	readonly recordType: RecordType;
 	readonly params: Readonly<Record<string, MapQueryValue>>;
 	readonly search: string;
 	/** The tileset the route draws, whose extent the empty state reads. */
-	readonly kind: MapTileLayer['kind'];
+	readonly kind: RecordSetTiles['kind'];
 }
 
 const SURFACES: readonly SurfaceCase[] = [
@@ -165,7 +263,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			search: 'pond',
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&isActive=true&isInaccessible=false&habitatTypeId=type-1%2Ctype-2&tagId=tag-1%2Ctag-2&regionId=region-1%2Cregion-2&search=pond',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&isActive=true&isInaccessible=false&habitatTypeId=type-1%2Ctype-2&tagId=tag-1%2Ctag-2&regionId=region-1%2Cregion-2&search=pond',
 	},
 	{
 		name: 'inspections',
@@ -185,7 +283,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&isWet=false&density=low%2Chigh&positive=true&habitatTypeId=type-1%2Ctype-2&inspectedBy=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&isWet=false&density=low%2Chigh&positive=true&habitatTypeId=type-1%2Ctype-2&inspectedBy=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'samples',
@@ -203,7 +301,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&species=species-1%2Cspecies-2&status=identified&nonMosquito=true&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&species=species-1%2Cspecies-2&status=identified&nonMosquito=true&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'collections',
@@ -220,7 +318,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&collectionMethodId=method-1%2Cmethod-2&problem=true&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&collectionMethodId=method-1%2Cmethod-2&problem=true&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'traps',
@@ -236,7 +334,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			regionId: ids('region'),
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&collectionMethodId=method-1%2Cmethod-2&status=active&search=gravid&regionId=region-1%2Cregion-2',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&collectionMethodId=method-1%2Cmethod-2&status=active&search=gravid&regionId=region-1%2Cregion-2',
 	},
 	{
 		name: 'biocontrol',
@@ -254,7 +352,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&biocontrolMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&habitatLinked=true&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&biocontrolMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&habitatLinked=true&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'chemical',
@@ -272,7 +370,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&insecticideId=product-1%2Cproduct-2&applicationMethodId=method-1%2Cmethod-2&applicator=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&insecticideId=product-1%2Cproduct-2&applicationMethodId=method-1%2Cmethod-2&applicator=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'source reduction',
@@ -289,7 +387,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&sourceReductionMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&sourceReductionMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'outreach',
@@ -306,7 +404,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&outreachMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&outreachMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 ];
 
@@ -318,13 +416,13 @@ describe('useExplorerResource: what each surface sends', () => {
 
 			renderHook(
 				() =>
-					useExplorerResource<Row>({
+					useResourceOnCanvas({
 						path: surface.path,
 						rowsKey: surface.rowsKey,
 						rowKey: surface.rowKey,
 						recordType: surface.recordType,
 						params: surface.params,
-						layer: bareLayer(surface.kind),
+						tiles: { kind: surface.kind },
 						map: fake.map,
 						selectedId: null,
 					}),
@@ -357,13 +455,13 @@ describe('useExplorerResource: the viewport', () => {
 
 		const { rerender } = renderHook(
 			({ map }: { readonly map: MapboxMap | null }) =>
-				useExplorerResource<Row>({
+				useResourceOnCanvas({
 					path: '/map/habitats',
 					rowsKey: 'rows',
 					rowKey: 'row',
 					recordType: 'habitat',
 					params: { search: 'pond' },
-					layer: bareLayer('habitats'),
+					tiles: { kind: 'habitats' },
 					map,
 					selectedId: null,
 				}),
@@ -388,13 +486,13 @@ describe('useExplorerResource: the viewport', () => {
 
 		renderHook(
 			() =>
-				useExplorerResource<Row>({
+				useResourceOnCanvas({
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
 					recordType: 'outreachAction',
 					params: { technician: ['p-1'] },
-					layer: bareLayer('outreach'),
+					tiles: { kind: 'outreach' },
 					map: fake.map,
 					selectedId: null,
 				}),
@@ -406,6 +504,140 @@ describe('useExplorerResource: the viewport', () => {
 		expect(fake.listenerCount('moveend')).toBe(1);
 		await waitFor(() => expect(pageRequests('/map/outreach')).toHaveLength(1));
 		expect(pageRequests('/map/outreach')[0]?.searchParams.get('bbox')).toBe('0,-0.8,1,0');
+	});
+});
+
+describe('useExplorerResource: the map and the selection it holds', () => {
+	/*
+	 * Since #1423 the hook holds the map the canvas reports, the selection and
+	 * the tile layer, so no route keeps a map in state only to hand it back.
+	 * These cases drive the hook the way `ExplorerCanvas` and the rail do. The
+	 * canvas calls `onMapReady`, and a row or a drawn record calls the setter.
+	 */
+	function renderBare(holdRailOnSelect = false) {
+		return renderHook(
+			() =>
+				useSurfaceResource({
+					path: '/map/addresses',
+					rowsKey: 'rows',
+					rowKey: 'row',
+					recordType: 'address',
+					params: {},
+					tiles: { kind: 'addresses', filters: { search: 'elm' } },
+					holdRailOnSelect,
+				}),
+			{ wrapper },
+		);
+	}
+
+	it('asks for no page before the canvas reports its map', async () => {
+		answer = () => ({ rows: [], total: 0 });
+		const fake = createFakeMap();
+		const { result } = renderBare();
+
+		// The extent is not bounded and goes out at once; the page waits.
+		await waitFor(() => expect(extentRequests()).toHaveLength(1));
+		expect(pageRequests('/map/addresses')).toHaveLength(0);
+		expect(result.current.isLoading).toBe(true);
+		expect(fake.listenerCount('moveend')).toBe(0);
+
+		act(() => result.current.canvas.onMapReady(fake.map));
+
+		await waitFor(() => expect(pageRequests('/map/addresses')).toHaveLength(1));
+		expect(pageRequests('/map/addresses')[0]?.searchParams.get('bbox')).toBe('0,-0.8,1,0');
+	});
+
+	it('pages the box a camera move lands on', async () => {
+		answer = () => ({ rows: [], total: 0 });
+		const fake = createFakeMap();
+		const { result } = renderBare();
+		act(() => result.current.canvas.onMapReady(fake.map));
+		await waitFor(() => expect(pageRequests('/map/addresses')).toHaveLength(1));
+
+		act(() => {
+			fake.moveTo(1, 1);
+		});
+
+		await waitFor(() => expect(pageRequests('/map/addresses')).toHaveLength(2));
+		expect(pageRequests('/map/addresses')[1]?.searchParams.get('bbox')).toBe('1,0.2,2,1');
+	});
+
+	it('builds the tile layer from the tileset, the filters and the selection', async () => {
+		answer = () => ({ rows: [{ id: 'row-1', lat: 3, lng: 4 }], total: 1 });
+		const fake = createFakeMap();
+		const { result } = renderBare();
+		act(() => result.current.canvas.onMapReady(fake.map));
+
+		expect(result.current.canvas.layers).toHaveLength(1);
+		expect(result.current.canvas.layers[0]).toMatchObject({
+			kind: 'addresses',
+			serverUrl: getServerUrl(),
+			filters: { search: 'elm' },
+			selectedId: null,
+		});
+
+		act(() => result.current.setSelectedId('row-1'));
+
+		await waitFor(() => expect(result.current.selected?.id).toBe('row-1'));
+		expect(result.current.selectedId).toBe('row-1');
+		expect(result.current.canvas.layers[0]?.selectedId).toBe('row-1');
+		expect(result.current.canvas.selectedRecordId).toBe('row-1');
+	});
+
+	it('flies once per selection, from the rail or from the map', async () => {
+		answer = () => ({
+			rows: [
+				{ id: 'row-1', lat: 3, lng: 4 },
+				{ id: 'row-2', lat: 5, lng: 6 },
+			],
+			total: 2,
+		});
+		const fake = createFakeMap();
+		const { result } = renderBare();
+		act(() => result.current.canvas.onMapReady(fake.map));
+		await waitFor(() => expect(result.current.rows).toHaveLength(2));
+		expect(fake.cameraCalls).toHaveLength(0);
+
+		// A row picked in the rail.
+		act(() => result.current.setSelectedId('row-1'));
+		await waitFor(() => expect(fake.cameraCalls).toHaveLength(1));
+		expect(fake.cameraCalls[0]?.kind).toBe('flyTo');
+
+		// A record clicked on the map, which reaches the hook through the layer.
+		act(() => result.current.canvas.layers[0]?.onSelectFeature?.('row-2'));
+		await waitFor(() => expect(fake.cameraCalls).toHaveLength(2));
+		expect(fake.cameraCalls[1]?.kind).toBe('flyTo');
+		await waitFor(() => expect(result.current.isSettled).toBe(true));
+		expect(fake.cameraCalls).toHaveLength(2);
+	});
+
+	it('carries the rail-holding mark to the one flight', async () => {
+		answer = () => ({ rows: [{ id: 'row-1', lat: 3, lng: 4 }], total: 1 });
+		const fake = createFakeMap();
+		const { result } = renderBare(true);
+		act(() => result.current.canvas.onMapReady(fake.map));
+		await waitFor(() => expect(result.current.rows).toHaveLength(1));
+
+		act(() => result.current.setSelectedId('row-1'));
+
+		await waitFor(() => expect(fake.cameraCalls).toHaveLength(1));
+		expect(fake.cameraCalls[0]?.eventData).toEqual({ [RAIL_HOLDS_MOVE]: true });
+	});
+
+	it('clears the selection and the card with it', async () => {
+		answer = () => ({ rows: [{ id: 'row-1', lat: 3, lng: 4 }], total: 1 });
+		const fake = createFakeMap();
+		const { result } = renderBare();
+		act(() => result.current.canvas.onMapReady(fake.map));
+		act(() => result.current.setSelectedId('row-1'));
+		await waitFor(() => expect(result.current.canvas.selectedRecordId).toBe('row-1'));
+
+		act(() => result.current.canvas.clearSelection());
+
+		expect(result.current.selectedId).toBeNull();
+		expect(result.current.selected).toBeNull();
+		expect(result.current.canvas.selectedRecordId).toBeNull();
+		expect(fake.cameraCalls).toHaveLength(1);
 	});
 });
 
@@ -425,13 +657,13 @@ describe('useExplorerResource: the selected record', () => {
 
 		const { result } = renderHook(
 			() =>
-				useExplorerResource<Row>({
+				useResourceOnCanvas({
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
 					recordType: 'outreachAction',
 					params: {},
-					layer: bareLayer('outreach'),
+					tiles: { kind: 'outreach' },
 					map: fake.map,
 					selectedId: 'row-1',
 				}),
@@ -455,13 +687,13 @@ describe('useExplorerResource: the selected record', () => {
 
 		renderHook(
 			() =>
-				useExplorerResource<Row>({
+				useResourceOnCanvas({
 					path: '/map/service-requests',
 					rowsKey: 'rows',
 					rowKey: 'row',
 					recordType: 'serviceRequest',
 					params: {},
-					layer: bareLayer('service-requests'),
+					tiles: { kind: 'service-requests' },
 					map: fake.map,
 					selectedId: 'row-1',
 					holdRailOnSelect: true,
@@ -480,13 +712,13 @@ describe('useExplorerResource: the selected record', () => {
 
 		const { result } = renderHook(
 			() =>
-				useExplorerResource<Row>({
+				useResourceOnCanvas({
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
 					recordType: 'outreachAction',
 					params: {},
-					layer: bareLayer('outreach'),
+					tiles: { kind: 'outreach' },
 					map: fake.map,
 					selectedId: 'row-1',
 				}),
@@ -509,13 +741,13 @@ describe('useExplorerResource: the selected record', () => {
 
 		const { result } = renderHook(
 			() =>
-				useExplorerResource<Row>({
+				useResourceOnCanvas({
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
 					recordType: 'outreachAction',
 					params: {},
-					layer: bareLayer('outreach'),
+					tiles: { kind: 'outreach' },
 					map: fake.map,
 					selectedId: 'off-page',
 				}),
@@ -548,13 +780,13 @@ describe('useExplorerResource: the selected record', () => {
 
 		const { result } = renderHook(
 			() =>
-				useExplorerResource<Row>({
+				useResourceOnCanvas({
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
 					recordType: 'outreachAction',
 					params: {},
-					layer: bareLayer('outreach'),
+					tiles: { kind: 'outreach' },
 					map: fake.map,
 					selectedId: 'off-page',
 				}),
@@ -574,13 +806,13 @@ describe('useExplorerResource: the selected record', () => {
 
 		const { result } = renderHook(
 			() =>
-				useExplorerResource<Row>({
+				useResourceOnCanvas({
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
 					recordType: 'outreachAction',
 					params: {},
-					layer: bareLayer('outreach'),
+					tiles: { kind: 'outreach' },
 					map: fake.map,
 					selectedId: 'off-page',
 				}),
@@ -601,13 +833,13 @@ describe('useExplorerResource: the selected record', () => {
 
 		const { result } = renderHook(
 			() =>
-				useExplorerResource<Row>({
+				useResourceOnCanvas({
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
 					recordType: 'outreachAction',
 					params: {},
-					layer: bareLayer('outreach'),
+					tiles: { kind: 'outreach' },
 					map: fake.map,
 					selectedId: 'off-page',
 				}),
@@ -628,13 +860,13 @@ describe('useExplorerResource: the selected record', () => {
 
 		const { result } = renderHook(
 			() =>
-				useExplorerResource<Row>({
+				useResourceOnCanvas({
 					path: '/map/chemical',
 					rowsKey: 'rows',
 					rowKey: 'row',
 					recordType: 'application',
 					params: {},
-					layer: bareLayer('chemical'),
+					tiles: { kind: 'chemical' },
 					map: fake.map,
 					selectedId: 'off-page',
 					// What a deployed server that predates the column leaves out.
@@ -664,31 +896,27 @@ describe('useExplorerResource: why the rail is empty', () => {
 			url.pathname.endsWith('/extent') ? { extent } : { rows, total: rows.length };
 	}
 
-	/** The layer a first-run habitats route draws: nothing narrowed. */
-	const UNFILTERED: MapTileLayer = bareLayer('habitats');
-	/** The same layer with a search term, so the extent request carries a filter. */
-	const FILTERED: MapTileLayer = {
-		kind: 'habitats',
-		serverUrl: 'http://api.test',
-		filters: { search: 'pond' },
-	};
+	/** The tiles a first-run habitats route draws: nothing narrowed. */
+	const UNFILTERED: RecordSetTiles = { kind: 'habitats' };
+	/** The same tiles with a search term, so the extent request carries a filter. */
+	const FILTERED: RecordSetTiles = { kind: 'habitats', filters: { search: 'pond' } };
 
-	function renderRail(layer: MapTileLayer, map: MapboxMap | null) {
+	function renderRail(tiles: RecordSetTiles, map: MapboxMap | null) {
 		return renderHook(
 			() => ({
-				rail: useExplorerResource<Row>({
+				rail: useResourceOnCanvas({
 					path: '/map/habitats',
 					rowsKey: 'rows',
 					rowKey: 'row',
 					recordType: 'habitat',
 					params: {},
-					layer,
+					tiles,
 					map,
 					selectedId: null,
 				}),
 				// What `MapCanvas` runs under `fitToData`: the same extent, observed a
 				// second time. One request between the two is the whole point.
-				fit: useMapExtent(tileLayerExtentUrl(layer)),
+				fit: useMapExtent(tileLayerExtentUrl(layerOf(tiles))),
 			}),
 			{ wrapper },
 		);
@@ -800,11 +1028,9 @@ describe('useExplorerResource: a filter change', () => {
 	 * the move changes the box, and the box keys the page (#957).
 	 */
 
-	/** A layer carrying the surface's filters, so its extent URL changes with them. */
-	function layerFor(search: string): MapTileLayer {
-		return search === ''
-			? bareLayer('habitats')
-			: { kind: 'habitats', serverUrl: 'http://api.test', filters: { search } };
+	/** Tiles carrying the surface's filters, so their extent URL changes with them. */
+	function tilesFor(search: string): RecordSetTiles {
+		return search === '' ? { kind: 'habitats' } : { kind: 'habitats', filters: { search } };
 	}
 
 	/** Answer each extent request from a table keyed by the search it carries. */
@@ -818,14 +1044,14 @@ describe('useExplorerResource: a filter change', () => {
 	function renderExplorer(fake: FakeMap, keepOpeningCamera = false) {
 		return renderHook(
 			({ search }: { readonly search: string }) => {
-				const layer = layerFor(search);
-				const rail = useExplorerResource<Row>({
+				const tiles = tilesFor(search);
+				const rail = useResourceOnCanvas({
 					path: '/map/habitats',
 					rowsKey: 'rows',
 					rowKey: 'row',
 					recordType: 'habitat',
 					params: { search },
-					layer,
+					tiles,
 					map: fake.map,
 					selectedId: null,
 				});
@@ -833,7 +1059,7 @@ describe('useExplorerResource: a filter change', () => {
 				useMapExtentFit(
 					fake.map,
 					true,
-					{ url: tileLayerExtentUrl(layer) ?? '' },
+					{ url: tileLayerExtentUrl(layerOf(tiles)) ?? '' },
 					undefined,
 					keepOpeningCamera,
 				);
@@ -1007,5 +1233,202 @@ describe('useExplorerResource: a filter change', () => {
 		await waitFor(() => expect(result.current.isSettled).toBe(true));
 		expect(fake.cameraCalls).toHaveLength(1);
 		expect(requestCounts('/map/habitats').page).toBe(before.page + 1);
+	});
+});
+
+describe('useExplorerResource: the in-view summary', () => {
+	/*
+	 * Over 100 in view a surface that asks for a summary draws grouped counts in
+	 * place of its rows (#1244). The page goes first as it always has, because it
+	 * already answers `total`, and only a total over the threshold sends the
+	 * second request. So the zoomed-in path stays one request, and the summary is
+	 * read under the same box and filters as the page it stands in for.
+	 */
+	const SUMMARY = {
+		total: 214,
+		groups: { isActive: [{ value: true, count: 214 }] },
+	};
+
+	function summaryRequests(): readonly URL[] {
+		return sent.filter((url) => url.pathname === '/map/habitats/summary');
+	}
+
+	function renderSummarizing(summarize: boolean) {
+		const fake = createFakeMap();
+		return renderHook(
+			() =>
+				useResourceOnCanvas({
+					path: '/map/habitats',
+					rowsKey: 'rows',
+					rowKey: 'row',
+					recordType: 'habitat',
+					params: { isActive: true, search: 'pond' },
+					tiles: { kind: 'habitats' },
+					map: fake.map,
+					selectedId: null,
+					summarize,
+				}),
+			{ wrapper },
+		);
+	}
+
+	function servePage(total: number) {
+		answer = (url) => (url.pathname.endsWith('/summary') ? SUMMARY : { rows: [], total });
+	}
+
+	it('asks for no summary while the rows fit on one page', async () => {
+		servePage(100);
+		const { result } = renderSummarizing(true);
+
+		await waitFor(() => expect(result.current.isSettled).toBe(true));
+		expect(result.current.summary.isShown).toBe(false);
+		expect(summaryRequests()).toHaveLength(0);
+	});
+
+	it('reads the summary under the box and filters of the page once the total is over 100', async () => {
+		servePage(101);
+		const { result } = renderSummarizing(true);
+
+		await waitFor(() => expect(result.current.summary.data).toEqual(SUMMARY));
+		expect(result.current.summary.isShown).toBe(true);
+		expect(summaryRequests()).toHaveLength(1);
+		expect(summaryRequests()[0]?.search).toBe('?bbox=0%2C-0.8%2C1%2C0&isActive=true&search=pond');
+	});
+
+	it('asks for no summary on a surface that has not asked for one', async () => {
+		servePage(5000);
+		const { result } = renderSummarizing(false);
+
+		await waitFor(() => expect(result.current.isSettled).toBe(true));
+		expect(result.current.summary.isShown).toBe(false);
+		expect(summaryRequests()).toHaveLength(0);
+	});
+
+	it('reports a failed summary for the rail to offer a retry', async () => {
+		servePage(500);
+		failing = (url) => url.pathname.endsWith('/summary');
+		const { result } = renderSummarizing(true);
+
+		await waitFor(() => expect(result.current.summary.isError).toBe(true));
+		expect(result.current.summary.data).toBeNull();
+
+		failing = () => false;
+		act(() => result.current.summary.retry());
+
+		await waitFor(() => expect(result.current.summary.data).toEqual(SUMMARY));
+	});
+
+	it('hands on the figures a surface adds up beside its groups', async () => {
+		const withFigures = { ...SUMMARY, figures: { larvaeTotal: 1_204 } };
+		answer = (url) => (url.pathname.endsWith('/summary') ? withFigures : { rows: [], total: 214 });
+		const { result } = renderSummarizing(true);
+
+		await waitFor(() => expect(result.current.summary.data).toEqual(withFigures));
+	});
+});
+
+describe('useExplorerResource: what the record set decides', () => {
+	/*
+	 * A route hands the hook its record set and the filters it resolved, and the
+	 * hook reads the endpoint, the record type and both conversions off the set
+	 * (#1587), and the tileset and the single-record key since #1595. These
+	 * cases run real sets, so what they assert is what a route sends rather than
+	 * what a case built.
+	 */
+	const ADDRESS_BINDING = {
+		filters: { ...addressRecordSet.defaults(CONTEXT, 'map'), search: 'elm' },
+		context: CONTEXT,
+	};
+
+	/** The address set with its `tileFilters` recording each conversion it made. */
+	function recordingAddressSet(handed: unknown[]): typeof addressRecordSet {
+		return {
+			...addressRecordSet,
+			tileFilters: (filters, context) => {
+				const tile = addressRecordSet.tileFilters(filters, context);
+				handed.push(tile);
+				return tile;
+			},
+		};
+	}
+
+	it('reads the endpoint, both keys, the record type and the tileset off the set', async () => {
+		answer = (url) =>
+			url.pathname === '/map/outreach/o-9'
+				? { outreachAction: { id: 'o-9', lat: 3, lng: 4 } }
+				: { outreachActions: [{ id: 'o-1', lat: 1, lng: 2 }], total: 1 };
+		const fake = createFakeMap();
+		const { result } = renderHook(
+			() => {
+				const resource: ExplorerResource<Row> = useExplorerResource({
+					set: outreachRecordSet,
+					binding: { filters: outreachRecordSet.defaults(CONTEXT, 'map'), context: CONTEXT },
+				});
+				return resource;
+			},
+			{ wrapper },
+		);
+		act(() => result.current.canvas.onMapReady(fake.map));
+
+		await waitFor(() => expect(result.current.rows).toHaveLength(1));
+		expect(pageRequests('/map/outreach')).toHaveLength(1);
+		expect(result.current.empty.recordType).toBe('outreachAction');
+		expect(result.current.canvas.layers[0]?.kind).toBe('outreach');
+
+		// Not on the page, so it is read by id and found under the set's `rowKey`.
+		act(() => result.current.setSelectedId('o-9'));
+		await waitFor(() => expect(result.current.selected?.id).toBe('o-9'));
+	});
+
+	it('draws the tiles and sends the page from one tile filter conversion', async () => {
+		answer = () => ({ addresses: [], total: 0 });
+		const fake = createFakeMap();
+		const handed: unknown[] = [];
+		const set = recordingAddressSet(handed);
+		const { result } = renderHook(
+			() => {
+				const resource: ExplorerResource<Row> = useExplorerResource({
+					set,
+					binding: ADDRESS_BINDING,
+				});
+				return resource;
+			},
+			{ wrapper },
+		);
+		act(() => result.current.canvas.onMapReady(fake.map));
+
+		await waitFor(() => expect(pageRequests('/map/addresses')).toHaveLength(1));
+		expect(pageRequests('/map/addresses')[0]?.search).toBe(
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&search=elm',
+		);
+		const layer = result.current.canvas.layers[0];
+		expect(layer).toMatchObject({ kind: 'addresses', filters: { search: 'elm' } });
+		// The same object, so the tiles and the page cannot have read two filters.
+		expect(handed.at(-1)).toBe(layer?.filters);
+	});
+
+	it("sends a route's own params after the filters, with bbox still first", async () => {
+		answer = () => ({ addresses: [], total: 0 });
+		const fake = createFakeMap();
+		const { result } = renderHook(
+			() => {
+				const resource: ExplorerResource<Row> = useExplorerResource({
+					set: addressRecordSet,
+					binding: ADDRESS_BINDING,
+					params: { oldest: true },
+				});
+				return resource;
+			},
+			{ wrapper },
+		);
+		act(() => result.current.canvas.onMapReady(fake.map));
+
+		await waitFor(() => expect(pageRequests('/map/addresses')).toHaveLength(1));
+		expect(pageRequests('/map/addresses')[0]?.search).toBe(
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&search=elm&oldest=true',
+		);
+		// A page param is not a tile filter, so the extent does not carry it.
+		await waitFor(() => expect(extentRequests()).toHaveLength(1));
+		expect(extentRequests()[0]?.search).toBe('?search=elm');
 	});
 });

@@ -1,63 +1,43 @@
-import type { LarvalDensity } from '@simmer-mosquito/domain';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useState } from 'react';
-import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
-import { DateRangeFilter } from '../../../components/date-range-filter';
-import {
-	ExplorerMapPage,
-	ExplorerRow,
-	FilterChip,
-	FilterGrid,
-	MultiSelectFilter,
-	SegmentedFilter,
-	ToggleFilter,
-	toggle,
-	whenAny,
-	whenOn,
-	whenText,
-} from '../../../components/explorer';
-import { ExplorerPagination } from '../../../components/explorer-pagination';
+import { ExplorerMapPage, ExplorerRow, FilterGrid } from '../../../components/explorer';
+import { DeclaredFilterChips, filterFields } from '../../../components/explorer/declared-filters';
+import { DeclaredSummary } from '../../../components/explorer/declared-summary';
+import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
 import { densityLabel, hasAnyLifeStage } from '../../../components/larval-display';
-import {
-	DensityFilter,
-	InspectionFilterChips,
-	type InspectionFilterSetters,
-	type InspectionFilterState,
-	WETNESS_OPTIONS,
-} from '../../../components/larval-surveillance/inspection-filters';
+import { inspectionFilterDeclarations } from '../../../components/larval-surveillance/inspection-filters';
+import type { InspectionListing } from '../../../components/larval-surveillance/inspection-listing';
 import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
-import { InspectionSurfaceSwitch } from '../../../components/larval-surveillance/inspection-surface-switch';
 import { inspectionLegend } from '../../../components/larval-surveillance/inspections/legend';
 import {
-	type InspectionFilters as InspectionSearchFilters,
+	type InspectionFilters,
 	inspectionFilterCodecs,
-	sharedInspectionSearch,
+	inspectionRecordSet,
 } from '../../../components/larval-surveillance/inspections-search';
 import {
 	INSPECTION_DENSITY_COLORS,
 	INSPECTION_DRY_COLOR,
-	type InspectionTileFilters,
 	MAP_CREATE_TARGETS,
-	MapCanvas,
-	type MapLegendEntry,
-	type MapTileLayer,
 } from '../../../components/map';
 import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
-import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import {
-	type InspectionFilterOptions,
-	useInspectionFilterOptions,
-} from '../../../hooks/larval-surveillance/use-inspection-filter-options';
-import { useInspectionFilterState } from '../../../hooks/larval-surveillance/use-inspection-filter-state';
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
+import {
+	type RecordSetFilterBinding,
+	useRecordSetFilters,
+} from '../../../hooks/explorer/use-record-set-filters';
+import { useMapClustering } from '../../../hooks/map/use-map-clustering';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
-import { type RecordType, recordNoun } from '../../../lib/record-nouns';
-import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
+import { recordNoun } from '../../../lib/record-nouns';
+import { searchValidator } from '../../../lib/search-filters';
 
 const InspectionEntityIcon = iconRegistry.entities.inspection.icon;
 
@@ -65,40 +45,6 @@ export const Route = createFileRoute('/larval-surveillance/inspections/')({
 	component: InspectionsExplorerRoute,
 	validateSearch: searchValidator(inspectionFilterCodecs),
 });
-
-/**
- * One inspection as returned by `/map/inspections` — the owned-geometry projection
- * plus the record fields and the joined habitat / address / inspector labels the
- * list and detail card need to identify a row (an inspection has no name of its own).
- */
-interface InspectionRow {
-	readonly id: string;
-	readonly lat: number | null;
-	readonly lng: number | null;
-	readonly geomType: string | null;
-	readonly habitatId: string | null;
-	readonly habitatName: string | null;
-	readonly habitatTypeId: string | null;
-	readonly addressId: string | null;
-	readonly addressDisplayName: string | null;
-	readonly inspectedByProfileId: string | null;
-	readonly inspectedByName: string | null;
-	readonly inspectionDate: string;
-	readonly isWet: boolean;
-	readonly dipCount: number | null;
-	readonly density: LarvalDensity | null;
-	readonly larvaeCount: number | null;
-	readonly hasEggs: boolean;
-	readonly hasFirstInstar: boolean;
-	readonly hasSecondInstar: boolean;
-	readonly hasThirdInstar: boolean;
-	readonly hasFourthInstar: boolean;
-	readonly hasPupae: boolean;
-}
-
-const PATH = '/map/inspections';
-
-const RECORD_TYPE: RecordType = 'inspection';
 
 /** The placeholder's height, matched to the two-line row it stands in for. */
 const INSPECTION_SKELETON_CLASS = 'h-[64px]';
@@ -114,117 +60,50 @@ function inspectionsHeading(total: number, isLoading: boolean) {
 	} as const;
 }
 
-/** What the reader has narrowed by, as the tile layer wants it. */
-function inspectionTileFilters(set: InspectionFilterState): InspectionTileFilters {
-	return {
-		...(set.wetness === 'all' ? {} : { isWet: set.wetness === 'wet' }),
-		...whenAny('densities', set.densities),
-		...whenOn('positiveOnly', set.positiveOnly),
-		...whenAny('habitatTypeIds', set.typeIds),
-		...whenAny('inspectedByProfileIds', set.inspectorIds),
-		...whenAny('regionIds', set.regionIds),
-		...whenText('dateFrom', set.dateFrom),
-		...whenText('dateTo', set.dateTo),
-	};
-}
-
-/** The same filters as the list endpoint's query string. */
-function inspectionQueryParams(filters: InspectionTileFilters) {
-	return {
-		isWet: filters.isWet,
-		density: filters.densities,
-		positive: filters.positiveOnly,
-		habitatTypeId: filters.habitatTypeIds,
-		inspectedBy: filters.inspectedByProfileIds,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	};
-}
-
 function InspectionsExplorerRoute() {
-	const {
-		activeCount: activeFilterCount,
-		defaults,
-		reset,
-		set,
-		setFilters,
-		state,
-		today,
-	} = useInspectionFilterState(DATE_RANGE_COUNTING, 'last-30-days');
-	const { dateFrom, dateTo, densities, wetness } = state;
+	const binding = useRecordSetFilters(inspectionRecordSet, 'map');
+	const { activeCount: activeFilterCount, clearAll, filters } = binding;
 
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
-	// What a move to the Table takes with it: the params already on the address
-	// bar, which on this surface are only the shared filter contract.
-	const carried = sharedInspectionSearch(Route.useSearch());
+	const routeSearch = Route.useSearch();
 
-	const filterOptions = useInspectionFilterOptions();
-	const filters = inspectionTileFilters(state);
-	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
-	const layer: MapTileLayer = {
-		kind: 'inspections',
-		serverUrl: getServerUrl(),
-		filters,
+	const { nameById: typeNameById } = useCatalogOptions(catalogs.habitatTypes);
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		empty,
+		summary,
+		canvas,
 		selectedId,
-		onSelectFeature: setSelectedId,
-	};
-	const layers: readonly MapTileLayer[] = [layer];
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<InspectionRow>({
-			path: PATH,
-			rowsKey: 'inspections',
-			rowKey: 'inspection',
-			recordType: 'inspection',
-			params: inspectionQueryParams(filters),
-			layer,
-			map,
-			selectedId,
-		});
-	const handleMapReady = (instance: MapboxMap) => setMap(instance);
-	const legend = inspectionLegend(wetness, densities);
-
-	const resetDates = () => setFilters({ from: defaults.from, to: defaults.to });
-	const clearAll = reset;
+		setSelectedId,
+	}: ExplorerResource<InspectionListing> = useExplorerResource({
+		set: inspectionRecordSet,
+		binding,
+		summarize: true,
+	});
+	const [clustered] = useMapClustering();
+	const legend = inspectionLegend(filters.water, filters.density, clustered);
 
 	return (
 		<ExplorerMapPage
-			actions={<InspectionSurfaceSwitch compact current="map" search={carried} />}
+			actions={
+				<RecordSetSwitch compact current="map" search={routeSearch} set={inspectionRecordSet} />
+			}
 			activeFilterCount={activeFilterCount}
-			filters={
-				<InspectionFilters
-					activeFilterCount={activeFilterCount}
-					dateRange={dateRange}
-					defaults={defaults}
-					onClearAll={clearAll}
-					onResetDates={resetDates}
-					options={filterOptions}
-					set={set}
-					state={state}
-				/>
-			}
-			footer={
-				<ExplorerPagination
-					noun={recordNoun(RECORD_TYPE)}
-					onPageChange={setPage}
-					page={page}
-					pageCount={pageCount}
-					total={total}
-				/>
-			}
+			filters={<InspectionFilterCard binding={binding} />}
 			onResetFilters={clearAll}
 			heading={inspectionsHeading(total, isLoading)}
 			map={
-				<InspectionMap
-					layers={layers}
+				<ExplorerCanvas
+					canvas={canvas}
+					card={(props) => <InspectionMapCard {...props} />}
+					contextMenu={{ create: [MAP_CREATE_TARGETS.inspection, MAP_CREATE_TARGETS.habitat] }}
 					legend={legend}
-					onSelect={setSelectedId}
-					onMapReady={handleMapReady}
 					panel={panel}
-					selected={selected}
 				/>
 			}
 			panel={panel}
@@ -234,13 +113,27 @@ function InspectionsExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
+				// Over 100 in view the rows would not fit on one page, so the panel
+				// says what is in view instead (#1369).
+				summary: summary.isShown ? (
+					<DeclaredSummary
+						binding={binding}
+						chips={
+							<DeclaredFilterChips binding={binding} declarations={inspectionFilterDeclarations} />
+						}
+						declarations={inspectionFilterDeclarations}
+						order={['water', 'density', 'positive', 'types', 'inspectors']}
+						recordType="inspection"
+						state={summary}
+					/>
+				) : undefined,
 				renderRow: (inspection) => (
 					<InspectionListItem
 						inspection={inspection}
 						key={inspection.id}
 						onSelect={setSelectedId}
 						selectedId={selectedId}
-						typeNameById={filterOptions.catalogs.typeNameById}
+						typeNameById={typeNameById}
 					/>
 				),
 			}}
@@ -248,175 +141,25 @@ function InspectionsExplorerRoute() {
 	);
 }
 
-/** The map, and the card for whichever inspection is selected. */
-function InspectionMap({
-	layers,
-	legend,
-	onSelect,
-	onMapReady,
-	panel,
-	selected,
-}: {
-	readonly layers: readonly MapTileLayer[];
-	readonly legend: readonly MapLegendEntry[] | undefined;
-	readonly onSelect: (id: string | null) => void;
-	readonly onMapReady: (map: MapboxMap) => void;
-	readonly panel: ReturnType<typeof useExplorerPanel>;
-	readonly selected: InspectionRow | null;
-}) {
-	return (
-		<>
-			<MapCanvas
-				contextMenu={{ create: [MAP_CREATE_TARGETS.inspection, MAP_CREATE_TARGETS.habitat] }}
-				controls={{ measure: true, readout: true }}
-				fitToData
-				rememberCamera
-				inset={panel.inset}
-				layers={layers}
-				{...(legend === undefined ? {} : { legend })}
-				onMapReady={onMapReady}
-				searchWidth={panel.width}
-			/>
-			{selected === null ? null : (
-				<InspectionMapCard id={selected.id} inset={panel.inset} onClose={() => onSelect(null)} />
-			)}
-		</>
-	);
-}
-
-/**
- * The chip row, or nothing when no filter is set.
- *
- * The six chips both surfaces share come from `InspectionFilterChips`; Region is
- * the map's own filter, so its chips are passed as children and land after them.
- */
-function InspectionActiveFilters({
-	activeFilterCount,
-	defaults,
-	onClearAll,
-	onResetDates,
-	options,
-	set,
-	state,
-}: {
-	readonly activeFilterCount: number;
-	readonly defaults: InspectionSearchFilters;
-	readonly onClearAll: () => void;
-	readonly onResetDates: () => void;
-	readonly options: InspectionFilterOptions;
-	readonly set: InspectionFilterSetters;
-	readonly state: InspectionFilterState;
-}) {
-	if (activeFilterCount === 0) {
-		return null;
-	}
-	const { regionIds } = state;
-	return (
-		<InspectionFilterChips
-			catalogs={options.catalogs}
-			defaults={defaults}
-			onClearAll={onClearAll}
-			onResetDates={onResetDates}
-			set={set}
-			state={state}
-		>
-			{[...regionIds].map((id) => (
-				<FilterChip
-					key={`region-${id}`}
-					label={options.regions.nameById.get(id) ?? 'Unknown region'}
-					onRemove={() => set.setRegionIds(toggle(regionIds, id))}
-				/>
-			))}
-		</InspectionFilterChips>
-	);
-}
-
-/** The four multi-selects, which have no state of their own to hold. */
-function InspectionFilterGrid({
-	options,
-	set,
-	state,
-}: {
-	readonly options: InspectionFilterOptions;
-	readonly set: InspectionFilterSetters;
-	readonly state: InspectionFilterState;
-}) {
-	return (
-		<FilterGrid>
-			<ToggleFilter
-				label="Larvae found only"
-				onChange={set.setPositiveOnly}
-				value={state.positiveOnly}
-			/>
-			<MultiSelectFilter
-				empty="No habitat types"
-				label="Habitat type"
-				onChange={set.setTypeIds}
-				options={options.catalogs.habitatTypes}
-				selected={state.typeIds}
-			/>
-			<MultiSelectFilter
-				empty="No people"
-				label="Inspector"
-				onChange={set.setInspectorIds}
-				options={options.catalogs.personnel}
-				selected={state.inspectorIds}
-			/>
-			<MultiSelectFilter
-				empty="No regions"
-				label="Region"
-				onChange={set.setRegionIds}
-				options={options.regions.options}
-				selected={state.regionIds}
-			/>
-		</FilterGrid>
-	);
-}
-
 /** The filter card's contents, and the chips that undo what is set. */
-function InspectionFilters({
-	activeFilterCount,
-	dateRange,
-	defaults,
-	onClearAll,
-	onResetDates,
-	options,
-	set,
-	state,
+function InspectionFilterCard({
+	binding,
 }: {
-	readonly activeFilterCount: number;
-	readonly dateRange: ReturnType<typeof useDateRangeFilters>;
-	readonly defaults: InspectionSearchFilters;
-	readonly onClearAll: () => void;
-	readonly onResetDates: () => void;
-	readonly options: InspectionFilterOptions;
-	readonly set: InspectionFilterSetters;
-	readonly state: InspectionFilterState;
+	readonly binding: RecordSetFilterBinding<InspectionFilters>;
 }) {
+	const fields = filterFields(inspectionFilterDeclarations, binding);
 	return (
 		<>
-			<DateRangeFilter {...dateRange} />
-
-			<SegmentedFilter
-				label="Water"
-				onChange={set.setWetness}
-				options={WETNESS_OPTIONS}
-				value={state.wetness}
-			/>
-
-			<DensityFilter onChange={set.setDensities} selected={state.densities} />
-
-			<InspectionFilterGrid options={options} set={set} state={state} />
-
-			<InspectionActiveFilters
-				activeFilterCount={activeFilterCount}
-				defaults={defaults}
-				onClearAll={onClearAll}
-				onResetDates={onResetDates}
-				options={options}
-				set={set}
-				state={state}
-			/>
+			{fields.dates}
+			{fields.water}
+			{fields.density}
+			<FilterGrid>
+				{fields.positive}
+				{fields.types}
+				{fields.inspectors}
+				{fields.regions}
+			</FilterGrid>
+			<DeclaredFilterChips binding={binding} declarations={inspectionFilterDeclarations} />
 		</>
 	);
 }
@@ -427,7 +170,7 @@ function InspectionListItem({
 	selectedId,
 	onSelect,
 }: {
-	readonly inspection: InspectionRow;
+	readonly inspection: InspectionListing;
 	readonly typeNameById: ReadonlyMap<string, string>;
 	readonly selectedId: string | null;
 	readonly onSelect: (id: string) => void;
@@ -480,7 +223,7 @@ function InspectionListItem({
 }
 
 /** The heat colour this inspection draws in, so the row matches the map. */
-function inspectionSwatch(inspection: InspectionRow): {
+function inspectionSwatch(inspection: InspectionListing): {
 	readonly color: string;
 	readonly label: string;
 } {
@@ -498,7 +241,7 @@ function inspectionSwatch(inspection: InspectionRow): {
 // --- helpers ----------------------------------------------------------------
 
 function resolveTypeName(
-	inspection: InspectionRow,
+	inspection: InspectionListing,
 	typeNameById: ReadonlyMap<string, string>,
 ): string {
 	if (inspection.habitatTypeId === null) {

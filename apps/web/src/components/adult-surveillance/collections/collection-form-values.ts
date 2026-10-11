@@ -10,7 +10,6 @@ import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { CollectionFields } from '../../../hooks/mutations/use-collection-mutations';
 import type { CatalogListing } from '../../../hooks/queries/catalog-roster-view';
-import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { TrapOption } from '../../../hooks/queries/use-trap-options';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../lib/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
@@ -108,6 +107,24 @@ export function validateCollection(value: CollectionFormValues, geometry: DrawGe
 /** `YYYY-MM-DD` to a Date the builder can range-check; invalid stays invalid. */
 function parseDateValue(value: string | null): Date {
 	return new Date(value ?? '');
+}
+
+/**
+ * The trap a trap-mode save is recorded against: the one the form's `trapId`
+ * names, looked up in the trap list the form holds now. `null` in ad hoc mode,
+ * with no trap picked, or before the list holds the trap.
+ *
+ * A lookup and never a copy, because a copy taken at mount is empty on a cold
+ * load and then disagrees with `trapId` for the life of the form (#1436).
+ */
+export function savedTrap(
+	value: Pick<CollectionFormValues, 'sourceMode' | 'trapId'>,
+	traps: readonly TrapOption[],
+): TrapOption | null {
+	if (value.sourceMode !== 'trap' || value.trapId === null) {
+		return null;
+	}
+	return traps.find((trap) => trap.id === value.trapId) ?? null;
 }
 
 /** Where the chosen trap stands, as the context outline the map draws behind the form. */
@@ -215,12 +232,4 @@ export function lureOptions(lures: readonly CatalogListing[]) {
 			(lure) => lure.name,
 		),
 	];
-}
-
-export function profileOptions(profiles: readonly ProfileListing[]) {
-	return lifecycleOptions(
-		profiles,
-		(profile) => profile.isActive,
-		(profile) => profile.displayName,
-	);
 }

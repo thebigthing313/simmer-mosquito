@@ -51,10 +51,11 @@ register the way `activity-strip.tsx` reads it, `recordNoun(…).titleMany`, so
 | Outreach actions | `outreachActions` | `Outreach actions` | `outreach_actions.outreach_date` | `/public-engagement/outreach` |
 
 Live rows only, `deleted_at is null`. A collection with neither timestamp nor
-date is undated and is counted nowhere, as on the Dashboard. The keys are the
-strip's `ACTIVITY_TYPE_KEYS` and become `OVERVIEW_RECORD_TYPES`, a register the
-domain owns in `packages/domain/src/overview/`; whether the strip then reads
-the domain's list is the map's open fog item and not this build's.
+date is undated and is counted nowhere, as on the Dashboard. The keys are
+`OVERVIEW_RECORD_TYPES`, a register the domain owns in
+`packages/domain/src/overview/`. The Dashboard strip reads the same list and
+the same labels since #1427, and the client names each type's date column once,
+in `ACTIVITY_DATES` under `apps/web/src/hooks/queries/activity-dates.ts`.
 
 Two ratios sit under the eight, each drawn as a share or a rate with a count
 beside it. Both are a ratio of sums per column, never a mean of ratios.
@@ -259,7 +260,9 @@ Measured against the card surface (`#f9fdfb`), `green[600]` and `green[300]`
 separate at a CVD Delta E of 22.3 and a normal-vision 22.8, and `green[300]`
 sits at 2.05:1, under the skill's 3:1 relief rule; the table above the charts
 is the relief, and this paragraph is the validator run the skill asks to be
-committed with the pair.
+committed with the pair. A third role, `--chart-average: var(--simmer-blue)`,
+joined later for the five-year average on Monthly and Annual; Today has no
+average, because a day has no year-back columns.
 
 The tooltip passes a `formatter`, because `ChartTooltipContent`'s default calls
 `toLocaleString()` unpinned; the tick formatter pins `en-US` too.
@@ -486,7 +489,7 @@ and the interval are the cadence, one query is one timer. No Electric half,
 because actions and collections are on-demand and date-bounded and a five-year
 window cannot come off the sync path.
 
-The zone for `todayInTimeZone` comes from `useOrganizationTimeZone`, and the
+The client's today is `useOrganizationClock().today()`, and the
 response's `today` is what the picker's upper bound and the partial test read,
 so a client whose clock disagrees with the server draws the server's day.
 

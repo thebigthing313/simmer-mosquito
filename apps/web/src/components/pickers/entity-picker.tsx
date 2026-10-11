@@ -1,4 +1,6 @@
+import { errorMessagesFrom, RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
+import { FieldError } from '@simmer-mosquito/ui-web/components/ui/field';
 import { InputGroupButton } from '@simmer-mosquito/ui-web/components/ui/input-group';
 import {
 	Popover,
@@ -6,6 +8,7 @@ import {
 	PopoverContent,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
 import { CheckIcon, SearchIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { useId } from 'react';
 
 // Shared search-and-pick chrome for the domain forms: a search input that opens a
 // popover of matches beneath itself. Callers supply the results — an eager
@@ -13,6 +16,7 @@ import { CheckIcon, SearchIcon, XIcon } from '@simmer-mosquito/ui-web/icons/regi
 
 export function PickerFrame({
 	label,
+	required = false,
 	value,
 	open,
 	search,
@@ -23,9 +27,12 @@ export function PickerFrame({
 	onOpen,
 	onClear,
 	onOpenChange,
+	errors,
 	children,
 }: {
 	readonly label: string;
+	/** Draws the required mark after the label. */
+	readonly required?: boolean;
 	readonly value: string | null;
 	readonly open: boolean;
 	readonly search: string;
@@ -36,11 +43,23 @@ export function PickerFrame({
 	readonly onOpen: () => void;
 	readonly onClear: () => void;
 	readonly onOpenChange: (open: boolean) => void;
+	/**
+	 * The bound field's `state.meta.errors`, drawn under the input. A form's
+	 * validator files a missing pick on the field, and the alert leaves field
+	 * errors to the field, so a picker that drops them refuses the save silently.
+	 */
+	readonly errors?: readonly unknown[] | undefined;
 	readonly children: React.ReactNode;
 }) {
+	const errorId = useId();
+	const messages = errorMessagesFrom(errors ?? []);
+
 	return (
 		<div className="grid gap-1.5">
-			<span className="font-medium text-foreground text-sm">{label}</span>
+			<span className="font-medium text-foreground text-sm">
+				{label}
+				{required ? <RequiredMark /> : null}
+			</span>
 			<Popover onOpenChange={onOpenChange} open={open}>
 				<PopoverAnchor asChild>
 					<div ref={anchorRef}>
@@ -61,6 +80,7 @@ export function PickerFrame({
 									</InputGroupButton>
 								)
 							}
+							{...invalidInputProps(messages.length > 0, errorId)}
 							label={label}
 							onChange={(event) => onSearchChange(event.target.value)}
 							onFocus={onOpen}
@@ -83,10 +103,21 @@ export function PickerFrame({
 					{children}
 				</PopoverContent>
 			</Popover>
+			<FieldError errors={messages} id={errorId} />
 		</div>
 	);
 }
 
+/** What the input says to assistive technology when its field is refused. */
+function invalidInputProps(invalid: boolean, errorId: string) {
+	return invalid ? { 'aria-describedby': errorId, 'aria-invalid': true as const } : {};
+}
+
+/**
+ * One picker result: the name, with the secondary text on a second line when
+ * that text is not blank. Takes the two strings, whether the row is the picked
+ * one, and what a click does.
+ */
 export function OptionRow({
 	primary,
 	secondary,
@@ -106,7 +137,7 @@ export function OptionRow({
 		>
 			<span className="min-w-0 flex-1">
 				<span className="block truncate font-medium">{primary}</span>
-				{secondary === undefined || secondary === null || secondary.length === 0 ? null : (
+				{(secondary ?? '').trim().length === 0 ? null : (
 					<span className="block truncate text-muted-foreground text-xs">{secondary}</span>
 				)}
 			</span>

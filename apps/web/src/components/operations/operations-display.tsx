@@ -1,11 +1,8 @@
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Progress } from '@simmer-mosquito/ui-web/components/ui/progress';
 import type { RouteStopFeature } from '../../hooks/map/use-route-layer';
-import {
-	MISSION_STATUS_LABELS,
-	type MissionProgressCounts,
-	type MissionStatus,
-} from '../../hooks/queries/operations-view';
+import { MISSION_STATUS_LABELS, type MissionStatus } from '../../hooks/queries/operations-view';
+import { stopCountPhrase } from '../../lib/format-count';
 import type { StopTone } from '../stop-order';
 import {
 	type MissionItemProgress,
@@ -120,12 +117,17 @@ export function StopProgressSummary({
 	);
 }
 
-/** "8 stops · 3 of 8 done": the mission's size and how far through it is. */
-export function stopSummary(counts: MissionProgressCounts | null): string {
+/**
+ * "8 stops · 3 of 8 done": a Mission's or an Assignment's size and how far
+ * through it is. It reads two fields, so either run's counts fit.
+ */
+export function stopSummary(
+	counts: { readonly total: number; readonly handled: number } | null,
+): string {
 	if (counts === null || counts.total === 0) {
 		return 'No stops';
 	}
-	const stops = counts.total === 1 ? '1 stop' : `${counts.total} stops`;
+	const stops = stopCountPhrase(counts.total);
 	return counts.handled === 0 ? stops : `${stops} · ${counts.handled} of ${counts.total} done`;
 }
 

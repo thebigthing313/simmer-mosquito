@@ -14,7 +14,6 @@ import {
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
-import { useRegionRecord } from '../../../hooks/queries/use-region-record';
 import { seedRegionGeometryCache } from '../../../hooks/use-region-geometry';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -34,11 +33,7 @@ function CreateRegionRoute() {
 	const { folders } = useRegionFolders();
 	const mutations = useRegionMutations();
 
-	// Minted up front, and queried before it exists: `regions` is on-demand, and a
-	// write into a collection nothing is querying waits out a txid confirmation
-	// that never arrives — which reads as a frozen save rather than a slow one.
 	const [regionId] = useState(() => newRecordId());
-	useRegionRecord(regionId);
 
 	const onSave = async ({
 		values,

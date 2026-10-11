@@ -28,10 +28,10 @@ import {
 	RecordDetailPage,
 } from '../../../components/record';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { useBiocontrolAction } from '../../../hooks/queries/use-biocontrol-action';
-import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-biocontrol-method-roster';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-location-context';
@@ -55,7 +55,7 @@ function RouteComponent() {
 	// One query for the release, its method, unit, technician and address — the
 	// lookups this page used to do for itself. `biocontrol_actions` is on-demand,
 	// so this is status-gated rather than suspending; see the hook.
-	const { action, isReady, isError } = useBiocontrolAction(id, { gcTime: activityGcTimeMs });
+	const { action, isReady, isError } = useBiocontrolAction(id);
 
 	return (
 		<RecordDetailPage
@@ -78,13 +78,13 @@ function BiocontrolDetailContent({
 }) {
 	// The roster is still read, but only for the custom-field schema the chosen
 	// method declares — the method's *name* arrives joined.
-	const methods = useBiocontrolMethodRoster();
+	const methods = useCatalogRoster(catalogs.biocontrolMethods);
 	const { remove } = useBiocontrolActionMutations();
 	// habitats is on-demand; resolve just the linked habitat's name as a subset.
 	const habitatIds = action.habitatId === null ? [] : [action.habitatId];
 	const habitatNameById = useHabitatNames(habitatIds);
 
-	const methodName = action.methodName;
+	const methodName = action.methodName ?? 'Unknown method';
 	const amountLabel = formatMeasure(action.amountReleased, action.unitAbbreviation);
 	const technicianName = action.technicianName;
 	const habitatName =

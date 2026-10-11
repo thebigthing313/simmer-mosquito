@@ -1,3 +1,4 @@
+import { isPositiveInspection } from '@simmer-mosquito/domain';
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
@@ -35,9 +36,9 @@ import {
 } from '../../hooks/queries/larval-activity-view';
 import { useHeavyLarvalActivity } from '../../hooks/queries/use-heavy-larval-activity';
 import { useLarvalActivityForDate } from '../../hooks/queries/use-larval-activity-for-date';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { habitatLabel } from '../../lib/coordinate-label';
-import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../../lib/local-date';
+import { addDaysToDateString, formatMonthDay } from '../../lib/local-date';
 import { groupRows, type RowGroup } from '../../lib/row-groups';
 
 /** How far back the recent-window queries (heavy list, open samples) reach. */
@@ -82,7 +83,12 @@ function LarvalSurveillanceOverviewRoute() {
 	// overview arrives at the width it stood in for (#1043, #1049). The panels
 	// keep their twelve-column grid; the frame is what widened.
 	return (
-		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
+		<div
+			className={cn(
+				pageContainer({ gap: 'overview', measure: 'record', padding: 'page' }),
+				'@container',
+			)}
+		>
 			<PageHeader icon={LarvalIcon} title="Larval Surveillance" />
 
 			<Suspense fallback={<OverviewSkeleton />}>
@@ -95,22 +101,22 @@ function LarvalSurveillanceOverviewRoute() {
 function OverviewBody() {
 	// The organization's "today"; the day strip and windows are pure string math
 	// from here.
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const since = addDaysToDateString(today, -(ACTIVITY_WINDOW_DAYS - 1));
 
 	return (
-		<div className="grid gap-5 xl:grid-cols-12">
-			<div className="xl:col-span-7">
+		<div className="grid gap-5 @5xl:grid-cols-12">
+			<div className="@5xl:col-span-7">
 				<DailyInspectionsPanel today={today} />
 			</div>
 
-			<div className="grid content-start gap-5 xl:col-span-5">
+			<div className="grid content-start gap-5 @5xl:col-span-5">
 				<LarvalSpeciesComposition today={today} />
 				<OpenSamplesPanel since={since} />
 			</div>
 
-			<div className="xl:col-span-12">
+			<div className="@5xl:col-span-12">
 				<HeavyInspectionsPanel since={since} today={today} />
 			</div>
 		</div>
@@ -195,16 +201,16 @@ function DailyInspectionsPanel({ today }: { readonly today: string }) {
 }
 
 /**
- * One inspector's day, with how much of it came back breeding-positive.
+ * One inspector's day, with how many of its inspections were Positive
+ * Inspections. That rule reads abundance; whether a row draws its life-stage
+ * strip is a display decision and counts nothing.
  *
  * That count is the only thing this adds to the shared block: the question the
  * panel is usually asked is how much each person got through, and how much of
  * it was wet and holding larvae.
  */
 function InspectorGroupBlock({ group }: { readonly group: RowGroup<LarvalActivityRow> }) {
-	const positiveCount = group.rows.filter(
-		(inspection) => inspection.isWet && hasAnyLifeStage(inspection),
-	).length;
+	const positiveCount = group.rows.filter(isPositiveInspection).length;
 
 	return (
 		<PersonGroupBlock
@@ -418,13 +424,13 @@ function HeavyInspectionsPanel({
 
 function OverviewSkeleton() {
 	return (
-		<div aria-hidden="true" className="grid gap-5 xl:grid-cols-12">
-			<Skeleton className="h-96 rounded-lg xl:col-span-7" />
-			<div className="grid content-start gap-5 xl:col-span-5">
+		<div aria-hidden="true" className="grid gap-5 @5xl:grid-cols-12">
+			<Skeleton className="h-96 rounded-lg @5xl:col-span-7" />
+			<div className="grid content-start gap-5 @5xl:col-span-5">
 				<Skeleton className="h-48 rounded-lg" />
 				<Skeleton className="h-48 rounded-lg" />
 			</div>
-			<Skeleton className="h-40 rounded-lg xl:col-span-12" />
+			<Skeleton className="h-40 rounded-lg @5xl:col-span-12" />
 		</div>
 	);
 }

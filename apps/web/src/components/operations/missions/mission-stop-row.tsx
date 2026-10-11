@@ -1,10 +1,15 @@
 import type { ControlType } from '@simmer-mosquito/domain';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { controlTypeLabel, requestDisplayName } from '../../../hooks/queries/operations-view';
-import { type MoveAction, OrdinalBadge, StopReorderControls } from '../../stop-order';
+import {
+	type MoveAction,
+	OrdinalBadge,
+	StopCardFrame,
+	type StopFocus,
+	StopReorderControls,
+} from '../../stop-order';
 import { WriteOnly } from '../../write-only';
 import {
 	type MissionItemAction,
@@ -76,10 +81,8 @@ export function MissionStopRow({
 	missionId,
 	ordinal,
 	index,
-	isFirst,
-	isLast,
-	isSelected,
-	isHighlighted,
+	count,
+	focus,
 	progressEnabled,
 	recordEnabled,
 	planEditable,
@@ -87,18 +90,14 @@ export function MissionStopRow({
 	onMove,
 	onRemove,
 	onRename,
-	onSelect,
-	onHover,
 }: {
 	readonly stop: MissionStopView;
 	readonly controlType: ControlType | null;
 	readonly missionId: string;
 	readonly ordinal: number;
 	readonly index: number;
-	readonly isFirst: boolean;
-	readonly isLast: boolean;
-	readonly isSelected: boolean;
-	readonly isHighlighted: boolean;
+	readonly count: number;
+	readonly focus: StopFocus;
 	readonly progressEnabled: boolean;
 	readonly recordEnabled: boolean;
 	readonly planEditable: boolean;
@@ -106,93 +105,68 @@ export function MissionStopRow({
 	readonly onMove: (index: number, action: MoveAction) => void;
 	readonly onRemove: (stop: MissionStopView) => void;
 	readonly onRename: (stop: MissionStopView) => void;
-	readonly onSelect: (id: string | null) => void;
-	readonly onHover: (id: string | null) => void;
 }) {
 	const actions = missionItemActionsFor(stop.progress);
 
 	return (
-		<li
-			className={cn(
-				'relative rounded-lg border bg-card transition-colors',
-				isSelected || isHighlighted
-					? 'border-primary/40 ring-1 ring-primary/25'
-					: 'border-border/60',
-			)}
-			onMouseEnter={() => onHover(stop.missionItemId)}
-			onMouseLeave={() => onHover(null)}
-		>
-			{/* Full-card target selects the stop on the map; interactive bits opt back in. */}
-			<button
-				aria-label={`Show stop ${ordinal} on the map`}
-				aria-pressed={isSelected}
-				className={cn(
-					'absolute inset-0 size-full rounded-lg transition-colors',
-					isSelected ? 'bg-primary/5' : 'hover:bg-muted/40',
-				)}
-				onClick={() => onSelect(isSelected ? null : stop.missionItemId)}
-				type="button"
-			/>
-			<div className="pointer-events-none relative flex items-start gap-3 p-3">
-				<OrdinalBadge ordinal={ordinal} tone={missionStopTone(stop)} />
+		<StopCardFrame focus={focus} id={stop.missionItemId} label={`Show stop ${ordinal} on the map`}>
+			<OrdinalBadge ordinal={ordinal} tone={missionStopTone(stop)} />
 
-				<div className="min-w-0 flex-1">
-					<div className="flex flex-wrap items-center gap-2">
-						<span className="pointer-events-auto min-w-0">
-							<StopName stop={stop} />
-						</span>
-						<MissionItemProgressBadge progress={stop.progress} />
-						<span aria-hidden="true" className="min-w-0 flex-1" />
-						{planEditable ? (
-							<StopReorderControls
-								extraActions={
-									<>
-										<DropdownMenuItem onClick={() => onRename(stop)}>Rename stop</DropdownMenuItem>
-										<DropdownMenuItem onClick={() => onRemove(stop)} variant="destructive">
-											Remove from mission
-										</DropdownMenuItem>
-									</>
-								}
-								index={index}
-								isFirst={isFirst}
-								isLast={isLast}
-								onMove={onMove}
+			<div className="min-w-0 flex-1">
+				<div className="flex flex-wrap items-center gap-2">
+					<span className="pointer-events-auto min-w-0">
+						<StopName stop={stop} />
+					</span>
+					<MissionItemProgressBadge progress={stop.progress} />
+					<span aria-hidden="true" className="min-w-0 flex-1" />
+					{planEditable ? (
+						<StopReorderControls
+							extraActions={
+								<>
+									<DropdownMenuItem onClick={() => onRename(stop)}>Rename stop</DropdownMenuItem>
+									<DropdownMenuItem onClick={() => onRemove(stop)} variant="destructive">
+										Remove from mission
+									</DropdownMenuItem>
+								</>
+							}
+							count={count}
+							index={index}
+							onMove={onMove}
+						/>
+					) : null}
+				</div>
+
+				<StopSubtitle stop={stop} />
+
+				{stop.skipReason === null ? null : (
+					<p className="m-0 mt-1 text-muted-foreground text-xs">Skipped: {stop.skipReason}</p>
+				)}
+
+				<WriteOnly>
+					<div className="pointer-events-auto mt-2 flex flex-wrap gap-2">
+						{stop.progress === 'pending' ? (
+							<RecordMissionWorkButton
+								controlType={controlType}
+								enabled={recordEnabled}
+								missionId={missionId}
+								stop={stop}
 							/>
 						) : null}
+						{actions.map((action) => (
+							<Button
+								disabled={!progressEnabled}
+								key={action}
+								onClick={() => onAction(stop, action)}
+								size="sm"
+								variant="outline"
+							>
+								{ACTION_LABELS[action]}
+							</Button>
+						))}
 					</div>
-
-					<StopSubtitle stop={stop} />
-
-					{stop.skipReason === null ? null : (
-						<p className="m-0 mt-1 text-muted-foreground text-xs">Skipped: {stop.skipReason}</p>
-					)}
-
-					<WriteOnly>
-						<div className="pointer-events-auto mt-2 flex flex-wrap gap-2">
-							{stop.progress === 'pending' ? (
-								<RecordMissionWorkButton
-									controlType={controlType}
-									enabled={recordEnabled}
-									missionId={missionId}
-									stop={stop}
-								/>
-							) : null}
-							{actions.map((action) => (
-								<Button
-									disabled={!progressEnabled}
-									key={action}
-									onClick={() => onAction(stop, action)}
-									size="sm"
-									variant="outline"
-								>
-									{ACTION_LABELS[action]}
-								</Button>
-							))}
-						</div>
-					</WriteOnly>
-				</div>
+				</WriteOnly>
 			</div>
-		</li>
+		</StopCardFrame>
 	);
 }
 

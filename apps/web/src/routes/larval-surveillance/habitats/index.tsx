@@ -1,32 +1,32 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useState } from 'react';
-import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
-import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { HabitatFilterFields } from '../../../components/larval-surveillance/habitats/habitat-filters';
+import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
+import { DeclaredSummary } from '../../../components/explorer/declared-summary';
+import { ExplorerCanvas } from '../../../components/explorer/explorer-canvas';
+import { RecordSetSwitch } from '../../../components/explorer/record-set-switch';
+import {
+	HabitatFilterFields,
+	habitatFilterDeclarations,
+} from '../../../components/larval-surveillance/habitats/habitat-filters';
 import { HabitatMapCard } from '../../../components/larval-surveillance/habitats/habitat-map-card';
-import { HabitatSurfaceSwitch } from '../../../components/larval-surveillance/habitats/habitat-surface-switch';
 import {
 	habitatFilterCodecs,
-	habitatListParams,
-	habitatTileFilters,
-	sharedHabitatSearch,
+	habitatRecordSet,
 } from '../../../components/larval-surveillance/habitats/habitats-search';
 import { habitatLegend } from '../../../components/larval-surveillance/habitats/legend';
-import {
-	HABITAT_STATUS_COLORS,
-	MAP_CREATE_TARGETS,
-	MapCanvas,
-	type MapTileLayer,
-} from '../../../components/map';
+import { HABITAT_STATUS_COLORS, MAP_CREATE_TARGETS } from '../../../components/map';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
-import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
-import { useHabitatTypeOptions } from '../../../hooks/explorer/use-habitat-type-options';
-import { useHabitatFilterState } from '../../../hooks/larval-surveillance/use-habitat-filter-state';
+import {
+	type ExplorerResource,
+	useExplorerResource,
+} from '../../../hooks/explorer/use-explorer-resource';
+import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
+import { useMapClustering } from '../../../hooks/map/use-map-clustering';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { habitatName, habitatTypeName } from '../../../lib/habitat-name';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -36,8 +36,6 @@ export const Route = createFileRoute('/larval-surveillance/habitats/')({
 	component: HabitatsExplorerRoute,
 	validateSearch: searchValidator(habitatFilterCodecs),
 });
-
-const PATH = '/map/habitats';
 
 const NO_TAGS: readonly Tag[] = [];
 
@@ -63,69 +61,44 @@ interface HabitatListRow {
 }
 
 function HabitatsExplorerRoute() {
-	const binding = useHabitatFilterState();
+	const binding = useRecordSetFilters(habitatRecordSet, 'map');
 	const { filters: query, activeCount: activeFilterCount, clearAll } = binding;
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
-	const { nameById: typeNameById } = useHabitatTypeOptions();
+	const { nameById: typeNameById } = useCatalogOptions(catalogs.habitatTypes);
 
-	const filters = habitatTileFilters(query);
-	const legend = habitatLegend(query.status, query.access);
-	// What a move to the Table takes with it: every filter, since the Table
-	// applies each one.
-	const carried = sharedHabitatSearch(Route.useSearch());
+	const [clustered] = useMapClustering();
+	const legend = habitatLegend(query.status, query.access, clustered);
+	const routeSearch = Route.useSearch();
 
-	const layer: MapTileLayer = {
-		kind: 'habitats',
-		serverUrl: getServerUrl(),
-		filters,
-		selectedId,
-		onSelectFeature: setSelectedId,
-	};
-	const layers: readonly MapTileLayer[] = [layer];
 	const {
 		rows,
 		total,
 		isLoading,
 		isError,
 		retry,
-		page,
-		pageCount,
-		setPage,
-		selected: selectedHabitat,
 		empty,
-	} = useExplorerResource<HabitatListRow>({
-		path: PATH,
-		rowsKey: 'habitats',
-		rowKey: 'habitat',
-		recordType: 'habitat',
-		params: habitatListParams(filters),
-		layer,
-		map,
+		summary,
+		canvas,
 		selectedId,
+		setSelectedId,
+	}: ExplorerResource<HabitatListRow> = useExplorerResource({
+		set: habitatRecordSet,
+		binding,
+		summarize: true,
 	});
 	// Tags for the rows actually on screen, so the subset request stays small.
-	const pageHabitatIds = rows.map((habitat) => habitat.id);
+	// None while the summary stands in for the rows.
+	const pageHabitatIds = summary.isShown ? [] : rows.map((habitat) => habitat.id);
 	const { byId: tagsByHabitatId } = useEntityTags('habitat', pageHabitatIds);
-
-	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 
 	return (
 		<ExplorerMapPage
-			actions={<HabitatSurfaceSwitch compact current="map" search={carried} />}
+			actions={
+				<RecordSetSwitch compact current="map" search={routeSearch} set={habitatRecordSet} />
+			}
 			activeFilterCount={activeFilterCount}
 			filters={<HabitatFilterFields binding={binding} />}
-			footer={
-				<ExplorerPagination
-					noun={recordNoun('habitat')}
-					onPageChange={setPage}
-					page={page}
-					pageCount={pageCount}
-					total={total}
-				/>
-			}
 			heading={{
 				title: recordNoun('habitat').titleMany,
 				icon: HabitatIcon,
@@ -135,27 +108,15 @@ function HabitatsExplorerRoute() {
 			}}
 			onResetFilters={clearAll}
 			map={
-				<>
-					<MapCanvas
-						contextMenu={{ create: [MAP_CREATE_TARGETS.habitat, MAP_CREATE_TARGETS.inspection] }}
-						controls={{ measure: true, readout: true }}
-						fitToData
-						rememberCamera
-						inset={panel.inset}
-						layers={layers}
-						legend={legend}
-						onMapReady={handleMapReady}
-						searchWidth={panel.width}
-					/>
-					{selectedHabitat === null ? null : (
-						<HabitatMapCard
-							detailTo="/larval-surveillance/habitats/$id"
-							id={selectedHabitat.id}
-							inset={panel.inset}
-							onClose={() => setSelectedId(null)}
-						/>
+				<ExplorerCanvas
+					canvas={canvas}
+					card={(props) => (
+						<HabitatMapCard detailTo="/larval-surveillance/habitats/$id" {...props} />
 					)}
-				</>
+					contextMenu={{ create: [MAP_CREATE_TARGETS.habitat, MAP_CREATE_TARGETS.inspection] }}
+					legend={legend}
+					panel={panel}
+				/>
 			}
 			panel={panel}
 			results={{
@@ -164,6 +125,20 @@ function HabitatsExplorerRoute() {
 				onRetry: retry,
 				skeletonClassName: 'h-[58px]',
 				empty,
+				// Over 100 in view the rows would not fit on one page, so the panel
+				// says what is in view instead (#1244).
+				summary: summary.isShown ? (
+					<DeclaredSummary
+						binding={binding}
+						chips={
+							<DeclaredFilterChips binding={binding} declarations={habitatFilterDeclarations} />
+						}
+						declarations={habitatFilterDeclarations}
+						order={['typeIds', 'status', 'access', 'untreated']}
+						recordType="habitat"
+						state={summary}
+					/>
+				) : undefined,
 				renderRow: (habitat) => (
 					<HabitatListItem
 						habitat={habitat}

@@ -20,6 +20,7 @@
 import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { habitats } from '../../lib/collections/habitats';
 import { type HabitatMatch, habitatNameSelect } from './habitat-view';
+import { liveQueryGcTimeMs } from './shared';
 
 export function useHabitatSearch(
 	organizationId: string,
@@ -65,6 +66,7 @@ export function useHabitatSearch(
 					longitude: habitat.lng,
 				}));
 		},
+		gcTime: liveQueryGcTimeMs,
 	});
 
 	return { matches: result.data, isReady: result.isReady, isError: result.isError };

@@ -2,8 +2,8 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import type { AssignmentView } from '../../components/operations/assignments/assignment-data';
 import { assignments } from '../../lib/collections/assignments';
 import { assignmentStatus } from '../queries/assignment-view';
-import { activityGcTimeMs, unmatchableId } from '../queries/shared';
-/** One assignment. Also the warm-stream anchor on pages that write before reading. */
+import { liveQueryGcTimeMs, unmatchableId } from '../queries/shared';
+/** One assignment, with the status its timestamps mean. */
 export function useAssignment(assignmentId: string | null): {
 	readonly assignment: AssignmentView | null;
 	readonly isLoading: boolean;
@@ -15,7 +15,7 @@ export function useAssignment(assignmentId: string | null): {
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ assignment: assignments() })

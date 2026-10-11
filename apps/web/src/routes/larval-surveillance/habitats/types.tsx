@@ -32,7 +32,8 @@ import {
 import type { CatalogMutations } from '../../../hooks/mutations/catalog-fields';
 import { useHabitatTypeMutations } from '../../../hooks/mutations/use-habitat-type-mutations';
 import type { SchemaCatalogRecord } from '../../../hooks/queries/catalog-record-view';
-import { useHabitatTypeRecords } from '../../../hooks/queries/use-habitat-type-records';
+import { catalogs } from '../../../hooks/queries/catalog-register';
+import { useCatalogRecords } from '../../../hooks/queries/use-catalog-records';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { formatCount } from '../../../lib/format-count';
@@ -54,7 +55,7 @@ function matchesHabitatType(row: SchemaCatalogRecord, query: string): boolean {
 function HabitatTypesRoute() {
 	const { auth } = Route.useRouteContext();
 	const { canManage } = useOrganizationWorkspace(auth.snapshot);
-	const { activeRecords, inactiveRecords } = useHabitatTypeRecords();
+	const { activeRecords, inactiveRecords } = useCatalogRecords(catalogs.habitatTypes);
 	const mutations = useHabitatTypeMutations();
 	const { usageById, isLoading: usageLoading } = useHabitatTypeUsage();
 	const search = useCatalogSearch(activeRecords, inactiveRecords, matchesHabitatType);

@@ -3,10 +3,6 @@ import { useLiveQuery } from '@tanstack/react-db';
 import type { RouteSummary } from '../../components/route-planning/route-summary';
 import { routes } from '../../lib/collections/routes';
 
-// `route_items` is on-demand (docs/sync.md); hold the counts briefly after
-// unmount so opening the picker twice does not ask twice.
-export const routeItemsGcTimeMs = 30_000;
-
 /** A route, with the kind of record its stops point at. */
 export interface RouteCatalogEntry extends RouteSummary {
 	readonly routeType: RouteType;

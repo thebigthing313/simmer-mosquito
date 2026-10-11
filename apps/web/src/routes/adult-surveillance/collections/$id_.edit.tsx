@@ -3,6 +3,7 @@ import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import {
 	CollectionFormPage,
+	CollectionFormSkeleton,
 	type CollectionSaveInput,
 } from '../../../components/adult-surveillance/collections/collection-form';
 import {
@@ -11,9 +12,10 @@ import {
 	noLureValue,
 	noUnitValue,
 } from '../../../components/adult-surveillance/collections/collection-form-values';
-import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type {
 	CatalogListing,
 	SchemaCatalogListing,
@@ -22,16 +24,16 @@ import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
 } from '../../../hooks/queries/use-additional-personnel';
-import { useCollectionLureRoster } from '../../../hooks/queries/use-collection-lure-roster';
-import { useCollectionMethodRoster } from '../../../hooks/queries/use-collection-method-roster';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import {
 	type CollectionRecord,
 	useCollectionRecord,
 } from '../../../hooks/queries/use-collection-record';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import { type TrapOption, useTrapOptions } from '../../../hooks/queries/use-trap-options';
+import { useTrapOptions } from '../../../hooks/queries/use-trap-options';
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
+import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -50,9 +52,8 @@ export const Route = createFileRoute('/adult-surveillance/collections/$id_/edit'
 });
 
 function EditCollectionRoute() {
-	const { traps } = useTrapOptions();
-	const methods = useCollectionMethodRoster();
-	const lures = useCollectionLureRoster();
+	const methods = useCatalogRoster(catalogs.collectionMethods);
+	const lures = useCatalogRoster(catalogs.collectionLures);
 	const profiles = useProfileRoster();
 	const { all: units } = useUnitLabels();
 	const { id } = Route.useParams();
@@ -62,7 +63,7 @@ function EditCollectionRoute() {
 		<RecordEditFrame
 			recordType="collection"
 			reading={{ isError, isReady, record: collection }}
-			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
+			skeleton={<CollectionFormSkeleton />}
 		>
 			{(record) => (
 				<EditCollectionLoader
@@ -70,7 +71,6 @@ function EditCollectionRoute() {
 					collectionLures={lures}
 					collectionMethods={methods}
 					profiles={profiles}
-					traps={traps}
 					units={units}
 				/>
 			)}
@@ -80,22 +80,23 @@ function EditCollectionRoute() {
 
 function EditCollectionLoader({
 	collection,
-	traps,
 	collectionMethods,
 	collectionLures,
 	profiles,
 	units,
 }: {
 	readonly collection: CollectionRecord;
-	readonly traps: readonly TrapOption[];
 	readonly collectionMethods: readonly SchemaCatalogListing[];
 	readonly collectionLures: readonly CatalogListing[];
 	readonly profiles: readonly ProfileListing[];
 	readonly units: readonly UnitLabel[];
 }) {
 	const navigate = useNavigate();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const mutations = useCollectionMutations();
+	// Read here rather than beside the record, so the wait below covers it: the
+	// form reads the trap it opens on once, for the map's reference point (#1436).
+	const { traps, isReady: trapsReady } = useTrapOptions();
 	// The crew lives in its own table; the form edits it as a list and the save
 	// reconciles that against who is attached now.
 	const personnel = useAdditionalPersonnel({ type: 'collection', id: collection.id });
@@ -116,8 +117,8 @@ function EditCollectionLoader({
 
 		await mutations.save({
 			collectionId: collection.id,
-			fields: collectionFieldsFrom(values, timeZone),
-			current: collectionFieldsFrom(formValuesFrom(collection, personnel, timeZone), timeZone),
+			fields: collectionFieldsFrom(values, clock.zone),
+			current: collectionFieldsFrom(formValuesFrom(collection, personnel, clock.zone), clock.zone),
 			geometry:
 				refinedPoint === null
 					? null
@@ -130,11 +131,19 @@ function EditCollectionLoader({
 							},
 						},
 		});
-		await setPersonnel({
-			target: { type: 'collection', id: collection.id },
-			existing: personnel.rows,
-			profileIds: values.additionalPersonnelIds,
-		});
+		// The update has landed by now, so a crew miss is reported rather than
+		// thrown (see attachLinksBestEffort). The crew can lose rows here as well as
+		// gain them, so the report is a change to retry from this form.
+		await attachLinksBestEffort(
+			'the additional personnel',
+			() =>
+				setPersonnel({
+					target: { type: 'collection', id: collection.id },
+					existing: personnel.rows,
+					profileIds: values.additionalPersonnelIds,
+				}),
+			{ write: 'change', recordType: 'collection' },
+		);
 		await navigate({
 			to: '/adult-surveillance/collections/$id',
 			params: { id: collection.id },
@@ -151,8 +160,8 @@ function EditCollectionLoader({
 			/>
 		);
 	}
-	if (!personnel.isReady) {
-		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
+	if (!personnel.isReady || !trapsReady) {
+		return <CollectionFormSkeleton />;
 	}
 
 	return (
@@ -161,7 +170,7 @@ function EditCollectionLoader({
 			mode="edit"
 			collectionLures={collectionLures}
 			collectionMethods={collectionMethods}
-			defaultValues={formValuesFrom(collection, personnel, timeZone)}
+			defaultValues={formValuesFrom(collection, personnel, clock.zone)}
 			header={{
 				title: `Edit ${recordNoun('collection').title}`,
 				backTo: '/adult-surveillance/collections/$id',

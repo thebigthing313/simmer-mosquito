@@ -39,7 +39,6 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import {
 	CollectionFlagBadges,
 	collectionCrumb,
-	collectionEffectiveDate,
 	collectionTitle,
 	isPendingCollection,
 	SPECIES_SEX_VALUES,
@@ -68,28 +67,24 @@ import {
 	type CollectionSpeciesChanges,
 	useCollectionSpeciesMutations,
 } from '../../../hooks/mutations/use-collection-species-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { AdultCollection } from '../../../hooks/queries/collection-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { collectionPlaceLabel, trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useAdultCollection } from '../../../hooks/queries/use-adult-collection';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import {
 	type CollectionIdentification,
 	useCollectionIdentifications,
 } from '../../../hooks/queries/use-collection-identifications';
-import { useCollectionMethodRoster } from '../../../hooks/queries/use-collection-method-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useSpeciesCatalog } from '../../../hooks/queries/use-species-catalog';
 import { type AskAcknowledged, useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import {
 	COLLECTION_DELETE_REFUSALS,
 	COLLECTION_ZERO_RESULT_REFUSALS,
 } from '../../../lib/acknowledgement-copy';
-import {
-	formatWeekdayMonthDay,
-	operationalDayAsTimestamp,
-	todayInTimeZone,
-} from '../../../lib/local-date';
+import { formatWeekdayMonthDay, operationalDayAsTimestamp } from '../../../lib/local-date';
 
 export const Route = createFileRoute('/adult-surveillance/collections/$id')({
 	component: RouteComponent,
@@ -119,7 +114,7 @@ function RouteComponent() {
 	const snapshot = auth.snapshot?.authenticated === true ? auth.snapshot : null;
 	const role = snapshot?.localIdentity.role ?? null;
 	const canEdit = snapshot !== null && !(role !== null && READ_ONLY_ROLES.has(role));
-	const { collection, isReady, isError } = useAdultCollection(id, { gcTime: activityGcTimeMs });
+	const { collection, isReady, isError } = useAdultCollection(id);
 
 	return (
 		<RecordDetailPage
@@ -144,21 +139,20 @@ function CollectionDetailContent({
 	readonly canEdit: boolean;
 	readonly askDelete: AskAcknowledged;
 }) {
-	const titleTimeZone = useOrganizationTimeZone();
-	const title = collectionTitle(collection, titleTimeZone);
-	useBreadcrumbLabel(collection.id, collectionCrumb(collection, titleTimeZone));
+	const title = collectionTitle(collection.effectiveDate);
+	useBreadcrumbLabel(collection.id, collectionCrumb(collection.effectiveDate));
 
 	// The method roster is still read, because the custom-field schema hangs off
 	// the collection method and a schema is not something a `select` can join. The
 	// trap, the method name and the lure name are joined by the read seam now —
 	// three lookups against three rosters gone, and with them the chance of an id
 	// resolving to nothing because its roster had not streamed yet.
-	const methods = useCollectionMethodRoster();
+	const methods = useCatalogRoster(catalogs.collectionMethods);
 	const profiles = useProfileRoster();
 	const mutations = useCollectionMutations();
 	const [collectOpen, setCollectOpen] = useState(false);
 
-	const { methodName } = collection;
+	const methodName = collection.methodName ?? 'Unknown method';
 	// Guarded on the collection's own column rather than the joined name: a
 	// collection set without a lure reads as no lure, while one whose lure has
 	// since been deleted reads as an unknown one, and collapsing those would
@@ -255,25 +249,28 @@ function CollectCollectionDialogHost({
 	readonly open: boolean;
 }) {
 	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const { collect } = useCollectionMutations();
 
 	return (
 		<>
 			<CollectCollectionDialog
-				defaultDate={todayInTimeZone(timeZone)}
+				defaultDate={clock.today()}
 				onConfirm={(collectedAt) => {
 					onOpenChange(false);
-					void runAcknowledged((acknowledgements) =>
-						collect({
+					void runAcknowledged((acknowledgements) => {
+						// The Organization's now, because this stamp decides which day the
+						// collection counts on, and the clamp below measures against it.
+						const now = clock.now();
+						return collect({
 							acknowledgements,
 							// Midday on the organization's clock, clamped back to now on the
 							// same day — the same stamp the collection forms use, and the one
 							// every surface reads the day back with.
-							collectedAt: operationalDayAsTimestamp(collectedAt, timeZone) ?? new Date(),
+							collectedAt: operationalDayAsTimestamp(collectedAt, clock.zone, now) ?? now,
 							collectionId: collection.id,
-						}),
-					);
+						});
+					});
 				}}
 				onOpenChange={onOpenChange}
 				open={open}
@@ -654,7 +651,7 @@ function AddSpeciesForm({
 	readonly collectionId: string;
 	readonly speciesOptions: readonly SpeciesOption[];
 }) {
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const { add } = useCollectionSpeciesMutations();
 	const form = useAppForm({
 		defaultValues: {
@@ -673,7 +670,7 @@ function AddSpeciesForm({
 				// The organization's today, not the browser's: an identification keyed
 				// at 11pm on a lab machine two zones away belongs to the day the
 				// organization is having.
-				identifiedDate: todayInTimeZone(timeZone),
+				identifiedDate: clock.today(),
 				fields: {
 					speciesId: value.speciesId,
 					count: Math.trunc(value.count),
@@ -787,14 +784,13 @@ function DetailsCard({
 	readonly lureName: string | null;
 	readonly profileNameById: ReadonlyMap<string, string>;
 }) {
-	const timeZone = useOrganizationTimeZone();
-	const collectedDate = collectionEffectiveDate(collection, timeZone);
+	const clock = useOrganizationClock();
+	const collectedDate = collection.effectiveDate;
 	// The instant the trap went out, read back as the day the crew worked. The
 	// read seam hands `started_at` up as the `Date` the row schema parses, so
-	// this is where the organization's clock turns it into a calendar day — the
-	// same clock `collectionEffectiveDate` reads the collected day on.
-	const startedDay =
-		collection.startedAt === null ? null : todayInTimeZone(timeZone, collection.startedAt);
+	// this is where the organization's clock turns it into a calendar day, the
+	// same clock `effectiveDate` is read on.
+	const startedDay = collection.startedAt === null ? null : clock.dayOf(collection.startedAt);
 	return (
 		<Card variant="surface">
 			<CardHeader padding="compact">

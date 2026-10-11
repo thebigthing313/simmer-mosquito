@@ -24,13 +24,11 @@ export function ActivityFamilySection({
 	group,
 	selectedKey,
 	lookups,
-	timeZone,
 	onSelect,
 }: {
 	readonly group: ActivityFamilyGroup;
 	readonly selectedKey: string | null;
 	readonly lookups: ActivityLookups;
-	readonly timeZone: string | undefined;
 	readonly onSelect: (key: string) => void;
 }) {
 	return (
@@ -44,7 +42,6 @@ export function ActivityFamilySection({
 							key={activityEntryKey(entry)}
 							lookups={lookups}
 							onSelect={onSelect}
-							timeZone={timeZone}
 						/>
 					))}
 				</ul>

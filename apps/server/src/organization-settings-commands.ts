@@ -7,6 +7,7 @@ import {
 	updateInsecticideBatchTrackingCommand,
 	updateLarvalInspectionEntryPolicyCommand,
 	updateServiceRequestContextCommand,
+	updateServiceRequestOverdueDaysCommand,
 	updateSpeciesKeyBindingsCommand,
 	updateTimezoneCommand,
 	updateUnitDefaultsCommand,
@@ -163,6 +164,17 @@ export function registerOrganizationSettingsCommandRoutes(
 			updateServiceRequestContextCommand({
 				...organization,
 				serviceRequestContext: payload.serviceRequestContext as never,
+				expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
+			}),
+	);
+
+	settingsRoute(
+		'service-request-overdue-days',
+		'organizationSettings.updateServiceRequestOverdueDays',
+		({ payload, organization }) =>
+			updateServiceRequestOverdueDaysCommand({
+				...organization,
+				serviceRequestOverdueDays: payload.serviceRequestOverdueDays as never,
 				expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
 			}),
 	);
@@ -344,6 +356,11 @@ function settingsChangeForCommand(command: OrganizationSettingsCommand) {
 			return {
 				kind: 'serviceRequestContext' as const,
 				serviceRequestContext: command.payload.serviceRequestContext,
+			};
+		case 'organizationSettings.updateServiceRequestOverdueDays':
+			return {
+				kind: 'serviceRequestOverdueDays' as const,
+				serviceRequestOverdueDays: command.payload.serviceRequestOverdueDays,
 			};
 		case 'organizationSettings.updateSpeciesKeyBindings':
 			return {

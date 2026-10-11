@@ -211,6 +211,7 @@ function RegistrationLocation({
 				{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 				{(field: any) => (
 					<AddressPicker
+						errors={field.state.meta.errors}
 						create={{ requestMapPoint }}
 						onSelect={(address: AddressOption | null) => {
 							field.handleChange(address?.id ?? null);

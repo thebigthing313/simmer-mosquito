@@ -13,9 +13,10 @@
  */
 
 import { type CommentTargetType, toDbEntityType } from '@simmer-mosquito/domain';
-import { and, caseWhen, coalesce, eq, isNull, useLiveQuery } from '@tanstack/react-db';
+import { and, eq, useLiveQuery } from '@tanstack/react-db';
 import { comments } from '../../lib/collections/comments';
 import { profiles } from '../../lib/collections/profiles';
+import { joinedOrNull, liveQueryGcTimeMs } from './shared';
 
 /** The record a thread is attached to. */
 export interface CommentTarget {
@@ -23,18 +24,15 @@ export interface CommentTarget {
 	readonly id: string;
 }
 
-// `comments` is on-demand (ADR 0009 / docs/sync.md); keep the record's subset
-// warm briefly after unmount so revisiting it reuses the thread.
-const commentsGcTimeMs = 30_000;
-
 /** One comment, in the vocabulary the thread speaks. */
 export interface RecordComment {
 	readonly id: string;
 	readonly commentText: string;
 	readonly commentedByProfileId: string | null;
 	/**
-	 * `null` when the comment names no author, which is not the same as an author
-	 * whose Profile has not streamed yet. Guard on `commentedByProfileId`.
+	 * `null` when the comment names no author, and also when it names one whose
+	 * Profile is not in the client, which is permanent for a deleted Profile. Read
+	 * `commentedByProfileId` to tell the two apart.
 	 */
 	readonly authorName: string | null;
 	readonly commentedAt: Date;
@@ -60,7 +58,7 @@ export function useComments(target: CommentTarget): CommentsResult {
 	const entityType = toDbEntityType(target.type);
 
 	const result = useLiveQuery({
-		gcTime: commentsGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ comment: comments() })
@@ -86,22 +84,12 @@ export function useComments(target: CommentTarget): CommentsResult {
 					id: comment.id,
 					commentText: comment.comment_text,
 					commentedByProfileId: comment.commented_by_profile_id,
-					// Guarded on the comment's own column, so an unattributed comment reads
-					// as `null` rather than as the `undefined` an unmatched join yields.
-					authorName: caseWhen(
-						isNull(comment.commented_by_profile_id),
-						null,
-						coalesce(author.display_name, 'Unknown'),
-					),
+					authorName: joinedOrNull(author.display_name),
 					commentedAt: comment.commented_at,
 					isPinned: comment.is_pinned,
 					editedAt: comment.edited_at,
 					editedByProfileId: comment.edited_by_profile_id,
-					editorName: caseWhen(
-						isNull(comment.edited_by_profile_id),
-						null,
-						coalesce(editor.display_name, 'Unknown'),
-					),
+					editorName: joinedOrNull(editor.display_name),
 				})),
 	});
 

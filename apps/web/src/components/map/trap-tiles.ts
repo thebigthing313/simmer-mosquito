@@ -1,4 +1,5 @@
 import { mapInteraction, mapLifecycle } from '@simmer-mosquito/design-tokens';
+import type { MapFiltersOf, TRAP_MAP_FILTERS } from '@simmer-mosquito/domain';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import {
 	allLayerIds,
@@ -6,23 +7,14 @@ import {
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import {
-	type RegionScopedTileFilters,
-	setRegionTileParam,
-	tileExtentUrl,
-	tileTemplateUrl,
-} from './tile-urls';
 
 /**
- * Server-side filters for the trap vector tiles. Mirrors the query params the
- * `/map/tiles/traps/{z}/{x}/{y}.mvt` endpoint understands; the same shape drives
- * the `/map/traps` paged list so the map and the list stay in lockstep.
+ * The filters the `traps` tiles and extent draw under, typed off the
+ * spec in `@simmer-mosquito/domain` the server parses them with. The list
+ * request encodes the same object, so the map and the list name one set of
+ * params.
  */
-export interface TrapTileFilters extends RegionScopedTileFilters {
-	readonly collectionMethodIds?: readonly string[];
-	readonly isActive?: boolean;
-	readonly search?: string;
-}
+export type TrapTileFilters = MapFiltersOf<typeof TRAP_MAP_FILTERS>;
 
 export const TRAP_SOURCE_ID = 'traps';
 
@@ -61,37 +53,6 @@ const statusColor: ExpressionSpecification = [
 	colors.active,
 	colors.inactive,
 ];
-
-/** Build the tile template URL with the active filters folded into the query. */
-export function buildTrapTileUrl(serverUrl: string, filters?: TrapTileFilters): string {
-	return tileTemplateUrl(serverUrl, TRAP_SOURCE_ID, trapTileParams(filters));
-}
-
-/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
-export function buildTrapExtentUrl(serverUrl: string, filters?: TrapTileFilters): string {
-	return tileExtentUrl(serverUrl, TRAP_SOURCE_ID, trapTileParams(filters));
-}
-
-function trapTileParams(filters?: TrapTileFilters): URLSearchParams {
-	const params = new URLSearchParams();
-
-	if (filters?.collectionMethodIds !== undefined && filters.collectionMethodIds.length > 0) {
-		params.set('collectionMethodId', [...filters.collectionMethodIds].sort().join(','));
-	}
-	if (filters?.isActive === true) {
-		params.set('status', 'active');
-	} else if (filters?.isActive === false) {
-		params.set('status', 'inactive');
-	}
-	const search = filters?.search?.trim();
-	if (search !== undefined && search.length > 0) {
-		params.set('search', search);
-	}
-
-	setRegionTileParam(params, filters?.regionIds);
-
-	return params;
-}
 
 /** The GL layers for the trap source. `selectedId` drives the highlight set. */
 export function trapTileLayers(selectedId: string | null): GeometryTileLayer[] {

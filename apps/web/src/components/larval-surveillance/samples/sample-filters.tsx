@@ -1,9 +1,9 @@
 /**
  * The sample filters, drawn the same way on the Samples Map and the Samples
  * Table: the date window, Status, the species, region and non-mosquito
- * filters, and the chips for whatever is set. It returns the blocks bare, so
- * each surface puts them in its own frame. Takes the binding from
- * `useSampleFilterState`.
+ * filters, and the chips for whatever is set, which the Samples summary also
+ * draws. It returns the blocks bare, so each surface puts them in its own
+ * frame. Takes the binding from `useRecordSetFilters`.
  */
 
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -23,115 +23,87 @@ import {
 import { CheckIcon, ChevronDownIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useState } from 'react';
-import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
-import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import type { RecordSetFilterBinding } from '../../../hooks/explorer/use-record-set-filters';
 import { useSpeciesOptions } from '../../../hooks/explorer/use-species-options';
-import type { SampleFilterBinding } from '../../../hooks/larval-surveillance/use-sample-filter-state';
-import { dateRangeLabel } from '../../../lib/local-date';
-import { DateRangeFilter } from '../../date-range-filter';
+import { FilterFieldsLayout, FilterGrid, toggle } from '../../explorer';
+import { DeclaredFilterChips, filterFields } from '../../explorer/declared-filters';
 import {
-	ActiveFilterBar,
-	FilterChip,
-	FilterFieldsLayout,
-	FilterGrid,
-	MultiSelectFilter,
-	ToggleFilter,
-	toggle,
-} from '../../explorer';
+	defineFilterDeclarations,
+	REGION_FILTER,
+	SPECIES_SOURCE,
+} from '../../explorer/filter-declarations';
 import { SAMPLE_STATUS_COLORS } from '../../map';
-import type { SampleStatusValue } from '../samples-search';
+import { type SampleFilters, type SampleStatusValue, sampleRecordSet } from '../samples-search';
 import { SAMPLE_STATUS_ORDER, sampleStatusLabel } from './legend';
 
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
+
+/** Each sample filter's control, chip and summary grouping, in chip order. */
+export const sampleFilterDeclarations = defineFilterDeclarations(sampleRecordSet, [
+	{ kind: 'dateRange' },
+	{
+		kind: 'choice',
+		key: 'status',
+		label: 'Status',
+		options: [
+			{ value: 'all', label: 'All' },
+			...SAMPLE_STATUS_ORDER.map((value) => ({
+				value,
+				label: sampleStatusLabel(value),
+				color: SAMPLE_STATUS_COLORS[value],
+			})),
+		],
+		bareChip: true,
+		field: StatusFilter,
+		summary: {
+			grouping: 'status',
+			title: 'Status',
+			sides: SAMPLE_STATUS_ORDER.map((value) => ({ value, match: value })),
+		},
+	},
+	{
+		kind: 'idSet',
+		key: 'species',
+		label: 'Species',
+		empty: 'No species in your catalog.',
+		options: SPECIES_SOURCE,
+		unknown: 'Unknown species',
+		italic: true,
+		field: SpeciesFilter,
+		summary: { grouping: 'species', title: 'Species' },
+	},
+	REGION_FILTER,
+	{
+		kind: 'flag',
+		key: 'nonMosquito',
+		label: 'Non-mosquito material',
+		summary: { grouping: 'nonMosquito', title: 'Material', label: 'Non-mosquito material' },
+	},
+]);
 
 export function SampleFilterFields({
 	binding,
 	wide = false,
 }: {
-	readonly binding: SampleFilterBinding;
+	readonly binding: RecordSetFilterBinding<SampleFilters>;
 	/** Two columns at page width, for the Table's filter bar. */
 	readonly wide?: boolean;
 }) {
-	const { filters, setFilters, reset, activeCount, defaults, today } = binding;
-	const dateRange = useDateRangeFilters({ from: filters.from, to: filters.to, today, setFilters });
-	const { nameById, options } = useSpeciesOptions();
-	const regions = useRegionOptions();
-	const isDefaultRange = filters.from === defaults.from && filters.to === defaults.to;
-	const status = filters.status;
-
-	const popovers = (
-		<div className="grid gap-3">
-			<StatusFilter onChange={(next) => setFilters({ status: next })} value={status} />
-
-			<FilterGrid>
-				<SpeciesFilter
-					onChange={(species) => setFilters({ species })}
-					options={options}
-					selected={filters.species}
-				/>
-				<MultiSelectFilter
-					empty="No regions"
-					label="Region"
-					onChange={(regionIds) => setFilters({ regions: regionIds })}
-					options={regions.options}
-					selected={filters.regions}
-				/>
-			</FilterGrid>
-			<div>
-				<ToggleFilter
-					label="Non-mosquito material"
-					onChange={(nonMosquito) => setFilters({ nonMosquito })}
-					value={filters.nonMosquito}
-				/>
-			</div>
-		</div>
-	);
-
-	const chips =
-		activeCount === 0 ? null : (
-			<ActiveFilterBar onClearAll={reset}>
-				{isDefaultRange ? null : (
-					<FilterChip
-						label={`Dates: ${dateRangeLabel(filters.from, filters.to)}`}
-						onRemove={() => setFilters({ from: defaults.from, to: defaults.to })}
-					/>
-				)}
-				{status === 'all' ? null : (
-					<FilterChip
-						color={SAMPLE_STATUS_COLORS[status]}
-						label={sampleStatusLabel(status)}
-						onRemove={() => setFilters({ status: 'all' })}
-					/>
-				)}
-				{[...filters.species].map((id) => (
-					<FilterChip
-						italic
-						key={`species-${id}`}
-						label={nameById.get(id) ?? 'Unknown species'}
-						onRemove={() => setFilters({ species: toggle(filters.species, id) })}
-					/>
-				))}
-				{[...filters.regions].map((id) => (
-					<FilterChip
-						key={`region-${id}`}
-						label={regions.nameById.get(id) ?? 'Unknown region'}
-						onRemove={() => setFilters({ regions: toggle(filters.regions, id) })}
-					/>
-				))}
-				{filters.nonMosquito ? (
-					<FilterChip
-						label="Non-mosquito material"
-						onRemove={() => setFilters({ nonMosquito: false })}
-					/>
-				) : null}
-			</ActiveFilterBar>
-		);
-
+	const fields = filterFields(sampleFilterDeclarations, binding);
 	return (
 		<FilterFieldsLayout
-			chips={chips}
-			controls={<DateRangeFilter {...dateRange} />}
-			popovers={popovers}
+			chips={<DeclaredFilterChips binding={binding} declarations={sampleFilterDeclarations} />}
+			controls={fields.dates}
+			popovers={
+				<div className="grid gap-3">
+					{fields.status}
+					<FilterGrid>
+						{fields.species}
+						{fields.regions}
+					</FilterGrid>
+					<div>{fields.nonMosquito}</div>
+				</div>
+			}
 			wide={wide}
 		/>
 	);
@@ -202,20 +174,15 @@ function StatusChip({
 	);
 }
 
-interface SpeciesOption {
-	readonly id: string;
-	readonly label: string;
-}
-
+/** The species picker, which names each species in italic the way a binomial is written. */
 function SpeciesFilter({
-	options,
 	selected,
 	onChange,
 }: {
-	readonly options: readonly SpeciesOption[];
 	readonly selected: ReadonlySet<string>;
 	readonly onChange: (next: ReadonlySet<string>) => void;
 }) {
+	const { options } = useSpeciesOptions();
 	const [open, setOpen] = useState(false);
 	const count = selected.size;
 

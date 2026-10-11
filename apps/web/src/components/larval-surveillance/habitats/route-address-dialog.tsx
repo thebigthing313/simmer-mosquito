@@ -100,9 +100,7 @@ export function RouteStopAddressDialog({
 						Cancel
 					</Button>
 					<Button disabled={!isDirty || isSaving} onClick={save} type="button">
-						{isSaving ? (
-							<Loader2Icon aria-hidden="true" className="animate-spin" data-icon="inline-start" />
-						) : null}
+						{isSaving ? <Loader2Icon aria-hidden="true" className="animate-spin" /> : null}
 						Save Link
 					</Button>
 				</DialogFooter>

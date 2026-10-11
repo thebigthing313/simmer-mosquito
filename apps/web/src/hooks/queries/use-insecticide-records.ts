@@ -2,9 +2,6 @@ import type { InsecticideType } from '@simmer-mosquito/domain';
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
 import { insecticides } from '../../lib/collections/insecticides';
 
-/** How long a product's batches stay warm after its row collapses. */
-export const batchesGcTimeMs = 30_000;
-
 /** A product as the catalog lists and edits one. */
 export interface InsecticideRecord {
 	readonly id: string;

@@ -1,6 +1,6 @@
 import { isNull, useLiveQuery } from '@tanstack/react-db';
 import { service_requests } from '../../lib/collections/service_requests';
-import { activityGcTimeMs } from '../queries/shared';
+import { liveQueryGcTimeMs } from '../queries/shared';
 
 /** One open service request, for the target picker. Closed requests take no new stops. */
 export interface OpenServiceRequest {
@@ -19,7 +19,7 @@ export function useOpenServiceRequests(): {
 	readonly isReady: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ request: service_requests() })

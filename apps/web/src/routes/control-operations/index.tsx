@@ -30,8 +30,8 @@ import { useOrganizationSettings } from '../../hooks/queries/use-organization-se
 import { useRecentBiocontrolActions } from '../../hooks/queries/use-recent-biocontrol-actions';
 import { useRecentSourceReductions } from '../../hooks/queries/use-recent-source-reductions';
 import { useUnitLabels } from '../../hooks/queries/use-unit-labels';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { addDaysToDateString, todayInTimeZone } from '../../lib/local-date';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
+import { addDaysToDateString } from '../../lib/local-date';
 import { recordNoun } from '../../lib/record-nouns';
 import { groupRows, type RowGroup } from '../../lib/row-groups';
 
@@ -55,8 +55,8 @@ export const Route = createFileRoute('/control-operations/')({
 });
 
 function ControlOperationsOverviewRoute() {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const since = addDaysToDateString(today, -(CONTROL_ACTIVITY_WINDOW_DAYS - 1));
 
 	// Which unit the organization wants each kind of quantity reported in. Falls
@@ -68,23 +68,28 @@ function ControlOperationsOverviewRoute() {
 	// overview arrives at the width it stood in for (#1043, #1049). The panels
 	// keep their twelve-column grid; the frame is what widened.
 	return (
-		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
+		<div
+			className={cn(
+				pageContainer({ gap: 'overview', measure: 'record', padding: 'page' }),
+				'@container',
+			)}
+		>
 			<PageHeader
 				description={`Last ${CONTROL_ACTIVITY_WINDOW_DAYS} days`}
 				icon={ControlIcon}
 				title="Control Operations"
 			/>
 
-			<div className="grid gap-5 xl:grid-cols-12">
-				<div className="grid content-start gap-5 xl:col-span-7">
+			<div className="grid gap-5 @5xl:grid-cols-12">
+				<div className="grid content-start gap-5 @5xl:col-span-7">
 					<DailyControlActionsPanel today={today} />
 					<InsecticideUsagePanel today={today} unitDefaults={unitDefaults} />
 				</div>
-				<div className="grid content-start gap-5 xl:col-span-5">
+				<div className="grid content-start gap-5 @5xl:col-span-5">
 					<RecentSourceReductionsPanel since={since} />
 					<RecentBiocontrolPanel since={since} />
 				</div>
-				<div className="xl:col-span-12">
+				<div className="@5xl:col-span-12">
 					<CatalogPanel />
 				</div>
 			</div>
@@ -248,7 +253,7 @@ function ControlActionRow({ action }: { readonly action: DailyControlAction }) {
 					params={{ id: action.id }}
 					to={KIND_DETAIL_ROUTE[action.kind]}
 				>
-					{action.subjectName}
+					{actionSubject(action)}
 				</Link>
 				<span className="truncate text-muted-foreground text-xs">{actionSecondary(action)}</span>
 			</div>
@@ -312,7 +317,18 @@ function actionSecondary(action: DailyControlAction): string {
 	if (action.kind === 'biocontrol') {
 		return 'Biocontrol release';
 	}
-	return `Application · ${action.methodName ?? 'No method'}`;
+	if (action.methodId === null) {
+		return 'Application · No method';
+	}
+	return `Application · ${action.methodName ?? 'Unknown method'}`;
+}
+
+/** What titles the row: the product for an application, the method otherwise. */
+function actionSubject(action: DailyControlAction): string {
+	if (action.subjectName !== null) {
+		return action.subjectName;
+	}
+	return action.kind === 'application' ? 'Unknown insecticide' : 'Unknown method';
 }
 
 // --- insecticide usage ------------------------------------------------------
@@ -342,6 +358,7 @@ function InsecticideUsagePanel({
 	const rows = usage
 		.map((entry) => ({
 			...entry,
+			name: entry.name ?? 'Unknown insecticide',
 			total: usageTotal({
 				totalsByUnitId: entry.totalsByUnitId,
 				unitById: units.byId,
@@ -453,7 +470,7 @@ function RecentSourceReductionsPanel({ since }: { readonly since: string }) {
 								date={formatActionDate(action.actionDate)}
 								key={action.id}
 								params={{ id: action.id }}
-								primary={action.methodName}
+								primary={action.methodName ?? 'Unknown method'}
 								secondary={technicianLabel(action)}
 								to="/control-operations/source-reduction/$id"
 							/>
@@ -498,7 +515,7 @@ function RecentBiocontrolPanel({ since }: { readonly since: string }) {
 								date={formatActionDate(action.actionDate)}
 								key={action.id}
 								params={{ id: action.id }}
-								primary={action.methodName}
+								primary={action.methodName ?? 'Unknown method'}
 								secondary={technicianLabel(action)}
 								to="/control-operations/biocontrol/$id"
 							/>
@@ -524,7 +541,7 @@ function CatalogPanel() {
 
 	return (
 		<Panel icon={<ControlIcon className="size-4" />} title="Catalogs">
-			<ul className="grid gap-1 p-2 sm:grid-cols-2 xl:grid-cols-5">
+			<ul className="grid gap-1 p-2 @xl:grid-cols-2 @3xl:grid-cols-3 @7xl:grid-cols-5">
 				<CatalogTile
 					activeCount={counts.applicationMethods}
 					icon={<ApplicationIcon aria-hidden="true" className="size-4" />}

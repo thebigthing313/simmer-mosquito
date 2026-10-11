@@ -11,6 +11,8 @@
  * reports ahead of the surface's filters, that the rail lists what the page
  * answered and nothing else, that the collapsed panel counts it `in view`, and
  * that the three things an empty rail can say (#958) are what this surface says.
+ * Over 100 in view the rail draws the summary in place of the rows (#1378),
+ * and neither branch draws a pager.
  *
  * The server stand-in applies the box itself, holding one address outside the
  * fake map's viewport beside two inside it, so "only rows inside the viewport"
@@ -27,15 +29,19 @@
  * `write-attribution.test.tsx` gives.
  */
 
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { addresses } from '../../../../../lib/collections/addresses';
 import { organizations } from '../../../../../lib/collections/organizations';
 import type { MinimumRole } from '../../../../../lib/write-access';
 import { installMemoryCollections, seedRows } from '../../../lib/collections/memory-collections';
 import {
+	mountedCanvas,
 	preloadRouteComponent,
 	renderExplorer,
+	SUMMARY_CASE_TIMEOUT,
+	SUMMARY_WAIT,
 	stubPanelLayout,
 } from '../../explorer-route-harness';
 
@@ -93,6 +99,10 @@ const harness = vi.hoisted(() => ({
 	}[],
 	/** Who is signed in, for the role floor the create pointer sits behind. */
 	role: 'admin' as string,
+	/** A page total to answer in place of the box's own count, or null for the count. */
+	pageTotal: null as number | null,
+	/** What the summary endpoint answers. */
+	summary: null as unknown,
 }));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
@@ -104,11 +114,19 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
 	const { sessionFetchStandIn } = await import('../../route-mock-stand-ins');
 	return {
 		...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
-		sessionFetch: sessionFetchStandIn(harness.sent, (url) =>
-			url.pathname.endsWith('/extent')
-				? { extent: harness.extent }
-				: pageInsideBox(url.searchParams.get('bbox'), url.searchParams.get('search')),
-		),
+		sessionFetch: sessionFetchStandIn(harness.sent, (url) => {
+			if (url.pathname.endsWith('/extent')) {
+				return { extent: harness.extent };
+			}
+			if (url.pathname.endsWith('/summary')) {
+				return harness.summary;
+			}
+			const one = harness.book.find((row) => url.pathname === `/map/addresses/${row.id}`);
+			if (one !== undefined) {
+				return { address: { lat: one.lat, lng: one.lng, geomType: 'Point', geojson: null } };
+			}
+			return pageInsideBox(url.searchParams.get('bbox'), url.searchParams.get('search'));
+		}),
 	};
 });
 
@@ -137,7 +155,7 @@ function pageInsideBox(bbox: string | null, search: string | null) {
 			row.lat <= north &&
 			row.displayName.toLowerCase().includes(needle),
 	);
-	return { addresses, total: addresses.length };
+	return { addresses, total: harness.pageTotal ?? addresses.length };
 }
 
 vi.mock('../../../../../hooks/use-can-write', async () => {
@@ -172,6 +190,8 @@ beforeEach(() => {
 	harness.extent = null;
 	harness.book = [];
 	harness.role = 'admin';
+	harness.pageTotal = null;
+	harness.summary = null;
 });
 
 afterEach(() => {
@@ -204,7 +224,7 @@ describe('the addresses explorer paging the viewport', () => {
 		// The third address is this Organization's and is off screen. The rail
 		// used to list it; the map never drew it.
 		expect(screen.queryByText('9 Far Lane')).toBeNull();
-		expect(pageRequest()?.search).toBe('?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0');
+		expect(pageRequest()?.search).toBe('?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0');
 		expect(requestCounts()).toEqual({ page: 1, extent: 1 });
 	});
 
@@ -214,13 +234,14 @@ describe('the addresses explorer paging the viewport', () => {
 		renderAddresses();
 
 		await screen.findByText('1 11th Street');
-		// Expanded, the count is the pager's, under the register's noun.
-		expect(screen.getByText('2 addresses')).toBeTruthy();
+		// Expanded, the header counts it, since no pager sits under the rail.
+		expect(screen.getByText('2 in view')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
 
 		fireEvent.click(screen.getByRole('button', { name: 'Hide results' }));
 
 		expect(screen.getByText('2 in view')).toBeTruthy();
-		expect(screen.queryByText('3 addresses')).toBeNull();
+		expect(screen.queryByText('3 in view')).toBeNull();
 	});
 
 	it('carries the search and the region as query params the reader takes', async () => {
@@ -235,7 +256,7 @@ describe('the addresses explorer paging the viewport', () => {
 		expect(await screen.findByText('2 Elm Court')).toBeTruthy();
 		expect(screen.queryByText('1 11th Street')).toBeNull();
 		expect(pageRequest()?.search).toBe(
-			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&search=elm&regionId=b1b2c3d4-0000-4000-8000-000000000009',
+			'?limit=100&offset=0&bbox=0%2C-0.8%2C1%2C0&search=elm&regionId=b1b2c3d4-0000-4000-8000-000000000009',
 		);
 		// The map's extent request carries the same two filters and no box, so the
 		// tiles and the rail are one filtered set framed whole.
@@ -250,7 +271,7 @@ describe('the addresses explorer with nothing on the page', () => {
 		renderAddresses();
 
 		expect(await screen.findByText('No addresses yet')).toBeTruthy();
-		expect(screen.getByText('Create Address is in the More Actions menu.')).toBeTruthy();
+		expect(screen.getByText('Create Address is in the More actions menu.')).toBeTruthy();
 		// No default narrows this surface, so the extent it sends is unfiltered
 		// and a null answer is about the whole address book.
 		expect(harness.sent.find((url) => url.pathname.endsWith('/extent'))?.search).toBe('');
@@ -262,7 +283,7 @@ describe('the addresses explorer with nothing on the page', () => {
 		renderAddresses();
 
 		expect(await screen.findByText('No addresses yet')).toBeTruthy();
-		expect(screen.queryByText('Create Address is in the More Actions menu.')).toBeNull();
+		expect(screen.queryByText('Create Address is in the More actions menu.')).toBeNull();
 	});
 
 	it('offers the reset when a search matches nothing anywhere', async () => {
@@ -284,5 +305,93 @@ describe('the addresses explorer with nothing on the page', () => {
 			screen.getByText('Pan or zoom the map, or loosen the filters to bring addresses into range.'),
 		).toBeTruthy();
 		await waitFor(() => expect(requestCounts()).toEqual({ page: 1, extent: 1 }));
+	});
+});
+
+// Over 100 in view the rail draws the summary in place of the rows (#1378),
+// asked for under the page's own box and filters, and at 100 or fewer it draws
+// the rows, all on one page. What the summary draws is `address-summary.test.tsx`'s.
+describe('the addresses explorer with addresses in view', () => {
+	// The summary waits on three requests in turn, so this case outlasts the
+	// 5000ms default; `SUMMARY_WAIT` in the harness says why.
+	it(
+		'draws the summary instead of the rows over 100 in view, with no pager',
+		async () => {
+			harness.search = { search: 'elm', regions: 'b1b2c3d4-0000-4000-8000-000000000009' };
+			harness.book = [INSIDE_B];
+			harness.extent = { west: 0, south: -1, east: 1, north: 0 };
+			harness.pageTotal = 140;
+			harness.summary = {
+				total: 140,
+				groups: {
+					locality: [{ value: 'Monroe Township', count: 140 }],
+					postalCode: [{ value: '08831', count: 140 }],
+				},
+			};
+			renderAddresses();
+
+			const locality = await screen.findByRole('region', { name: 'Locality' }, SUMMARY_WAIT);
+			expect(locality.textContent).toBe('LocalityMonroe Township140');
+			expect(screen.getByRole('region', { name: 'Postal Code' }).textContent).toBe(
+				'Postal Code08831140',
+			);
+			expect(screen.queryByText('2 Elm Court')).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
+			const summaryRequest = harness.sent.find((url) => url.pathname === '/map/addresses/summary');
+			expect(Object.fromEntries(summaryRequest?.searchParams ?? [])).toEqual({
+				bbox: '0,-0.8,1,0',
+				search: 'elm',
+				regionId: 'b1b2c3d4-0000-4000-8000-000000000009',
+			});
+		},
+		SUMMARY_CASE_TIMEOUT,
+	);
+
+	it('draws the rows at 100 or fewer, with no pager and no summary request', async () => {
+		harness.book = [INSIDE_A, INSIDE_B];
+		harness.extent = { west: 0, south: -1, east: 1, north: 0 };
+		renderAddresses();
+
+		expect(await screen.findByText('1 11th Street')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
+		expect(harness.sent.some((url) => url.pathname === '/map/addresses/summary')).toBe(false);
+	});
+});
+
+// The card used to fly the camera too, once the address's geometry answered,
+// so one pick moved the map twice and the first flight was cut short (#1423).
+// The explorer's flight is the one left, and a card moves no camera.
+describe('the addresses explorer with an address selected', () => {
+	function flights(): number {
+		return mountedCanvas.fake?.cameraCalls.filter((call) => call.kind === 'flyTo').length ?? 0;
+	}
+
+	beforeEach(() => {
+		harness.book = [INSIDE_A, INSIDE_B];
+		harness.extent = { west: 0, south: -1, east: 1, north: 0 };
+		seedRows(addresses, [
+			{ id: INSIDE_A.id, display_name: INSIDE_A.displayName, address_line_1: '1 11th Street' },
+		]);
+	});
+
+	it('flies once when the address is picked from the rail', async () => {
+		renderAddresses();
+
+		fireEvent.click(await screen.findByRole('button', { name: 'Show 1 11th Street on the map' }));
+
+		// The card draws the coordinates once the geometry it reads has answered,
+		// which is when its flight used to go out.
+		expect(await screen.findByText('-0.4000, 0.5000')).toBeTruthy();
+		expect(flights()).toBe(1);
+	});
+
+	it('flies once when the address is picked on the map', async () => {
+		renderAddresses();
+		await screen.findByText('1 11th Street');
+
+		act(() => mountedCanvas.layers[0]?.onSelectFeature?.(INSIDE_A.id));
+
+		expect(await screen.findByText('-0.4000, 0.5000')).toBeTruthy();
+		expect(flights()).toBe(1);
 	});
 });

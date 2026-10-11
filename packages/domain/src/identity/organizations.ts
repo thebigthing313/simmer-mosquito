@@ -6,6 +6,7 @@ import {
 	throwIfIssues,
 	validateOrganizationBase,
 } from '../command-validation.js';
+import { type DomainValidationIssue, isEmailAddress } from '../shared.js';
 import type {
 	IdentityDomainCommand,
 	OrganizationIdentityCommandInput,
@@ -20,17 +21,19 @@ import type {
  * JSON document, and they share this row. Before ADR 0013 the columns were an
  * identity write and the document was commands, which is two contracts on one
  * row; this is the half that had no vocabulary.
+ *
+ * The contact details come from the limits table below rather than being
+ * written out here, so a detail added there is a change this carries.
  */
-export interface OrganizationDetailChanges {
+export interface OrganizationDetailChanges extends OrganizationContactDetails {
 	readonly name?: string;
-	readonly mainContactEmail?: string | null;
-	readonly phoneNumber?: string | null;
-	readonly mailingCountry?: string | null;
-	readonly mailingAddressLine1?: string | null;
-	readonly mailingAddressLine2?: string | null;
-	readonly mailingLocality?: string | null;
-	readonly mailingRegion?: string | null;
-	readonly mailingPostalCode?: string | null;
+	/**
+	 * Where a map with no rows of its own opens, as the client geocoded it from
+	 * the mailing address. Either may arrive alone as a number; clearing sends
+	 * both as `null`.
+	 */
+	readonly mapCenterLat?: number | null;
+	readonly mapCenterLng?: number | null;
 }
 
 export interface UpdateOrganizationDetailsCommandInput
@@ -130,7 +133,7 @@ const US_STATE_CODES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Every detail but the name, and how long each may be.
+ * Every detail but the name and the map centre, and how long each may be.
  *
  * The name is the only required one, so it is normalized on its own. The other
  * eight are nullable text and differ from each other in nothing but the limit.
@@ -146,11 +149,30 @@ const NULLABLE_DETAIL_LIMITS = {
 	mailingPostalCode: 20,
 } as const;
 
-type NullableDetailKey = keyof typeof NULLABLE_DETAIL_LIMITS;
+/** The eight contact details: an organization's Main contact, phone and mailing address. */
+export type OrganizationContactDetailKey = keyof typeof NULLABLE_DETAIL_LIMITS;
 
-const NULLABLE_DETAIL_KEYS = Object.keys(NULLABLE_DETAIL_LIMITS) as readonly NullableDetailKey[];
+/** Contact details as a caller sent them: absent, `null`, or text not yet checked. */
+export type OrganizationContactDetails = {
+	readonly [K in OrganizationContactDetailKey]?: string | null;
+};
 
-const DETAIL_KEYS: readonly (keyof OrganizationDetailChanges)[] = ['name', ...NULLABLE_DETAIL_KEYS];
+/** The contact details, in the order the limits table writes them. */
+export const ORGANIZATION_CONTACT_DETAIL_KEYS = Object.keys(
+	NULLABLE_DETAIL_LIMITS,
+) as readonly OrganizationContactDetailKey[];
+
+/** The map centre's two halves and the range each must sit inside. */
+const MAP_CENTER_RANGES = [
+	{ key: 'mapCenterLat', limit: 90, message: 'mapCenterLat must be between -90 and 90.' },
+	{ key: 'mapCenterLng', limit: 180, message: 'mapCenterLng must be between -180 and 180.' },
+] as const;
+
+const DETAIL_KEYS: readonly (keyof OrganizationDetailChanges)[] = [
+	'name',
+	...ORGANIZATION_CONTACT_DETAIL_KEYS,
+	...MAP_CENTER_RANGES.map(({ key }) => key),
+];
 
 /**
  * The two details that are codes rather than free text.
@@ -161,7 +183,7 @@ const DETAIL_KEYS: readonly (keyof OrganizationDetailChanges)[] = ['name', ...NU
  * the country came to be written with no check at all.
  */
 const CODED_DETAILS: readonly {
-	readonly key: NullableDetailKey;
+	readonly key: OrganizationContactDetailKey;
 	readonly isAllowed: (code: string) => boolean;
 	readonly message: string;
 }[] = [
@@ -187,17 +209,42 @@ export function updateOrganizationDetailsCommand(
 		issues.push({ path: 'changes', message: 'At least one organization detail must change.' });
 	}
 
-	const changes: Record<string, string | null> = {};
+	const changes: Record<string, string | number | null> = {};
 	if (input.name !== undefined) {
 		changes.name = normalizeRequiredText(input.name, 'name', issues, 200);
 	}
-	for (const key of NULLABLE_DETAIL_KEYS) {
-		if (input[key] !== undefined) {
-			changes[key] = normalizeNullableText(input[key], key, issues, NULLABLE_DETAIL_LIMITS[key]);
-		}
-	}
+	const contact = normalizeOrganizationContactDetails(input);
+	issues.push(...contact.issues);
+	Object.assign(changes, contact.details, mapCenterChanges(input, issues));
+
+	const expectedUpdatedAt = normalizeExpectedUpdatedAt(input.expectedUpdatedAt, issues);
+	throwIfIssues('Update organization details command is invalid.', issues);
+
+	return {
+		type: 'identity.updateOrganizationDetails',
+		payload: { ...organizationPayload(input), changes, expectedUpdatedAt },
+	};
+}
+
+/**
+ * The contact details that arrived, normalized and checked against their rules.
+ *
+ * A key left out stays out of `details`, and blank text comes back as `null`.
+ * Each detail is trimmed and held to its length, the country and region are
+ * upper-cased and must be US codes, and the Main contact must be an email
+ * address. Nothing is thrown: a refusal is an entry
+ * in `issues`, so a caller that answers before writing to a second system can
+ * refuse without catching. `updateOrganizationDetailsCommand` and the operator
+ * console's Organization create both read their rules from here.
+ */
+export function normalizeOrganizationContactDetails(input: OrganizationContactDetails): {
+	readonly details: { [K in OrganizationContactDetailKey]?: string | null };
+	readonly issues: readonly DomainValidationIssue[];
+} {
+	const issues = createIssues();
+	const details = normalizeLimitedText(input, NULLABLE_DETAIL_LIMITS, issues);
 	for (const { key, isAllowed, message } of CODED_DETAILS) {
-		const value = changes[key];
+		const value = details[key];
 		// Absent leaves the column alone and `null` clears it. An organization that
 		// has not filled its address in is not an error; only a code that names
 		// somewhere else is.
@@ -208,16 +255,133 @@ export function updateOrganizationDetailsCommand(
 		if (!isAllowed(code)) {
 			issues.push({ path: key, message });
 		}
-		changes[key] = code;
+		details[key] = code;
 	}
+	// Its case is kept: lowercasing a stored Main contact is a decision of its own.
+	checkEmailAddress(details.mainContactEmail, 'mainContactEmail', issues);
+	return { details, issues };
+}
 
-	const expectedUpdatedAt = normalizeExpectedUpdatedAt(input.expectedUpdatedAt, issues);
-	throwIfIssues('Update organization details command is invalid.', issues);
+/**
+ * Who an organization's invoices go to, and how long each half may be.
+ *
+ * A table of its own rather than two more rows in `NULLABLE_DETAIL_LIMITS`,
+ * because `updateOrganizationDetailsCommand` reads that table and does not carry
+ * the billing contact. The email takes the Main contact's limit, being the same
+ * kind of value, and the name takes the limit an Organization's name is held to.
+ */
+const BILLING_CONTACT_LIMITS = {
+	billingContactName: 200,
+	billingContactEmail: 320,
+} as const;
 
-	return {
-		type: 'identity.updateOrganizationDetails',
-		payload: { ...organizationPayload(input), changes, expectedUpdatedAt },
-	};
+/** The two billing contact fields an Organization create carries. */
+export type OrganizationBillingContactKey = keyof typeof BILLING_CONTACT_LIMITS;
+
+/** The billing contact fields, in the order the limits table writes them. */
+export const ORGANIZATION_BILLING_CONTACT_KEYS = Object.keys(
+	BILLING_CONTACT_LIMITS,
+) as readonly OrganizationBillingContactKey[];
+
+/** A billing contact as a caller sent it: absent, `null`, or text not yet checked. */
+export type OrganizationBillingContact = {
+	readonly [K in OrganizationBillingContactKey]?: string | null;
+};
+
+/**
+ * The billing contact fields that arrived, normalized and checked against their
+ * rules.
+ *
+ * The same shape as {@link normalizeOrganizationContactDetails}: an absent key
+ * stays out of `contact`, blank text comes back as `null`, each field is
+ * trimmed and held to its length, the email must be an address, and a refusal
+ * is an entry in `issues` rather than a throw. The operator console's
+ * Organization create is the only writer of these columns.
+ */
+export function normalizeOrganizationBillingContact(input: OrganizationBillingContact): {
+	readonly contact: { [K in OrganizationBillingContactKey]?: string | null };
+	readonly issues: readonly DomainValidationIssue[];
+} {
+	const issues = createIssues();
+	const contact = normalizeLimitedText(input, BILLING_CONTACT_LIMITS, issues);
+	checkEmailAddress(contact.billingContactEmail, 'billingContactEmail', issues);
+	return { contact, issues };
+}
+
+/**
+ * Each key of `limits` that arrived in `input`, trimmed and held to its limit.
+ *
+ * A key left out stays out, and blank text comes back as `null`.
+ */
+function normalizeLimitedText<K extends string>(
+	input: { readonly [P in K]?: string | null },
+	limits: Readonly<Record<K, number>>,
+	issues: DomainValidationIssue[],
+): { [P in K]?: string | null } {
+	const normalized: { [P in K]?: string | null } = {};
+	for (const key of Object.keys(limits) as K[]) {
+		if (input[key] !== undefined) {
+			normalized[key] = normalizeNullableText(input[key], key, issues, limits[key]);
+		}
+	}
+	return normalized;
+}
+
+/**
+ * Refuses a stored email that is not an address, in the one wording every
+ * organization email shares.
+ *
+ * Absent leaves the column alone and `null` clears it, so only a string is
+ * checked.
+ */
+function checkEmailAddress(
+	value: string | null | undefined,
+	path: OrganizationContactDetailKey | OrganizationBillingContactKey,
+	issues: DomainValidationIssue[],
+): void {
+	if (typeof value === 'string' && !isEmailAddress(value)) {
+		issues.push({ path, message: `${path} must be a valid email address.` });
+	}
+}
+
+/**
+ * The map centre's halves that arrived, each checked against its range.
+ *
+ * Clearing is the one thing done as a pair: a `null` must come with a `null`,
+ * because half a centre on a row that had one is a centre nobody chose. A
+ * number may arrive alone. The client sends the columns that changed, so a new
+ * geocode that lands on the stored latitude sends only the longitude, and the
+ * row already has the other half. A lone number on a row with no centre is
+ * stored state, so the server's writer refuses it.
+ */
+function mapCenterChanges(
+	input: OrganizationDetailChanges,
+	issues: ReturnType<typeof createIssues>,
+): Partial<Record<'mapCenterLat' | 'mapCenterLng', number | null>> {
+	if ((input.mapCenterLat === null) !== (input.mapCenterLng === null)) {
+		issues.push({
+			path: 'mapCenterLat',
+			message: 'mapCenterLat and mapCenterLng are cleared together, both null.',
+		});
+		return {};
+	}
+	const changes: Partial<Record<'mapCenterLat' | 'mapCenterLng', number | null>> = {};
+	for (const { key, limit, message } of MAP_CENTER_RANGES) {
+		const value = input[key];
+		if (value === undefined) {
+			continue;
+		}
+		if (!isCoordinate(value, limit)) {
+			issues.push({ path: key, message });
+		}
+		changes[key] = value;
+	}
+	return changes;
+}
+
+/** `null`, or a finite number no further from zero than `limit`. */
+function isCoordinate(value: number | null, limit: number): boolean {
+	return value === null || (Number.isFinite(value) && Math.abs(value) <= limit);
 }
 
 function normalizeExpectedUpdatedAt(

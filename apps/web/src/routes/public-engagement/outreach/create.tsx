@@ -11,11 +11,11 @@ import {
 import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
-import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
-import { useOutreachMethodRoster } from '../../../hooks/queries/use-outreach-method-roster';
+import { catalogs } from '../../../hooks/queries/catalog-register';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useMissionStopExecution } from '../../../hooks/use-mission-stop-execution';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { noTechnicianValue } from '../../../lib/no-technician';
@@ -46,19 +46,17 @@ function CreateOutreachActionRoute() {
 	// completes it in the same transaction.
 	const mission = useMissionStopExecution(search);
 	const navigate = useNavigate();
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const methods = useOutreachMethodRoster();
+	const methods = useCatalogRoster(catalogs.outreachMethods);
 	const profiles = useProfileRoster();
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const canSubmit = canAttributeWrite({ organization, actorProfileId });
 
-	// Minted up front so the crew rows can be written the moment the action lands
-	// — and so their on-demand stream is already warm when the save fires.
+	// Minted up front so the crew rows can be written the moment the action lands.
 	const [outreachActionId] = useState(newRecordId);
-	useAdditionalPersonnel({ type: 'outreachAction', id: outreachActionId });
 	const recordExtras = useRecordExtras();
 	const { record } = useOutreachActionMutations();
 
@@ -130,7 +128,7 @@ function CreateOutreachActionRoute() {
 			<OutreachFormPage
 				canSubmit={canSubmit}
 				mode="create"
-				defaultValues={defaultOutreachFormValues(timeZone)}
+				defaultValues={defaultOutreachFormValues(clock.zone)}
 				header={{
 					title: createLabel('outreachAction'),
 					backTo: '/public-engagement/outreach',

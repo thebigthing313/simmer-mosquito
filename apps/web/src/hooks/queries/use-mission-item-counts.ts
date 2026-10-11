@@ -13,7 +13,7 @@
 
 import { and, caseWhen, count, inArray, isNull, not, sum, useLiveQuery } from '@tanstack/react-db';
 import { mission_items } from '../../lib/collections/mission_items';
-import { activityGcTimeMs, unmatchableId } from './shared';
+import { liveQueryGcTimeMs, unmatchableId } from './shared';
 import { type WorklistProgress, worklistProgress } from './worklist-progress';
 
 export function useMissionItemCounts(missionIds: readonly string[]): {
@@ -23,7 +23,7 @@ export function useMissionItemCounts(missionIds: readonly string[]): {
 	const queryIds = missionIds.length > 0 ? [...missionIds] : [unmatchableId];
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: mission_items() })

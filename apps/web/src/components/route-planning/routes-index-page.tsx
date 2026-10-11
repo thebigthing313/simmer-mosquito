@@ -20,12 +20,13 @@ import { useState } from 'react';
 import type { RouteStopFeature } from '../../hooks/map/use-route-layer';
 import type { RouteSelection } from '../../hooks/route-planning/use-route-selection';
 import { useHasRole } from '../../hooks/use-can-write';
+import { stopCountPhrase } from '../../lib/format-count';
+import { recordCount } from '../../lib/record-nouns';
 import { createLabel } from '../app-shell/navigation';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
+import { StopSequenceMap } from '../map/stop-sequence-map';
 import { WriteOnly } from '../write-only';
 import { RouteCreateDialog } from './route-create-dialog';
-import { RouteMap } from './route-map';
-import { type RouteStop, routeCountLabel, stopCountLabel } from './route-stop';
 import type { RouteSummary } from './route-summary';
 import type { RoutePlanningSurface } from './surface';
 
@@ -33,7 +34,6 @@ const RouteIcon = iconRegistry.entities.route.icon;
 
 /** The stops of whichever route the list has selected. */
 export interface SelectedRouteStops {
-	readonly stops: readonly RouteStop[];
 	readonly features: readonly RouteStopFeature[];
 	readonly itemCount: number;
 }
@@ -76,20 +76,21 @@ export function RoutesIndexPage({
 			: routes.filter((route) => route.routeName.toLowerCase().includes(search));
 
 	const selectedRoute = routes.find((route) => route.id === effectiveRouteId) ?? null;
-	const { stops, features, itemCount } = selectedStops;
+	const { features, itemCount } = selectedStops;
 
 	return (
 		<>
 			<MapSplitPage
 				map={
-					<RouteMap
+					<StopSequenceMap
 						features={features}
 						fitKey={effectiveRouteId ?? undefined}
 						highlightId={highlightId}
 						onHoverStop={setHighlightId}
 						onSelectStop={setSelectedStopId}
+						recordType="route"
 						selectedId={selectedStopId}
-						stops={stops}
+						stopCount={itemCount}
 					>
 						{selectedRoute !== null ? (
 							<div className="pointer-events-none absolute inset-x-4 top-4 flex justify-center sm:justify-start">
@@ -99,7 +100,7 @@ export function RoutesIndexPage({
 											<h2 className="truncate font-semibold text-foreground text-sm leading-tight">
 												{selectedRoute.routeName}
 											</h2>
-											<p className="text-muted-foreground text-xs">{stopCountLabel(itemCount)}</p>
+											<p className="text-muted-foreground text-xs">{stopCountPhrase(itemCount)}</p>
 										</div>
 										<RouteIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
 									</div>
@@ -116,7 +117,7 @@ export function RoutesIndexPage({
 								</div>
 							</div>
 						) : null}
-					</RouteMap>
+					</StopSequenceMap>
 				}
 			>
 				<div className="flex h-full min-h-0 flex-col">
@@ -127,7 +128,7 @@ export function RoutesIndexPage({
 									{surface.title}
 								</h1>
 								<span className="text-muted-foreground text-sm">
-									{routeCountLabel(routes.length)}
+									{recordCount('route', routes.length)}
 								</span>
 							</div>
 							<WriteOnly minimum="manager">
@@ -309,7 +310,7 @@ function RouteListRow({
 						{route.routeName}
 					</Link>
 					<span className="block text-muted-foreground text-xs">
-						{stopCount === null ? <AbsentValue /> : stopCountLabel(stopCount)}
+						{stopCount === null ? <AbsentValue /> : stopCountPhrase(stopCount)}
 					</span>
 				</span>
 				<Button

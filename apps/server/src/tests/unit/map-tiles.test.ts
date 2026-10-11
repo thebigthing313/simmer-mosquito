@@ -189,14 +189,14 @@ describe('parseHabitatDisplayQuery', () => {
 			parseHabitatDisplayQuery(
 				new URLSearchParams({
 					bbox: '-91,35,-90,36',
-					limit: '100',
+					limit: '101',
 				}),
 				organizationId,
 				timeZone,
 			),
 		).toMatchObject({
 			ok: false,
-			reason: 'limit must be between 1 and 50.',
+			reason: 'limit must be between 1 and 100.',
 		});
 	});
 });
@@ -273,7 +273,7 @@ describe('registerMapTileRoutes', () => {
 			listHabitatDisplayRows,
 		});
 
-		const response = await app.request('/map/habitats?bbox=-91,35,-90,36&limit=99');
+		const response = await app.request('/map/habitats?bbox=-91,35,-90,36&limit=101');
 
 		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
 		expect(response.status).toBe(400);
@@ -594,6 +594,75 @@ describe('registerMapTileRoutes', () => {
 		expect(response.status).toBe(401);
 		expect(countHabitatTypeUsage).not.toHaveBeenCalled();
 	});
+
+	it('summarizes the habitats in the box under the same filters the page reads', async () => {
+		const calls: unknown[] = [];
+		const summary = {
+			total: 214,
+			groups: {
+				habitatTypeId: [{ value: habitatTypeId, count: 200 }],
+				isActive: [{ value: true, count: 214 }],
+				isInaccessible: [{ value: false, count: 214 }],
+				untreated: [{ value: false, count: 214 }],
+			},
+		};
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			summarizeHabitats: async (_db, input) => {
+				calls.push(input);
+				return summary;
+			},
+		});
+
+		const response = await app.request(
+			`/map/habitats/summary?bbox=-91,35,-90,36&isActive=true&habitatTypeId=${habitatTypeId}&untreated=true`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(calls).toEqual([
+			{
+				organizationId,
+				bounds: { west: -91, south: 35, east: -90, north: 36 },
+				filters: { isActive: true, habitatTypeIds: [habitatTypeId], untreatedOnly: true },
+			},
+		]);
+	});
+
+	it.each([
+		['a missing bbox', '/map/habitats/summary?isActive=true'],
+		['a paging param', '/map/habitats/summary?bbox=-91,35,-90,36&limit=10'],
+		['an unknown filter', '/map/habitats/summary?bbox=-91,35,-90,36&notAFilter=1'],
+	])('refuses %s before reading the summary', async (_case, path) => {
+		const summarizeHabitats = vi.fn();
+		const getHabitatDisplayRow = vi.fn();
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			summarizeHabitats,
+			getHabitatDisplayRow,
+		});
+
+		const response = await app.request(path);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeHabitats).not.toHaveBeenCalled();
+		expect(getHabitatDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('requires auth before reading the summary', async () => {
+		const summarizeHabitats = vi.fn();
+		const app = createApp({
+			authenticated: false,
+			getHabitatTile: async () => new Uint8Array(),
+			summarizeHabitats,
+		});
+
+		const response = await app.request('/map/habitats/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeHabitats).not.toHaveBeenCalled();
+	});
 });
 
 describe('parseInspectionTileFilters', () => {
@@ -679,7 +748,7 @@ describe('parseInspectionDisplayQuery', () => {
 				organizationId,
 				timeZone,
 			),
-		).toMatchObject({ ok: false, reason: 'limit must be between 1 and 50.' });
+		).toMatchObject({ ok: false, reason: 'limit must be between 1 and 100.' });
 	});
 });
 
@@ -800,6 +869,691 @@ describe('registerMapTileRoutes — inspections', () => {
 		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_id' });
 		expect(getInspectionDisplayRow).not.toHaveBeenCalled();
 	});
+
+	it('summarizes the inspections in the box under the same filters the page reads', async () => {
+		const calls: unknown[] = [];
+		const summary = {
+			total: 140,
+			groups: {
+				isWet: [{ value: true, count: 140 }],
+				density: [{ value: 'heavy', count: 140 }],
+				positive: [{ value: true, count: 140 }],
+				habitatTypeId: [{ value: habitatTypeId, count: 140 }],
+				inspectedBy: [{ value: null, count: 140 }],
+			},
+		};
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			summarizeInspections: async (_db, input) => {
+				calls.push(input);
+				return summary;
+			},
+		});
+
+		const response = await app.request(
+			`/map/inspections/summary?bbox=-91,35,-90,36&isWet=true&density=heavy&positive=true&habitatTypeId=${habitatTypeId}&dateFrom=2026-09-01&dateTo=2026-09-30`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(calls).toEqual([
+			{
+				organizationId,
+				bounds: { west: -91, south: 35, east: -90, north: 36 },
+				filters: {
+					isWet: true,
+					densities: ['heavy'],
+					positiveOnly: true,
+					habitatTypeIds: [habitatTypeId],
+					dateFrom: '2026-09-01',
+					dateTo: '2026-09-30',
+				},
+			},
+		]);
+	});
+
+	it.each([
+		['a missing bbox', '/map/inspections/summary?isWet=true'],
+		['a paging param', '/map/inspections/summary?bbox=-91,35,-90,36&offset=100'],
+		['an unknown filter', '/map/inspections/summary?bbox=-91,35,-90,36&notAFilter=1'],
+	])('refuses %s before reading the inspection summary', async (_case, path) => {
+		const summarizeInspections = vi.fn();
+		const getInspectionDisplayRow = vi.fn();
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			summarizeInspections,
+			getInspectionDisplayRow,
+		});
+
+		const response = await app.request(path);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeInspections).not.toHaveBeenCalled();
+		expect(getInspectionDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('requires auth before reading the inspection summary', async () => {
+		const summarizeInspections = vi.fn();
+		const app = createApp({
+			authenticated: false,
+			getHabitatTile: async () => new Uint8Array(),
+			summarizeInspections,
+		});
+
+		const response = await app.request('/map/inspections/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeInspections).not.toHaveBeenCalled();
+	});
+});
+
+// The Samples rail's summary over 100 in view (#1370), which answers a figure
+// beside the groups.
+describe('registerMapTileRoutes — sample summary', () => {
+	const speciesId = '8c3e1f52-6a4d-4b97-9e20-5d7f3a1c8b64';
+
+	it('passes the box and every sample filter to the summary, and answers its figures', async () => {
+		const summarizeSamples = vi.fn(async () => ({
+			total: 230,
+			groups: {
+				status: [{ value: 'identified', count: 230 }],
+				species: [{ value: speciesId, count: 230 }],
+				nonMosquito: [{ value: true, count: 230 }],
+			},
+			figures: { larvaeTotal: 1_204 },
+		}));
+		const app = createApp({ getHabitatTile: async () => new Uint8Array(), summarizeSamples });
+
+		const response = await app.request(
+			`/map/samples/summary?bbox=-91,35,-90,36&species=${speciesId}&status=identified&nonMosquito=true&regionId=${regionId}&dateFrom=2026-09-01&dateTo=2026-09-30`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toMatchObject({ figures: { larvaeTotal: 1_204 } });
+		expect(summarizeSamples).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				speciesIds: [speciesId],
+				status: 'identified',
+				nonMosquitoOnly: true,
+				regionIds: [regionId],
+				dateFrom: '2026-09-01',
+				dateTo: '2026-09-30',
+			},
+		});
+	});
+
+	it.each([
+		['a missing bbox', '?status=awaiting'],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a status that is not one of the four', '?bbox=-91,35,-90,36&status=maybe'],
+		['a param no sample filter admits', '?bbox=-91,35,-90,36&isWet=true'],
+	])('refuses %s before reading the sample summary', async (_case, query) => {
+		const summarizeSamples = vi.fn();
+		const getSampleDisplayRow = vi.fn();
+		const app = createApp({ summarizeSamples, getSampleDisplayRow });
+
+		const response = await app.request(`/map/samples/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeSamples).not.toHaveBeenCalled();
+		expect(getSampleDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no sample summary for a request with no session', async () => {
+		const summarizeSamples = vi.fn();
+		const app = createApp({ authenticated: false, summarizeSamples });
+
+		const response = await app.request('/map/samples/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeSamples).not.toHaveBeenCalled();
+	});
+});
+
+// The Service Requests rail's summary over 100 in view (#1371). The rail sends
+// the page's params, its order among them, so the summary admits `oldest` and
+// the reader leaves it unread.
+describe('registerMapTileRoutes — service request summary', () => {
+	const tagId = '3f9a7c21-5b8e-4d60-a1f4-7e2c9b0d6a35';
+
+	it('passes the box and every service request filter to the summary, and answers its figures', async () => {
+		const summarizeServiceRequests = vi.fn(async () => ({
+			total: 412,
+			groups: {
+				status: [{ value: 'open', count: 412 }],
+				tagId: [{ value: tagId, count: 412 }],
+				intakeType: [{ value: 'phone', count: 412 }],
+			},
+			figures: { oldestOpenDays: 41 },
+		}));
+		const getServiceRequestDisplayRow = vi.fn();
+		const app = createApp({ summarizeServiceRequests, getServiceRequestDisplayRow });
+
+		const response = await app.request(
+			`/map/service-requests/summary?bbox=-91,35,-90,36&status=open&search=garage&tagId=${tagId}&regionId=${regionId}&dateFrom=2026-01-01&dateTo=2026-09-30&oldest=true&overdueBefore=2026-09-16`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toMatchObject({ figures: { oldestOpenDays: 41 } });
+		expect(summarizeServiceRequests).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				isOpen: true,
+				search: 'garage',
+				tagIds: [tagId],
+				regionIds: [regionId],
+				dateFrom: '2026-01-01',
+				dateTo: '2026-09-30',
+				oldestFirst: true,
+				overdueBefore: '2026-09-16',
+			},
+		});
+		expect(getServiceRequestDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', '?status=open'],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a status that is not open or closed', '?bbox=-91,35,-90,36&status=maybe'],
+		['an overdue cut-off that is not a date', '?bbox=-91,35,-90,36&overdueBefore=14'],
+		['a param no service request filter admits', '?bbox=-91,35,-90,36&isWet=true'],
+	])('refuses %s before reading the service request summary', async (_case, query) => {
+		const summarizeServiceRequests = vi.fn();
+		const getServiceRequestDisplayRow = vi.fn();
+		const app = createApp({ summarizeServiceRequests, getServiceRequestDisplayRow });
+
+		const response = await app.request(`/map/service-requests/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeServiceRequests).not.toHaveBeenCalled();
+		expect(getServiceRequestDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no service request summary for a request with no session', async () => {
+		const summarizeServiceRequests = vi.fn();
+		const app = createApp({ authenticated: false, summarizeServiceRequests });
+
+		const response = await app.request('/map/service-requests/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeServiceRequests).not.toHaveBeenCalled();
+	});
+});
+
+// The Traps rail's summary over 100 in view (#1372).
+describe('registerMapTileRoutes — trap summary', () => {
+	const methodId = '5d1e8b37-2c4f-4a96-8e01-9b6f3c7a2d58';
+
+	it('passes the box and every trap filter to the summary, and answers its counts', async () => {
+		const summary = {
+			total: 180,
+			groups: {
+				collectionMethodId: [{ value: methodId, count: 180 }],
+				isActive: [{ value: false, count: 180 }],
+			},
+		};
+		const summarizeTraps = vi.fn(async () => summary);
+		const getTrapDisplayRow = vi.fn();
+		const app = createApp({ summarizeTraps, getTrapDisplayRow });
+
+		const response = await app.request(
+			`/map/traps/summary?bbox=-91,35,-90,36&status=inactive&collectionMethodId=${methodId}&search=gravid&regionId=${regionId}`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(summarizeTraps).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				isActive: false,
+				collectionMethodIds: [methodId],
+				search: 'gravid',
+				regionIds: [regionId],
+			},
+		});
+		expect(getTrapDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', '?status=active'],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a status that is not active or inactive', '?bbox=-91,35,-90,36&status=maybe'],
+		['a param no trap filter admits', '?bbox=-91,35,-90,36&isWet=true'],
+	])('refuses %s before reading the trap summary', async (_case, query) => {
+		const summarizeTraps = vi.fn();
+		const getTrapDisplayRow = vi.fn();
+		const app = createApp({ summarizeTraps, getTrapDisplayRow });
+
+		const response = await app.request(`/map/traps/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeTraps).not.toHaveBeenCalled();
+		expect(getTrapDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no trap summary for a request with no session', async () => {
+		const summarizeTraps = vi.fn();
+		const app = createApp({ authenticated: false, summarizeTraps });
+
+		const response = await app.request('/map/traps/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeTraps).not.toHaveBeenCalled();
+	});
+});
+
+// The Collections rail's summary over 100 in view (#1373).
+describe('registerMapTileRoutes — collection summary', () => {
+	const methodId = '7a4c2e19-8b3d-4f60-9c15-2e8d6b0f3a47';
+
+	it('passes the box and every collection filter to the summary, and answers its figures', async () => {
+		const summary = {
+			total: 240,
+			groups: {
+				problem: [{ value: true, count: 240 }],
+				awaiting: [{ value: true, count: 240 }],
+				collectionMethodId: [{ value: methodId, count: 240 }],
+			},
+			figures: { zeroResult: 0, collected: 0 },
+		};
+		const summarizeCollections = vi.fn(async () => summary);
+		const getCollectionDisplayRow = vi.fn();
+		const app = createApp({ summarizeCollections, getCollectionDisplayRow });
+
+		const response = await app.request(
+			`/map/collections/summary?bbox=-91,35,-90,36&collectionMethodId=${methodId}&problem=true&awaiting=true&regionId=${regionId}&dateFrom=2026-07-01&dateTo=2026-09-28`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(summarizeCollections).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				collectionMethodIds: [methodId],
+				problemOnly: true,
+				awaitingOnly: true,
+				regionIds: [regionId],
+				dateFrom: '2026-07-01',
+				dateTo: '2026-09-28',
+			},
+		});
+		expect(getCollectionDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', '?problem=true'],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a date that is not a date', '?bbox=-91,35,-90,36&dateFrom=last-week'],
+		['a param no collection filter admits', '?bbox=-91,35,-90,36&status=active'],
+	])('refuses %s before reading the collection summary', async (_case, query) => {
+		const summarizeCollections = vi.fn();
+		const getCollectionDisplayRow = vi.fn();
+		const app = createApp({ summarizeCollections, getCollectionDisplayRow });
+
+		const response = await app.request(`/map/collections/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeCollections).not.toHaveBeenCalled();
+		expect(getCollectionDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no collection summary for a request with no session', async () => {
+		const summarizeCollections = vi.fn();
+		const app = createApp({ authenticated: false, summarizeCollections });
+
+		const response = await app.request('/map/collections/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeCollections).not.toHaveBeenCalled();
+	});
+});
+
+// The Chemical Applications rail's summary over 100 in view (#1374).
+describe('registerMapTileRoutes — chemical application summary', () => {
+	const insecticideId = '3c9e7a52-1f4b-4d86-a0e3-58b2c7d91f06';
+	const methodId = 'b41f8d27-6c3e-4a95-8e10-7d2a5c9f3b68';
+	const applicatorId = 'e7a2c5d1-9b48-4f30-b6e2-1c8d4f7a9e53';
+	const unitId = '5d8b1e3a-7c2f-4e69-9a04-b3f6c8d2e175';
+
+	it('passes the box and every application filter to the summary, and answers its breakdowns', async () => {
+		const summary = {
+			total: 240,
+			groups: {
+				insecticideId: [{ value: insecticideId, count: 240 }],
+				applicationMethodId: [{ value: methodId, count: 240 }],
+				applicatorProfileId: [{ value: applicatorId, count: 240 }],
+			},
+			breakdowns: {
+				amountApplied: [{ by: { insecticideId, unitId }, count: 240, sum: 480 }],
+			},
+		};
+		const summarizeApplications = vi.fn(async () => summary);
+		const getApplicationDisplayRow = vi.fn();
+		const app = createApp({ summarizeApplications, getApplicationDisplayRow });
+
+		const response = await app.request(
+			`/map/chemical/summary?bbox=-91,35,-90,36&insecticideId=${insecticideId}&applicationMethodId=${methodId}&applicator=${applicatorId}&regionId=${regionId}&dateFrom=2026-07-01&dateTo=2026-09-28`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(summarizeApplications).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				insecticideIds: [insecticideId],
+				applicationMethodIds: [methodId],
+				applicatorProfileIds: [applicatorId],
+				regionIds: [regionId],
+				dateFrom: '2026-07-01',
+				dateTo: '2026-09-28',
+			},
+		});
+		expect(getApplicationDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', `?insecticideId=${insecticideId}`],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a date that is not a date', '?bbox=-91,35,-90,36&dateFrom=last-week'],
+		['a param no application filter admits', '?bbox=-91,35,-90,36&status=active'],
+	])('refuses %s before reading the application summary', async (_case, query) => {
+		const summarizeApplications = vi.fn();
+		const getApplicationDisplayRow = vi.fn();
+		const app = createApp({ summarizeApplications, getApplicationDisplayRow });
+
+		const response = await app.request(`/map/chemical/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeApplications).not.toHaveBeenCalled();
+		expect(getApplicationDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no application summary for a request with no session', async () => {
+		const summarizeApplications = vi.fn();
+		const app = createApp({ authenticated: false, summarizeApplications });
+
+		const response = await app.request('/map/chemical/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeApplications).not.toHaveBeenCalled();
+	});
+});
+
+// The Source Reductions rail's summary over 100 in view (#1375).
+describe('registerMapTileRoutes — source reduction summary', () => {
+	const methodId = '8f2d6b41-3a7c-4e95-b0d8-2c6e9a1f5b37';
+	const technicianId = 'a5c3e8f2-6d1b-4b70-9e24-7f8a3d5c1e96';
+	const unitId = 'd1e7b4a9-2f5c-4c83-a6b0-9e3d7f2a8c54';
+
+	it('passes the box and every source reduction filter to the summary, and answers its breakdowns', async () => {
+		const summary = {
+			total: 180,
+			groups: {
+				sourceReductionMethodId: [{ value: methodId, count: 180 }],
+				technicianProfileId: [{ value: technicianId, count: 180 }],
+			},
+			breakdowns: {
+				sourcesEliminated: [{ by: { unitId }, count: 180, sum: 360 }],
+			},
+		};
+		const summarizeSourceReductions = vi.fn(async () => summary);
+		const getSourceReductionDisplayRow = vi.fn();
+		const app = createApp({ summarizeSourceReductions, getSourceReductionDisplayRow });
+
+		const response = await app.request(
+			`/map/source-reduction/summary?bbox=-91,35,-90,36&sourceReductionMethodId=${methodId}&technician=${technicianId}&regionId=${regionId}&dateFrom=2026-07-01&dateTo=2026-09-28`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(summarizeSourceReductions).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				sourceReductionMethodIds: [methodId],
+				technicianProfileIds: [technicianId],
+				regionIds: [regionId],
+				dateFrom: '2026-07-01',
+				dateTo: '2026-09-28',
+			},
+		});
+		expect(getSourceReductionDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', `?sourceReductionMethodId=${methodId}`],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a date that is not a date', '?bbox=-91,35,-90,36&dateFrom=last-week'],
+		['a param no source reduction filter admits', '?bbox=-91,35,-90,36&applicator=someone'],
+	])('refuses %s before reading the source reduction summary', async (_case, query) => {
+		const summarizeSourceReductions = vi.fn();
+		const getSourceReductionDisplayRow = vi.fn();
+		const app = createApp({ summarizeSourceReductions, getSourceReductionDisplayRow });
+
+		const response = await app.request(`/map/source-reduction/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeSourceReductions).not.toHaveBeenCalled();
+		expect(getSourceReductionDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no source reduction summary for a request with no session', async () => {
+		const summarizeSourceReductions = vi.fn();
+		const app = createApp({ authenticated: false, summarizeSourceReductions });
+
+		const response = await app.request('/map/source-reduction/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeSourceReductions).not.toHaveBeenCalled();
+	});
+});
+
+// The Biocontrol Actions rail's summary over 100 in view (#1376).
+describe('registerMapTileRoutes — biocontrol summary', () => {
+	const methodId = '3b9e1f72-5c4a-4d86-9f03-6a2e8d7b1c45';
+	const technicianId = 'c7d2a9e4-1f6b-4e38-8a51-0b3f9c6e2d17';
+	const unitId = 'e4a8c1f6-9b2d-4f57-b3e0-5d7c2a9f8b61';
+
+	it('passes the box and every biocontrol filter to the summary, and answers its breakdowns', async () => {
+		const summary = {
+			total: 160,
+			groups: {
+				biocontrolMethodId: [{ value: methodId, count: 160 }],
+				technicianProfileId: [{ value: technicianId, count: 160 }],
+				habitat: [{ value: true, count: 160 }],
+			},
+			breakdowns: {
+				amountReleased: [{ by: { unitId }, count: 160, sum: 4000 }],
+			},
+		};
+		const summarizeBiocontrolActions = vi.fn(async () => summary);
+		const getBiocontrolDisplayRow = vi.fn();
+		const app = createApp({ summarizeBiocontrolActions, getBiocontrolDisplayRow });
+
+		const response = await app.request(
+			`/map/biocontrol/summary?bbox=-91,35,-90,36&biocontrolMethodId=${methodId}&technician=${technicianId}&habitatLinked=true&regionId=${regionId}&dateFrom=2026-07-01&dateTo=2026-09-28`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(summarizeBiocontrolActions).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				biocontrolMethodIds: [methodId],
+				technicianProfileIds: [technicianId],
+				habitatLinkedOnly: true,
+				regionIds: [regionId],
+				dateFrom: '2026-07-01',
+				dateTo: '2026-09-28',
+			},
+		});
+		expect(getBiocontrolDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', `?biocontrolMethodId=${methodId}`],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a date that is not a date', '?bbox=-91,35,-90,36&dateFrom=last-week'],
+		['a param no biocontrol filter admits', '?bbox=-91,35,-90,36&applicator=someone'],
+	])('refuses %s before reading the biocontrol summary', async (_case, query) => {
+		const summarizeBiocontrolActions = vi.fn();
+		const getBiocontrolDisplayRow = vi.fn();
+		const app = createApp({ summarizeBiocontrolActions, getBiocontrolDisplayRow });
+
+		const response = await app.request(`/map/biocontrol/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeBiocontrolActions).not.toHaveBeenCalled();
+		expect(getBiocontrolDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no biocontrol summary for a request with no session', async () => {
+		const summarizeBiocontrolActions = vi.fn();
+		const app = createApp({ authenticated: false, summarizeBiocontrolActions });
+
+		const response = await app.request('/map/biocontrol/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeBiocontrolActions).not.toHaveBeenCalled();
+	});
+});
+
+// The Outreach Actions rail's summary over 100 in view (#1377).
+describe('registerMapTileRoutes — outreach summary', () => {
+	const methodId = '6f1c3a85-2d7e-4b90-a4c6-8e5b0d3f7a29';
+	const technicianId = 'a2e7c4b9-5d18-4f63-9b0a-7c3e1f8d6b52';
+
+	it('passes the box and every outreach filter to the summary, and answers its figure', async () => {
+		const summary = {
+			total: 140,
+			groups: {
+				outreachMethodId: [{ value: methodId, count: 140 }],
+				technicianProfileId: [{ value: technicianId, count: 140 }],
+			},
+			figures: { reachTotal: 3200 },
+		};
+		const summarizeOutreachActions = vi.fn(async () => summary);
+		const getOutreachDisplayRow = vi.fn();
+		const app = createApp({ summarizeOutreachActions, getOutreachDisplayRow });
+
+		const response = await app.request(
+			`/map/outreach/summary?bbox=-91,35,-90,36&outreachMethodId=${methodId}&technician=${technicianId}&regionId=${regionId}&dateFrom=2026-07-01&dateTo=2026-09-28`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(summarizeOutreachActions).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -91, south: 35, east: -90, north: 36 },
+			filters: {
+				outreachMethodIds: [methodId],
+				technicianProfileIds: [technicianId],
+				regionIds: [regionId],
+				dateFrom: '2026-07-01',
+				dateTo: '2026-09-28',
+			},
+		});
+		expect(getOutreachDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', `?outreachMethodId=${methodId}`],
+		['a page offset', '?bbox=-91,35,-90,36&offset=100'],
+		['a date that is not a date', '?bbox=-91,35,-90,36&dateFrom=last-week'],
+		['a param no outreach filter admits', '?bbox=-91,35,-90,36&habitatLinked=true'],
+	])('refuses %s before reading the outreach summary', async (_case, query) => {
+		const summarizeOutreachActions = vi.fn();
+		const getOutreachDisplayRow = vi.fn();
+		const app = createApp({ summarizeOutreachActions, getOutreachDisplayRow });
+
+		const response = await app.request(`/map/outreach/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeOutreachActions).not.toHaveBeenCalled();
+		expect(getOutreachDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no outreach summary for a request with no session', async () => {
+		const summarizeOutreachActions = vi.fn();
+		const app = createApp({ authenticated: false, summarizeOutreachActions });
+
+		const response = await app.request('/map/outreach/summary?bbox=-91,35,-90,36');
+
+		expect(response.status).toBe(401);
+		expect(summarizeOutreachActions).not.toHaveBeenCalled();
+	});
+});
+
+// The Address Book rail's summary over 100 in view (#1378).
+describe('registerMapTileRoutes — address summary', () => {
+	it('passes the box and both address filters to the summary, and answers its counts', async () => {
+		const summary = {
+			total: 140,
+			groups: {
+				locality: [{ value: 'Monroe Township', count: 140 }],
+				postalCode: [{ value: '08831', count: 140 }],
+			},
+		};
+		const summarizeAddresses = vi.fn(async () => summary);
+		const getAddressDisplayRow = vi.fn();
+		const app = createApp({ summarizeAddresses, getAddressDisplayRow });
+
+		const response = await app.request(
+			`/map/addresses/summary?bbox=-75,40,-74,41&search=Main&regionId=${regionId}`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual(summary);
+		expect(summarizeAddresses).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			bounds: { west: -75, south: 40, east: -74, north: 41 },
+			filters: { search: 'Main', regionIds: [regionId] },
+		});
+		expect(getAddressDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a missing bbox', '?search=Main'],
+		['a page offset', '?bbox=-75,40,-74,41&offset=100'],
+		['a param no address filter admits', '?bbox=-75,40,-74,41&status=active'],
+	])('refuses %s before reading the address summary', async (_case, query) => {
+		const summarizeAddresses = vi.fn();
+		const getAddressDisplayRow = vi.fn();
+		const app = createApp({ summarizeAddresses, getAddressDisplayRow });
+
+		const response = await app.request(`/map/addresses/summary${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(summarizeAddresses).not.toHaveBeenCalled();
+		expect(getAddressDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('reads no address summary for a request with no session', async () => {
+		const summarizeAddresses = vi.fn();
+		const app = createApp({ authenticated: false, summarizeAddresses });
+
+		const response = await app.request('/map/addresses/summary?bbox=-75,40,-74,41');
+
+		expect(response.status).toBe(401);
+		expect(summarizeAddresses).not.toHaveBeenCalled();
+	});
 });
 
 // The four routes whose readers were called directly rather than injected, so
@@ -888,6 +1642,117 @@ describe('map geometry routes', () => {
 		expect(response.status).toBe(400);
 		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_id' });
 		expect(listMissionItems).not.toHaveBeenCalled();
+	});
+});
+
+// `cluster=1` is read beside the filters: it changes how a tile draws its points
+// and not which records it holds, so only a tileset that declares it takes it,
+// and the extent the camera frames never sees it.
+describe('registerMapTileRoutes: clustered tiles', () => {
+	it('hands the trap tile reader a request for clusters', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			getTrapTile: async (_db, input) => {
+				calls.push(input);
+				return new Uint8Array();
+			},
+		});
+
+		const response = await app.request('/map/tiles/traps/10/300/386.mvt?cluster=1&status=active');
+
+		expect(response.status).toBe(200);
+		expect(calls).toEqual([
+			{ z: 10, x: 300, y: 386, organizationId, filters: { isActive: true }, cluster: true },
+		]);
+	});
+
+	// Every tileset whose records are points clusters them. Regions is the one
+	// that does not, because a Region is a boundary.
+	it.each([
+		['habitats', 'getHabitatTile'],
+		['addresses', 'getAddressTile'],
+		['inspections', 'getInspectionTile'],
+		['samples', 'getSampleTile'],
+		['chemical', 'getApplicationTile'],
+		['source-reduction', 'getSourceReductionTile'],
+		['biocontrol', 'getBiocontrolTile'],
+		['outreach', 'getOutreachTile'],
+		['traps', 'getTrapTile'],
+		['collections', 'getCollectionTile'],
+		['service-requests', 'getServiceRequestTile'],
+	] as const)('hands the %s tile reader a request for clusters', async (tileset, reader) => {
+		const calls: Array<{ readonly cluster?: true }> = [];
+		const app = createApp({
+			[reader]: async (_db: unknown, input: { readonly cluster?: true }) => {
+				calls.push(input);
+				return new Uint8Array();
+			},
+		});
+
+		const response = await app.request(`/map/tiles/${tileset}/10/300/386.mvt?cluster=1`);
+
+		expect(response.status).toBe(200);
+		expect(calls.map((input) => input.cluster)).toEqual([true]);
+	});
+
+	it('reads the plain tile when no cluster is asked for', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			getTrapTile: async (_db, input) => {
+				calls.push(input);
+				return new Uint8Array();
+			},
+		});
+
+		await app.request('/map/tiles/traps/10/300/386.mvt');
+
+		expect(calls).toEqual([{ z: 10, x: 300, y: 386, organizationId, filters: {} }]);
+	});
+
+	it('refuses clusters on the regions tileset before reading tiles', async () => {
+		const getRegionTile = vi.fn();
+		const app = createApp({ getRegionTile });
+
+		const response = await app.request('/map/tiles/regions/10/300/386.mvt?cluster=1');
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_cluster' });
+		expect(getRegionTile).not.toHaveBeenCalled();
+	});
+
+	it('refuses a cluster value other than 1', async () => {
+		const getTrapTile = vi.fn();
+		const app = createApp({ getTrapTile });
+
+		const response = await app.request('/map/tiles/traps/10/300/386.mvt?cluster=true');
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_cluster' });
+		expect(getTrapTile).not.toHaveBeenCalled();
+	});
+
+	it('frames the same extent whether or not clusters are asked for', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			getTrapExtent: async (_db, input) => {
+				calls.push(input);
+				return null;
+			},
+			getRegionExtent: async (_db, input) => {
+				calls.push(input);
+				return null;
+			},
+		});
+
+		const trap = await app.request('/map/tiles/traps/extent?cluster=1&status=active');
+		const region = await app.request(`/map/tiles/regions/extent?cluster=1&id=${regionId}`);
+
+		expect(trap.status).toBe(200);
+		expect(region.status).toBe(200);
+		expect(calls).toEqual([
+			{ organizationId, filters: { isActive: true } },
+			{ organizationId, filters: { ids: [regionId] } },
+		]);
 	});
 });
 

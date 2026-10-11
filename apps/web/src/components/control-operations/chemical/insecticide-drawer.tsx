@@ -237,7 +237,7 @@ function DeleteInsecticideDialog({
 			title="Delete Insecticide?"
 			trigger={
 				<Button type="button" variant="destructive">
-					<DeleteIcon aria-hidden="true" data-icon="inline-start" />
+					<DeleteIcon aria-hidden="true" />
 					Delete Insecticide
 				</Button>
 			}

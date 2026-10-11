@@ -1,12 +1,14 @@
-import type { MapQueryValue } from '../../hooks/explorer/use-paged-map-resource';
+import { SAMPLE_MAP_FILTERS } from '@simmer-mosquito/domain';
 import { addDaysToDateString } from '../../lib/local-date';
 import {
 	choiceParam,
+	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
 	flagParam,
 	idSetParam,
 } from '../../lib/search-filters';
+import { defineRecordSet } from '../explorer/record-set';
 import { whenAny, whenOn, whenText } from '../explorer/tile-filter-params';
 import type { SampleTileFilters } from '../map';
 
@@ -50,7 +52,7 @@ export const sampleFilterCodecs: FilterCodecs<SampleFilters> = {
 };
 
 /** How many days the window opens on, ending on the Organization's today. */
-const DEFAULT_WINDOW_DAYS = 30;
+export const SAMPLE_WINDOW_DAYS = 30;
 
 /**
  * What an address with no filter params means: every status over the last
@@ -58,7 +60,7 @@ const DEFAULT_WINDOW_DAYS = 30;
  */
 export function sampleFilterDefaults(today: string): SampleFilters {
 	return {
-		from: addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
+		from: addDaysToDateString(today, -(SAMPLE_WINDOW_DAYS - 1)),
 		to: today,
 		status: 'all',
 		species: new Set(),
@@ -80,32 +82,24 @@ export function sampleTileFilters(filters: SampleFilters): SampleTileFilters {
 }
 
 /**
- * The same filters as `/map/samples` reads them. The Map adds the viewport's
- * `bbox` to these and the Table adds the whole world's, so the two surfaces
- * send one filter set under two boxes.
+ * The Samples Map and Table. Both read `/map/samples` and apply every filter.
  */
-export function sampleListParams(filters: SampleTileFilters): Record<string, MapQueryValue> {
-	return {
-		species: filters.speciesIds,
-		status: filters.status,
-		nonMosquito: filters.nonMosquitoOnly,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	};
-}
-
-/**
- * The params a move between the Map and the Table carries. That is every
- * filter, since both surfaces read the same list endpoint and apply each one.
- */
-export function sharedSampleSearch(search: Record<string, unknown>): Record<string, unknown> {
-	const carried: Record<string, unknown> = {};
-	for (const key of Object.keys(sampleFilterCodecs)) {
-		const value = search[key];
-		if (value !== undefined) {
-			carried[key] = value;
-		}
-	}
-	return carried;
-}
+export const sampleRecordSet = defineRecordSet({
+	recordType: 'sample',
+	paths: { map: '/larval-surveillance/samples', table: '/larval-surveillance/samples/table' },
+	codecs: sampleFilterCodecs,
+	endpoint: { path: '/map/samples', rowsKey: 'samples', rowKey: 'sample' },
+	tileset: 'samples',
+	tileFilters: sampleTileFilters,
+	filterSpec: SAMPLE_MAP_FILTERS,
+	defaults: ({ today }) => sampleFilterDefaults(today),
+	counting: DATE_RANGE_COUNTING,
+	applies: {
+		from: 'both',
+		to: 'both',
+		status: 'both',
+		species: 'both',
+		nonMosquito: 'both',
+		regions: 'both',
+	},
+});

@@ -19,6 +19,10 @@ import {
 	DomainValidationError,
 	endMembershipCommand,
 	inviteCommand,
+	normalizeOrganizationBillingContact,
+	normalizeOrganizationContactDetails,
+	ORGANIZATION_BILLING_CONTACT_KEYS,
+	ORGANIZATION_CONTACT_DETAIL_KEYS,
 	reinviteCommand,
 	updateOrganizationDetailsCommand,
 	updateProfileCommand,
@@ -81,11 +85,95 @@ describe('updateOrganizationDetailsCommand', () => {
 		).toThrow(DomainValidationError);
 	});
 
+	it('refuses a Main contact that is not an email address', () => {
+		let thrown: unknown;
+		try {
+			updateOrganizationDetailsCommand({ ...organization, mainContactEmail: 'not-an-email' });
+		} catch (error) {
+			thrown = error;
+		}
+
+		expect(thrown).toBeInstanceOf(DomainValidationError);
+		expect((thrown as DomainValidationError).issues).toEqual([
+			{ path: 'mainContactEmail', message: 'mainContactEmail must be a valid email address.' },
+		]);
+	});
+
+	it('accepts a Main contact that is an email address', () => {
+		expect(
+			updateOrganizationDetailsCommand({ ...organization, mainContactEmail: 'a@b.co' }).payload
+				.changes,
+		).toEqual({ mainContactEmail: 'a@b.co' });
+	});
+
+	it('keeps the case of a Main contact rather than lowercasing it', () => {
+		expect(
+			updateOrganizationDetailsCommand({ ...organization, mainContactEmail: 'Ops@Example.org' })
+				.payload.changes.mainContactEmail,
+		).toBe('Ops@Example.org');
+	});
+
+	it('accepts a Main contact sent as null, which clears it', () => {
+		expect(
+			updateOrganizationDetailsCommand({ ...organization, mainContactEmail: null }).payload.changes,
+		).toEqual({ mainContactEmail: null });
+	});
+
 	it('accepts a null mailing country, because an unfilled address is not an error', () => {
 		expect(
 			updateOrganizationDetailsCommand({ ...organization, mailingCountry: null }).payload.changes
 				.mailingCountry,
 		).toBeNull();
+	});
+
+	it('carries a map centre as the two numbers it arrived as', () => {
+		const command = updateOrganizationDetailsCommand({
+			...organization,
+			mapCenterLat: 40.4316,
+			mapCenterLng: -74.4331,
+		});
+
+		expect(command.payload.changes).toEqual({ mapCenterLat: 40.4316, mapCenterLng: -74.4331 });
+	});
+
+	it('clears a map centre sent as two nulls', () => {
+		const command = updateOrganizationDetailsCommand({
+			...organization,
+			mapCenterLat: null,
+			mapCenterLng: null,
+		});
+
+		expect(command.payload.changes).toEqual({ mapCenterLat: null, mapCenterLng: null });
+	});
+
+	it.each([
+		['a latitude above 90', { mapCenterLat: 90.5, mapCenterLng: 0 }],
+		['a latitude below -90', { mapCenterLat: -91, mapCenterLng: 0 }],
+		['a longitude above 180', { mapCenterLat: 0, mapCenterLng: 180.1 }],
+		['a longitude below -180', { mapCenterLat: 0, mapCenterLng: -200 }],
+		['a latitude that is not a number', { mapCenterLat: Number.NaN, mapCenterLng: 0 }],
+		['a longitude cleared under a latitude', { mapCenterLat: 40, mapCenterLng: null }],
+		['a latitude cleared alone', { mapCenterLat: null }],
+	])('refuses %s', (_label, centre) => {
+		expect(() => updateOrganizationDetailsCommand({ ...organization, ...centre })).toThrow(
+			DomainValidationError,
+		);
+	});
+
+	it('carries one half alone, because the client sends only the half that moved', () => {
+		const command = updateOrganizationDetailsCommand({ ...organization, mapCenterLng: -74.5 });
+
+		expect(command.payload.changes).toEqual({ mapCenterLng: -74.5 });
+	});
+
+	it('accepts the ends of both ranges', () => {
+		const command = updateOrganizationDetailsCommand({
+			...organization,
+			mapCenterLat: -90,
+			mapCenterLng: 180,
+		});
+
+		expect(command.payload.changes).toEqual({ mapCenterLat: -90, mapCenterLng: 180 });
 	});
 
 	it('refuses an expectedUpdatedAt that is not a timestamp', () => {
@@ -96,6 +184,103 @@ describe('updateOrganizationDetailsCommand', () => {
 				expectedUpdatedAt: 'soon',
 			}),
 		).toThrow(DomainValidationError);
+	});
+});
+
+describe('normalizeOrganizationContactDetails', () => {
+	it('leaves an absent detail out and turns a blank one into null', () => {
+		expect(
+			normalizeOrganizationContactDetails({ phoneNumber: '  ', mailingRegion: ' nj ' }),
+		).toEqual({ details: { phoneNumber: null, mailingRegion: 'NJ' }, issues: [] });
+	});
+
+	it('reads every detail the exported key list names', () => {
+		const blank = Object.fromEntries(ORGANIZATION_CONTACT_DETAIL_KEYS.map((key) => [key, ' ']));
+
+		const { details } = normalizeOrganizationContactDetails(blank);
+
+		expect(Object.keys(details)).toEqual(ORGANIZATION_CONTACT_DETAIL_KEYS);
+		// An empty list would pass the line above with nothing read.
+		expect(ORGANIZATION_CONTACT_DETAIL_KEYS).toContain('mainContactEmail');
+	});
+
+	it('returns every refusal as an issue rather than throwing', () => {
+		expect(
+			normalizeOrganizationContactDetails({
+				mainContactEmail: 'not-an-email',
+				mailingCountry: 'USA',
+				mailingRegion: 'New Jersey',
+			}).issues,
+		).toEqual([
+			{ path: 'mailingCountry', message: 'mailingCountry must be 2 characters or fewer.' },
+			{ path: 'mailingRegion', message: 'mailingRegion must be 2 characters or fewer.' },
+			{ path: 'mailingCountry', message: 'mailingCountry must be US.' },
+			{ path: 'mailingRegion', message: 'mailingRegion must be a US state code.' },
+			{ path: 'mainContactEmail', message: 'mainContactEmail must be a valid email address.' },
+		]);
+	});
+});
+
+describe('normalizeOrganizationBillingContact', () => {
+	/** A valid address exactly `length` characters long. */
+	const emailOfLength = (length: number) =>
+		`${'a'.repeat(length - '@example.org'.length)}@example.org`;
+
+	it('leaves an absent field out and turns a blank one into null', () => {
+		expect(normalizeOrganizationBillingContact({ billingContactName: '  ' })).toEqual({
+			contact: { billingContactName: null },
+			issues: [],
+		});
+		expect(normalizeOrganizationBillingContact({})).toEqual({ contact: {}, issues: [] });
+	});
+
+	it('reads every field the exported key list names', () => {
+		const blank = Object.fromEntries(ORGANIZATION_BILLING_CONTACT_KEYS.map((key) => [key, ' ']));
+
+		const { contact } = normalizeOrganizationBillingContact(blank);
+
+		expect(Object.keys(contact)).toEqual(ORGANIZATION_BILLING_CONTACT_KEYS);
+		// An empty list would pass the line above with nothing read.
+		expect(ORGANIZATION_BILLING_CONTACT_KEYS).toContain('billingContactEmail');
+	});
+
+	it('keeps a name of 200 characters and an address of 320, trimmed', () => {
+		const name = 'N'.repeat(200);
+		const email = emailOfLength(320);
+
+		expect(
+			normalizeOrganizationBillingContact({
+				billingContactName: ` ${name} `,
+				billingContactEmail: ` ${email} `,
+			}),
+		).toEqual({ contact: { billingContactName: name, billingContactEmail: email }, issues: [] });
+	});
+
+	it('returns a name of 201 characters and an address of 321 as issues rather than throwing', () => {
+		expect(
+			normalizeOrganizationBillingContact({
+				billingContactName: 'N'.repeat(201),
+				billingContactEmail: emailOfLength(321),
+			}).issues,
+		).toEqual([
+			{
+				path: 'billingContactName',
+				message: 'billingContactName must be 200 characters or fewer.',
+			},
+			{
+				path: 'billingContactEmail',
+				message: 'billingContactEmail must be 320 characters or fewer.',
+			},
+		]);
+	});
+
+	it("refuses an address that is not one with the message the Main contact's email gets", () => {
+		expect(normalizeOrganizationBillingContact({ billingContactEmail: 'billing' }).issues).toEqual([
+			{
+				path: 'billingContactEmail',
+				message: 'billingContactEmail must be a valid email address.',
+			},
+		]);
 	});
 });
 
@@ -182,6 +367,26 @@ describe('inviteCommand', () => {
 
 	it.each(['casey', '@example.test', 'casey@'])('refuses %s as an address', (invitedEmail) => {
 		expect(() => inviteCommand({ ...invite, invitedEmail })).toThrow(DomainValidationError);
+	});
+
+	// Both of these pass a one-`@` rule, and the server stages the Membership
+	// before WorkOS is asked to send, so an address no invitation can reach
+	// would leave a Membership nobody can claim (#1525).
+	it.each([
+		'pat@localhost',
+		'a b@c.co',
+	])('refuses %s, which no invitation can reach', (invitedEmail) => {
+		expect(() => inviteCommand({ ...invite, invitedEmail })).toThrow(
+			expect.objectContaining({
+				issues: [{ path: 'invitedEmail', message: 'invitedEmail must be an email address.' }],
+			}),
+		);
+	});
+
+	it('reads the address after trimming it', () => {
+		expect(
+			inviteCommand({ ...invite, invitedEmail: '  Pat@Example.org ' }).payload.invitedEmail,
+		).toBe('pat@example.org');
 	});
 
 	// Without the id there is no key for a retry to collide on, and the spanning

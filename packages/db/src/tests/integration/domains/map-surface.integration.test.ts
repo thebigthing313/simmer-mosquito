@@ -2,11 +2,29 @@ import { VectorTile, type VectorTileFeature } from '@mapbox/vector-tile';
 import { type Kysely, sql } from 'kysely';
 import { PbfReader } from 'pbf';
 import { expect, it } from 'vitest';
-import { getRequestedControlActionDisplayRowById } from '../../../domains/control-operations-map.js';
+import type { CollectionMapFilters, TrapMapFilters } from '../../../domains/adult-surveillance.js';
+import {
+	type ApplicationMapFilters,
+	type BiocontrolMapFilters,
+	getRequestedControlActionDisplayRowById,
+	type OutreachMapFilters,
+	type SourceReductionMapFilters,
+} from '../../../domains/control-operations-map.js';
+import type { AddressMvtTileFilters } from '../../../domains/foundation-geography.js';
+import type { HabitatMvtTileFilters } from '../../../domains/habitats.js';
+import {
+	type InspectionMvtTileFilters,
+	type SampleListFilters,
+	sampleStatusValues,
+} from '../../../domains/larval-surveillance.js';
 import type { MapExtent } from '../../../domains/map-extent.js';
+import type { MapRecordSurfaceReaders } from '../../../domains/map-surface.js';
 import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import { MAP_TILE_ENCODING } from '../../../domains/map-tile.js';
-import { getNotificationRegistrationGeometryById } from '../../../domains/public-engagement-map.js';
+import {
+	getNotificationRegistrationGeometryById,
+	type ServiceRequestMapFilters,
+} from '../../../domains/public-engagement-map.js';
 import type { SimmerDatabase } from '../../../index.js';
 import {
 	type MapSurfaceName,
@@ -30,6 +48,7 @@ import {
 	seedStatusCollections,
 } from '../../../seeds/map-surfaces.js';
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
+import { seedUntreatedWorld, UNTREATED_BOUNDS, UNTREATED_TIME_ZONE } from './untreated-world.js';
 
 // --- what the map surfaces actually answer -----------------------------------
 //
@@ -546,6 +565,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 				readonly tagIds?: readonly string[];
 				readonly dateFrom?: string;
 				readonly dateTo?: string;
+				readonly overdueBefore?: string;
 			}) => {
 				const result = await MAP_SURFACES['service-requests'].listByBounds(db, {
 					organizationId: mapSurfaceOrganizationIds.own,
@@ -569,6 +589,10 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			expect(await read({ dateFrom: '2026-03-01', dateTo: '2026-03-31' })).toEqual(found);
 			expect(await read({ dateFrom: '2026-03-16' })).toEqual(nothing);
 			expect(await read({ dateTo: '2026-03-13' })).toEqual(nothing);
+			// Overdue is open and received before the cut-off, inside any window.
+			expect(await read({ overdueBefore: '2026-03-20' })).toEqual(found);
+			expect(await read({ overdueBefore: '2026-03-13' })).toEqual(nothing);
+			expect(await read({ overdueBefore: '2026-03-20', dateFrom: '2026-03-16' })).toEqual(nothing);
 
 			await db
 				.updateTable('service_requests')
@@ -578,6 +602,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 
 			expect(await read({ isOpen: true })).toEqual(nothing);
 			expect(await read({ isOpen: false })).toEqual(found);
+			expect(await read({ overdueBefore: '2026-03-20' })).toEqual(nothing);
 		});
 	});
 
@@ -1057,4 +1082,1637 @@ function featureIds(tile: Uint8Array | undefined, layerName: string): string[] {
 	return Array.from({ length: layer.length }, (_unused, index) =>
 		String(layer.feature(index).properties.id),
 	).sort();
+}
+
+// --- the in-view summary -----------------------------------------------------
+//
+// Over 100 habitats in view the Habitats rail draws grouped counts instead of
+// rows (#1244). The summary and the page are two reads, so the one thing that
+// must hold is that they count the same set: the summary's total is compared
+// with the page's under every filter a grouping button writes, and each
+// grouping's counts add up to that total. The world is the untreated suite's,
+// so the untreated grouping is read against the same eight habitats that suite
+// asserts by id.
+describeDbIntegration('habitat summary against Postgres', () => {
+	it('counts the habitats the page counts, grouped by each declared grouping', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedUntreatedWorld(db);
+			const typed = world.untreated.slice(0, 2);
+			const type = await db
+				.insertInto('habitat_types')
+				.values({ organization_id: world.organizationId, name: 'Tire' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			await db
+				.updateTable('habitats')
+				.set({ habitat_type_id: type.id })
+				.where('id', 'in', typed)
+				.execute();
+
+			const context = {
+				organizationId: world.organizationId,
+				timeZone: UNTREATED_TIME_ZONE,
+				bounds: UNTREATED_BOUNDS,
+			};
+			const filterSets: readonly HabitatMvtTileFilters[] = [
+				{},
+				{ untreatedOnly: true },
+				{ isActive: true },
+				{ isActive: false },
+				{ isInaccessible: true },
+				{ isInaccessible: false },
+				{ habitatTypeIds: [type.id] },
+			];
+
+			const answers = await Promise.all(
+				filterSets.map(async (filters) => {
+					const summary = await MAP_SURFACES.habitats.summarizeByBounds(db, {
+						...context,
+						filters,
+					});
+					const listed = await MAP_SURFACES.habitats.listByBounds(db, {
+						...context,
+						filters,
+						...page,
+					});
+					return { summary, pageTotal: listed.total };
+				}),
+			);
+
+			for (const { summary, pageTotal } of answers) {
+				expect(summary.total).toBe(pageTotal);
+				for (const groups of Object.values(summary.groups)) {
+					expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(summary.total);
+				}
+			}
+
+			const unfiltered = answers[0]?.summary;
+			expect(Object.keys(unfiltered?.groups ?? {}).sort()).toEqual([
+				'habitatTypeId',
+				'isActive',
+				'isInaccessible',
+				'untreated',
+			]);
+			expect(unfiltered?.groups.untreated).toContainEqual({
+				value: true,
+				count: world.untreated.length,
+			});
+			expect(unfiltered?.groups.habitatTypeId).toContainEqual({ value: type.id, count: 2 });
+			// Largest first, so a client can take the top five as they come.
+			for (const groups of Object.values(unfiltered?.groups ?? {})) {
+				const counts = groups.map((group) => group.count);
+				expect(counts).toEqual([...counts].sort((a, b) => b - a));
+			}
+
+			// Filtered to untreated, every habitat in the box is on the true side.
+			expect(answers[1]?.summary.groups.untreated).toEqual([
+				{ value: true, count: world.untreated.length },
+			]);
+		});
+	});
+
+	it('answers a box with nothing in it with a zero total and empty groupings', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedUntreatedWorld(db);
+
+			const summary = await MAP_SURFACES.habitats.summarizeByBounds(db, {
+				organizationId: world.organizationId,
+				timeZone: UNTREATED_TIME_ZONE,
+				bounds: { west: 10, south: 10, east: 11, north: 11 },
+			});
+
+			expect(summary).toEqual({
+				total: 0,
+				groups: { habitatTypeId: [], isActive: [], isInaccessible: [], untreated: [] },
+			});
+		});
+	});
+});
+
+// Over 100 inspections in view the Inspections rail draws the same summary
+// (#1369). The seeded world's one live inspection in the box is joined by five
+// more that differ on each grouping, and the summary's total is compared with
+// the page's under every filter a grouping button writes.
+describeDbIntegration('inspection summary against Postgres', () => {
+	it('counts the inspections the page counts, grouped by each declared grouping', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const { typeId, inspectorId } = await seedInspectionVariety(db);
+
+			const filterSets: readonly InspectionMvtTileFilters[] = [
+				{},
+				{ isWet: true },
+				{ isWet: false },
+				{ densities: ['heavy'] },
+				{ densities: ['heavy', 'light'] },
+				{ positiveOnly: true },
+				{ habitatTypeIds: [typeId] },
+				{ inspectedByProfileIds: [inspectorId] },
+				{ dateFrom: '2026-03-16' },
+			];
+			const answers = await Promise.all(
+				filterSets.map((filters) => summaryAndPage(db, MAP_SURFACES.inspections, filters)),
+			);
+
+			for (const { summary, pageTotal } of answers) {
+				expect(summary.total).toBe(pageTotal);
+				for (const groups of Object.values(summary.groups)) {
+					expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(summary.total);
+				}
+			}
+
+			expect(answers[0]?.summary).toEqual({
+				total: 6,
+				groups: {
+					isWet: [
+						{ value: true, count: 5 },
+						{ value: false, count: 1 },
+					],
+					density: expect.arrayContaining([
+						{ value: 'heavy', count: 2 },
+						{ value: 'light', count: 2 },
+						{ value: 'none', count: 1 },
+						{ value: null, count: 1 },
+					]),
+					// A Positive Inspection reads abundance, not life stages (#1422).
+					// The two `light` rows carry no stage flag and are positive on
+					// their band; under the life-stage rule this was 2 true, 4 false.
+					positive: [
+						{ value: true, count: 4 },
+						{ value: false, count: 2 },
+					],
+					habitatTypeId: expect.arrayContaining([
+						{ value: typeId, count: 3 },
+						{ value: null, count: 3 },
+					]),
+					inspectedBy: expect.arrayContaining([
+						{ value: inspectorId, count: 3 },
+						{ value: null, count: 3 },
+					]),
+				},
+			});
+			// Outside the date window nothing is counted, and every grouping is still a key.
+			expect(answers[8]?.summary).toEqual({
+				total: 0,
+				groups: { isWet: [], density: [], positive: [], habitatTypeId: [], inspectedBy: [] },
+			});
+		});
+	});
+});
+
+/**
+ * Five more live inspections beside the seeded `inside` one, each differing on
+ * one grouping: a dry one, two heavy ones that found larvae, and two carrying
+ * the seeded inspection's type or inspector where the others carry none.
+ */
+async function seedInspectionVariety(
+	db: Kysely<SimmerDatabase>,
+): Promise<{ readonly typeId: string; readonly inspectorId: string }> {
+	const inside = await db
+		.selectFrom('inspections')
+		.select(['habitat_type_id', 'inspected_by_profile_id'])
+		.where('id', '=', mapSurfaceRowIds.inspection.inside)
+		.executeTakeFirstOrThrow();
+	const typeId = String(inside.habitat_type_id);
+	const inspectorId = String(inside.inspected_by_profile_id);
+	const base = {
+		organization_id: mapSurfaceOrganizationIds.own,
+		geom: sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`,
+		inspection_date: new Date('2026-03-15T00:00:00.000Z'),
+	};
+	await db
+		.insertInto('inspections')
+		.values([
+			{ ...base, is_wet: false, habitat_type_id: typeId },
+			{ ...base, is_wet: true, density: 'heavy', has_pupae: true },
+			{ ...base, is_wet: true, density: 'heavy', has_eggs: true },
+			{
+				...base,
+				is_wet: true,
+				density: 'light',
+				habitat_type_id: typeId,
+				inspected_by_profile_id: inspectorId,
+			},
+			{ ...base, is_wet: true, density: 'none', inspected_by_profile_id: inspectorId },
+		])
+		.execute();
+	return { typeId, inspectorId };
+}
+
+/** The summary and the page's total for the seeded box under one filter set. */
+async function summaryAndPage<TFilters>(
+	db: Kysely<SimmerDatabase>,
+	surface: Pick<MapRecordSurfaceReaders<TFilters, unknown>, 'summarizeByBounds' | 'listByBounds'>,
+	filters: TFilters,
+	timeZone = mapSurfaceTimeZone,
+) {
+	const input = {
+		organizationId: mapSurfaceOrganizationIds.own,
+		timeZone,
+		bounds: mapSurfacePlace.bounds,
+		filters,
+	};
+	const summary = await surface.summarizeByBounds(db, input);
+	const listed = await surface.listByBounds(db, { ...input, ...page });
+	return { summary, pageTotal: listed.total };
+}
+
+// Over 100 samples in view the Samples rail draws the same summary (#1370).
+// The seeded world's one live sample in the box, which is awaiting, is joined
+// by four more on the same inspection. Two statuses overlap on one of them and
+// one carries two species, so the status and species counts can run past the
+// total, and each is checked against the page its button narrows to.
+describeDbIntegration('sample summary against Postgres', () => {
+	it('counts the samples the page counts, by status, species and non-mosquito', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const { pipiens, restuans } = await seedSampleVariety(db);
+			const read = (filters: SampleListFilters) =>
+				summaryAndPage(db, MAP_SURFACES.samples, filters);
+
+			const all = await read({});
+			expect(all.pageTotal).toBe(5);
+			expect(all.summary).toEqual({
+				total: 5,
+				groups: {
+					status: expect.arrayContaining([
+						{ value: 'identified', count: 2 },
+						{ value: 'awaiting', count: 1 },
+						{ value: 'zero_larvae', count: 1 },
+						{ value: 'unidentifiable', count: 2 },
+					]),
+					species: [
+						{ value: pipiens, count: 2 },
+						{ value: restuans, count: 1 },
+					],
+					nonMosquito: [
+						{ value: false, count: 4 },
+						{ value: true, count: 1 },
+					],
+				},
+				figures: { larvaeTotal: 10 },
+			});
+			expect(all.summary.groups.status).toHaveLength(4);
+
+			// Each group's count is the total of the page its button narrows to.
+			const narrowed: readonly (readonly [string, string | boolean, SampleListFilters])[] = [
+				...sampleStatusValues.map((status) => ['status', status, { status }] as const),
+				['species', pipiens, { speciesIds: [pipiens] }],
+				['species', restuans, { speciesIds: [restuans] }],
+				['nonMosquito', true, { nonMosquitoOnly: true }],
+			];
+			const answers = await Promise.all(narrowed.map(([, , filters]) => read(filters)));
+			narrowed.forEach(([grouping, value], index) => {
+				const answer = answers[index];
+				expect(answer?.summary.total).toBe(answer?.pageTotal);
+				expect(all.summary.groups[grouping]?.find((group) => group.value === value)?.count).toBe(
+					answer?.pageTotal,
+				);
+			});
+
+			expect((await read({ speciesIds: [restuans] })).summary.figures).toEqual({
+				larvaeTotal: 8,
+			});
+			// Outside the date window nothing is counted and nothing is added up.
+			expect((await read({ dateFrom: '2026-03-16' })).summary).toEqual({
+				total: 0,
+				groups: { status: [], species: [], nonMosquito: [] },
+				figures: { larvaeTotal: 0 },
+			});
+		});
+	});
+});
+
+/**
+ * Four more live samples on the seeded `inside` inspection: one carrying both
+ * species and non-mosquito material, one carrying one species, one closed out
+ * as zero larvae and unidentifiable at once, and one unidentifiable alone. Ten
+ * larvae are identified across them.
+ */
+async function seedSampleVariety(
+	db: Kysely<SimmerDatabase>,
+): Promise<{ readonly pipiens: string; readonly restuans: string }> {
+	const genus = await db
+		.insertInto('genera')
+		.values({ abbreviation: 'Cx', name: 'Culex' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const species = await db
+		.insertInto('species')
+		.values(
+			['pipiens', 'restuans'].map((epithet) => ({
+				genus_id: genus.id,
+				epithet,
+				display_name: `Culex ${epithet}`,
+			})),
+		)
+		.returning(['id', 'epithet'])
+		.execute();
+	const idOf = (epithet: string) => {
+		const row = species.find((candidate) => candidate.epithet === epithet);
+		if (row === undefined) {
+			throw new Error(`Expected the seeded species ${epithet}.`);
+		}
+		return row.id;
+	};
+
+	const base = {
+		organization_id: mapSurfaceOrganizationIds.own,
+		inspection_id: mapSurfaceRowIds.inspection.inside,
+	};
+	const [both, one] = await db
+		.insertInto('samples')
+		.values([
+			{ ...base, has_non_mosquito: true },
+			{ ...base },
+			{ ...base, is_zero_larvae: true, unidentifiable_reason: 'Damaged' },
+			{ ...base, unidentifiable_reason: 'Desiccated' },
+		])
+		.returning('id')
+		.execute();
+	if (both === undefined || one === undefined) {
+		throw new Error('Expected the seeded samples back.');
+	}
+
+	const pipiens = idOf('pipiens');
+	const restuans = idOf('restuans');
+	const identified = {
+		organization_id: mapSurfaceOrganizationIds.own,
+		identified_at: new Date('2026-03-16T00:00:00.000Z'),
+	};
+	await db
+		.insertInto('sample_species')
+		.values([
+			{ ...identified, sample_id: both.id, species_id: restuans, larvae_count: 3 },
+			{ ...identified, sample_id: both.id, species_id: pipiens, larvae_count: 5 },
+			{ ...identified, sample_id: one.id, species_id: pipiens, larvae_count: 2 },
+		])
+		.execute();
+	return { pipiens, restuans };
+}
+
+// Over 100 service requests in view the Service Requests rail draws the same
+// summary (#1371). The seeded world's one open request in the box is joined by
+// three more: one open and carrying two Tags, one closed and carrying one of
+// them, and one open with neither. A request with two Tags counts under both,
+// so the Tag counts run past the total, and each status and Tag count is
+// checked against the page its button narrows to.
+describeDbIntegration('service request summary against Postgres', () => {
+	it('counts the requests the page counts, by status, Tag and intake type', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const { drainage, noise, insideDate } = await seedServiceRequestVariety(db);
+			const read = (filters: ServiceRequestMapFilters) =>
+				summaryAndPage(db, MAP_SURFACES['service-requests'], filters);
+			// The oldest open request is the one dated thirty days before the seed's,
+			// counted to today in the organization's zone.
+			const oldestOpenDays = daysBetween(addDays(insideDate, -30), todayIn(mapSurfaceTimeZone));
+
+			const all = await read({});
+			expect(all.pageTotal).toBe(4);
+			expect(all.summary).toEqual({
+				total: 4,
+				groups: {
+					status: [
+						{ value: 'open', count: 3 },
+						{ value: 'closed', count: 1 },
+					],
+					tagId: [
+						{ value: drainage, count: 2 },
+						{ value: noise, count: 1 },
+					],
+					intakeType: expect.arrayContaining([
+						{ value: 'online', count: 1 },
+						{ value: 'other', count: 1 },
+						{ value: 'phone', count: 1 },
+						{ value: 'walk-in', count: 1 },
+					]),
+				},
+				figures: { oldestOpenDays },
+			});
+			expect(all.summary.groups.intakeType).toHaveLength(4);
+
+			// Each group's count is the total of the page its button narrows to.
+			const narrowed: readonly (readonly [string, string, ServiceRequestMapFilters])[] = [
+				['status', 'open', { isOpen: true }],
+				['status', 'closed', { isOpen: false }],
+				['tagId', drainage, { tagIds: [drainage] }],
+				['tagId', noise, { tagIds: [noise] }],
+			];
+			const answers = await Promise.all(narrowed.map(([, , filters]) => read(filters)));
+			narrowed.forEach(([grouping, value], index) => {
+				const answer = answers[index];
+				expect(answer?.summary.total).toBe(answer?.pageTotal);
+				expect(all.summary.groups[grouping]?.find((group) => group.value === value)?.count).toBe(
+					answer?.pageTotal,
+				);
+			});
+
+			// Under Drainage the thirty-day request is still the oldest open one.
+			// With only closed requests in view there is no oldest open request, so
+			// the figure is left out rather than read as zero days.
+			expect((await read({ tagIds: [drainage] })).summary.figures).toEqual({ oldestOpenDays });
+			expect((await read({ isOpen: false })).summary.figures).toEqual({});
+			expect((await read({ dateFrom: addDays(insideDate, 1) })).summary).toEqual({
+				total: 0,
+				groups: { status: [], tagId: [], intakeType: [] },
+				figures: {},
+			});
+		});
+	});
+});
+
+/**
+ * Three more requests in the box beside the seeded open one, copied from it
+ * with an earlier date: open and phoned in thirty days before with both Tags,
+ * closed and walked in sixty days before with Drainage, and open with an
+ * intake type of other ten days before with neither. The seeded one came in
+ * online, so every intake type is counted once.
+ */
+async function seedServiceRequestVariety(db: Kysely<SimmerDatabase>): Promise<{
+	readonly drainage: string;
+	readonly noise: string;
+	readonly insideDate: string;
+}> {
+	const inside = mapSurfaceRowIds.serviceRequest.inside;
+	const drainage = '00000000-0000-4000-8000-000000009911';
+	const noise = '00000000-0000-4000-8000-000000009912';
+	const tagged = '00000000-0000-4000-8000-000000009913';
+	const closed = '00000000-0000-4000-8000-000000009914';
+	const untagged = '00000000-0000-4000-8000-000000009915';
+
+	const copies = [
+		{ id: tagged, daysBefore: 30, intake: 'phone', closedAt: null },
+		{ id: closed, daysBefore: 60, intake: 'walk-in', closedAt: '2026-03-20T15:00:00.000Z' },
+		{ id: untagged, daysBefore: 10, intake: 'other', closedAt: null },
+	];
+	for (const copy of copies) {
+		await sql`
+			insert into service_requests
+				(id, organization_id, geom, request_date, intake_type, details, contact_id, address_id,
+					closed_at)
+			select ${copy.id}, organization_id, geom, request_date - ${copy.daysBefore}::int,
+				${copy.intake}::request_intake_type, details, contact_id, address_id,
+				${copy.closedAt}::timestamptz
+			from service_requests
+			where id = ${inside}
+		`.execute(db);
+	}
+
+	await db
+		.insertInto('tags')
+		.values([
+			{ id: drainage, organization_id: mapSurfaceOrganizationIds.own, tag_name: 'Drainage' },
+			{ id: noise, organization_id: mapSurfaceOrganizationIds.own, tag_name: 'Noise' },
+		])
+		.execute();
+	const tagItem = (tagId: string, entityId: string) => ({
+		tag_id: tagId,
+		organization_id: mapSurfaceOrganizationIds.own,
+		entity_type: 'service_request',
+		entity_id: entityId,
+	});
+	await db
+		.insertInto('tag_items')
+		.values([tagItem(drainage, tagged), tagItem(noise, tagged), tagItem(drainage, closed)])
+		.execute();
+
+	const date = await sql<{ readonly requestDate: string }>`
+		select to_char(request_date, 'YYYY-MM-DD') as "requestDate"
+		from service_requests where id = ${inside}
+	`.execute(db);
+	const insideDate = date.rows[0]?.requestDate;
+	if (insideDate === undefined) {
+		throw new Error('Expected the seeded service request back.');
+	}
+	return { drainage, noise, insideDate };
+}
+
+/** Today's calendar date in `timeZone`, as `YYYY-MM-DD`. */
+function todayIn(timeZone: string): string {
+	// en-CA for its year-month-day shape, which is how the dates are compared.
+	return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
+}
+
+/** `date` moved by `days`, as `YYYY-MM-DD`. */
+function addDays(date: string, days: number): string {
+	const moved = new Date(`${date}T00:00:00.000Z`);
+	moved.setUTCDate(moved.getUTCDate() + days);
+	return moved.toISOString().slice(0, 10);
+}
+
+/** Whole days from `from` to `to`, both `YYYY-MM-DD`. */
+function daysBetween(from: string, to: string): number {
+	return Math.round(
+		(Date.parse(`${to}T00:00:00.000Z`) - Date.parse(`${from}T00:00:00.000Z`)) / 86_400_000,
+	);
+}
+
+// Over 100 traps in view the Traps rail draws the same summary (#1372). The
+// seeded world's one live trap in the box, an active one under the seeded
+// method, is joined by four more that differ on method and status, and each
+// count is checked against the page its button narrows to.
+describeDbIntegration('trap summary against Postgres', () => {
+	it('counts the traps the page counts, by collection method and status', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const { seededMethodId, lightMethodId } = await seedTrapVariety(db);
+
+			const filterSets: readonly TrapMapFilters[] = [
+				{},
+				{ isActive: true },
+				{ isActive: false },
+				{ collectionMethodIds: [lightMethodId] },
+				{ collectionMethodIds: [seededMethodId, lightMethodId] },
+				{ isActive: false, collectionMethodIds: [lightMethodId] },
+				{ search: 'no trap is named this' },
+			];
+			const answers = await Promise.all(
+				filterSets.map((filters) => summaryAndPage(db, MAP_SURFACES.traps, filters)),
+			);
+
+			for (const { summary, pageTotal } of answers) {
+				expect(summary.total).toBe(pageTotal);
+				for (const groups of Object.values(summary.groups)) {
+					expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(summary.total);
+				}
+			}
+
+			expect(answers[0]?.summary).toEqual({
+				total: 5,
+				groups: {
+					collectionMethodId: [
+						{ value: lightMethodId, count: 3 },
+						{ value: seededMethodId, count: 2 },
+					],
+					isActive: [
+						{ value: true, count: 3 },
+						{ value: false, count: 2 },
+					],
+				},
+			});
+			expect(answers[5]?.summary).toEqual({
+				total: 1,
+				groups: {
+					collectionMethodId: [{ value: lightMethodId, count: 1 }],
+					isActive: [{ value: false, count: 1 }],
+				},
+			});
+			// A search matching nothing counts nothing, and every grouping is still a key.
+			expect(answers[6]?.summary).toEqual({
+				total: 0,
+				groups: { collectionMethodId: [], isActive: [] },
+			});
+		});
+	});
+});
+
+/**
+ * Four more live traps beside the seeded `inside` one: an inactive one under
+ * the seeded method, and three under a second method, one of them inactive.
+ */
+async function seedTrapVariety(
+	db: Kysely<SimmerDatabase>,
+): Promise<{ readonly seededMethodId: string; readonly lightMethodId: string }> {
+	const inside = await db
+		.selectFrom('traps')
+		.select(['collection_method_id'])
+		.where('id', '=', mapSurfaceRowIds.trap.inside)
+		.executeTakeFirstOrThrow();
+	const seededMethodId = String(inside.collection_method_id);
+	const light = await db
+		.insertInto('collection_methods')
+		.values({ organization_id: mapSurfaceOrganizationIds.own, name: 'CDC light trap' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const lightMethodId = String(light.id);
+	const base = {
+		organization_id: mapSurfaceOrganizationIds.own,
+		geom: sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`,
+	};
+	await db
+		.insertInto('traps')
+		.values([
+			{ ...base, collection_method_id: seededMethodId, is_active: false },
+			{ ...base, collection_method_id: lightMethodId, is_active: true },
+			{ ...base, collection_method_id: lightMethodId, is_active: true },
+			{ ...base, collection_method_id: lightMethodId, is_active: false },
+		])
+		.execute();
+	return { seededMethodId, lightMethodId };
+}
+
+// Over 100 collections in view the Collections rail draws the same summary
+// (#1373). The seeded world's one live collection in the box, dated by a plain
+// `collection_date`, is joined by the six status cases and the late one, so the
+// box holds both timing modes. A collection's day is `collected_at` in the
+// Organization's zone or `collection_date`, whichever its mode fills, and the
+// summary reads the page's own predicate, so one day is asked for in two zones
+// and the late collection moves out of it in the summary and the page at once.
+describeDbIntegration('collection summary against Postgres', () => {
+	it('counts the collections the page counts, by problem, awaiting and method', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			await seedStatusCollections(db);
+			await seedLateCollection(db);
+			const { seededMethodId, lightMethodId } = await moveCollectionsToSecondMethod(db);
+			const read = (filters: CollectionMapFilters, timeZone = mapSurfaceTimeZone) =>
+				summaryAndPage(db, MAP_SURFACES.collections, filters, timeZone);
+
+			// Eight in the box: the seeded one, the six status cases and the late one.
+			const all = await read({});
+			expect(all.pageTotal).toBe(8);
+			expect(all.summary).toEqual({
+				total: 8,
+				groups: {
+					problem: [
+						{ value: false, count: 6 },
+						{ value: true, count: 2 },
+					],
+					awaiting: [
+						{ value: true, count: 5 },
+						{ value: false, count: 3 },
+					],
+					collectionMethodId: [
+						{ value: seededMethodId, count: 6 },
+						{ value: lightMethodId, count: 2 },
+					],
+				},
+				figures: { zeroResult: 1, collected: 4 },
+			});
+
+			// Each group's count is the total of the page its button narrows to.
+			const narrowed: readonly (readonly [string, string | boolean, CollectionMapFilters])[] = [
+				['problem', true, { problemOnly: true }],
+				['awaiting', true, { awaitingOnly: true }],
+				['collectionMethodId', seededMethodId, { collectionMethodIds: [seededMethodId] }],
+				['collectionMethodId', lightMethodId, { collectionMethodIds: [lightMethodId] }],
+			];
+			const answers = await Promise.all(narrowed.map(([, , filters]) => read(filters)));
+			narrowed.forEach(([grouping, value], index) => {
+				const answer = answers[index];
+				expect(answer?.summary.total).toBe(answer?.pageTotal);
+				expect(all.summary.groups[grouping]?.find((group) => group.value === value)?.count).toBe(
+					answer?.pageTotal,
+				);
+			});
+
+			// One day, asked for in two zones. The late collection was emptied at
+			// 02:30Z on the 16th, which is the 15th in New York and the 16th in
+			// UTC, and the `collection_date` rows are the 15th in both. A trap still
+			// out has no day at all, so the window drops both pending cases.
+			const day = { dateFrom: '2026-03-15', dateTo: '2026-03-15' };
+			const newYork = await read(day);
+			const utc = await read(day, 'UTC');
+			expect(newYork.pageTotal).toBe(6);
+			expect(newYork.summary).toEqual({
+				total: 6,
+				groups: {
+					problem: [
+						{ value: false, count: 5 },
+						{ value: true, count: 1 },
+					],
+					awaiting: [
+						{ value: true, count: 5 },
+						{ value: false, count: 1 },
+					],
+					collectionMethodId: [
+						{ value: seededMethodId, count: 4 },
+						{ value: lightMethodId, count: 2 },
+					],
+				},
+				figures: { zeroResult: 1, collected: 4 },
+			});
+			expect(utc.pageTotal).toBe(5);
+			expect(utc.summary).toEqual({
+				total: 5,
+				groups: {
+					problem: [
+						{ value: false, count: 4 },
+						{ value: true, count: 1 },
+					],
+					awaiting: [
+						{ value: true, count: 4 },
+						{ value: false, count: 1 },
+					],
+					collectionMethodId: [
+						{ value: seededMethodId, count: 4 },
+						{ value: lightMethodId, count: 1 },
+					],
+				},
+				figures: { zeroResult: 1, collected: 3 },
+			});
+
+			// Outside the window nothing is counted and nothing is added up.
+			expect((await read({ dateFrom: '2026-03-17' })).summary).toEqual({
+				total: 0,
+				groups: { problem: [], awaiting: [], collectionMethodId: [] },
+				figures: { zeroResult: 0, collected: 0 },
+			});
+		});
+	});
+});
+
+/**
+ * Moves the problem case and the late collection onto a second method, and
+ * pins every `collection_date` to the 15th.
+ */
+async function moveCollectionsToSecondMethod(
+	db: Kysely<SimmerDatabase>,
+): Promise<{ readonly seededMethodId: string; readonly lightMethodId: string }> {
+	const inside = await db
+		.selectFrom('collections')
+		.select(['collection_method_id'])
+		.where('id', '=', mapSurfaceRowIds.collection.inside)
+		.executeTakeFirstOrThrow();
+	const seededMethodId = String(inside.collection_method_id);
+	const light = await db
+		.insertInto('collection_methods')
+		.values({ organization_id: mapSurfaceOrganizationIds.own, name: 'CDC light trap' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const lightMethodId = String(light.id);
+	await db
+		.updateTable('collections')
+		.set({ collection_method_id: lightMethodId })
+		.where('id', 'in', [mapSurfaceStatusCollectionIds.problem, mapSurfaceLateCollectionId])
+		.execute();
+	// The seed writes `collection_date` from a `Date`, which the driver sends in
+	// the machine's own zone, so west of UTC the column holds the 14th. Written
+	// as text it is the 15th wherever the suite runs.
+	await sql`
+		update collections
+		set collection_date = '2026-03-15'
+		where collection_timing_mode = 'collection_date_duration'
+	`.execute(db);
+	return { seededMethodId, lightMethodId };
+}
+
+// Over 100 chemical applications in view the Chemical Applications rail draws
+// the same summary (#1374). The seeded world's one live application in the box,
+// 2 gallons of Larvicide A by backpack, is joined by five more across a second
+// insecticide, a second method, a second applicator and a second unit, one of
+// them dated in January. The amount applied is added up per insecticide and per
+// unit and never across units, so one insecticide recorded in gallons and in
+// ounces is two sums.
+describeDbIntegration('chemical application summary against Postgres', () => {
+	it('counts the applications the page counts, and sums the amount per insecticide and unit', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = await seedApplicationVariety(db);
+			const read = (filters: ApplicationMapFilters) =>
+				summaryAndPage(db, MAP_SURFACES.chemical, filters);
+
+			const all = await read({});
+			expect(all.pageTotal).toBe(6);
+			expect(all.summary).toEqual({
+				total: 6,
+				groups: {
+					insecticideId: [
+						{ value: ids.larvicideId, count: 4 },
+						{ value: ids.adulticideId, count: 2 },
+					],
+					applicationMethodId: [
+						{ value: ids.truckMethodId, count: 3 },
+						{ value: ids.backpackMethodId, count: 2 },
+						{ value: null, count: 1 },
+					],
+					applicatorProfileId: [
+						{ value: ids.secondApplicatorId, count: 3 },
+						{ value: ids.seededApplicatorId, count: 2 },
+						{ value: null, count: 1 },
+					],
+				},
+				breakdowns: {
+					amountApplied: [
+						{ by: { insecticideId: ids.larvicideId, unitId: ids.gallonId }, count: 3, sum: 15 },
+						{ by: { insecticideId: ids.adulticideId, unitId: ids.gallonId }, count: 2, sum: 2 },
+						{ by: { insecticideId: ids.larvicideId, unitId: ids.ounceId }, count: 1, sum: 4 },
+					],
+				},
+			});
+
+			// Each group's count is the total of the page its button narrows to.
+			const narrowed: readonly (readonly [string, string, ApplicationMapFilters])[] = [
+				['insecticideId', ids.larvicideId, { insecticideIds: [ids.larvicideId] }],
+				['insecticideId', ids.adulticideId, { insecticideIds: [ids.adulticideId] }],
+				['applicationMethodId', ids.truckMethodId, { applicationMethodIds: [ids.truckMethodId] }],
+				[
+					'applicationMethodId',
+					ids.backpackMethodId,
+					{ applicationMethodIds: [ids.backpackMethodId] },
+				],
+				[
+					'applicatorProfileId',
+					ids.secondApplicatorId,
+					{ applicatorProfileIds: [ids.secondApplicatorId] },
+				],
+				[
+					'applicatorProfileId',
+					ids.seededApplicatorId,
+					{ applicatorProfileIds: [ids.seededApplicatorId] },
+				],
+			];
+			const answers = await Promise.all(narrowed.map(([, , filters]) => read(filters)));
+			narrowed.forEach(([grouping, value], index) => {
+				const answer = answers[index];
+				expect(answer?.summary.total).toBe(answer?.pageTotal);
+				expect(all.summary.groups[grouping]?.find((group) => group.value === value)?.count).toBe(
+					answer?.pageTotal,
+				);
+			});
+
+			// March alone drops the January application, and the sums follow the page.
+			const march = await read({ dateFrom: '2026-03-01', dateTo: '2026-03-31' });
+			expect(march.pageTotal).toBe(5);
+			expect(march.summary.total).toBe(5);
+			expect(march.summary.breakdowns).toEqual({
+				amountApplied: [
+					{ by: { insecticideId: ids.larvicideId, unitId: ids.gallonId }, count: 2, sum: 5 },
+					{ by: { insecticideId: ids.adulticideId, unitId: ids.gallonId }, count: 2, sum: 2 },
+					{ by: { insecticideId: ids.larvicideId, unitId: ids.ounceId }, count: 1, sum: 4 },
+				],
+			});
+
+			// Outside the date window nothing is counted and nothing is added up.
+			expect((await read({ dateFrom: '2026-04-01' })).summary).toEqual({
+				total: 0,
+				groups: { insecticideId: [], applicationMethodId: [], applicatorProfileId: [] },
+				breakdowns: { amountApplied: [] },
+			});
+		});
+	});
+});
+
+/**
+ * Five more live applications in the box beside the seeded one: a second
+ * insecticide, a truck method, a second applicator and a unit in ounces, with
+ * one application carrying no method, one no applicator, and one dated in
+ * January.
+ */
+async function seedApplicationVariety(db: Kysely<SimmerDatabase>): Promise<{
+	readonly larvicideId: string;
+	readonly adulticideId: string;
+	readonly backpackMethodId: string;
+	readonly truckMethodId: string;
+	readonly seededApplicatorId: string;
+	readonly secondApplicatorId: string;
+	readonly gallonId: string;
+	readonly ounceId: string;
+}> {
+	const inside = await db
+		.selectFrom('applications')
+		.select([
+			'insecticide_id',
+			'application_method_id',
+			'applicator_profile_id',
+			'application_unit_id',
+		])
+		.where('id', '=', mapSurfaceRowIds.application.inside)
+		.executeTakeFirstOrThrow();
+	const larvicideId = String(inside.insecticide_id);
+	const backpackMethodId = String(inside.application_method_id);
+	const seededApplicatorId = String(inside.applicator_profile_id);
+	const gallonId = String(inside.application_unit_id);
+	const organizationId = mapSurfaceOrganizationIds.own;
+
+	const ounce = await db
+		.insertInto('units')
+		.values({
+			code: 'map_surface_ounce',
+			unit_name: 'Fluid ounce',
+			abbreviation: 'fl oz',
+			unit_type: 'volume',
+			unit_system: 'us_customary',
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const adulticide = await db
+		.insertInto('insecticides')
+		.values({
+			organization_id: organizationId,
+			trade_name: 'Adulticide B',
+			active_ingredient: 'Permethrin',
+			type: 'adulticide',
+			registration_number: 'reg-map-surface-adulticide',
+			default_unit_id: gallonId,
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const truck = await db
+		.insertInto('application_methods')
+		.values({ organization_id: organizationId, name: 'Truck ULV' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const second = await db
+		.insertInto('profiles')
+		.values({
+			organization_id: organizationId,
+			display_name: 'Second Applicator',
+			email: 'second.applicator@example.test',
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const ids = {
+		larvicideId,
+		adulticideId: String(adulticide.id),
+		backpackMethodId,
+		truckMethodId: String(truck.id),
+		seededApplicatorId,
+		secondApplicatorId: String(second.id),
+		gallonId,
+		ounceId: String(ounce.id),
+	};
+
+	// The date goes in as text, since a `Date` is sent in the machine's own zone.
+	const base = {
+		organization_id: organizationId,
+		geom: sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`,
+		application_date: sql<Date>`date '2026-03-15'`,
+	};
+	await db
+		.insertInto('applications')
+		.values([
+			{
+				...base,
+				insecticide_id: ids.larvicideId,
+				application_method_id: ids.backpackMethodId,
+				applicator_profile_id: ids.seededApplicatorId,
+				amount_applied: 3,
+				application_unit_id: ids.gallonId,
+			},
+			{
+				...base,
+				insecticide_id: ids.larvicideId,
+				application_method_id: ids.truckMethodId,
+				applicator_profile_id: null,
+				amount_applied: 4,
+				application_unit_id: ids.ounceId,
+			},
+			{
+				...base,
+				insecticide_id: ids.adulticideId,
+				application_method_id: ids.truckMethodId,
+				applicator_profile_id: ids.secondApplicatorId,
+				amount_applied: 1.5,
+				application_unit_id: ids.gallonId,
+			},
+			{
+				...base,
+				insecticide_id: ids.adulticideId,
+				application_method_id: null,
+				applicator_profile_id: ids.secondApplicatorId,
+				amount_applied: 0.5,
+				application_unit_id: ids.gallonId,
+			},
+			{
+				...base,
+				application_date: sql<Date>`date '2026-01-10'`,
+				insecticide_id: ids.larvicideId,
+				application_method_id: ids.truckMethodId,
+				applicator_profile_id: ids.secondApplicatorId,
+				amount_applied: 10,
+				application_unit_id: ids.gallonId,
+			},
+		])
+		.execute();
+	return ids;
+}
+
+// Over 100 source reductions in view the Source Reductions rail draws the same
+// summary (#1375). The seeded world's one live source reduction in the box, 4
+// gallons eliminated, is joined by five more across a second method, a second
+// technician and a second unit, one of them dated in January. Sources
+// eliminated are added up per unit and never across units, so gallons and
+// acres are two sums.
+describeDbIntegration('source reduction summary against Postgres', () => {
+	it('counts the source reductions the page counts, and sums sources eliminated per unit', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = await seedSourceReductionVariety(db);
+			const read = (filters: SourceReductionMapFilters) =>
+				summaryAndPage(db, MAP_SURFACES['source-reduction'], filters);
+
+			const all = await read({});
+			expect(all.pageTotal).toBe(6);
+			expect(all.summary).toEqual({
+				total: 6,
+				groups: {
+					sourceReductionMethodId: [
+						{ value: ids.drainMethodId, count: 4 },
+						{ value: ids.seededMethodId, count: 2 },
+					],
+					technicianProfileId: [
+						{ value: ids.secondTechnicianId, count: 3 },
+						{ value: ids.seededTechnicianId, count: 2 },
+						{ value: null, count: 1 },
+					],
+				},
+				breakdowns: {
+					sourcesEliminated: [
+						{ by: { unitId: ids.gallonId }, count: 3, sum: 20 },
+						{ by: { unitId: ids.acreId }, count: 3, sum: 4.5 },
+					],
+				},
+			});
+
+			// Each group's count is the total of the page its button narrows to.
+			const narrowed: readonly (readonly [string, string, SourceReductionMapFilters])[] = [
+				[
+					'sourceReductionMethodId',
+					ids.drainMethodId,
+					{ sourceReductionMethodIds: [ids.drainMethodId] },
+				],
+				[
+					'sourceReductionMethodId',
+					ids.seededMethodId,
+					{ sourceReductionMethodIds: [ids.seededMethodId] },
+				],
+				[
+					'technicianProfileId',
+					ids.secondTechnicianId,
+					{ technicianProfileIds: [ids.secondTechnicianId] },
+				],
+				[
+					'technicianProfileId',
+					ids.seededTechnicianId,
+					{ technicianProfileIds: [ids.seededTechnicianId] },
+				],
+			];
+			const answers = await Promise.all(narrowed.map(([, , filters]) => read(filters)));
+			narrowed.forEach(([grouping, value], index) => {
+				const answer = answers[index];
+				expect(answer?.summary.total).toBe(answer?.pageTotal);
+				expect(all.summary.groups[grouping]?.find((group) => group.value === value)?.count).toBe(
+					answer?.pageTotal,
+				);
+			});
+
+			// March alone drops the January source reduction, and the sums follow
+			// the page, so gallons fall behind acres on record count.
+			const march = await read({ dateFrom: '2026-03-01', dateTo: '2026-03-31' });
+			expect(march.pageTotal).toBe(5);
+			expect(march.summary.total).toBe(5);
+			expect(march.summary.breakdowns).toEqual({
+				sourcesEliminated: [
+					{ by: { unitId: ids.acreId }, count: 3, sum: 4.5 },
+					{ by: { unitId: ids.gallonId }, count: 2, sum: 10 },
+				],
+			});
+
+			// Outside the date window nothing is counted and nothing is added up.
+			expect((await read({ dateFrom: '2026-04-01' })).summary).toEqual({
+				total: 0,
+				groups: { sourceReductionMethodId: [], technicianProfileId: [] },
+				breakdowns: { sourcesEliminated: [] },
+			});
+		});
+	});
+});
+
+/**
+ * Five more live source reductions in the box beside the seeded one: a
+ * drainage method, a second technician and a unit in acres, with one source
+ * reduction carrying no technician and one dated in January.
+ */
+async function seedSourceReductionVariety(db: Kysely<SimmerDatabase>): Promise<{
+	readonly seededMethodId: string;
+	readonly drainMethodId: string;
+	readonly seededTechnicianId: string;
+	readonly secondTechnicianId: string;
+	readonly gallonId: string;
+	readonly acreId: string;
+}> {
+	const inside = await db
+		.selectFrom('source_reductions')
+		.select(['source_reduction_method_id', 'technician_profile_id', 'sources_eliminated_unit_id'])
+		.where('id', '=', mapSurfaceRowIds.sourceReduction.inside)
+		.executeTakeFirstOrThrow();
+	const organizationId = mapSurfaceOrganizationIds.own;
+
+	const acre = await db
+		.insertInto('units')
+		.values({
+			code: 'map_surface_acre',
+			unit_name: 'Acre',
+			abbreviation: 'ac',
+			unit_type: 'area',
+			unit_system: 'us_customary',
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const drain = await db
+		.insertInto('source_reduction_methods')
+		.values({ organization_id: organizationId, name: 'Drainage' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const second = await db
+		.insertInto('profiles')
+		.values({
+			organization_id: organizationId,
+			display_name: 'Second Technician',
+			email: 'second.technician@example.test',
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const ids = {
+		seededMethodId: String(inside.source_reduction_method_id),
+		drainMethodId: String(drain.id),
+		seededTechnicianId: String(inside.technician_profile_id),
+		secondTechnicianId: String(second.id),
+		gallonId: String(inside.sources_eliminated_unit_id),
+		acreId: String(acre.id),
+	};
+
+	// The date goes in as text, since a `Date` is sent in the machine's own zone.
+	const base = {
+		organization_id: organizationId,
+		geom: sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`,
+		source_reduction_date: sql<Date>`date '2026-03-15'`,
+	};
+	await db
+		.insertInto('source_reductions')
+		.values([
+			{
+				...base,
+				source_reduction_method_id: ids.seededMethodId,
+				technician_profile_id: ids.seededTechnicianId,
+				sources_eliminated_amount: 6,
+				sources_eliminated_unit_id: ids.gallonId,
+			},
+			{
+				...base,
+				source_reduction_method_id: ids.drainMethodId,
+				technician_profile_id: null,
+				sources_eliminated_amount: 2.5,
+				sources_eliminated_unit_id: ids.acreId,
+			},
+			{
+				...base,
+				source_reduction_method_id: ids.drainMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				sources_eliminated_amount: 1.5,
+				sources_eliminated_unit_id: ids.acreId,
+			},
+			{
+				...base,
+				source_reduction_method_id: ids.drainMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				sources_eliminated_amount: 0.5,
+				sources_eliminated_unit_id: ids.acreId,
+			},
+			{
+				...base,
+				source_reduction_date: sql<Date>`date '2026-01-10'`,
+				source_reduction_method_id: ids.drainMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				sources_eliminated_amount: 10,
+				sources_eliminated_unit_id: ids.gallonId,
+			},
+		])
+		.execute();
+	return ids;
+}
+
+// Over 100 biocontrol actions in view the Biocontrol Actions rail draws the
+// same summary (#1376). The seeded world's one live biocontrol action in the
+// box, 25 gallons released with no habitat, is joined by five more across a
+// second method, a second technician, a unit counting fish and a linked
+// habitat, one of them dated in January. The amount released is added up per
+// unit and never across units, so gallons and fish are two sums.
+describeDbIntegration('biocontrol summary against Postgres', () => {
+	it('counts the biocontrol actions the page counts, and sums the amount released per unit', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = await seedBiocontrolVariety(db);
+			const read = (filters: BiocontrolMapFilters) =>
+				summaryAndPage(db, MAP_SURFACES.biocontrol, filters);
+
+			const all = await read({});
+			expect(all.pageTotal).toBe(6);
+			expect(all.summary).toEqual({
+				total: 6,
+				groups: {
+					biocontrolMethodId: [
+						{ value: ids.fishMethodId, count: 4 },
+						{ value: ids.seededMethodId, count: 2 },
+					],
+					technicianProfileId: [
+						{ value: ids.secondTechnicianId, count: 3 },
+						{ value: ids.seededTechnicianId, count: 2 },
+						{ value: null, count: 1 },
+					],
+					habitat: [
+						{ value: true, count: 4 },
+						{ value: false, count: 2 },
+					],
+				},
+				breakdowns: {
+					amountReleased: [
+						{ by: { unitId: ids.gallonId }, count: 4, sum: 110 },
+						{ by: { unitId: ids.fishId }, count: 2, sum: 500 },
+					],
+				},
+			});
+
+			// Each group's count is the total of the page its button narrows to.
+			const narrowed: readonly (readonly [string, string | boolean, BiocontrolMapFilters])[] = [
+				['biocontrolMethodId', ids.fishMethodId, { biocontrolMethodIds: [ids.fishMethodId] }],
+				['biocontrolMethodId', ids.seededMethodId, { biocontrolMethodIds: [ids.seededMethodId] }],
+				[
+					'technicianProfileId',
+					ids.secondTechnicianId,
+					{ technicianProfileIds: [ids.secondTechnicianId] },
+				],
+				[
+					'technicianProfileId',
+					ids.seededTechnicianId,
+					{ technicianProfileIds: [ids.seededTechnicianId] },
+				],
+				['habitat', true, { habitatLinkedOnly: true }],
+			];
+			const answers = await Promise.all(narrowed.map(([, , filters]) => read(filters)));
+			narrowed.forEach(([grouping, value], index) => {
+				const answer = answers[index];
+				expect(answer?.summary.total).toBe(answer?.pageTotal);
+				expect(all.summary.groups[grouping]?.find((group) => group.value === value)?.count).toBe(
+					answer?.pageTotal,
+				);
+			});
+
+			// March alone drops the January release, and the sums follow the page.
+			const march = await read({ dateFrom: '2026-03-01', dateTo: '2026-03-31' });
+			expect(march.pageTotal).toBe(5);
+			expect(march.summary.total).toBe(5);
+			expect(march.summary.breakdowns).toEqual({
+				amountReleased: [
+					{ by: { unitId: ids.gallonId }, count: 3, sum: 50 },
+					{ by: { unitId: ids.fishId }, count: 2, sum: 500 },
+				],
+			});
+
+			// Outside the date window nothing is counted and nothing is added up.
+			expect((await read({ dateFrom: '2026-04-01' })).summary).toEqual({
+				total: 0,
+				groups: { biocontrolMethodId: [], technicianProfileId: [], habitat: [] },
+				breakdowns: { amountReleased: [] },
+			});
+		});
+	});
+});
+
+/**
+ * Five more live biocontrol actions in the box beside the seeded one: a second
+ * method, a second technician, a unit counting fish and four linked to the
+ * seeded habitat, with one action carrying no technician and one dated in
+ * January.
+ */
+async function seedBiocontrolVariety(db: Kysely<SimmerDatabase>): Promise<{
+	readonly seededMethodId: string;
+	readonly fishMethodId: string;
+	readonly seededTechnicianId: string;
+	readonly secondTechnicianId: string;
+	readonly gallonId: string;
+	readonly fishId: string;
+}> {
+	const inside = await db
+		.selectFrom('biocontrol_actions')
+		.select(['biocontrol_method_id', 'technician_profile_id', 'release_unit_id'])
+		.where('id', '=', mapSurfaceRowIds.biocontrol.inside)
+		.executeTakeFirstOrThrow();
+	const organizationId = mapSurfaceOrganizationIds.own;
+
+	const fish = await db
+		.insertInto('units')
+		.values({
+			code: 'map_surface_fish',
+			unit_name: 'Fish',
+			abbreviation: 'fish',
+			unit_type: 'count',
+			unit_system: 'us_customary',
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const fishMethod = await db
+		.insertInto('biocontrol_methods')
+		.values({ organization_id: organizationId, name: 'Gambusia release' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const second = await db
+		.insertInto('profiles')
+		.values({
+			organization_id: organizationId,
+			display_name: 'Second Technician',
+			email: 'second.technician@example.test',
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const ids = {
+		seededMethodId: String(inside.biocontrol_method_id),
+		fishMethodId: String(fishMethod.id),
+		seededTechnicianId: String(inside.technician_profile_id),
+		secondTechnicianId: String(second.id),
+		gallonId: String(inside.release_unit_id),
+		fishId: String(fish.id),
+	};
+	const habitatId = mapSurfaceRowIds.habitat.inside;
+
+	// The date goes in as text, since a `Date` is sent in the machine's own zone.
+	const base = {
+		organization_id: organizationId,
+		geom: sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`,
+		biocontrol_date: sql<Date>`date '2026-03-15'`,
+	};
+	await db
+		.insertInto('biocontrol_actions')
+		.values([
+			{
+				...base,
+				biocontrol_method_id: ids.seededMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				amount_released: 15,
+				release_unit_id: ids.gallonId,
+				habitat_id: habitatId,
+			},
+			{
+				...base,
+				biocontrol_method_id: ids.fishMethodId,
+				technician_profile_id: null,
+				amount_released: 200,
+				release_unit_id: ids.fishId,
+				habitat_id: habitatId,
+			},
+			{
+				...base,
+				biocontrol_method_id: ids.fishMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				amount_released: 300,
+				release_unit_id: ids.fishId,
+				habitat_id: habitatId,
+			},
+			{
+				...base,
+				biocontrol_method_id: ids.fishMethodId,
+				technician_profile_id: ids.seededTechnicianId,
+				amount_released: 10,
+				release_unit_id: ids.gallonId,
+			},
+			{
+				...base,
+				biocontrol_date: sql<Date>`date '2026-01-10'`,
+				biocontrol_method_id: ids.fishMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				amount_released: 60,
+				release_unit_id: ids.gallonId,
+				habitat_id: habitatId,
+			},
+		])
+		.execute();
+	return ids;
+}
+
+// Over 100 outreach actions in view the Outreach Actions rail draws the same
+// summary (#1377). The seeded world's one live outreach action in the box, 30
+// people reached, is joined by five more across a second method, a second
+// technician and one recorded with none, one of them dated in January. `reach`
+// is `not null` and checked above zero, so every outreach action in view adds
+// to Total reach and no null is ever skipped by the sum.
+describeDbIntegration('outreach summary against Postgres', () => {
+	it('counts the outreach actions the page counts, and sums the reach', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = await seedOutreachVariety(db);
+			const read = (filters: OutreachMapFilters) =>
+				summaryAndPage(db, MAP_SURFACES.outreach, filters);
+
+			const all = await read({});
+			expect(all.pageTotal).toBe(6);
+			expect(all.summary).toEqual({
+				total: 6,
+				groups: {
+					outreachMethodId: [
+						{ value: ids.secondMethodId, count: 4 },
+						{ value: ids.seededMethodId, count: 2 },
+					],
+					technicianProfileId: [
+						{ value: ids.secondTechnicianId, count: 3 },
+						{ value: ids.seededTechnicianId, count: 2 },
+						{ value: null, count: 1 },
+					],
+				},
+				figures: { reachTotal: 255 },
+			});
+
+			// Each group's count is the total of the page its button narrows to.
+			const narrowed: readonly (readonly [string, string, OutreachMapFilters])[] = [
+				['outreachMethodId', ids.secondMethodId, { outreachMethodIds: [ids.secondMethodId] }],
+				['outreachMethodId', ids.seededMethodId, { outreachMethodIds: [ids.seededMethodId] }],
+				[
+					'technicianProfileId',
+					ids.secondTechnicianId,
+					{ technicianProfileIds: [ids.secondTechnicianId] },
+				],
+				[
+					'technicianProfileId',
+					ids.seededTechnicianId,
+					{ technicianProfileIds: [ids.seededTechnicianId] },
+				],
+			];
+			const answers = await Promise.all(narrowed.map(([, , filters]) => read(filters)));
+			narrowed.forEach(([grouping, value], index) => {
+				const answer = answers[index];
+				expect(answer?.summary.total).toBe(answer?.pageTotal);
+				expect(all.summary.groups[grouping]?.find((group) => group.value === value)?.count).toBe(
+					answer?.pageTotal,
+				);
+			});
+
+			// The reach follows the filters: the second technician reached 12, 45 and 60.
+			expect(
+				(await read({ technicianProfileIds: [ids.secondTechnicianId] })).summary.figures,
+			).toEqual({ reachTotal: 117 });
+
+			// March alone drops the January outreach, and its 60 people with it.
+			const march = await read({ dateFrom: '2026-03-01', dateTo: '2026-03-31' });
+			expect(march.pageTotal).toBe(5);
+			expect(march.summary.total).toBe(5);
+			expect(march.summary.figures).toEqual({ reachTotal: 195 });
+
+			// Outside the date window nothing is counted and the reach is zero.
+			expect((await read({ dateFrom: '2026-04-01' })).summary).toEqual({
+				total: 0,
+				groups: { outreachMethodId: [], technicianProfileId: [] },
+				figures: { reachTotal: 0 },
+			});
+		});
+	});
+});
+
+/**
+ * Five more live outreach actions in the box beside the seeded one: a second
+ * method, a second technician, one recorded with no technician and one dated
+ * in January.
+ */
+async function seedOutreachVariety(db: Kysely<SimmerDatabase>): Promise<{
+	readonly seededMethodId: string;
+	readonly secondMethodId: string;
+	readonly seededTechnicianId: string;
+	readonly secondTechnicianId: string;
+}> {
+	const inside = await db
+		.selectFrom('outreach_actions')
+		.select(['outreach_method_id', 'technician_profile_id'])
+		.where('id', '=', mapSurfaceRowIds.outreach.inside)
+		.executeTakeFirstOrThrow();
+	const organizationId = mapSurfaceOrganizationIds.own;
+
+	const secondMethod = await db
+		.insertInto('outreach_methods')
+		.values({ organization_id: organizationId, name: 'School talk' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const second = await db
+		.insertInto('profiles')
+		.values({
+			organization_id: organizationId,
+			display_name: 'Second Technician',
+			email: 'second.technician@example.test',
+		})
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	const ids = {
+		seededMethodId: String(inside.outreach_method_id),
+		secondMethodId: String(secondMethod.id),
+		seededTechnicianId: String(inside.technician_profile_id),
+		secondTechnicianId: String(second.id),
+	};
+
+	// The date goes in as text, since a `Date` is sent in the machine's own zone.
+	const base = {
+		organization_id: organizationId,
+		geom: sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`,
+		outreach_date: sql<Date>`date '2026-03-15'`,
+	};
+	await db
+		.insertInto('outreach_actions')
+		.values([
+			{
+				...base,
+				outreach_method_id: ids.seededMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				reach: 12,
+			},
+			{
+				...base,
+				outreach_method_id: ids.secondMethodId,
+				technician_profile_id: null,
+				reach: 100,
+			},
+			{
+				...base,
+				outreach_method_id: ids.secondMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				reach: 45,
+			},
+			{
+				...base,
+				outreach_method_id: ids.secondMethodId,
+				technician_profile_id: ids.seededTechnicianId,
+				reach: 8,
+			},
+			{
+				...base,
+				outreach_date: sql<Date>`date '2026-01-10'`,
+				outreach_method_id: ids.secondMethodId,
+				technician_profile_id: ids.secondTechnicianId,
+				reach: 60,
+			},
+		])
+		.execute();
+	return ids;
+}
+
+// Over 100 addresses in view the Address Book rail draws a summary (#1378):
+// the count, then locality and postal code as text, since neither has a
+// filter behind it. A value counts as written less its surrounding
+// whitespace, so ` Monroe Township ` and `Monroe Township` are one locality,
+// and a null or blank one counts under a single null value rather than under
+// an empty string. The seeded `inside` address carries no locality and no
+// postal code, so it is the second null beside the blank one seeded here.
+describeDbIntegration('address summary against Postgres', () => {
+	it('counts the addresses the page counts, by trimmed locality and postal code', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedAddressVariety(db);
+			const read = (filters: AddressMvtTileFilters) =>
+				summaryAndPage(db, MAP_SURFACES.addresses, filters);
+
+			const all = await read({});
+			expect(all.pageTotal).toBe(7);
+			expect(all.summary).toEqual({
+				total: 7,
+				groups: {
+					locality: [
+						{ value: 'Monroe Township', count: 4 },
+						{ value: null, count: 2 },
+						{ value: 'Jamesburg', count: 1 },
+					],
+					postalCode: [
+						{ value: '08831', count: 4 },
+						{ value: null, count: 2 },
+						{ value: '08850', count: 1 },
+					],
+				},
+			});
+
+			// The search narrows the summary the way it narrows the page.
+			const jamesburg = await read({ search: 'jamesburg' });
+			expect(jamesburg.pageTotal).toBe(1);
+			expect(jamesburg.summary).toEqual({
+				total: 1,
+				groups: {
+					locality: [{ value: 'Jamesburg', count: 1 }],
+					postalCode: [{ value: '08850', count: 1 }],
+				},
+			});
+
+			// The Region filter narrows them together too. Every address here sits
+			// inside the seeded `inside` region and none inside the `outside` one.
+			const ownRegion = await read({ regionIds: [mapSurfaceRowIds.region.inside] });
+			expect(ownRegion.pageTotal).toBe(7);
+			expect(ownRegion.summary).toEqual(all.summary);
+			const farRegion = await read({ regionIds: [mapSurfaceRowIds.region.outside] });
+			expect(farRegion.pageTotal).toBe(0);
+			expect(farRegion.summary.total).toBe(0);
+
+			// A search matching nothing counts nothing, and both groupings are still keys.
+			const none = await read({ search: 'no address is named this' });
+			expect(none.pageTotal).toBe(0);
+			expect(none.summary).toEqual({ total: 0, groups: { locality: [], postalCode: [] } });
+		});
+	});
+});
+
+/**
+ * Six more live addresses in the box beside the seeded `inside` one: four in
+ * Monroe Township, one written with padding and one with a padded postal
+ * code, one in Jamesburg, and one whose locality and postal code are blank.
+ */
+async function seedAddressVariety(db: Kysely<SimmerDatabase>): Promise<void> {
+	await seedMapSurfaces(db);
+	const base = {
+		organization_id: mapSurfaceOrganizationIds.own,
+		country: 'US',
+		geom: sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`,
+	};
+	await db
+		.insertInto('addresses')
+		.values([
+			{ ...base, display_name: '1 Elm St', locality: ' Monroe Township ', postal_code: '08831' },
+			{ ...base, display_name: '2 Elm St', locality: 'Monroe Township', postal_code: '08831' },
+			{ ...base, display_name: '3 Elm St', locality: 'Monroe Township', postal_code: ' 08831 ' },
+			{ ...base, display_name: '4 Elm St', locality: 'Monroe Township', postal_code: '08831' },
+			{ ...base, display_name: '5 Oak St', locality: 'Jamesburg', postal_code: '08850' },
+			{ ...base, display_name: '6 Oak St', locality: '   ', postal_code: '' },
+		])
+		.execute();
 }

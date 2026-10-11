@@ -10,8 +10,6 @@ import {
 	errorMessagesFrom,
 	FormSection,
 	LocationSection,
-	RecordFormPage,
-	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
 import {
 	AlertDialog,
@@ -25,22 +23,25 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { useRecordForm } from '../../../hooks/forms/use-record-form';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../lib/domain-validation';
-import { formatLocalDate, parseLocalDate, todayInTimeZone } from '../../../lib/local-date';
+import { formatLocalDate, parseLocalDate } from '../../../lib/local-date';
+import { profileOptions } from '../../../lib/profile-options';
 import { additionalPersonnelOptions } from '../../additional-personnel';
+import { HabitatPicker } from '../../control-operations/control-pickers';
 import { FirstCommentSection } from '../../forms/first-comment-section';
 import { LocationAddressField } from '../../forms/location-band';
-import { MapCanvas } from '../../map';
+import { RecordFormFrame } from '../../forms/record-form-frame';
 import { checkOwnedGeometry } from '../../map/geojson-adapter';
-import { DrawToolbar, GeometryControl } from '../../map/geometry-control';
+import { GeometryControl } from '../../map/geometry-control';
 import {
 	ConditionsField,
 	DryNote,
@@ -57,12 +58,11 @@ import {
 	type InspectionFormValues,
 	type InspectionSampleDraft,
 	noHabitatTypeValue,
-	profileOptions,
 	resultColumnsForMode,
 	unsetDensityValue,
 	withConditionsChosen,
 } from './inspection-form-values';
-import { HabitatPicker, SelectedHabitat } from './inspection-habitat-picker';
+import { SelectedHabitat } from './inspection-habitat-picker';
 import { SamplesSection } from './inspection-samples-section';
 
 export interface InspectionFormHeader {
@@ -117,18 +117,16 @@ export function InspectionFormPage({
 	header,
 	onSave,
 }: InspectionFormPageProps) {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const isEditing = mode === 'edit';
 	const entryMode = policy.mode;
 	const columns = resultColumnsForMode(entryMode);
 
-	// Habitat mode reports against the same band as the drawn location, but it is
-	// a missing pick rather than a missing shape, so the hook does not own it.
-	const [habitatError, setHabitatError] = useState<string | null>(null);
 	// Switching to dry throws away whatever abundance was keyed in, because the command
 	// rejects a dry inspection that carries any, so the crew is asked first.
 	const [pendingDry, setPendingDry] = useState(false);
+	const inspectionDateErrorId = useId();
 	// `referenceGeometry` is the selected habitat's shape, shown for reference in
 	// habitat mode. Ad-hoc geometry is rendered by the draw layer instead.
 	const location = useDrawLocation({
@@ -182,22 +180,15 @@ export function InspectionFormPage({
 				});
 	}, INSPECTION_FIELD_PATHS);
 
-	const form = useAppForm({
+	const form = useRecordForm({
 		defaultValues,
-		validators: {
-			onSubmit: (input: { readonly value: InspectionFormValues }) =>
-				withConditionsChosen(input.value, validateCommand(input)),
-		},
-		onSubmit: async ({ value }) => {
-			location.clearError();
-			setHabitatError(null);
-			if (value.locationMode === 'habitat' && value.habitatId === null) {
-				setHabitatError('Select the habitat this inspection covers.');
-				return;
-			}
-			if (value.locationMode === 'adhoc' && !location.requireGeometry()) {
-				return;
-			}
+		validate: (input: { readonly value: InspectionFormValues }) =>
+			withConditionsChosen(input.value, validateCommand(input)),
+		location,
+		needsShape: (value) => value.locationMode === 'adhoc',
+		onSubmit: async (value) => {
+			// A missing habitat never reaches here: the validator files it on
+			// `habitatId` and the picker draws it.
 			await onSave({
 				values: value,
 				adhocGeometry: value.locationMode === 'adhoc' ? adhocGeometry : null,
@@ -209,7 +200,6 @@ export function InspectionFormPage({
 	const { clearError } = location;
 	const handleHabitatSelected = (habitat: HabitatMatch | null) => {
 		clearError();
-		setHabitatError(null);
 		if (habitat === null) {
 			setReferenceGeometry(null);
 			return;
@@ -227,52 +217,46 @@ export function InspectionFormPage({
 	};
 
 	return (
-		<form.AppForm>
-			<RecordFormPage
-				actions={
-					<>
-						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit} />
-					</>
-				}
+		<>
+			<RecordFormFrame
+				canSubmit={canSubmit}
+				errorTitle="Unable to Save Inspection"
+				form={form}
 				header={header}
-				aside={
-					<>
-						<MapCanvas
-							geoJson={previewGeometry}
-							layers={[
-								{ kind: 'habitats', serverUrl: getServerUrl(), filters: { isActive: true } },
-							]}
-							onMapReady={location.onMapReady}
-						/>
-						<DrawToolbar
-							geometryKind="inspection"
-							controller={draw}
-							geometryType={adhocGeometryType}
-						/>
-					</>
-				}
-				onSubmit={() => {
-					void form.handleSubmit();
+				map={{
+					location,
+					geometryKind: 'inspection',
+					canvas: {
+						geoJson: previewGeometry,
+						layers: [{ kind: 'habitats', serverUrl: getServerUrl(), filters: { isActive: true } }],
+					},
 				}}
 			>
-				<form.FormErrorAlert title="Unable to Save Inspection" />
-
 				<form.AppField name="inspectionDate">
-					{(field) => (
-						<LabeledControl label="Inspection date" required>
-							<DatePicker
-								ariaLabel="Inspection date"
-								className="w-full"
-								max={parseLocalDate(today)}
-								onChange={(date) =>
-									field.handleChange(date === undefined ? '' : formatLocalDate(date))
-								}
-								placeholder="Select date"
-								value={parseLocalDate(field.state.value)}
-							/>
-						</LabeledControl>
-					)}
+					{(field) => {
+						const error = errorMessagesFrom(field.state.meta.errors)[0]?.message;
+						return (
+							<LabeledControl
+								error={error}
+								errorId={inspectionDateErrorId}
+								label="Inspection date"
+								required
+							>
+								<DatePicker
+									ariaDescribedBy={error === undefined ? undefined : inspectionDateErrorId}
+									ariaInvalid={error !== undefined}
+									ariaLabel="Inspection date"
+									className="w-full"
+									max={parseLocalDate(today)}
+									onChange={(date) =>
+										field.handleChange(date === undefined ? '' : formatLocalDate(date))
+									}
+									placeholder="Select date"
+									value={parseLocalDate(field.state.value)}
+								/>
+							</LabeledControl>
+						);
+					}}
 				</form.AppField>
 
 				<FormSection title="Personnel">
@@ -310,7 +294,7 @@ export function InspectionFormPage({
 							? 'The habitat or one-off choice is fixed. Record a new inspection to cover a different habitat.'
 							: 'Tie the inspection to a mapped habitat, or draw the one-off location it covers. An address is optional reference.'
 					}
-					error={habitatError ?? location.locationError}
+					error={location.locationError}
 				>
 					<form.AppField name="locationMode">
 						{(field) => (
@@ -347,11 +331,14 @@ export function InspectionFormPage({
 											<SelectedHabitat habitatId={field.state.value} />
 										) : (
 											<HabitatPicker
+												errors={field.state.meta.errors}
+												includeRetired
 												onSelect={(habitat) => {
 													field.handleChange(habitat?.id ?? null);
 													handleHabitatSelected(habitat);
 												}}
 												organizationId={organizationId}
+												required
 												value={field.state.value}
 											/>
 										)
@@ -365,6 +352,7 @@ export function InspectionFormPage({
 									<form.AppField name="addressId">
 										{(field) => (
 											<LocationAddressField
+												errors={field.state.meta.errors}
 												location={location}
 												onChange={field.handleChange}
 												value={field.state.value}
@@ -514,7 +502,7 @@ export function InspectionFormPage({
 				</form.Subscribe>
 
 				<FirstCommentSection form={form} mode={isEditing ? 'edit' : 'create'} />
-			</RecordFormPage>
+			</RecordFormFrame>
 
 			<AlertDialog onOpenChange={setPendingDry} open={pendingDry}>
 				<AlertDialogContent>
@@ -543,7 +531,7 @@ export function InspectionFormPage({
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-		</form.AppForm>
+		</>
 	);
 }
 

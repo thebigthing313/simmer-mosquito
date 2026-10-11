@@ -110,6 +110,7 @@ describe('monthGroups', () => {
 				{ period: '2026-01', value: 11 },
 				{ period: '2026-09', value: null },
 			],
+			[4.5, null, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0],
 			2026,
 		);
 
@@ -120,9 +121,17 @@ describe('monthGroups', () => {
 			comparisonMonth: '2025-01',
 			period: 11,
 			comparison: 5,
+			average: 4.5,
 		});
+		// An average no year qualifies for is no bar.
+		expect(groups[1]).toMatchObject({ average: null });
 		// A month the year has not reached is no bar; a zero denominator is no bar either.
-		expect(groups[8]).toMatchObject({ periodMonth: '2026-09', period: null, comparison: 7 });
+		expect(groups[8]).toMatchObject({
+			periodMonth: '2026-09',
+			period: null,
+			comparison: 7,
+			average: 6,
+		});
 		expect(groups[11]).toMatchObject({
 			periodMonth: undefined,
 			period: undefined,

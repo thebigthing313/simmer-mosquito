@@ -722,6 +722,8 @@ export interface OrganizationsTable {
 	mailing_region: string | null;
 	mailing_postal_code: string | null;
 	updated_by_profile_id: string | null;
+	map_center_lat: number | null;
+	map_center_lng: number | null;
 }
 
 export interface OutreachActionsTable {

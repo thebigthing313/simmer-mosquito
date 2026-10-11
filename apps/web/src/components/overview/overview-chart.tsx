@@ -3,9 +3,11 @@
  * `ChartContainer` over Recharts. The form is the grain's: Today plots the
  * year's days as bars, one per day with the weekends in, packed with no gap
  * because 365 slots at a 600px plot width leave no room for one; Monthly plots twelve
- * groups of two bars, the picked month's year in the period role beside the
- * year before in the comparison role; Annual plots one bar per year over
- * at most ten years. Every form paints its roles through
+ * groups of three bars, the picked month's year in the period role beside the
+ * year before in the comparison role and the five-year average in the average
+ * role; Annual plots one bar per year over at most ten years, with the
+ * five years before the picked year averaged as a dashed horizontal line.
+ * Every form paints its roles through
  * the chart's own `ChartConfig` so the marks read `var(--color-period)` and
  * `check:map-palette` has no literal to refuse. `docs/today-spec.md` and
  * `docs/monthly-spec.md`, "The chart", and `docs/web-components.md` for the
@@ -27,6 +29,7 @@ import {
 	type OverviewGrain,
 	type OverviewRatio,
 	type OverviewRatioPoint,
+	type OverviewRatioSum,
 	type OverviewSeriesPoint,
 	overviewPeriodMonth,
 	overviewPeriodYear,
@@ -41,6 +44,8 @@ import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recha
 import { formatCount } from '../../lib/format-count';
 import { formatMonthDay } from '../../lib/local-date';
 import {
+	averageLabel,
+	averageValues,
 	formatRatio,
 	MONTH_LABELS,
 	type MonthGroup,
@@ -48,13 +53,21 @@ import {
 	ratioValue,
 } from './overview-data';
 
-/** What one chart plots: a count series, or a ratio series with the ratio's own formatting. */
+/**
+ * What one chart plots: a count series, or a ratio series with the ratio's
+ * own formatting, each with the response's `seriesAverage` beside it.
+ */
 export type OverviewChartSeries =
-	| { readonly kind: 'count'; readonly points: readonly OverviewSeriesPoint[] }
+	| {
+			readonly kind: 'count';
+			readonly points: readonly OverviewSeriesPoint[];
+			readonly average: readonly (number | null)[];
+	  }
 	| {
 			readonly kind: 'ratio';
 			readonly ratio: OverviewRatio;
 			readonly points: readonly OverviewRatioPoint[];
+			readonly average: readonly OverviewRatioSum[];
 	  };
 
 /** One plotted point: the period, and the value or a gap. */
@@ -80,6 +93,7 @@ export function OverviewChart({
 	readonly height?: OverviewChartHeight;
 }) {
 	const points = plotPoints(series);
+	const average = averageValues(series);
 	// Wrapped, because Recharts hands a tick formatter the tick's index as a
 	// second argument and `formatCount` would read it as the fraction digits.
 	const format =
@@ -89,7 +103,7 @@ export function OverviewChart({
 		return (
 			<MonthsBars
 				format={format}
-				groups={monthGroups(points, overviewPeriodYear(period))}
+				groups={monthGroups(points, average, overviewPeriodYear(period))}
 				height={height}
 				onOpenPeriod={onOpenPeriod}
 				period={period}
@@ -100,6 +114,7 @@ export function OverviewChart({
 	if (grain === 'year') {
 		return (
 			<YearsBars
+				average={average[0] ?? null}
 				format={format}
 				height={height}
 				onOpenPeriod={onOpenPeriod}
@@ -140,11 +155,12 @@ const PERIOD_CONFIG = {
 	period: { label: 'Period', color: 'var(--chart-period)' },
 } satisfies ChartConfig;
 
-/** Both roles, labelled with their years so the tooltip names the series. */
-function pairConfig(year: number): ChartConfig {
+/** Monthly's three roles, labelled with their years so the tooltip names the series. */
+function monthsConfig(year: number): ChartConfig {
 	return {
 		period: { label: `${year}`, color: 'var(--chart-period)' },
 		comparison: { label: `${year - 1}`, color: 'var(--chart-comparison)' },
+		average: { label: averageLabel(year), color: 'var(--chart-average)' },
 	};
 }
 
@@ -271,13 +287,15 @@ function monthTick(period: string): string {
 	return MONTH_LABELS[overviewPeriodMonth(period) - 1] ?? '';
 }
 
-// --- Monthly: twelve months beside last year ---------------------------------
+// --- Monthly: twelve months beside last year and the average ----------------
 
 /**
- * A grouped bar: twelve groups of two, the period series left of the
- * comparison series the way the legend reads them, `maxBarSize` 24, `barGap`
- * 2, no stroke, the picked month marked with the dashed line at its group. A
- * bar opens its own month, so a comparison bar opens the year before's.
+ * A grouped bar: twelve groups of three, the period series, the comparison
+ * series and the average in the order the legend reads them, `maxBarSize`
+ * 24, `barGap` 2, no stroke, the picked month marked with the dashed line at
+ * its group. A year's bar opens its own month, so a comparison bar opens the
+ * year before's; an average bar opens nothing, since no single month is
+ * behind it.
  */
 function MonthsBars({
 	groups,
@@ -306,7 +324,7 @@ function MonthsBars({
 	};
 	return (
 		<div className={CHART_FRAME[height]}>
-			<ChartContainer className={PLOT[height]} config={pairConfig(year)}>
+			<ChartContainer className={PLOT[height]} config={monthsConfig(year)}>
 				<BarChart
 					barCategoryGap="28%"
 					barGap={2}
@@ -323,7 +341,7 @@ function MonthsBars({
 						width={Y_AXIS_WIDTH}
 					/>
 					<ChartTooltip
-						content={<ChartTooltipContent formatter={tooltipPair(format, year)} />}
+						content={<ChartTooltipContent formatter={tooltipSeries(format, monthsConfig(year))} />}
 						cursor={{ fill: 'var(--muted)', fillOpacity: 0.6 }}
 					/>
 					<Bar
@@ -346,6 +364,14 @@ function MonthsBars({
 						onClick={open('comparisonMonth')}
 						radius={BAR_RADIUS}
 					/>
+					<Bar
+						dataKey="average"
+						fill="var(--color-average)"
+						isAnimationActive={false}
+						maxBarSize={24}
+						name="average"
+						radius={BAR_RADIUS}
+					/>
 					{picked === undefined ? null : (
 						<ReferenceLine
 							stroke="var(--foreground)"
@@ -366,10 +392,13 @@ function MonthsBars({
  * A single-series bar over the years the response's series carries, at most
  * `OVERVIEW_TREND_YEARS` and always holding the picked year, which the dashed
  * line marks, the year per x tick thinned by Recharts as the width demands. A bar opens its
- * own year.
+ * own year. The average of the five years before the picked year is a dashed
+ * horizontal line in the average role, absent when no year qualifies, and
+ * the value axis stretches to hold it when it sits above every bar.
  */
 function YearsBars({
 	points,
+	average,
 	period,
 	format,
 	wholeNumbers,
@@ -377,6 +406,8 @@ function YearsBars({
 	height,
 }: {
 	readonly points: readonly PlotPoint[];
+	/** The five-year average, or null when no year qualifies. */
+	readonly average: number | null;
 	readonly period: string;
 	readonly format: (value: number) => string;
 	readonly wholeNumbers: boolean;
@@ -434,6 +465,15 @@ function YearsBars({
 							x={period}
 						/>
 					) : null}
+					{average === null ? null : (
+						<ReferenceLine
+							ifOverflow="extendDomain"
+							stroke="var(--chart-average)"
+							strokeDasharray="6 4"
+							strokeWidth={2}
+							y={average}
+						/>
+					)}
 				</BarChart>
 			</ChartContainer>
 		</div>
@@ -441,16 +481,17 @@ function YearsBars({
 }
 
 /**
- * A tooltip row for one of two series: the value first, then the series'
- * year, so the hovered month reads both years at a glance.
+ * A tooltip row for one of Monthly's three series: the value first, then the
+ * series' label off the chart's config, so the hovered month reads all three
+ * at a glance.
  */
-function tooltipPair(format: (value: number) => string, year: number) {
+function tooltipSeries(format: (value: number) => string, config: ChartConfig) {
 	return (value: unknown, name: unknown) => (
 		<span className="flex w-full items-center justify-between gap-3">
 			<span className="font-medium text-foreground tabular-nums">
 				{typeof value === 'number' ? format(value) : String(value)}
 			</span>
-			<span className="text-muted-foreground">{name === 'period' ? year : year - 1}</span>
+			<span className="text-muted-foreground">{config[String(name)]?.label ?? String(name)}</span>
 		</span>
 	);
 }

@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+	boundsFromCoordinates,
 	boundsFromGeoJson,
 	centroidFromGeoJson,
-	containsLngLat,
 	countGeoJsonVertices,
 	formatBoundingBox,
 	geometryContainsLngLat,
 	ownedCentroidFromGeoJson,
-	parseBoundingBox,
 	toLngLat,
 } from '../../geometry.js';
 import { type CorpusCase, corpusRegionFor, REGION_MEMBERSHIP_CORPUS } from '../../test-corpus.js';
@@ -42,25 +41,11 @@ function containsAnyCoordinate(corpusCase: CorpusCase): boolean {
 }
 
 describe('geometry helpers', () => {
-	it('parses and formats canonical bounding boxes', () => {
-		const bbox = parseBoundingBox('-75.25,40.1,-74.75,40.5');
-
-		expect(bbox).toEqual({
-			west: -75.25,
-			south: 40.1,
-			east: -74.75,
-			north: 40.5,
-		});
-		expect(bbox ? formatBoundingBox(bbox) : null).toBe('-75.25,40.1,-74.75,40.5');
+	it('formats canonical bounding boxes', () => {
+		expect(formatBoundingBox({ west: -75.25, south: 40.1, east: -74.75, north: 40.5 })).toBe(
+			'-75.25,40.1,-74.75,40.5',
+		);
 		expect(formatBoundingBox({ west: 0, south: 0, east: 10, north: 10 })).toBe('0,0,10,10');
-		expect(parseBoundingBox('-75,40,-76,41')).toBeNull();
-	});
-
-	it('checks whether a point falls inside bounds', () => {
-		const bbox = { west: -75, south: 40, east: -74, north: 41 };
-
-		expect(containsLngLat(bbox, { lng: -74.5, lat: 40.5 })).toBe(true);
-		expect(containsLngLat(bbox, { lng: -73.5, lat: 40.5 })).toBe(false);
 	});
 
 	it('checks whether a point falls inside a region boundary', () => {
@@ -438,5 +423,55 @@ describe('geometry helpers', () => {
 				],
 			}),
 		).toBe(6);
+	});
+});
+
+describe('boundsFromCoordinates', () => {
+	it('returns null for no points', () => {
+		expect(boundsFromCoordinates([])).toBeNull();
+	});
+
+	it('returns a zero-area box for one point', () => {
+		expect(boundsFromCoordinates([{ lng: -74.5, lat: 40.2 }])).toEqual({
+			west: -74.5,
+			south: 40.2,
+			east: -74.5,
+			north: 40.2,
+		});
+	});
+
+	it('returns the box enclosing several points', () => {
+		expect(
+			boundsFromCoordinates([
+				{ lng: -74.5, lat: 40.2 },
+				{ lng: -73.9, lat: 39.8 },
+				{ lng: -74.1, lat: 40.6 },
+			]),
+		).toEqual({ west: -74.5, south: 39.8, east: -73.9, north: 40.6 });
+	});
+
+	it('leaves out a point with a NaN coordinate', () => {
+		expect(
+			boundsFromCoordinates([
+				{ lng: -74.5, lat: 40.2 },
+				{ lng: Number.NaN, lat: 41 },
+				{ lng: -73.9, lat: Number.NaN },
+				{ lng: -73.9, lat: 39.8 },
+			]),
+		).toEqual({ west: -74.5, south: 39.8, east: -73.9, north: 40.2 });
+	});
+
+	it('leaves out a point with a longitude past 180', () => {
+		expect(
+			boundsFromCoordinates([
+				{ lng: -74.5, lat: 40.2 },
+				{ lng: 181, lat: 40 },
+				{ lng: -73.9, lat: 39.8 },
+			]),
+		).toEqual({ west: -74.5, south: 39.8, east: -73.9, north: 40.2 });
+	});
+
+	it('returns null when every point is left out', () => {
+		expect(boundsFromCoordinates([{ lng: Number.POSITIVE_INFINITY, lat: 0 }])).toBeNull();
 	});
 });

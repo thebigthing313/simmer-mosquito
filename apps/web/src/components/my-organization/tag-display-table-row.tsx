@@ -2,7 +2,7 @@ import { tagPalette } from '@simmer-mosquito/design-tokens';
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { TableCell, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
-import type { TagRecord } from '../../hooks/queries/use-tag-catalog';
+import type { TagRecord } from '../../hooks/queries/catalog-record-view';
 import { validHexColor } from '../../lib/hex-color';
 import { relevanceSummary } from '../../lib/tag-relevance';
 import { TagBadge } from '../tag-badge';

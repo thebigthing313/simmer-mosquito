@@ -6,14 +6,13 @@ import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { ScrollBody } from '@simmer-mosquito/ui-web/components/scroll-body';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
+import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
+import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useState } from 'react';
-import {
-	CollectionFlagBadges,
-	collectionEffectiveDate,
-} from '../../components/adult-surveillance/adult-display';
+import { useId, useState } from 'react';
+import { CollectionFlagBadges } from '../../components/adult-surveillance/adult-display';
 import {
 	SPECIES_WINDOWS,
 	SpeciesCompositionPanel,
@@ -28,13 +27,8 @@ import {
 	type ActivityCollection,
 	useRecentCollections,
 } from '../../hooks/queries/use-recent-collections';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import {
-	addDaysToDateString,
-	formatMonthDay,
-	formatWeekdayMonthDay,
-	todayInTimeZone,
-} from '../../lib/local-date';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
+import { addDaysToDateString, formatMonthDay, formatWeekdayMonthDay } from '../../lib/local-date';
 
 /** How far back the recent-window queries reach. */
 const ADULT_ACTIVITY_WINDOW_DAYS = 14;
@@ -52,29 +46,34 @@ export const Route = createFileRoute('/adult-surveillance/')({
 });
 
 function AdultSurveillanceOverviewRoute() {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	const clock = useOrganizationClock();
+	const today = clock.today();
 	const since = addDaysToDateString(today, -(ADULT_ACTIVITY_WINDOW_DAYS - 1));
 
 	// `record` is the measure the route-loading skeleton reserves, so the
 	// overview arrives at the width it stood in for (#1043, #1049). The panels
 	// keep their twelve-column grid; the frame is what widened.
 	return (
-		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
+		<div
+			className={cn(
+				pageContainer({ gap: 'overview', measure: 'record', padding: 'page' }),
+				'@container',
+			)}
+		>
 			<PageHeader icon={AdultIcon} title="Adult Surveillance" />
 
-			<div className="grid gap-5 xl:grid-cols-12">
-				<div className="xl:col-span-7">
+			<div className="grid gap-5 @5xl:grid-cols-12">
+				<div className="@5xl:col-span-7">
 					<RecentCollectionsPanel since={since} />
 				</div>
-				<div className="grid content-start gap-5 xl:col-span-5">
+				<div className="grid content-start gap-5 @5xl:col-span-5">
 					<AdultSpeciesComposition today={today} />
 					<AwaitingIdentificationPanel since={since} />
 				</div>
-				<div className="xl:col-span-12">
+				<div className="@5xl:col-span-12">
 					<OverThresholdPanel since={since} />
 				</div>
-				<div className="xl:col-span-12">
+				<div className="@5xl:col-span-12">
 					<AttentionPanel since={since} />
 				</div>
 			</div>
@@ -83,14 +82,8 @@ function AdultSurveillanceOverviewRoute() {
 }
 
 /** A collection's date as `Wed, Aug 12` — an em dash while it is still pending. */
-function collectionDayLabel(
-	collection: {
-		readonly collectedAt: Date | null;
-		readonly collectionDate: string | null;
-	},
-	timeZone: string,
-): string {
-	return formatWeekdayMonthDay(collectionEffectiveDate(collection, timeZone) ?? '');
+function collectionDayLabel(effectiveDate: string | null): string {
+	return formatWeekdayMonthDay(effectiveDate ?? '');
 }
 
 function CollectionLink({
@@ -120,14 +113,11 @@ interface DayGroup {
 	readonly rows: readonly ActivityCollection[];
 }
 
-function groupByDay(
-	collections: readonly ActivityCollection[],
-	timeZone: string,
-): readonly DayGroup[] {
+function groupByDay(collections: readonly ActivityCollection[]): readonly DayGroup[] {
 	const groups = new Map<string, ActivityCollection[]>();
 	for (const collection of collections) {
-		const day = collectionEffectiveDate(collection, timeZone) ?? '';
-		if (day === '') {
+		const day = collection.effectiveDate;
+		if (day === null) {
 			continue;
 		}
 		const existing = groups.get(day);
@@ -142,9 +132,9 @@ function groupByDay(
 }
 
 function RecentCollectionsPanel({ since }: { readonly since: string }) {
-	const timeZone = useOrganizationTimeZone();
-	const { collections, isReady, isError } = useRecentCollections(since, timeZone);
-	const groups = groupByDay(collections, timeZone);
+	const clock = useOrganizationClock();
+	const { collections, isReady, isError } = useRecentCollections(since, clock.zone);
+	const groups = groupByDay(collections);
 
 	return (
 		<Panel
@@ -199,7 +189,7 @@ function DayGroupBlock({ group }: { readonly group: DayGroup }) {
 						<div className="grid min-w-0 flex-1">
 							<CollectionLink id={collection.id} label={collectionPlaceLabel(collection)} />
 							<span className="truncate text-muted-foreground text-xs">
-								{collection.methodName}
+								{collection.methodName ?? 'Unknown method'}
 								{collection.collectedByProfileId === null
 									? ''
 									: ` · ${collection.collectedByName ?? 'Unknown'}`}
@@ -220,13 +210,24 @@ function DayGroupBlock({ group }: { readonly group: DayGroup }) {
 
 function AdultSpeciesComposition({ today }: { readonly today: string }) {
 	const [window, setWindow] = useState<SpeciesWindow>('7d');
+	const [includeMales, setIncludeMales] = useState(false);
 	const { totals, grandTotal, isReady, isError } = useAdultSpeciesComposition(
 		speciesWindowSince(today, window),
+		includeMales,
 	);
+	const malesId = useId();
 
 	return (
 		<SpeciesCompositionPanel
 			emptySubject="specimens"
+			filters={
+				<div className="flex items-center gap-2">
+					<Label className="text-muted-foreground text-xs" htmlFor={malesId}>
+						Males
+					</Label>
+					<Switch checked={includeMales} id={malesId} onCheckedChange={setIncludeMales} />
+				</div>
+			}
 			grandTotal={grandTotal}
 			isError={isError}
 			isReady={isReady}
@@ -241,8 +242,8 @@ function AdultSpeciesComposition({ today }: { readonly today: string }) {
 // --- awaiting identification -------------------------------------------------
 
 function AwaitingIdentificationPanel({ since }: { readonly since: string }) {
-	const timeZone = useOrganizationTimeZone();
-	const { awaiting, isReady, isError } = useCollectionsAwaitingIdentification(since, timeZone);
+	const clock = useOrganizationClock();
+	const { awaiting, isReady, isError } = useCollectionsAwaitingIdentification(since, clock.zone);
 
 	return (
 		<Panel
@@ -275,11 +276,11 @@ function AwaitingIdentificationPanel({ since }: { readonly since: string }) {
 								<div className="grid min-w-0 flex-1">
 									<CollectionLink id={collection.id} label={collectionPlaceLabel(collection)} />
 									<span className="truncate text-muted-foreground text-xs">
-										{collection.methodName}
+										{collection.methodName ?? 'Unknown method'}
 									</span>
 								</div>
 								<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-									{collectionDayLabel(collection, timeZone)}
+									{collectionDayLabel(collection.effectiveDate)}
 								</span>
 							</li>
 						))}
@@ -293,10 +294,10 @@ function AwaitingIdentificationPanel({ since }: { readonly since: string }) {
 // --- over action threshold --------------------------------------------------
 
 function OverThresholdPanel({ since }: { readonly since: string }) {
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	const { collections, hasConfiguredThresholds, isReady, isError } = useCollectionsOverThreshold(
 		since,
-		timeZone,
+		clock.zone,
 	);
 
 	return (
@@ -344,7 +345,7 @@ function OverThresholdPanel({ since }: { readonly since: string }) {
 								key={collection.id}
 							>
 								<span className="w-11 shrink-0 text-muted-foreground text-xs tabular-nums">
-									{formatMonthDay(collectionEffectiveDate(collection, timeZone) ?? '')}
+									{formatMonthDay(collection.effectiveDate ?? '')}
 								</span>
 								{/*
 								 * The reason to read this panel is to open the collection that ran
@@ -359,7 +360,7 @@ function OverThresholdPanel({ since }: { readonly since: string }) {
 										{collectionPlaceLabel(collection)}
 									</span>
 									<span className="truncate text-muted-foreground text-xs">
-										{collection.methodName}
+										{collection.methodName ?? 'Unknown method'}
 									</span>
 								</Link>
 								<span className="shrink-0 text-sm tabular-nums">
@@ -388,8 +389,8 @@ function OverThresholdPanel({ since }: { readonly since: string }) {
 // --- attention (problem collections) ----------------------------------------
 
 function AttentionPanel({ since }: { readonly since: string }) {
-	const timeZone = useOrganizationTimeZone();
-	const { collections, isReady, isError } = useRecentCollections(since, timeZone);
+	const clock = useOrganizationClock();
+	const { collections, isReady, isError } = useRecentCollections(since, clock.zone);
 	const flagged = collections.filter((collection) => collection.hasProblem);
 
 	return (
@@ -419,11 +420,11 @@ function AttentionPanel({ since }: { readonly since: string }) {
 								<div className="grid min-w-0 flex-1">
 									<CollectionLink id={collection.id} label={collectionPlaceLabel(collection)} />
 									<span className="truncate text-muted-foreground text-xs">
-										{collection.methodName}
+										{collection.methodName ?? 'Unknown method'}
 									</span>
 								</div>
 								<span className="w-11 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
-									{collectionDayLabel(collection, timeZone)}
+									{collectionDayLabel(collection.effectiveDate)}
 								</span>
 							</li>
 						))}

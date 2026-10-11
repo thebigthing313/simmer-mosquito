@@ -2,6 +2,12 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useDateRangeFilters } from '../../../../hooks/explorer/use-date-range-filters';
+import {
+	type DatePreset,
+	datePresetRange,
+	SCHEDULE_DATE_PRESETS,
+	SCHEDULE_WINDOW,
+} from '../../../../lib/date-presets';
 
 afterEach(cleanup);
 
@@ -54,5 +60,36 @@ describe('useDateRangeFilters', () => {
 		expect(bind('2026-08-04', TODAY).result.current.activePresetId).toBe('7d');
 		expect(bind('2026-08-03', TODAY).result.current.activePresetId).toBeNull();
 		expect(bind('', '').result.current.activePresetId).toBe('all');
+	});
+
+	it('defaults to the history direction', () => {
+		expect(bind('2026-07-01', '2026-07-31').result.current.direction).toBe('history');
+	});
+
+	// #1432: the Missions and Assignments pages could not reach a day after today
+	// once a reader touched a preset, because every preset ended today.
+	describe('under the schedule direction', () => {
+		function bindSchedule(from: string, to: string) {
+			const setFilters = vi.fn();
+			const { result } = renderHook(() =>
+				useDateRangeFilters({ from, to, today: TODAY, setFilters, direction: 'schedule' }),
+			);
+			return { setFilters, result };
+		}
+
+		it('lets a preset set the end after today', () => {
+			const { setFilters, result } = bindSchedule('2026-08-03', '2026-08-24');
+			const next30 = SCHEDULE_DATE_PRESETS.find((preset) => preset.id === 'next-30d');
+			expect(next30).toBeDefined();
+			act(() => result.current.onApplyPreset(next30 as DatePreset));
+			expect(setFilters).toHaveBeenCalledWith({ from: TODAY, to: '2026-09-08' });
+		});
+
+		it('lights the default window, which a history binding does not', () => {
+			const { from, to } = datePresetRange(SCHEDULE_WINDOW, TODAY);
+			expect(bindSchedule(from, to).result.current.activePresetId).toBe(SCHEDULE_WINDOW.id);
+			expect(bindSchedule(from, to).result.current.direction).toBe('schedule');
+			expect(bind(from, to).result.current.activePresetId).toBeNull();
+		});
 	});
 });

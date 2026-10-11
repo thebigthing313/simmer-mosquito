@@ -41,16 +41,15 @@ import {
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import { useSampleSpeciesMutations } from '../../../hooks/mutations/use-sample-species-mutations';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
+import { liveQueryGcTimeMs } from '../../../hooks/queries/shared';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { SAMPLE_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { sample_species } from '../../../lib/collections/sample_species';
 import { samples } from '../../../lib/collections/samples';
 import { habitatLabel } from '../../../lib/coordinate-label';
-import { todayInTimeZone } from '../../../lib/local-date';
-import { formatDateTime, formatFullDate, formatMonthDayYear } from '../../../lib/record-dates';
+import { formatFullDate, formatMonthDayYear } from '../../../lib/record-dates';
 import { sampleName } from '../../../lib/sample-name';
 import { errorMessageForSave } from '../../../lib/save-error';
 
@@ -264,12 +263,12 @@ function IdentificationCard({
 	// The on-demand sample record — the source of truth for the disposition flags
 	// and label. Falls back to the one-shot seed until the subset is ready.
 	const recordResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query.from({ sample: samples() }).where(({ sample }) => eq(sample.id, sampleId)),
 	});
 	const speciesResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ sampleSpecies: sample_species() })
@@ -307,7 +306,7 @@ function IdentificationCard({
 
 	const takenSpeciesIds = new Set(speciesRows.map((row) => row.speciesId));
 
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 
 	const guard = (): boolean => {
 		if (!canManage || identity?.organizationId == null) {
@@ -333,7 +332,7 @@ function IdentificationCard({
 					identifiedByProfileId,
 					// A calendar date, not a timestamp — the domain builder validates
 					// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
-					identifiedAt: todayInTimeZone(timeZone),
+					identifiedAt: clock.today(),
 				},
 			});
 		} catch (cause) {
@@ -499,7 +498,7 @@ function IdentificationCard({
 }
 
 function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	return (
 		<Card variant="surface">
 			<CardHeader padding="compact">
@@ -532,8 +531,8 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 						)}
 					</DetailRow>
 					<DetailRow label="Collected">{formatFullDate(geo.inspectionDate)}</DetailRow>
-					<DetailRow label="Recorded">{formatDateTime(geo.createdAt, timeZone)}</DetailRow>
-					<DetailRow label="Updated">{formatDateTime(geo.updatedAt, timeZone)}</DetailRow>
+					<DetailRow label="Recorded">{clock.formatInstant(geo.createdAt, 'dateTime')}</DetailRow>
+					<DetailRow label="Updated">{clock.formatInstant(geo.updatedAt, 'dateTime')}</DetailRow>
 				</DetailList>
 			</CardContent>
 		</Card>

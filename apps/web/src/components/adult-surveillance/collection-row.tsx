@@ -19,7 +19,6 @@ import { Link } from '@tanstack/react-router';
 import { formatWeekdayMonthDay } from '../../lib/local-date';
 import {
 	CollectionFlagBadges,
-	collectionEffectiveDate,
 	isPendingCollection,
 	SpeciesSexBadge,
 	SpeciesStatusBadge,
@@ -34,14 +33,11 @@ import {
 export function CollectionRow({
 	collection,
 	speciesNameById,
-	timeZone,
 }: {
 	readonly collection: DirectoryCollection;
 	readonly speciesNameById: ReadonlyMap<string, string>;
-	/** Passed down rather than read here, so a row opens no live query of its own. */
-	readonly timeZone: string;
 }) {
-	const date = collectionEffectiveDate(collection, timeZone);
+	const date = collection.effectiveDate;
 	const isPending = isPendingCollection(collection);
 	const totals = specimenTotals(collection.species);
 

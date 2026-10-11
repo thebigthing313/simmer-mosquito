@@ -115,6 +115,22 @@ export function applicationSurface(
 		geom: sql`a.geom`,
 		properties: [sql`a.id`],
 		filterWhere: applicationFilterWhere,
+		// What the Chemical Applications rail counts by over 100 in view (#1374),
+		// each one a filter the rail already has, so a group is a button that
+		// applies it.
+		groupings: () => ({
+			insecticideId: sql`a.insecticide_id`,
+			applicationMethodId: sql`a.application_method_id`,
+			applicatorProfileId: sql`a.applicator_profile_id`,
+		}),
+		// An amount only adds up within one unit, so it is summed per
+		// insecticide and per unit rather than across the box.
+		breakdowns: () => ({
+			amountApplied: {
+				by: { insecticideId: sql`a.insecticide_id`, unitId: sql`a.application_unit_id` },
+				sum: sql<number>`a.amount_applied`,
+			},
+		}),
 		display: {
 			columns: applicationDisplayColumns,
 			joins: applicationDisplayJoins,
@@ -220,6 +236,21 @@ export function sourceReductionSurface(
 		geom: sql`sr.geom`,
 		properties: [sql`sr.id`],
 		filterWhere: sourceReductionFilterWhere,
+		// What the Source Reductions rail counts by over 100 in view (#1375),
+		// each one a filter the rail already has, so a group is a button that
+		// applies it.
+		groupings: () => ({
+			sourceReductionMethodId: sql`sr.source_reduction_method_id`,
+			technicianProfileId: sql`sr.technician_profile_id`,
+		}),
+		// Sources eliminated only add up within one unit, so the amount is
+		// summed per unit rather than across the box.
+		breakdowns: () => ({
+			sourcesEliminated: {
+				by: { unitId: sql`sr.sources_eliminated_unit_id` },
+				sum: sql<number>`sr.sources_eliminated_amount`,
+			},
+		}),
 		display: {
 			columns: sourceReductionDisplayColumns,
 			orderBy: sql`sr.source_reduction_date desc, sr.created_at desc, sr.id`,
@@ -328,6 +359,22 @@ export function biocontrolSurface(
 		geom: sql`ba.geom`,
 		properties: [sql`ba.id`],
 		filterWhere: biocontrolFilterWhere,
+		// What the Biocontrol Actions rail counts by over 100 in view (#1376),
+		// each one a filter the rail already has, so a group is a button that
+		// applies it.
+		groupings: () => ({
+			biocontrolMethodId: sql`ba.biocontrol_method_id`,
+			technicianProfileId: sql`ba.technician_profile_id`,
+			habitat: sql`ba.habitat_id is not null`,
+		}),
+		// An amount released only adds up within one unit, so it is summed per
+		// unit rather than across the box.
+		breakdowns: () => ({
+			amountReleased: {
+				by: { unitId: sql`ba.release_unit_id` },
+				sum: sql<number>`ba.amount_released`,
+			},
+		}),
 		display: {
 			columns: biocontrolDisplayColumns,
 			orderBy: sql`ba.biocontrol_date desc, ba.created_at desc, ba.id`,
@@ -437,6 +484,15 @@ export function outreachSurface(
 		geom: sql`oa.geom`,
 		properties: [sql`oa.id`],
 		filterWhere: outreachFilterWhere,
+		// What the Outreach Actions rail counts by over 100 in view (#1377), each
+		// one a filter the rail already has, so a group is a button that applies it.
+		groupings: () => ({
+			outreachMethodId: sql`oa.outreach_method_id`,
+			technicianProfileId: sql`oa.technician_profile_id`,
+		}),
+		// `reach` is `not null` and checked above zero, so every outreach action in
+		// view adds to the total and the sum never skips a null.
+		figures: () => ({ reachTotal: sql<number>`oa.reach` }),
 		display: {
 			columns: outreachDisplayColumns,
 			orderBy: sql`oa.outreach_date desc, oa.created_at desc, oa.id`,

@@ -17,7 +17,7 @@
  * this query rather than after it.
  */
 
-import { caseWhen, coalesce, eq, isNull } from '@tanstack/react-db';
+import { eq } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { application_methods } from '../../lib/collections/application_methods';
 import { applications } from '../../lib/collections/applications';
@@ -27,12 +27,12 @@ import { profiles } from '../../lib/collections/profiles';
 import { units } from '../../lib/collections/units';
 import { vehicles } from '../../lib/collections/vehicles';
 import type { ChemicalApplication } from './control-action-view';
-import { addressSelect, useRecordById } from './shared';
+import { controlActionBaseSelect, PERFORMED_ACTIONS } from './performed-action-reads';
+import { addressSelect, joinedOrNull, useRecordById } from './shared';
 
-export function useApplication(
-	applicationId: string | null,
-	options?: { readonly gcTime?: number },
-): {
+const applicationReads = PERFORMED_ACTIONS.applications;
+
+export function useApplication(applicationId: string | null): {
 	readonly application: ChemicalApplication | undefined;
 	readonly isReady: boolean;
 	readonly isError: boolean;
@@ -40,7 +40,6 @@ export function useApplication(
 	const result = useRecordById({
 		collection: applications(),
 		id: applicationId,
-		gcTime: options?.gcTime,
 		query: (query) =>
 			query
 				// `left` throughout: an application need not name a method or an
@@ -48,23 +47,23 @@ export function useApplication(
 				// row entirely rather than leave a field blank.
 				.join(
 					{ product: insecticides() },
-					({ record: application, product }) => eq(application.insecticide_id, product.id),
+					({ record: application, product }) => applicationReads.joinProduct(application, product),
 					'left',
 				)
 				.join(
 					{ method: application_methods() },
-					({ record: application, method }) => eq(application.application_method_id, method.id),
+					({ record: application, method }) => applicationReads.joinMethod(application, method),
 					'left',
 				)
 				.join(
 					{ unit: units() },
-					({ record: application, unit }) => eq(application.application_unit_id, unit.id),
+					({ record: application, unit }) => applicationReads.joinUnit(application, unit),
 					'left',
 				)
 				.join(
 					{ applicator: profiles() },
 					({ record: application, applicator }) =>
-						eq(application.applicator_profile_id, applicator.id),
+						applicationReads.joinPerformer(application, applicator),
 					'left',
 				)
 				.join(
@@ -86,51 +85,35 @@ export function useApplication(
 					'left',
 				)
 				.select(
-					({ record: application, product, method, unit, applicator, address, vehicle, rig }) => ({
-						id: application.id,
-						address: addressSelect(address),
-						actionDate: application.application_date,
+					({ record: application, product, method, unit, applicator, address, vehicle, rig }) => {
+						const measured = applicationReads.measured(application);
+						return {
+							id: application.id,
+							address: addressSelect(address),
+							actionDate: applicationReads.date(application),
 
-						insecticideId: application.insecticide_id,
-						// `insecticide_id` is not nullable, so there is no absent case to
-						// carry — only the join not having resolved yet.
-						productName: coalesce(product.trade_name, 'Unknown product'),
-						methodId: application.application_method_id,
-						// Guarded on the application's own column, so an application with no
-						// method reads as `null` rather than as the `undefined` an unmatched
-						// join yields.
-						methodName: caseWhen(isNull(application.application_method_id), null, method.name),
-						applicatorProfileId: application.applicator_profile_id,
-						applicatorName: caseWhen(
-							isNull(application.applicator_profile_id),
-							null,
-							applicator.display_name,
-						),
+							insecticideId: measured.productId,
+							// `insecticide_id` is not nullable, so a `null` name only ever means
+							// the product is not in the client.
+							productName: joinedOrNull(product.trade_name),
+							methodId: measured.methodId,
+							methodName: joinedOrNull(method.name),
+							applicatorProfileId: measured.performerProfileId,
+							applicatorName: joinedOrNull(applicator.display_name),
 
-						amountApplied: application.amount_applied,
-						unitId: application.application_unit_id,
-						unitAbbreviation: coalesce(unit.abbreviation, null),
+							amountApplied: measured.amount,
+							unitId: measured.unitId,
+							unitAbbreviation: joinedOrNull(unit.abbreviation),
 
-						vehicleId: application.vehicle_id,
-						vehicleName: caseWhen(isNull(application.vehicle_id), null, vehicle.vehicle_name),
-						equipmentId: application.equipment_id,
-						equipmentName: caseWhen(isNull(application.equipment_id), null, rig.equipment_name),
-						addressId: application.address_id,
-						habitatId: application.habitat_id,
-						collectionId: application.collection_id,
-						inspectionId: application.inspection_id,
-						requestedControlActionId: application.requested_control_action_id,
-						missionItemId: application.mission_item_id,
-
-						latitude: application.lat,
-						longitude: application.lng,
-						geometryKind: application.geom_type,
-						metadata: application.metadata,
-						createdAt: application.created_at,
-						updatedAt: application.updated_at,
-						createdByProfileId: application.created_by_profile_id,
-						updatedByProfileId: application.updated_by_profile_id,
-					}),
+							vehicleId: application.vehicle_id,
+							vehicleName: joinedOrNull(vehicle.vehicle_name),
+							equipmentId: application.equipment_id,
+							equipmentName: joinedOrNull(rig.equipment_name),
+							habitatId: application.habitat_id,
+							collectionId: application.collection_id,
+							...controlActionBaseSelect(application),
+						};
+					},
 				),
 	});
 

@@ -57,11 +57,12 @@ import {
 	RecordDetailPage,
 } from '../../../components/record';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
+import { liveQueryGcTimeMs } from '../../../hooks/queries/shared';
 import { useApplication } from '../../../hooks/queries/use-application';
 import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
-import { useApplicationMethodRoster } from '../../../hooks/queries/use-application-method-roster';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-location-context';
@@ -96,7 +97,7 @@ function RouteComponent() {
 	// One query for the application, its product, method, unit, applicator, rig and
 	// address — the lookups this page used to do for itself. `applications` is
 	// on-demand, so this is status-gated rather than suspending; see the hook.
-	const { application, isReady, isError } = useApplication(id, { gcTime: activityGcTimeMs });
+	const { application, isReady, isError } = useApplication(id);
 
 	return (
 		<RecordDetailPage
@@ -123,14 +124,14 @@ function ApplicationDetailContent({
 }) {
 	// The roster is still read, but only for the custom-field schema the chosen
 	// method declares — the method's *name* arrives joined.
-	const methods = useApplicationMethodRoster();
+	const methods = useCatalogRoster(catalogs.applicationMethods);
 	const { remove } = useApplicationMutations();
 	// habitats is on-demand and has no join here; resolve just the linked habitat's
 	// name as a subset.
 	const habitatIds = application.habitatId === null ? [] : [application.habitatId];
 	const habitatNameById = useHabitatNames(habitatIds);
 
-	const productName = application.productName;
+	const productName = application.productName ?? 'Unknown insecticide';
 	const amount = formatMeasure(application.amountApplied, application.unitAbbreviation);
 
 	useBreadcrumbLabel(application.id, productName);
@@ -250,7 +251,7 @@ function ApplicationBatchesCard({
 	// insecticide_batches is on-demand too; only this product's batches can be
 	// linked, so scope the subset to the applied insecticide.
 	const batchResult = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ batch: insecticide_batches() })

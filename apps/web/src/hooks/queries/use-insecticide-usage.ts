@@ -12,15 +12,19 @@
  * The product name is still joined, so the caller sorts by a name it was handed.
  */
 
-import { coalesce, eq, gte, useLiveQuery } from '@tanstack/react-db';
+import { gte, useLiveQuery } from '@tanstack/react-db';
 import { applications } from '../../lib/collections/applications';
 import { insecticides } from '../../lib/collections/insecticides';
-import { activityGcTimeMs } from './shared';
+import { PERFORMED_ACTIONS } from './performed-action-reads';
+import { joinedOrNull, liveQueryGcTimeMs } from './shared';
+
+const applicationReads = PERFORMED_ACTIONS.applications;
 
 /** One product's total over the window, per unit it was measured in. */
 export interface InsecticideUsage {
 	readonly insecticideId: string;
-	readonly name: string;
+	/** `null` while the product is not in the client. */
+	readonly name: string | null;
 	readonly totalsByUnitId: ReadonlyMap<string, number>;
 	readonly applicationCount: number;
 }
@@ -31,22 +35,25 @@ export function useInsecticideUsage(sinceDate: string): {
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ application: applications() })
-				.where(({ application }) => gte(application.application_date, sinceDate))
+				.where(({ application }) => gte(applicationReads.date(application), sinceDate))
 				.join(
 					{ product: insecticides() },
-					({ application, product }) => eq(application.insecticide_id, product.id),
+					({ application, product }) => applicationReads.joinProduct(application, product),
 					'left',
 				)
-				.select(({ application, product }) => ({
-					insecticideId: application.insecticide_id,
-					name: coalesce(product.trade_name, 'Unknown insecticide'),
-					amountApplied: application.amount_applied,
-					unitId: application.application_unit_id,
-				})),
+				.select(({ application, product }) => {
+					const measured = applicationReads.measured(application);
+					return {
+						insecticideId: measured.productId,
+						name: joinedOrNull(product.trade_name),
+						amountApplied: measured.amount,
+						unitId: measured.unitId,
+					};
+				}),
 	});
 
 	const rows = result.data;
@@ -60,14 +67,14 @@ export function useInsecticideUsage(sinceDate: string): {
 function usageByInsecticide(
 	rows: readonly {
 		readonly insecticideId: string;
-		readonly name: string;
+		readonly name: string | null;
 		readonly amountApplied: number;
 		readonly unitId: string;
 	}[],
 ): readonly InsecticideUsage[] {
 	const byInsecticide = new Map<
 		string,
-		{ name: string; totals: Map<string, number>; count: number }
+		{ name: string | null; totals: Map<string, number>; count: number }
 	>();
 	for (const row of rows) {
 		const entry = byInsecticide.get(row.insecticideId) ?? {

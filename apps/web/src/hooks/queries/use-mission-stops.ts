@@ -20,12 +20,12 @@
  * already holds every row it would need to count.
  */
 
-import { caseWhen, eq, isNull, useLiveQuery } from '@tanstack/react-db';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { mission_items } from '../../lib/collections/mission_items';
 import { requested_control_actions } from '../../lib/collections/requested_control_actions';
 import type { MissionStop } from './operations-view';
-import { addressSelect, mapCardGcTimeMs, unmatchableId } from './shared';
+import { addressSelect, joinedOrNull, liveQueryGcTimeMs, unmatchableId } from './shared';
 
 export function useMissionStops(missionId: string | null): {
 	readonly stops: readonly MissionStop[];
@@ -33,7 +33,7 @@ export function useMissionStops(missionId: string | null): {
 	readonly isReady: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: mapCardGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: mission_items() })
@@ -58,16 +58,10 @@ export function useMissionStops(missionId: string | null): {
 					longitude: item.lng,
 					geometryKind: item.geom_type,
 					requestedControlActionId: item.requested_control_action_id,
-					// Guarded on the stop's own column, so a stop that names no request
-					// reads as `null` rather than as the `undefined` an unmatched join
-					// yields — and a summary is legitimately null on a real request, so
-					// nullness alone could not tell the two apart.
-					requestSummary: caseWhen(isNull(item.requested_control_action_id), null, request.summary),
-					requestControlType: caseWhen(
-						isNull(item.requested_control_action_id),
-						null,
-						request.control_type,
-					),
+					// A summary is legitimately null on a real request, so the summary
+					// alone cannot say whether the stop names one: read the id beside it.
+					requestSummary: joinedOrNull(request.summary),
+					requestControlType: joinedOrNull(request.control_type),
 					addressId: item.address_id,
 					address: addressSelect(address),
 					completedAt: item.completed_at,

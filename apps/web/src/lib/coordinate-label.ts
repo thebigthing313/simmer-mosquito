@@ -120,8 +120,7 @@ export interface HabitatLabelRow {
  * the guard was on the inspection's own `habitat_id`, which cannot see the
  * difference, so the `concat` ran over absent columns and `habitatName` was
  * the non-empty string `, ` that no arm below it could get past. The seam
- * suites beside `use-inspection-table.test.tsx` hold all three answers per
- * seam.
+ * suites under `tests/unit/hooks/queries` hold all three answers per seam.
  *
  * `||` rather than `??` on the name, so a habitat named with whitespace alone
  * falls out of the name arm instead of titling the record with spaces. That is

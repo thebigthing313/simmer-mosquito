@@ -12,7 +12,8 @@ import {
 import { seedHabitatGeometryCache } from '../../../components/larval-surveillance/habitats/habitat-geometry-cache';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useHabitatMutations } from '../../../hooks/mutations/use-habitat-mutations';
-import { useHabitatTypeRoster } from '../../../hooks/queries/use-habitat-type-roster';
+import { catalogs } from '../../../hooks/queries/catalog-register';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { recordNoun } from '../../../lib/record-nouns';
 import { addressSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -39,7 +40,7 @@ function CreateHabitatRoute() {
 	const initialGeometry = pointFromSearch(search);
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const habitatTypes = useHabitatTypeRoster();
+	const habitatTypes = useCatalogRoster(catalogs.habitatTypes);
 	const mutations = useHabitatMutations();
 	const organizationId =
 		auth.snapshot?.authenticated === true ? (auth.snapshot.localIdentity.organizationId ?? '') : '';

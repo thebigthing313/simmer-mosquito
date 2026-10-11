@@ -1,16 +1,15 @@
 import type { Contact } from '@simmer-mosquito/sync';
 import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import { ilike, or, useLiveQuery } from '@tanstack/react-db';
-import { useDeferredValue, useRef, useState } from 'react';
+import { useDeferredValue } from 'react';
+import { useSearchPicker } from '../../hooks/pickers/use-search-picker';
 import { useSelectedRowLabel } from '../../hooks/pickers/use-selected-row-label';
+import { liveQueryGcTimeMs } from '../../hooks/queries/shared';
 import { contacts } from '../../lib/collections/contacts';
 import { OptionRow, PickerFallback, PickerFrame } from './entity-picker';
 
 // Contacts sync on demand, so the results come from a live subset query (an `ilike`
 // across the identity fields) rather than a client-side filter over an eager set.
-// Rendering this picker also keeps the contacts stream warm for a nearby write.
-
-const searchGcTimeMs = 30_000;
 
 /**
  * What the picker hands back.
@@ -30,53 +29,30 @@ export function ContactPicker({
 	label = 'Contact',
 	value,
 	onSelect,
+	errors,
 }: {
 	readonly label?: string;
 	readonly value: string | null;
 	readonly onSelect: (contact: ContactOption | null) => void;
+	/** The bound field's `state.meta.errors`, drawn under the input. */
+	readonly errors?: readonly unknown[] | undefined;
 }) {
-	const [open, setOpen] = useState(false);
-	const [search, setSearch] = useState('');
-	const [pickedLabel, setPickedLabel] = useState('');
-	const deferredSearch = useDeferredValue(search);
-	const anchorRef = useRef<HTMLDivElement>(null);
 	// An edit form arrives holding only the contact id, so the current selection is
 	// resolved from the collection rather than left as an empty-looking field.
-	const selectedLabel = useSelectedRowLabel({
+	const resolvedLabel = useSelectedRowLabel({
 		collection: contacts(),
-		pickedLabel,
 		toLabel: (row) => contactLabel(contactLabelParts(row)),
 		value,
 	});
+	const picker = useSearchPicker({ value, resolvedLabel, onClear: () => onSelect(null) });
+	const deferredSearch = useDeferredValue(picker.search);
 
 	return (
-		<PickerFrame
-			anchorRef={anchorRef}
-			label={label}
-			onClear={() => {
-				setPickedLabel('');
-				setSearch('');
-				onSelect(null);
-			}}
-			onOpen={() => setOpen(true)}
-			onOpenChange={setOpen}
-			onSearchChange={(next) => {
-				setSearch(next);
-				setOpen(true);
-			}}
-			open={open}
-			placeholder="Search contacts"
-			search={search}
-			selectedLabel={selectedLabel}
-			value={value}
-		>
+		<PickerFrame {...picker.frame} errors={errors} label={label} placeholder="Search contacts">
 			<ContactResults
 				onSelect={(contact) => {
-					const name = contactLabel(contact);
-					setPickedLabel(name);
-					setSearch(name);
+					picker.pick(contact.id, contactLabel(contact));
 					onSelect(contact);
-					setOpen(false);
 				}}
 				search={deferredSearch}
 				selectedValue={value}
@@ -97,7 +73,7 @@ function ContactResults({
 	const normalized = search.trim();
 	const pattern = `%${normalized}%`;
 	const { data, isReady, isError } = useLiveQuery({
-		gcTime: searchGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) => {
 			// No organization predicate: the shape is scoped to the organization
 			// server-side, so re-stating it here is redundant — and a stale column

@@ -16,12 +16,12 @@ import type { RouteStopFeature } from '../../hooks/map/use-route-layer';
 import { useRouteMutations } from '../../hooks/mutations/use-route-mutations';
 import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 import { ROUTE_DELETE_REFUSALS } from '../../lib/acknowledgement-copy';
+import { stopCountPhrase } from '../../lib/format-count';
 import { useBreadcrumbLabel } from '../app-shell';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../danger-zone-card';
+import { StopSequenceMap } from '../map/stop-sequence-map';
 import { WriteOnly } from '../write-only';
-import { RouteMap } from './route-map';
-import { type RouteStop, stopCountLabel } from './route-stop';
 import type { RouteSummary } from './route-summary';
 import type { RoutePlanningSurface } from './surface';
 
@@ -48,7 +48,6 @@ export function RouteDetailPage({
 	routeId,
 	route,
 	isReady,
-	stops,
 	features,
 	itemCount,
 	isLoading,
@@ -59,7 +58,6 @@ export function RouteDetailPage({
 	readonly route: RouteSummary | null;
 	/** False while the route set is still resolving — before that, absence means nothing. */
 	readonly isReady: boolean;
-	readonly stops: readonly RouteStop[];
 	readonly features: readonly RouteStopFeature[];
 	readonly itemCount: number;
 	readonly isLoading: boolean;
@@ -93,14 +91,15 @@ export function RouteDetailPage({
 	return (
 		<MapSplitPage
 			map={
-				<RouteMap
+				<StopSequenceMap
 					features={features}
 					fitKey={routeId}
 					highlightId={highlightId}
 					onHoverStop={setHighlightId}
 					onSelectStop={setSelectedStopId}
+					recordType="route"
 					selectedId={selectedStopId}
-					stops={stops}
+					stopCount={itemCount}
 				/>
 			}
 		>
@@ -120,7 +119,7 @@ export function RouteDetailPage({
 								<RouteIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
 								<span className="min-w-0 truncate">{route?.routeName ?? 'Route'}</span>
 							</h1>
-							<p className="mt-0.5 text-muted-foreground text-sm">{stopCountLabel(itemCount)}</p>
+							<p className="mt-0.5 text-muted-foreground text-sm">{stopCountPhrase(itemCount)}</p>
 						</div>
 						<WriteOnly minimum="manager">
 							<Button asChild size="sm" variant="outline">

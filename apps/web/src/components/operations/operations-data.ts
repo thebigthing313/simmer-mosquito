@@ -15,9 +15,7 @@ import { unreadable } from '../../lib/unreadable-input';
 /**
  * The reads and writes behind the operations section: requested control
  * actions and missions. The queue and the schedule read through
- * `hooks/queries`; a page that writes a row reads it through the same
- * collection, or the write's txid lands on a stream nothing is watching.
- * Assignments keep their own module.
+ * `hooks/queries`. Assignments keep their own module.
  */
 
 // --- derived state ----------------------------------------------------------

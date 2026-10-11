@@ -58,6 +58,7 @@ export function MapControlButton({
 	onClick,
 	disabled = false,
 	active = false,
+	pressed,
 	side = 'left',
 	children,
 }: {
@@ -65,6 +66,11 @@ export function MapControlButton({
 	readonly onClick: () => void;
 	readonly disabled?: boolean;
 	readonly active?: boolean;
+	/**
+	 * Make the button a toggle: `aria-pressed` carries the state, drawn the way
+	 * `active` is, and the label names the setting in both states.
+	 */
+	readonly pressed?: boolean;
 	readonly side?: 'top' | 'right' | 'bottom' | 'left';
 	readonly children: ReactNode;
 }) {
@@ -73,11 +79,12 @@ export function MapControlButton({
 			<TooltipTrigger asChild>
 				<Button
 					aria-label={label}
+					aria-pressed={pressed}
 					className={cn(
 						// `group` so a control can swap what it draws on hover, the way the
 						// north arrow turns into the compass it resets to.
 						'group size-9 rounded-none text-foreground/75 transition-colors hover:bg-accent/60 hover:text-foreground',
-						active && 'text-primary hover:text-primary',
+						(active || pressed === true) && 'text-primary hover:text-primary',
 					)}
 					disabled={disabled}
 					onClick={onClick}

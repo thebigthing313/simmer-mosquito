@@ -32,10 +32,11 @@ import { useActivityLookups } from '../../hooks/activity/use-activity-lookups';
 import { useActivitySelection } from '../../hooks/activity/use-activity-selection';
 import { useDayActivity } from '../../hooks/activity/use-day-activity';
 import { useDailyWorkDay } from '../../hooks/daily-work/use-daily-work-day';
+import { useCatalogOptions } from '../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../hooks/explorer/use-explorer-panel';
-import { usePersonnelOptions } from '../../hooks/explorer/use-personnel-options';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { formatLocalDate, parseLocalDate, todayInTimeZone } from '../../lib/local-date';
+import { catalogs } from '../../hooks/queries/catalog-register';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
+import { formatLocalDate, parseLocalDate } from '../../lib/local-date';
 import { searchValidator } from '../../lib/search-filters';
 
 /**
@@ -66,7 +67,7 @@ export const Route = createFileRoute('/daily-work/$profileId')({
  */
 function DailyWorkRoute() {
 	const { profileId } = Route.useParams();
-	const personnel = usePersonnelOptions();
+	const personnel = useCatalogOptions(catalogs.profiles);
 	const name = isProfileId(profileId) ? personnel.nameById.get(profileId) : undefined;
 
 	return name === undefined ? (
@@ -77,17 +78,17 @@ function DailyWorkRoute() {
 }
 
 function DailyWorkPage({ profileId, name }: { readonly profileId: string; readonly name: string }) {
-	const timeZone = useOrganizationTimeZone();
+	const clock = useOrganizationClock();
 	// The organization's today, not the browser's. A supervisor two zones away
 	// opens the same day the collector on the road is filling in.
-	const today = todayInTimeZone(timeZone);
+	const today = clock.today();
 	const { day, setDay } = useDailyWorkDay(today);
 	const lookups = useActivityLookups();
 
 	// The whole Organization's day, filtered to this person: the same subsets
 	// the Dashboard's people table opens, so stepping between people costs
 	// nothing and a record moves here the moment it syncs.
-	const activity = useDayActivity(day, timeZone);
+	const activity = useDayActivity(day, clock.zone);
 	const items = activity.entries.filter((entry) => entry.profileId === profileId);
 	// Changing the day needs no explicit reset: the selection resolves by key
 	// against the entries on screen, so a key the new day does not contain is
@@ -140,7 +141,6 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 						message={panelState.message}
 						onSelect={selection.select}
 						selectedKey={selection.selectedKey}
-						timeZone={timeZone}
 					/>
 				),
 				isEmpty: panelState.isEmpty,
@@ -183,10 +183,10 @@ function DayStepper({
 	return (
 		<div className="flex items-center gap-1">
 			<Button
-				aria-label="Previous Day"
+				aria-label="Previous day"
 				onClick={() => onChange(dailyWorkStep(value, -1, today))}
 				size="icon-sm"
-				title="Previous Day"
+				title="Previous day"
 				variant="ghost"
 			>
 				<ChevronLeftIcon aria-hidden="true" />
@@ -206,11 +206,11 @@ function DayStepper({
 				value={parseLocalDate(value)}
 			/>
 			<Button
-				aria-label="Next Day"
+				aria-label="Next day"
 				disabled={isToday}
 				onClick={() => onChange(dailyWorkStep(value, 1, today))}
 				size="icon-sm"
-				title="Next Day"
+				title="Next day"
 				variant="ghost"
 			>
 				<ChevronRightIcon aria-hidden="true" />

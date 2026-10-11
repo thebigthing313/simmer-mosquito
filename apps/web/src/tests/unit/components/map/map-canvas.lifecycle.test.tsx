@@ -3,7 +3,7 @@ import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // biome-ignore lint/suspicious/noExplicitAny: react act environment flag
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -28,6 +28,8 @@ class FakeStyle {
 }
 
 class FakeMap {
+	/** What the map was created with, for the opening camera. */
+	options: { readonly center?: unknown; readonly zoom?: unknown } = {};
 	style: FakeStyle | undefined = new FakeStyle();
 	_canvas: { style: { cursor: string } } | undefined = { style: { cursor: '' } };
 	readonly handlers = new Map<string, Set<(event: unknown) => void>>();
@@ -40,11 +42,19 @@ class FakeMap {
 		return (this.style as FakeStyle).getOwnLayer(id);
 	}
 	addSource(id: string, spec: unknown) {
-		(this.style as FakeStyle).sources.set(id, {
-			setData: () => undefined,
-			setTiles: () => undefined,
-			spec,
-		});
+		const source: { tiles?: readonly string[] } = {
+			...(spec as { tiles?: readonly string[] }),
+		};
+		(this.style as FakeStyle).sources.set(
+			id,
+			Object.assign(source, {
+				setData: () => undefined,
+				setTiles: (tiles: readonly string[]) => {
+					source.tiles = tiles;
+				},
+				spec,
+			}),
+		);
 	}
 	addLayer(layer: { id: string }) {
 		(this.style as FakeStyle).layers.set(layer.id, layer);
@@ -79,6 +89,10 @@ class FakeMap {
 	getBounds() {
 		return null;
 	}
+	// Read when a stop map frames its stops, which it does on load once any is located.
+	getPadding() {
+		return { top: 0, right: 0, bottom: 0, left: 0 };
+	}
 	zoomIn() {}
 	zoomOut() {}
 	rotateTo() {}
@@ -112,8 +126,9 @@ class FakeMap {
 const fakeRuntime = {
 	accessToken: '',
 	Map: class {
-		constructor() {
+		constructor(options: FakeMap['options']) {
 			const instance = new FakeMap();
+			instance.options = options;
 			created.push(instance);
 			// biome-ignore lint/correctness/noConstructorReturn: stand-in factory
 			return instance as unknown as never;
@@ -141,8 +156,16 @@ vi.mock('../../../../components/map/mapbox-gl-loader', () => ({
 
 vi.stubEnv('VITE_MAPBOX_ACCESS_TOKEN', 'pk.test');
 
-const { RouteMap } = await import('../../../../components/route-planning/route-map');
+const { StopSequenceMap } = await import('../../../../components/map/stop-sequence-map');
 const { MapCanvas } = await import('../../../../components/map/map-canvas');
+const { mapClustering } = await import('../../../../lib/map-clustering');
+const { installMemoryCollections, seedRows } = await import(
+	'../../lib/collections/memory-collections'
+);
+const { organizations } = await import('../../../../lib/collections/organizations');
+const { DEFAULT_MAP_CAMERA, ORGANIZATION_MAP_ZOOM } = await import(
+	'../../../../components/map/map-styles'
+);
 
 const roots: Array<{ container: HTMLElement; unmount: () => void }> = [];
 
@@ -205,6 +228,12 @@ function latest(): FakeMap {
 	return instance;
 }
 
+// Every map reads the Organization's map centre, so every case needs a source
+// to read it from. An empty one is an Organization with no row yet.
+beforeEach(() => {
+	installMemoryCollections();
+});
+
 afterEach(() => {
 	for (const handle of roots.splice(0)) {
 		try {
@@ -224,9 +253,16 @@ const STOPS = [
 	{ id: 'stop-2', lng: -90.2, lat: 35.2, ordinal: 2, tone: 'default' as const },
 ];
 
-describe('RouteMap lifecycle (issue #132)', () => {
+describe('StopSequenceMap lifecycle (issue #132)', () => {
 	it('creates exactly one map and draws the route', async () => {
-		mount(<RouteMap features={STOPS} fitKey="route-1" stops={[]} />);
+		mount(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-1"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
 		await loadRuntime();
 		act(() => {
 			latest().fire('load');
@@ -239,8 +275,17 @@ describe('RouteMap lifecycle (issue #132)', () => {
 	// The page renders before the on-demand route-item + habitat subsets resolve,
 	// so the stop set arrives while the GL runtime is still being fetched.
 	it('survives stops arriving while the runtime is still loading', async () => {
-		const handle = mount(<RouteMap features={[]} fitKey="route-1" stops={[]} />);
-		handle.rerender(<RouteMap features={STOPS} fitKey="route-1" stops={[]} />);
+		const handle = mount(
+			<StopSequenceMap features={[]} fitKey="route-1" recordType="route" stopCount={0} />,
+		);
+		handle.rerender(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-1"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
 		await loadRuntime();
 		act(() => {
 			latest().fire('load');
@@ -250,18 +295,39 @@ describe('RouteMap lifecycle (issue #132)', () => {
 	});
 
 	it('survives unmount at every point in the load', async () => {
-		const beforeRuntime = mount(<RouteMap features={STOPS} fitKey="route-1" stops={[]} />);
+		const beforeRuntime = mount(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-1"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
 		expect(() => {
 			beforeRuntime.unmount();
 		}).not.toThrow();
 
-		const beforeStyle = mount(<RouteMap features={STOPS} fitKey="route-2" stops={[]} />);
+		const beforeStyle = mount(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-2"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
 		await loadRuntime();
 		expect(() => {
 			beforeStyle.unmount();
 		}).not.toThrow();
 
-		const afterStyle = mount(<RouteMap features={STOPS} fitKey="route-3" stops={[]} />);
+		const afterStyle = mount(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-3"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
 		await flush();
 		act(() => {
 			latest().fire('load');
@@ -297,7 +363,12 @@ describe('RouteMap lifecycle (issue #132)', () => {
 		function Page({ withSibling }: { readonly withSibling: boolean }) {
 			return (
 				<Suspense fallback={<p>loading</p>}>
-					<RouteMap features={STOPS} fitKey="route-1" stops={[]} />
+					<StopSequenceMap
+						features={STOPS}
+						fitKey="route-1"
+						recordType="route"
+						stopCount={STOPS.length}
+					/>
 					{withSibling ? <SuspendingSibling /> : null}
 				</Suspense>
 			);
@@ -334,20 +405,130 @@ describe('RouteMap lifecycle (issue #132)', () => {
 	// RouteDetailPage swaps the whole map away for "Route Not Found" the moment the
 	// route set reports ready without the row, then swaps it back when it arrives.
 	it('survives being swapped away and back mid-load', async () => {
-		const handle = mount(<RouteMap features={STOPS} fitKey="route-1" stops={[]} />);
+		const handle = mount(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-1"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
 		await loadRuntime();
 		act(() => {
 			latest().fire('load');
 		});
 
 		handle.rerender(<div />);
-		handle.rerender(<RouteMap features={STOPS} fitKey="route-1" stops={[]} />);
+		handle.rerender(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-1"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
 		await flush();
 		act(() => {
 			latest().fire('load');
 		});
 
 		expect(latest().removed).toBe(false);
+	});
+});
+
+/*
+ * The four Route surfaces render this map with the `route` record type, and
+ * read the same zoom control and empty pill they drew as `RouteMap` (#1491).
+ */
+describe('StopSequenceMap copy for a Route', () => {
+	it('labels the zoom control with the Route noun once a stop is located', () => {
+		const handle = mount(
+			<StopSequenceMap
+				features={STOPS}
+				fitKey="route-1"
+				recordType="route"
+				stopCount={STOPS.length}
+			/>,
+		);
+
+		expect(handle.container.querySelector('[aria-label="Zoom to route"]')).not.toBeNull();
+		expect(handle.container.textContent).not.toContain('No mapped stops');
+	});
+
+	it('says so when the Route has stops and none is located', () => {
+		const handle = mount(
+			<StopSequenceMap features={[]} fitKey="route-1" recordType="route" stopCount={2} />,
+		);
+
+		expect(handle.container.textContent).toContain('No mapped stops on this route yet');
+		expect(handle.container.querySelector('[aria-label="Zoom to route"]')).toBeNull();
+	});
+
+	it('draws neither when the Route has no stops', () => {
+		const handle = mount(
+			<StopSequenceMap features={[]} fitKey="route-1" recordType="route" stopCount={0} />,
+		);
+
+		expect(handle.container.textContent).not.toContain('No mapped stops');
+		expect(handle.container.querySelector('[aria-label="Zoom to route"]')).toBeNull();
+	});
+});
+
+/*
+ * Only a Route, a Mission or an Assignment is a run of stops, so the type
+ * refuses any other record type (#1523). The assertion that matters is the
+ * directive below, which `pnpm typecheck` fails when it has nothing to expect.
+ */
+describe('StopSequenceMap record type', () => {
+	it('refuses a record type that is not a run of stops', () => {
+		const element = (
+			<StopSequenceMap
+				features={[]}
+				fitKey="trap-1"
+				// @ts-expect-error A Trap is not a run of stops.
+				recordType="trap"
+				stopCount={0}
+			/>
+		);
+
+		expect(element.props.recordType).toBe('trap');
+	});
+});
+
+/*
+ * Where a map with nothing to fit opens (#1413). The Organization's map centre
+ * is read off its synced row, so the case seeds the row and reads the camera
+ * the map was created with.
+ */
+describe('MapCanvas opening camera (issue #1413)', () => {
+	async function open() {
+		mount(
+			<MapCanvas controls={{ search: false, basemap: false, geolocate: false, zoom: false }} />,
+		);
+		await loadRuntime();
+		return latest().options;
+	}
+
+	it("opens on the Organization's map centre at the regional zoom", async () => {
+		seedRows(organizations, [
+			{ id: 'org-1', name: 'Coastal MAD', map_center_lat: 40.4316, map_center_lng: -74.4331 },
+		]);
+
+		await expect(open()).resolves.toMatchObject({
+			center: [-74.4331, 40.4316],
+			zoom: ORGANIZATION_MAP_ZOOM,
+		});
+	});
+
+	it('opens on the continental US for an Organization with no centre stored', async () => {
+		seedRows(organizations, [
+			{ id: 'org-1', name: 'Coastal MAD', map_center_lat: null, map_center_lng: null },
+		]);
+
+		await expect(open()).resolves.toMatchObject({
+			center: DEFAULT_MAP_CAMERA.center,
+			zoom: DEFAULT_MAP_CAMERA.zoom,
+		});
 	});
 });
 
@@ -405,5 +586,120 @@ describe('MapCanvas layer order (issue #431)', () => {
 
 		expect(ids.some((id) => id.startsWith('habitats-'))).toBe(false);
 		expect(ids).toContain('geojson-overlay-points');
+	});
+});
+
+/*
+ * The cluster switch (#1380). One setting for every map, so it is reset after
+ * each case: a case that leaves it off would hand the next one a map that
+ * opens unclustered.
+ */
+describe('MapCanvas cluster control (issue #1380)', () => {
+	afterEach(() => {
+		mapClustering.write(true);
+	});
+
+	const TRAPS = { kind: 'traps', serverUrl: 'https://api.test' } as const;
+	const REGIONS = { kind: 'regions', serverUrl: 'https://api.test' } as const;
+	const CLUSTERED = 'https://api.test/map/tiles/traps/{z}/{x}/{y}.mvt?cluster=1';
+	const PLAIN = 'https://api.test/map/tiles/traps/{z}/{x}/{y}.mvt';
+
+	function clusterButton(): HTMLButtonElement | null {
+		return document.body.querySelector('button[aria-label="Group nearby points"]');
+	}
+
+	async function draw(
+		layers: NonNullable<Parameters<typeof MapCanvas>[0]['layers']>,
+		minimal = false,
+	) {
+		mount(<MapCanvas controls={{ search: false, minimal }} layers={layers} />);
+		await loadRuntime();
+		act(() => {
+			latest().fire('load');
+		});
+	}
+
+	function trapTiles(): readonly string[] | undefined {
+		return (latest().style?.sources.get('traps') as { tiles?: readonly string[] } | undefined)
+			?.tiles;
+	}
+
+	it('shows on the Traps map, pressed, with clustered tiles', async () => {
+		await draw([TRAPS]);
+
+		expect(clusterButton()?.getAttribute('aria-pressed')).toBe('true');
+		expect(trapTiles()).toEqual([CLUSTERED]);
+	});
+
+	it('drops the cluster param when switched off, and asks again when switched on', async () => {
+		await draw([TRAPS]);
+
+		act(() => {
+			clusterButton()?.click();
+		});
+		expect(clusterButton()?.getAttribute('aria-pressed')).toBe('false');
+		expect(trapTiles()).toEqual([PLAIN]);
+
+		act(() => {
+			clusterButton()?.click();
+		});
+		expect(clusterButton()?.getAttribute('aria-pressed')).toBe('true');
+		expect(trapTiles()).toEqual([CLUSTERED]);
+	});
+
+	it('carries the choice to the next map', async () => {
+		await draw([TRAPS]);
+		act(() => {
+			clusterButton()?.click();
+		});
+		for (const handle of roots.splice(0)) {
+			handle.unmount();
+			handle.container.remove();
+		}
+		pendingLoader = null;
+
+		await draw([TRAPS]);
+
+		expect(clusterButton()?.getAttribute('aria-pressed')).toBe('false');
+		expect(trapTiles()).toEqual([PLAIN]);
+	});
+
+	it('turns clustering off on every map when switched off on another one', async () => {
+		const habitats = { kind: 'habitats', serverUrl: 'https://api.test' } as const;
+		const inspections = { kind: 'inspections', serverUrl: 'https://api.test' } as const;
+		const tilesOf = (sourceId: string) =>
+			(latest().style?.sources.get(sourceId) as { tiles?: readonly string[] } | undefined)?.tiles;
+
+		await draw([habitats]);
+		expect(tilesOf('habitats')).toEqual([
+			'https://api.test/map/tiles/habitats/{z}/{x}/{y}.mvt?cluster=1',
+		]);
+		act(() => {
+			clusterButton()?.click();
+		});
+		for (const handle of roots.splice(0)) {
+			handle.unmount();
+			handle.container.remove();
+		}
+		pendingLoader = null;
+
+		await draw([inspections]);
+
+		expect(clusterButton()?.getAttribute('aria-pressed')).toBe('false');
+		expect(tilesOf('inspections')).toEqual([
+			'https://api.test/map/tiles/inspections/{z}/{x}/{y}.mvt',
+		]);
+	});
+
+	it('is absent from a map with no tileset that clusters', async () => {
+		await draw([REGIONS]);
+
+		expect(clusterButton()).toBeNull();
+	});
+
+	it('is absent from a minimal map, even one drawing traps', async () => {
+		await draw([TRAPS], true);
+
+		expect(clusterButton()).toBeNull();
 	});
 });

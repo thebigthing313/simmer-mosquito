@@ -31,6 +31,10 @@ export interface DatePickerProps {
 	readonly displayFormat?: string;
 	readonly disabled?: boolean;
 	readonly ariaLabel?: string;
+	/** Marks the trigger invalid, for a field showing an error. */
+	readonly ariaInvalid?: boolean | undefined;
+	/** The id of the text describing the trigger, such as its error. */
+	readonly ariaDescribedBy?: string | undefined;
 	readonly id?: string;
 	readonly className?: string;
 }
@@ -58,6 +62,8 @@ export function DatePicker({
 	displayFormat = 'MMM d, yyyy',
 	disabled = false,
 	ariaLabel,
+	ariaInvalid,
+	ariaDescribedBy,
 	id,
 	className,
 }: DatePickerProps) {
@@ -67,6 +73,8 @@ export function DatePicker({
 		<Popover onOpenChange={setOpen} open={open}>
 			<PopoverTrigger asChild>
 				<Button
+					aria-describedby={ariaDescribedBy}
+					aria-invalid={ariaInvalid === true ? true : undefined}
 					aria-label={ariaLabel}
 					className={cn(
 						'justify-start gap-2 font-normal',

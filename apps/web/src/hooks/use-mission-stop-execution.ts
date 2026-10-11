@@ -1,20 +1,14 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useNavigate } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { sameDrawGeometry } from '../components/map/draw-parts';
 import type { StopAcknowledgements } from '../lib/acknowledgements';
-import { mission_items } from '../lib/collections/mission_items';
 import { type DrawGeometry, toDrawGeometry } from './map/use-map-draw';
 import {
 	type MissionStopGeometry,
 	useMissionStopGeometry,
 } from './operations/use-mission-stop-geometry';
-import { unmatchableId } from './queries/shared';
 import { useAcknowledgedWrite } from './use-acknowledged-write';
-
-/** `mission_items` is an on-demand shape; hold it briefly so a retry reuses the stream. */
-const missionStopGcTimeMs = 30_000;
 
 /**
  * Where the action happened, in the two forms the write needs it.
@@ -111,18 +105,6 @@ export function useMissionStopExecution(search: {
 	// The whole save is what a confirmed acknowledgement re-runs, crew rows
 	// included; every id is minted up front, so a retry writes the same rows.
 	const { run, dialog } = useAcknowledgedWrite();
-
-	// Nothing reads this row. Subscribing warms the on-demand stream this page is
-	// about to write against, which is what keeps the write's txid confirmation
-	// from timing out.
-	useLiveQuery({
-		gcTime: missionStopGcTimeMs,
-		query: (query) =>
-			query
-				.from({ item: mission_items() })
-				.where(({ item }) => eq(item.id, missionItemId ?? unmatchableId))
-				.select(({ item }) => ({ id: item.id })),
-	});
 
 	const missionStop = useMissionStopGeometry({ missionId, missionItemId });
 

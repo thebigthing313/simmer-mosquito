@@ -13,7 +13,7 @@ export const Route = createFileRoute('/larval-surveillance/habitats/routes/$id')
 function RouteDetailRoute() {
 	const { id } = Route.useParams();
 	const { routes, isReady } = useHabitatRoutes();
-	const { stops, clusters, features, itemCount, isLoading } = useHabitatRouteStops(id);
+	const { clusters, features, itemCount, isLoading } = useHabitatRouteStops(id);
 
 	return (
 		<RouteDetailPage
@@ -35,7 +35,6 @@ function RouteDetailRoute() {
 					/>
 				</ScrollArea>
 			)}
-			stops={stops}
 			surface={habitatRouteSurface}
 		/>
 	);

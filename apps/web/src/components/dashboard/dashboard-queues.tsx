@@ -1,3 +1,4 @@
+import { serviceRequestOverdueCutoff } from '@simmer-mosquito/domain';
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
@@ -8,8 +9,10 @@ import type { ElectricQueue } from '../../hooks/queries/shared';
 import { useDueMissionsQueue } from '../../hooks/queries/use-due-missions-queue';
 import { useInProgressAssignmentsQueue } from '../../hooks/queries/use-in-progress-assignments-queue';
 import { useOpenServiceRequestsQueue } from '../../hooks/queries/use-open-service-requests-queue';
+import { useOrganizationSettings } from '../../hooks/queries/use-organization-settings';
 import { useProblemCollectionsQueue } from '../../hooks/queries/use-problem-collections-queue';
-import { formatCount } from '../../lib/format-count';
+import { useOrganizationClock } from '../../hooks/use-organization-clock';
+import { countPhrase, formatCount } from '../../lib/format-count';
 import { recordNoun } from '../../lib/record-nouns';
 import { ageInDays, ageLabel, type QueueCount } from './dashboard-data';
 
@@ -28,6 +31,12 @@ interface QueueRowModel {
 	readonly split?: string;
 	/** The row's own rule, `last 14 days`, where it has one the page should say. */
 	readonly note?: string;
+	/**
+	 * A row counting some of another row's records, such as the overdue
+	 * requests among the open ones. Left out of the panel's total, which would
+	 * otherwise count those records twice.
+	 */
+	readonly subset?: true;
 	readonly link: LinkProps;
 }
 
@@ -47,21 +56,20 @@ function queueRow(
 	label: string,
 	queue: QueueCount,
 	link: LinkProps,
-	extra: { readonly split?: string; readonly note?: string } = {},
+	extra: { readonly split?: string; readonly note?: string; readonly subset?: true } = {},
 ): QueueRowModel {
 	return { key, label, count: queue.count, oldest: queue.oldest, link, ...extra };
 }
 
 export function SurveillanceBacklog({
 	server,
-	timeZone,
 	today,
 }: {
 	readonly server: ServerRead;
-	readonly timeZone: string;
 	readonly today: string;
 }) {
-	const problems = useProblemCollectionsQueue(today, timeZone);
+	const clock = useOrganizationClock();
+	const problems = useProblemCollectionsQueue(today, clock.zone);
 	const queues = server.data?.queues;
 
 	const rows: readonly QueueRowModel[] | undefined =
@@ -114,17 +122,20 @@ export function SurveillanceBacklog({
 
 export function OperationsBacklog({
 	server,
-	timeZone,
 	today,
 }: {
 	readonly server: ServerRead;
-	readonly timeZone: string;
 	readonly today: string;
 }) {
-	const serviceRequests = useOpenServiceRequestsQueue();
-	const assignments = useInProgressAssignmentsQueue(timeZone);
-	const missions = useDueMissionsQueue(today, timeZone);
+	const clock = useOrganizationClock();
+	const threshold = useOrganizationSettings().publicEngagement.serviceRequestOverdueDays;
+	const serviceRequests = useOpenServiceRequestsQueue(
+		serviceRequestOverdueCutoff(threshold, today),
+	);
+	const assignments = useInProgressAssignmentsQueue(clock.zone);
+	const missions = useDueMissionsQueue(today, clock.zone);
 	const queues = server.data?.queues;
+	const overdue = serviceRequests.overdue;
 
 	const rows: readonly QueueRowModel[] | undefined =
 		queues === undefined
@@ -144,6 +155,24 @@ export function OperationsBacklog({
 							split: `${serviceRequests.newCount} new · ${serviceRequests.inProgressCount} in progress`,
 						},
 					),
+					// Not drawn while the threshold is off, rather than drawn at zero.
+					...(overdue === null || threshold === 'off'
+						? []
+						: [
+								queueRow(
+									'service-requests-overdue',
+									`Overdue ${recordNoun('serviceRequest').many}`,
+									overdue,
+									{
+										to: '/public-engagement/service-requests',
+										search: { overdue: true, from: 'any', to: 'any' },
+									},
+									{
+										note: `older than ${countPhrase(threshold, { one: 'day', many: 'days' })}`,
+										subset: true,
+									},
+								),
+							]),
 					queueRow(
 						'requests-unassigned',
 						`${recordNoun('requestedControlAction').titleMany} not yet assigned`,
@@ -208,7 +237,7 @@ function QueuePanel({
 }) {
 	const isError = server.isError || electric.some((queue) => queue.isError);
 	const isReady = rows !== undefined && electric.every((queue) => queue.isReady);
-	const total = rows?.reduce((sum, row) => sum + row.count, 0);
+	const total = rows?.reduce((sum, row) => (row.subset ? sum : sum + row.count), 0);
 
 	return (
 		<Panel
@@ -253,12 +282,18 @@ function QueueLine({ row, today }: { readonly row: QueueRowModel; readonly today
 	const aside = row.split ?? row.note;
 	return (
 		<li className={cn('flex items-center gap-3 px-4 py-2', empty && 'text-muted-foreground')}>
-			<Link {...row.link} className="min-w-0 flex-1 truncate text-sm hover:underline">
-				{row.label}
-			</Link>
-			{aside === undefined ? null : (
-				<span className="shrink-0 text-muted-foreground text-xs tabular-nums">{aside}</span>
-			)}
+			{/*
+			 * The name and the aside wrap as a pair, so a narrow row puts the aside
+			 * under the name instead of truncating the name to make room (#1411).
+			 */}
+			<div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+				<Link {...row.link} className="min-w-0 grow truncate text-sm hover:underline">
+					{row.label}
+				</Link>
+				{aside === undefined ? null : (
+					<span className="shrink-0 text-muted-foreground text-xs tabular-nums">{aside}</span>
+				)}
+			</div>
 			<span className="w-20 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
 				{empty || row.oldest === null ? '' : ageLabel(ageInDays(row.oldest, today))}
 			</span>

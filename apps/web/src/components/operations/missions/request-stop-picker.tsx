@@ -1,5 +1,6 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
+import { useSearchPicker } from '../../../hooks/pickers/use-search-picker';
 import type { OpenRequest } from '../../../hooks/queries/operations-view';
 import { controlTypeLabel, requestDisplayName } from '../../../hooks/queries/operations-view';
 import { useOpenRequestedControlActions } from '../../../hooks/queries/use-open-requested-control-actions';
@@ -20,37 +21,22 @@ export function RequestStopPicker({
 	readonly disabled?: boolean;
 	readonly onAdd: (request: OpenRequest) => void;
 }) {
-	const [open, setOpen] = useState(false);
-	const [search, setSearch] = useState('');
+	// The request held for "Add Stop", which is this field's value.
 	const [selected, setSelected] = useState<OpenRequest | null>(null);
-	const anchorRef = useRef<HTMLDivElement>(null);
+	const picker = useSearchPicker({
+		value: selected?.id ?? null,
+		resolvedLabel: selected === null ? '' : requestDisplayName(selected),
+		onClear: () => setSelected(null),
+	});
 
 	// No organization argument: the shape is scoped to the caller's organization
 	// server-side, so a client-side predicate on it is redundant.
 	const { requests, isReady } = useOpenRequestedControlActions();
-	const matches = requestMatches(requests, existingRequestIds, search);
+	const matches = requestMatches(requests, existingRequestIds, picker.search);
 
 	return (
 		<div className="grid gap-2">
-			<PickerFrame
-				anchorRef={anchorRef}
-				label="Request for control"
-				onClear={() => {
-					setSelected(null);
-					setSearch('');
-				}}
-				onOpen={() => setOpen(true)}
-				onOpenChange={setOpen}
-				onSearchChange={(next) => {
-					setSearch(next);
-					setOpen(true);
-				}}
-				open={open}
-				placeholder="Search open requests"
-				search={search}
-				selectedLabel={selected === null ? '' : requestDisplayName(selected)}
-				value={selected?.id ?? null}
-			>
+			<PickerFrame {...picker.frame} label="Request for control" placeholder="Search open requests">
 				{matches.length === 0 ? (
 					<PickerFallback label={emptyPickerLabel(isReady, requests.length)} />
 				) : (
@@ -59,9 +45,8 @@ export function RequestStopPicker({
 							<OptionRow
 								key={request.id}
 								onSelect={() => {
+									picker.pick(request.id, requestDisplayName(request));
 									setSelected(request);
-									setSearch(requestDisplayName(request));
-									setOpen(false);
 								}}
 								primary={requestDisplayName(request)}
 								secondary={controlTypeLabel(request.controlType)}
@@ -79,7 +64,6 @@ export function RequestStopPicker({
 						if (selected !== null) {
 							onAdd(selected);
 							setSelected(null);
-							setSearch('');
 						}
 					}}
 					size="sm"

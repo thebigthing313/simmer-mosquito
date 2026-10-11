@@ -1,4 +1,4 @@
-import type { MapQueryValue } from '../../../hooks/explorer/use-paged-map-resource';
+import { HABITAT_MAP_FILTERS } from '@simmer-mosquito/domain';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -6,21 +6,22 @@ import {
 	idSetParam,
 	textParam,
 } from '../../../lib/search-filters';
+import { defineRecordSet } from '../../explorer/record-set';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
 import type { HabitatTileFilters } from '../../map';
-import type { AccessFilter, StatusFilter } from './legend';
+import type { AccessFilter, HabitatStatusFilter } from './legend';
 
 // The habitats URL filter contract, outside the route modules so the Map and
 // the Table read the same params. Every codec drops what it cannot read, so a
 // malformed URL degrades to the defaults.
 
-const STATUS_VALUES: readonly StatusFilter[] = ['all', 'active', 'inactive'];
+const STATUS_VALUES: readonly HabitatStatusFilter[] = ['all', 'active', 'inactive'];
 const ACCESS_VALUES: readonly AccessFilter[] = ['all', 'accessible', 'inaccessible'];
 
 /** The filter state, keyed by the param each field appears under. */
 export interface HabitatFilters {
 	readonly search: string;
-	readonly status: StatusFilter;
+	readonly status: HabitatStatusFilter;
 	readonly access: AccessFilter;
 	readonly typeIds: ReadonlySet<string>;
 	readonly tagIds: ReadonlySet<string>;
@@ -66,33 +67,25 @@ export function habitatTileFilters(filters: HabitatFilters): HabitatTileFilters 
 }
 
 /**
- * The same filters as `/map/habitats` reads them. The Map adds the viewport's
- * `bbox` to these and the Table adds the whole world's, so the two surfaces
- * send one filter set under two boxes.
+ * The Habitats Map and Table. Both read `/map/habitats` and apply every filter.
  */
-export function habitatListParams(filters: HabitatTileFilters): Record<string, MapQueryValue> {
-	return {
-		isActive: filters.isActive,
-		isInaccessible: filters.isInaccessible,
-		habitatTypeId: filters.habitatTypeIds,
-		tagId: filters.tagIds,
-		regionId: filters.regionIds,
-		search: filters.search,
-		untreated: filters.untreatedOnly,
-	};
-}
-
-/**
- * The params a move between the Map and the Table carries. That is every
- * filter, since both surfaces read the same list endpoint and apply each one.
- */
-export function sharedHabitatSearch(search: Record<string, unknown>): Record<string, unknown> {
-	const carried: Record<string, unknown> = {};
-	for (const key of Object.keys(habitatFilterCodecs)) {
-		const value = search[key];
-		if (value !== undefined) {
-			carried[key] = value;
-		}
-	}
-	return carried;
-}
+export const habitatRecordSet = defineRecordSet({
+	recordType: 'habitat',
+	paths: { map: '/larval-surveillance/habitats', table: '/larval-surveillance/habitats/table' },
+	codecs: habitatFilterCodecs,
+	endpoint: { path: '/map/habitats', rowsKey: 'habitats', rowKey: 'habitat' },
+	tileset: 'habitats',
+	tileFilters: habitatTileFilters,
+	filterSpec: HABITAT_MAP_FILTERS,
+	defaults: () => HABITAT_FILTER_DEFAULTS,
+	textSearch: { key: 'search' },
+	applies: {
+		search: 'both',
+		status: 'both',
+		access: 'both',
+		typeIds: 'both',
+		tagIds: 'both',
+		regions: 'both',
+		untreated: 'both',
+	},
+});

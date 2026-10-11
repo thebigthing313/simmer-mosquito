@@ -51,6 +51,8 @@
  * removes the guess.
  */
 
+import type { PersistableTransaction } from '../../settle-write.js';
+
 /**
  * The subset of a collection this needs.
  *
@@ -75,9 +77,7 @@ export interface MutationConfig {
 }
 
 /** What a caller awaits to know the server accepted the write. */
-export interface MutationTransaction {
-	readonly isPersisted: { readonly promise: Promise<unknown> };
-}
+export type MutationTransaction = PersistableTransaction;
 
 /**
  * The command a write means, or the commands it means.
@@ -163,7 +163,7 @@ export type CollectionMutation<TRow extends object, TIntent extends string> =
  * Apply one mutation to one collection.
  *
  * Returns the transaction, so a caller that needs to know the write landed can
- * await `isPersisted.promise` and a caller that does not can ignore it.
+ * await `when('settled')` and a caller that does not can ignore it.
  *
  * One row, deliberately — but not one command. Several commands against the same
  * row belong here, as a list, because the server commits them in one transaction

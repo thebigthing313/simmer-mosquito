@@ -1,66 +1,63 @@
-import { useDeferredValue, useRef, useState } from 'react';
+import { useDeferredValue } from 'react';
+import { useSearchPicker } from '../../hooks/pickers/use-search-picker';
 import type { HabitatMatch } from '../../hooks/queries/habitat-view';
 import { useHabitatNames } from '../../hooks/queries/use-habitat-names';
 import { useHabitatSearch } from '../../hooks/queries/use-habitat-search';
 import { OptionRow, PickerFallback, PickerFrame } from '../pickers/entity-picker';
 
 // A control action picks a habitat when the work was done against a known
-// larval site. Habitats sync on demand, so results come from a live `ilike`
-// subset query. Picking an address is `LocationAddressField`'s, in
-// `components/forms/location-band.tsx`, because that pick also moves the map.
+// larval site, and an inspection picks the habitat it was made at. Habitats
+// sync on demand, so results come from a live `ilike` subset query. Picking an
+// address is `LocationAddressField`'s, in `components/forms/location-band.tsx`,
+// because that pick also moves the map.
 
 export function HabitatPicker({
 	label = 'Habitat',
+	required = false,
+	includeRetired = false,
 	organizationId,
 	value,
 	onSelect,
+	errors,
 }: {
 	readonly label?: string;
+	/** Draws the required mark after the label. */
+	readonly required?: boolean | undefined;
+	/** Offers retired habitats too. The inspection form passes it and no other form does. */
+	readonly includeRetired?: boolean | undefined;
 	readonly organizationId: string;
 	readonly value: string | null;
 	readonly onSelect: (habitat: HabitatMatch | null) => void;
+	/** The bound field's `state.meta.errors`, drawn under the input. */
+	readonly errors?: readonly unknown[] | undefined;
 }) {
-	const [open, setOpen] = useState(false);
-	const [search, setSearch] = useState('');
-	const [pickedLabel, setPickedLabel] = useState('');
-	const deferredSearch = useDeferredValue(search);
-	const anchorRef = useRef<HTMLDivElement>(null);
-
 	/*
 	 * A habitat this picker did not pick still has to say its name: a form opened
 	 * on a record already holding one, or a create form seeded from the habitat's
-	 * page. Habitats sync on demand, so the name is a subset read.
+	 * page. Habitats sync on demand, so the name is a subset read, made for any
+	 * value because whether the picked name stands over it is the hook's rule.
 	 */
-	const names = useHabitatNames(value === null || pickedLabel !== '' ? [] : [value]);
-	const selectedLabel = pickedLabel !== '' ? pickedLabel : (names.get(value ?? '') ?? '');
+	const names = useHabitatNames(value === null ? [] : [value]);
+	const picker = useSearchPicker({
+		value,
+		resolvedLabel: names.get(value ?? '') ?? '',
+		onClear: () => onSelect(null),
+	});
+	const deferredSearch = useDeferredValue(picker.search);
 
 	return (
 		<PickerFrame
-			anchorRef={anchorRef}
+			{...picker.frame}
+			errors={errors}
 			label={label}
-			onClear={() => {
-				setPickedLabel('');
-				setSearch('');
-				onSelect(null);
-			}}
-			onOpen={() => setOpen(true)}
-			onOpenChange={setOpen}
-			onSearchChange={(next) => {
-				setSearch(next);
-				setOpen(true);
-			}}
-			open={open}
 			placeholder="Search habitats"
-			search={search}
-			selectedLabel={selectedLabel}
-			value={value}
+			required={required}
 		>
 			<HabitatResults
+				includeRetired={includeRetired}
 				onSelect={(habitat) => {
-					setPickedLabel(habitat.name);
-					setSearch(habitat.name);
+					picker.pick(habitat.id, habitat.name);
 					onSelect(habitat);
-					setOpen(false);
 				}}
 				organizationId={organizationId}
 				search={deferredSearch}
@@ -71,17 +68,21 @@ export function HabitatPicker({
 }
 
 function HabitatResults({
+	includeRetired,
 	organizationId,
 	search,
 	selectedValue,
 	onSelect,
 }: {
+	readonly includeRetired: boolean;
 	readonly organizationId: string;
 	readonly search: string;
 	readonly selectedValue: string | null;
 	readonly onSelect: (habitat: HabitatMatch) => void;
 }) {
-	const { matches, isReady, isError } = useHabitatSearch(organizationId, search);
+	const { matches, isReady, isError } = useHabitatSearch(organizationId, search, {
+		includeRetired,
+	});
 
 	if (isError) {
 		return <PickerFallback label="Habitats unavailable" />;

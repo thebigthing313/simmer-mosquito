@@ -42,6 +42,7 @@ export function dayOverview(overrides: Partial<OverviewResponse> = {}): Overview
 			values: values[type],
 			averageYears: 0,
 			series: series.map((period, index) => ({ period, value: index + 1 })),
+			seriesAverage: [],
 		}),
 	);
 	const ratios = OVERVIEW_RATIOS.map(
@@ -51,6 +52,7 @@ export function dayOverview(overrides: Partial<OverviewResponse> = {}): Overview
 			denominators: ratio === 'positiveInspections' ? [120, 98] : [26, 0],
 			averageYears: 0,
 			series: series.map((period) => ({ period, numerator: 2, denominator: 4 })),
+			seriesAverage: [],
 		}),
 	);
 	return {
@@ -107,6 +109,7 @@ export function monthOverview(overrides: Partial<OverviewResponse> = {}): Overvi
 			values: values[type],
 			averageYears: values[type][3] === null ? 0 : 5,
 			series: months.map((period, index) => ({ period, value: index + 1 })),
+			seriesAverage: months.slice(0, 12).map((_, index) => index + 0.5),
 		}),
 	);
 	const ratios = OVERVIEW_RATIOS.map(
@@ -118,6 +121,7 @@ export function monthOverview(overrides: Partial<OverviewResponse> = {}): Overvi
 				ratio === 'positiveInspections' ? [2140, 3980, 2310, 11332] : [290, 380, 270, 1400],
 			averageYears: 5,
 			series: months.map((period) => ({ period, numerator: 2, denominator: 4 })),
+			seriesAverage: months.slice(0, 12).map(() => ({ numerator: 3, denominator: 4 })),
 		}),
 	);
 	return {
@@ -174,6 +178,7 @@ export function yearOverview(
 			values: values[type],
 			averageYears: values[type][2] === null ? 0 : 5,
 			series: years.map((period, index) => ({ period, value: index + 1 })),
+			seriesAverage: [values[type][2] ?? null],
 		}),
 	);
 	const ratios = OVERVIEW_RATIOS.map(
@@ -183,6 +188,7 @@ export function yearOverview(
 			denominators: ratio === 'positiveInspections' ? [24110, 37314, 113320] : [2900, 1596, 14000],
 			averageYears: 5,
 			series: years.map((period) => ({ period, numerator: 2, denominator: 4 })),
+			seriesAverage: [{ numerator: 3, denominator: 4 }],
 		}),
 	);
 	return {

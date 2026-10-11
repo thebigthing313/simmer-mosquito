@@ -13,10 +13,10 @@ import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../c
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { InsecticideListing, RigListing } from '../../../hooks/queries/chemical-roster-view';
 import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
@@ -26,16 +26,15 @@ import {
 	type ApplicationBatchesResult,
 	useApplicationBatches,
 } from '../../../hooks/queries/use-application-batches';
-import { useApplicationMethodRoster } from '../../../hooks/queries/use-application-method-roster';
-import { useEquipmentRoster } from '../../../hooks/queries/use-equipment-roster';
+import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useInsecticideRoster } from '../../../hooks/queries/use-insecticide-roster';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
-import { useVehicleRoster } from '../../../hooks/queries/use-vehicle-roster';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { APPLICATION_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
@@ -56,16 +55,16 @@ function EditApplicationRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const methods = useApplicationMethodRoster();
+	const methods = useCatalogRoster(catalogs.applicationMethods);
 	const insecticides = useInsecticideRoster();
 	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
-	const vehicles = useVehicleRoster();
-	const equipment = useEquipmentRoster();
+	const vehicles = useCatalogRoster(catalogs.vehicles);
+	const equipment = useCatalogRoster(catalogs.equipment);
 
 	// One query for the application and everything named on it. `applications` is
 	// on-demand, so this is status-gated rather than suspending; see the hook.
-	const { application, isReady, isError } = useApplication(id, { gcTime: activityGcTimeMs });
+	const { application, isReady, isError } = useApplication(id);
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
@@ -195,17 +194,31 @@ function EditApplicationLoader({
 						}),
 				acknowledgements,
 			});
+			// The update has landed by now, so a miss on the crew or the batches is
+			// reported rather than thrown (see attachLinksBestEffort). Each reports
+			// on its own, so one failing does not hide the other, and both can lose
+			// rows as well as gain them, so the report is a change to retry here.
 			await Promise.all([
-				setPersonnel({
-					target: { type: 'application', id: application.id },
-					existing: personnel.rows,
-					profileIds: values.additionalPersonnelIds,
-				}),
-				setBatches({
-					applicationId: application.id,
-					existing: batches.rows,
-					insecticideBatchIds: values.insecticideBatchIds,
-				}),
+				attachLinksBestEffort(
+					'the additional personnel',
+					() =>
+						setPersonnel({
+							target: { type: 'application', id: application.id },
+							existing: personnel.rows,
+							profileIds: values.additionalPersonnelIds,
+						}),
+					{ write: 'change', recordType: 'application' },
+				),
+				attachLinksBestEffort(
+					'the insecticide batches',
+					() =>
+						setBatches({
+							applicationId: application.id,
+							existing: batches.rows,
+							insecticideBatchIds: values.insecticideBatchIds,
+						}),
+					{ write: 'change', recordType: 'application' },
+				),
 			]);
 			await navigate({ to: '/control-operations/chemical/$id', params: { id: application.id } });
 		});

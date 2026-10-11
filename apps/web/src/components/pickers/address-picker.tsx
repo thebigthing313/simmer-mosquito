@@ -3,8 +3,10 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Separator } from '@simmer-mosquito/ui-web/components/ui/separator';
 import { PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { ilike, or, useLiveQuery } from '@tanstack/react-db';
-import { useDeferredValue, useRef, useState } from 'react';
+import { useDeferredValue, useState } from 'react';
+import { useSearchPicker } from '../../hooks/pickers/use-search-picker';
 import { useSelectedRowLabel } from '../../hooks/pickers/use-selected-row-label';
+import { liveQueryGcTimeMs } from '../../hooks/queries/shared';
 import { addressPrimaryLabel, addressSecondaryLabel } from '../../lib/address-format';
 import { addresses } from '../../lib/collections/addresses';
 import { OptionRow, PickerFallback, PickerFrame } from './entity-picker';
@@ -14,8 +16,6 @@ import { NewAddressForm, type RequestMapPoint } from './new-address-form';
 // `ilike` across the name and the postal fields) rather than a client-side filter
 // over an eager set. Every row reads the same way: the address's name on top, its
 // full postal line beneath.
-
-const searchGcTimeMs = 30_000;
 
 /**
  * Enables the inline "Create address" path. Every form that links an address
@@ -35,57 +35,34 @@ export function AddressPicker({
 	value,
 	onSelect,
 	create,
+	errors,
 }: {
 	readonly label?: string;
 	readonly value: string | null;
 	readonly onSelect: (address: AddressOption | null) => void;
 	readonly create?: AddressPickerCreateOptions | undefined;
+	/** The bound field's `state.meta.errors`, drawn under the input. */
+	readonly errors?: readonly unknown[] | undefined;
 }) {
-	const [open, setOpen] = useState(false);
-	const [search, setSearch] = useState('');
-	const [pickedLabel, setPickedLabel] = useState('');
 	const [isCreating, setIsCreating] = useState(false);
-	const deferredSearch = useDeferredValue(search);
-	const anchorRef = useRef<HTMLDivElement>(null);
 	// An edit form arrives holding only the address id, so the current selection is
 	// resolved from the collection rather than left as an empty-looking field.
-	const selectedLabel = useSelectedRowLabel({
+	const resolvedLabel = useSelectedRowLabel({
 		collection: addresses(),
-		pickedLabel,
 		toLabel: (row) => addressPrimaryLabel(addressLabelParts(row)),
 		value,
 	});
+	const picker = useSearchPicker({ value, resolvedLabel, onClear: () => onSelect(null) });
+	const deferredSearch = useDeferredValue(picker.search);
 
 	const pick = (address: AddressOption) => {
-		const name = addressPrimaryLabel(address);
-		setPickedLabel(name);
-		setSearch(name);
+		picker.pick(address.id, addressPrimaryLabel(address));
 		onSelect(address);
-		setOpen(false);
 	};
 
 	return (
 		<div className="grid gap-3">
-			<PickerFrame
-				anchorRef={anchorRef}
-				label={label}
-				onClear={() => {
-					setPickedLabel('');
-					setSearch('');
-					onSelect(null);
-				}}
-				onOpen={() => setOpen(true)}
-				onOpenChange={setOpen}
-				onSearchChange={(next) => {
-					setSearch(next);
-					setOpen(true);
-				}}
-				open={open}
-				placeholder="Search addresses"
-				search={search}
-				selectedLabel={selectedLabel}
-				value={value}
-			>
+			<PickerFrame {...picker.frame} errors={errors} label={label} placeholder="Search addresses">
 				<AddressResults onSelect={pick} search={deferredSearch} selectedValue={value} />
 				{create === undefined ? null : (
 					<>
@@ -93,14 +70,14 @@ export function AddressPicker({
 						<Button
 							className="justify-start"
 							onClick={() => {
-								setOpen(false);
+								picker.frame.onOpenChange(false);
 								setIsCreating(true);
 							}}
 							size="sm"
 							type="button"
 							variant="outline"
 						>
-							<PlusIcon aria-hidden="true" data-icon="inline-start" />
+							<PlusIcon aria-hidden="true" />
 							Create Address
 						</Button>
 					</>
@@ -108,7 +85,7 @@ export function AddressPicker({
 			</PickerFrame>
 			{create === undefined || !isCreating ? null : (
 				<NewAddressForm
-					initialSearch={search}
+					initialSearch={picker.search}
 					onCancel={() => setIsCreating(false)}
 					onCreated={(address) => {
 						pick(address);
@@ -133,7 +110,7 @@ function AddressResults({
 	const normalized = search.trim();
 	const pattern = `%${normalized}%`;
 	const { data, isReady, isError } = useLiveQuery({
-		gcTime: searchGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) => {
 			// No organization predicate: the shape is scoped to the organization
 			// server-side, so re-stating it here is redundant — and a stale column

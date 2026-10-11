@@ -22,12 +22,12 @@
 import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { tag_items } from '../../lib/collections/tag_items';
 import { tags } from '../../lib/collections/tags';
-import { mapCardGcTimeMs } from './shared';
+import { joinedOrNull, liveQueryGcTimeMs } from './shared';
 import type { AssignedTag } from './tag-view';
 
 export function useRecordTags(entityId: string): readonly AssignedTag[] {
 	const result = useLiveQuery({
-		gcTime: mapCardGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: tag_items() })
@@ -56,8 +56,8 @@ export function useRecordTags(entityId: string): readonly AssignedTag[] {
 					// The link row's id, which is the whole of what `unassignTag` takes.
 					tagItemId: item.id,
 					name: coalesce(tag.tag_name, 'Unknown tag'),
-					color: coalesce(tag.color, null),
-					description: coalesce(tag.description, null),
+					color: joinedOrNull(tag.color),
+					description: joinedOrNull(tag.description),
 				})),
 	});
 

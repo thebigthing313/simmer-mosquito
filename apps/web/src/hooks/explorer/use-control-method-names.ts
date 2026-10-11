@@ -1,7 +1,5 @@
-import { useApplicationMethodOptions } from './use-application-method-options';
-import { useBiocontrolMethodOptions } from './use-biocontrol-method-options';
-import { useOutreachMethodOptions } from './use-outreach-method-options';
-import { useSourceReductionMethodOptions } from './use-source-reduction-method-options';
+import { catalogs } from '../queries/catalog-register';
+import { useCatalogOptions } from './use-catalog-options';
 
 /**
  * Every control method by id, across the four method catalogs.
@@ -11,10 +9,10 @@ import { useSourceReductionMethodOptions } from './use-source-reduction-method-o
  * mission point at a different table for each control type.
  */
 export function useControlMethodNames(): ReadonlyMap<string, string> {
-	const application = useApplicationMethodOptions();
-	const sourceReduction = useSourceReductionMethodOptions();
-	const biocontrol = useBiocontrolMethodOptions();
-	const outreach = useOutreachMethodOptions();
+	const application = useCatalogOptions(catalogs.applicationMethods);
+	const sourceReduction = useCatalogOptions(catalogs.sourceReductionMethods);
+	const biocontrol = useCatalogOptions(catalogs.biocontrolMethods);
+	const outreach = useCatalogOptions(catalogs.outreachMethods);
 
 	return new Map([
 		...application.nameById,

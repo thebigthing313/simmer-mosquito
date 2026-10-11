@@ -90,6 +90,15 @@ vi.mock('../../../../hooks/use-organization-time-zone', () => ({
 	useOrganizationTimeZone: () => 'America/Los_Angeles',
 }));
 
+// The explorer's filters read the Organization's today off its settings.
+vi.mock('../../../../hooks/queries/use-organization-settings', async () => {
+	const { resolveOrganizationSettings } = await import('@simmer-mosquito/domain');
+	return {
+		useOrganizationSettings: () =>
+			resolveOrganizationSettings({ timezone: 'America/Los_Angeles' }).settings,
+	};
+});
+
 // --- the samples explorer ----------------------------------------------------
 
 vi.mock('../../../../components/explorer', async (importOriginal) => ({
@@ -121,6 +130,7 @@ vi.mock('../../../../hooks/explorer/use-explorer-resource', () => ({
 		pageCount: 1,
 		setPage: () => undefined,
 		selected: null,
+		summary: { isShown: false, data: null, isError: false, retry: () => undefined },
 	}),
 }));
 vi.mock('../../../../hooks/explorer/use-region-options', () => ({

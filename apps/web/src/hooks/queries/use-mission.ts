@@ -4,11 +4,6 @@
  * An entity hook rather than a surface one, which the folder keeps for the few
  * records that are what a page is *about*: the detail page, the edit form that
  * seeds from it, and the run page.
- *
- * It is also the warm-stream anchor for the create page. `missions` is
- * on-demand, so a write into it settles only if something is querying the row —
- * a create page that navigated away before this ran would wait out a txid that
- * never arrives, rather than waiting slowly.
  */
 
 import { missions } from '../../lib/collections/missions';

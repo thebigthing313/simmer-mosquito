@@ -41,7 +41,7 @@
 
 import type { RegionGeometry } from '@simmer-mosquito/domain';
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import { type Region, settleWrite } from '@simmer-mosquito/sync';
+import { type PersistableTransaction, type Region, settleWrite } from '@simmer-mosquito/sync';
 import { useQueryClient } from '@tanstack/react-query';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { regions } from '../../lib/collections/regions';
@@ -137,7 +137,7 @@ export interface RegionMutations {
 		regionId: string,
 		fields: RegionFields,
 		geometry: RegionGeometry,
-	) => { readonly isPersisted: { readonly promise: Promise<unknown> } };
+	) => PersistableTransaction;
 	readonly save: (input: {
 		readonly regionId: string;
 		readonly fields: RegionFields;
@@ -198,11 +198,11 @@ export function useRegionMutations(): RegionMutations {
 			arguments: { geometry },
 		});
 		// This one hands the write back rather than awaiting it, so the clear
-		// hangs off the persisted promise. Clearing before the server commits
+		// hangs off the settled promise. Clearing before the server commits
 		// would refetch the answer from before the region existed. A failed
 		// write left nothing stale, so its rejection is nothing to act on and
 		// the caller is the one reporting it.
-		void write.isPersisted.promise.then(
+		void write.when('settled').then(
 			() => invalidateAllRecordRegions(queryClient),
 			() => undefined,
 		);

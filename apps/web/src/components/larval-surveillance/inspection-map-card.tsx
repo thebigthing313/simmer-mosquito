@@ -93,7 +93,11 @@ export function InspectionMapCard({
 			<div className="grid gap-1.5">
 				<MapCardDetail icon={ComponentIcon}>{typeName}</MapCardDetail>
 				<MapCardDetail icon={ContactIcon}>
-					{inspection.inspectedByName ?? <span className="italic">Unassigned</span>}
+					{inspection.inspectedByProfileId === null ? (
+						<span className="italic">Unassigned</span>
+					) : (
+						(inspection.inspectedByName ?? 'Unknown')
+					)}
 				</MapCardDetail>
 				<MapCardDetail icon={DropletIcon}>{inspection.isWet ? 'Wet' : 'Dry'}</MapCardDetail>
 				{inspection.isWet ? (

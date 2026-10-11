@@ -7,13 +7,16 @@
  * which is what these cases hold.
  */
 
+import { serviceRequestOverdueCutoff } from '@simmer-mosquito/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	formatRequestAge,
 	formatRequestDate,
 	requestAgeOrDate,
+	requestAgeTone,
 	serviceRequestActivityLine,
 } from '../../../../components/public-engagement/public-engagement-display';
+import { todayInTimeZone } from '../../../../lib/local-date';
 
 let warn: ReturnType<typeof vi.spyOn>;
 
@@ -94,5 +97,50 @@ describe('serviceRequestActivityLine', () => {
 		expect(serviceRequestActivityLine('commented', 'Sam Lee', '#1042')).toBe(
 			'Sam Lee commented on #1042',
 		);
+	});
+});
+
+// The age slot's tone (#1246). Overdue is the domain's predicate over the
+// Organization's today, so the boundary moves with the Organization's zone and
+// not the reader's: at one instant a request can be 15 days old in one zone and
+// 14 in another, the way #156 tested the write stamp.
+describe('requestAgeTone', () => {
+	const instant = new Date('2026-10-20T06:00:00.000Z');
+	const toneIn = (
+		timeZone: string,
+		request: { readonly requestDate: string; readonly closedAt: string | null },
+	) => requestAgeTone(request, serviceRequestOverdueCutoff(14, todayInTimeZone(timeZone, instant)));
+
+	it('warns on an open request 15 days old and not on one 14 days old', () => {
+		// Kiritimati is UTC+14, so its today is the 20th.
+		expect(toneIn('Pacific/Kiritimati', { requestDate: '2026-10-05', closedAt: null })).toBe(
+			'warning',
+		);
+		expect(toneIn('Pacific/Kiritimati', { requestDate: '2026-10-06', closedAt: null })).toBe(
+			'default',
+		);
+	});
+
+	it('reads the same request as 14 days old where the Organization is still on the 19th', () => {
+		// Pago Pago is UTC-11, so its today is the 19th at the same instant.
+		expect(toneIn('Pacific/Pago_Pago', { requestDate: '2026-10-05', closedAt: null })).toBe(
+			'default',
+		);
+		expect(toneIn('Pacific/Pago_Pago', { requestDate: '2026-10-04', closedAt: null })).toBe(
+			'warning',
+		);
+	});
+
+	it('never warns on a closed request', () => {
+		expect(
+			toneIn('Pacific/Kiritimati', {
+				requestDate: '2026-01-01',
+				closedAt: '2026-10-01T12:00:00.000Z',
+			}),
+		).toBe('default');
+	});
+
+	it('never warns with the threshold off', () => {
+		expect(requestAgeTone({ requestDate: '2020-01-01', closedAt: null }, null)).toBe('default');
 	});
 });

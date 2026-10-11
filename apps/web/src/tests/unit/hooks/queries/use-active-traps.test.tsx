@@ -52,14 +52,15 @@ describe('useActiveTraps', () => {
 		expect(result.current.traps[0]?.methodName).toBe('CO2 light trap');
 	});
 
-	it('keeps a trap whose method was retired, under a stand-in name', async () => {
+	it('keeps a trap whose method was retired, with a null method name', async () => {
 		// The `left` join is what does that. An `inner` would take the trap off the
 		// directory because its catalog row went, which is the wrong record to lose.
+		// The surface draws its own words for the null (#1535).
 		seedRows(traps, [trap('t1', { trap_code: 'A-1', collection_method_id: 'gone' })]);
 
 		const { result } = await renderRead(() => useActiveTraps());
 
-		expect(result.current.traps.map((row) => row.methodName)).toEqual(['Unknown method']);
+		expect(result.current.traps.map((row) => row.methodName)).toEqual([null]);
 	});
 
 	it('sorts by code, and by name for a trap with no code', async () => {

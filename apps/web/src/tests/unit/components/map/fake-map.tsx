@@ -71,8 +71,38 @@ export function createFakeMap() {
 	// a suite gives the map a different viewport without replacing `unproject`.
 	const origin = { lng: 0, lat: 0 };
 	const filterCalls: string[] = [];
+	// What a rendered-feature query over each layer answers, for a suite that
+	// wants the map to report something under the pointer. Empty until a suite
+	// calls `showFeatures`, so every query answers `[]` the way it always has.
+	const rendered = new Map<string, readonly unknown[]>();
 	let removed = false;
 	let doubleClickZoomEnabled = true;
+	// The map's viewport padding, kept the way mapbox keeps it: a camera call
+	// carrying a padding leaves it on the map afterwards unless the call says
+	// `retainPadding: false`.
+	let padding: Padding = { top: 0, right: 0, bottom: 0, left: 0 };
+	// What `getZoom` answers. Nothing here moves it; a suite asking how a call
+	// reads the current zoom sets it with `setZoom`.
+	let zoom = 10;
+	// What `isMoving` answers. Nothing here starts or ends a move; a suite staging
+	// a move that is still running sets it with `setMoving`.
+	let moving = false;
+
+	function record(
+		kind: CameraCall['kind'],
+		options: CameraOptions | undefined,
+		extra: { readonly eventData?: object | undefined; readonly bounds?: unknown } = {},
+	) {
+		cameraCalls.push({
+			kind,
+			...readCamera(options),
+			...(kind === 'flyTo' ? { eventData: extra.eventData } : {}),
+			...(kind === 'fitBounds' ? { bounds: extra.bounds } : {}),
+		});
+		if (options?.padding !== undefined && options.retainPadding !== false) {
+			padding = toPadding(options.padding);
+		}
+	}
 
 	function assertLive() {
 		if (removed) {
@@ -128,10 +158,22 @@ export function createFakeMap() {
 			layers.set(id, { ...layer, filter } as LayerSpecification);
 			filterCalls.push(id);
 		},
+		setLayerZoomRange(id: string, minzoom: number, maxzoom: number) {
+			assertLive();
+			const layer = layers.get(id);
+			if (layer === undefined) {
+				return;
+			}
+			layers.set(id, { ...layer, minzoom, maxzoom } as LayerSpecification);
+		},
+		/** Accepted and dropped: no suite here asserts emphasis, only that writing it is safe. */
+		setFeatureState() {
+			assertLive();
+		},
 		getCanvas: () => canvas,
 		getCanvasContainer: () => canvasContainer,
 		getContainer: () => container,
-		getZoom: () => 10,
+		getZoom: () => zoom,
 		unproject([x, y]: [number, number]) {
 			assertLive();
 			return { lng: origin.lng + x * DEGREES_PER_PIXEL, lat: origin.lat - y * DEGREES_PER_PIXEL };
@@ -148,19 +190,24 @@ export function createFakeMap() {
 			getSouth: () => origin.lat - 0.8,
 			getWest: () => origin.lng + 0.2,
 		}),
+		getPadding: () => ({ ...padding }),
+		isMoving: () => moving,
 		flyTo(options: CameraOptions, eventData?: object) {
 			assertLive();
-			cameraCalls.push({ kind: 'flyTo', ...readCamera(options), eventData });
+			record('flyTo', options, { eventData });
 		},
 		easeTo(options: CameraOptions) {
 			assertLive();
-			cameraCalls.push({ kind: 'easeTo', ...readCamera(options) });
+			record('easeTo', options);
 		},
-		fitBounds(_bounds: unknown, options: CameraOptions) {
+		fitBounds(bounds: unknown, options: CameraOptions) {
 			assertLive();
-			cameraCalls.push({ kind: 'fitBounds', ...readCamera(options) });
+			record('fitBounds', options, { bounds });
 		},
-		queryRenderedFeatures: vi.fn(() => [] as unknown[]),
+		queryRenderedFeatures: vi.fn(
+			(_geometry?: unknown, options?: { readonly layers?: readonly string[] }): unknown[] =>
+				(options?.layers ?? [...rendered.keys()]).flatMap((layerId) => rendered.get(layerId) ?? []),
+		),
 		doubleClickZoom: {
 			isEnabled: () => doubleClickZoomEnabled,
 			enable() {
@@ -223,6 +270,38 @@ export function createFakeMap() {
 			this.emit('mousemove', { lngLat: { lng, lat }, point: { x: 0, y: 0 } });
 		},
 		/**
+		 * Say what a rendered-feature query over `layerId` answers from now on,
+		 * whatever box it asks over, since every pointer event here is at one
+		 * pixel. An empty list takes the layer's answer back to nothing. A
+		 * `mockReturnValue` on `queryRenderedFeatures` still wins over this.
+		 */
+		showFeatures(layerId: string, features: readonly unknown[]) {
+			rendered.set(layerId, features);
+		},
+		/**
+		 * A button pressed on the map at a position. Answers whether a listener
+		 * default-prevented it, which is how a gesture is claimed from Mapbox's
+		 * own drag-to-pan.
+		 */
+		press(lng: number, lat: number): { readonly defaultPrevented: boolean } {
+			let defaultPrevented = false;
+			this.emit('mousedown', {
+				lngLat: { lng, lat },
+				point: { x: 0, y: 0 },
+				preventDefault: () => {
+					defaultPrevented = true;
+				},
+			});
+			return { defaultPrevented };
+		},
+		/**
+		 * The button let go, on `window` rather than on the map, because that is
+		 * where a release off the canvas still arrives.
+		 */
+		releaseButton() {
+			window.dispatchEvent(new MouseEvent('mouseup'));
+		},
+		/**
 		 * Put the canvas's top-left corner somewhere else and fire `moveend`, the
 		 * way a finished camera animation does. `fitBounds` and `flyTo` above
 		 * record the call and move nothing, so a suite whose sequence depends on
@@ -250,6 +329,21 @@ export function createFakeMap() {
 				preventDefault: () => {},
 			});
 		},
+		/** Put the map at `next`, which is what `getZoom` answers from then on. */
+		setZoom(next: number) {
+			zoom = next;
+		},
+		/** Say whether a move is in progress, which is what `isMoving` answers from then on. */
+		setMoving(next: boolean) {
+			moving = next;
+		},
+		/**
+		 * Leave `next` on the map with no camera call recorded, which is what a
+		 * padding ease stopped partway does: mapbox keeps the in-between value.
+		 */
+		strandPadding(next: Padding) {
+			padding = { ...next };
+		},
 		/** What a basemap switch does before it fires `style.load`. */
 		wipeStyle() {
 			sources.clear();
@@ -263,27 +357,55 @@ export function createFakeMap() {
 
 export type FakeMap = ReturnType<typeof createFakeMap>;
 
+type Padding = { top: number; right: number; bottom: number; left: number };
+
 type CameraOptions = {
-	readonly padding?: unknown;
+	readonly padding?: number | Partial<Padding>;
+	readonly retainPadding?: boolean;
+	readonly center?: unknown;
 	readonly zoom?: number;
+	readonly maxZoom?: number;
 	readonly duration?: number;
 };
 
+/** A padding as mapbox's `_extendPadding` reads one: a number is all four sides. */
+function toPadding(value: number | Partial<Padding>): Padding {
+	if (typeof value === 'number') {
+		return { top: value, right: value, bottom: value, left: value };
+	}
+	return { top: 0, right: 0, bottom: 0, left: 0, ...value };
+}
+
 /**
- * One camera move, reduced to what a test asks about: which call it was and the
- * padding it carried. Padding is the interesting half — it is how a map with
+ * One camera move, reduced to what a test asks about: which call it was, where
+ * it was going, and the padding it carried. Padding is the interesting half — it is how a map with
  * chrome floating over it puts a record where the reader can see it.
  */
 interface CameraCall {
 	readonly kind: 'flyTo' | 'easeTo' | 'fitBounds';
 	readonly padding: unknown;
+	readonly center: unknown;
 	readonly zoom: number | undefined;
+	readonly maxZoom: number | undefined;
+	/** Absent when the call left the duration to mapbox. */
+	readonly duration: number | undefined;
+	/** False when the call asked mapbox not to keep its padding on the map afterwards. */
+	readonly retainPadding: boolean | undefined;
 	/** What a `flyTo` hands its events, which is how a flight tells a listener to skip it. */
 	readonly eventData?: object | undefined;
+	/** The box a `fitBounds` was asked to frame. */
+	readonly bounds?: unknown;
 }
 
 function readCamera(options: CameraOptions | undefined): Omit<CameraCall, 'kind'> {
-	return { padding: options?.padding, zoom: options?.zoom };
+	return {
+		padding: options?.padding,
+		center: options?.center,
+		zoom: options?.zoom,
+		maxZoom: options?.maxZoom,
+		duration: options?.duration,
+		retainPadding: options?.retainPadding,
+	};
 }
 
 // React only treats `act` as a real flush boundary when it is told it is in a

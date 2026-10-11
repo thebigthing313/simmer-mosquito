@@ -14,7 +14,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  */
 
 /** How many rows the fake endpoint holds, which a case lowers to model a delete. */
-let total = 120;
+let total = 240;
 
 vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
@@ -28,9 +28,7 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
 	},
 }));
 
-const { mapQueryParams, usePagedMapResource } = await import(
-	'../../../../hooks/explorer/use-paged-map-resource'
-);
+const { usePagedMapResource } = await import('../../../../hooks/explorer/use-paged-map-resource');
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
@@ -60,7 +58,7 @@ function renderPaged(initialParams: Readonly<Record<string, string>>) {
 }
 
 beforeEach(() => {
-	total = 120;
+	total = 240;
 	client.clear();
 });
 
@@ -72,15 +70,15 @@ describe('the page of a list request', () => {
 		expect(paged.result.current.rows[0]?.id).toBe('row-0');
 
 		act(() => paged.result.current.setPage(2));
-		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-100'));
-		expect(paged.result.current.rows).toHaveLength(20);
+		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-200'));
+		expect(paged.result.current.rows).toHaveLength(40);
 	});
 
 	it('is the first page under a new request in the render that sees it', async () => {
 		const paged = renderPaged({ status: 'active' });
 		await waitFor(() => expect(paged.result.current.isSettled).toBe(true));
 		act(() => paged.result.current.setPage(2));
-		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-100'));
+		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-200'));
 		paged.pages.length = 0;
 
 		paged.rerender({ params: { status: 'retired' } });
@@ -92,48 +90,17 @@ describe('the page of a list request', () => {
 		const paged = renderPaged({ status: 'active' });
 		await waitFor(() => expect(paged.result.current.isSettled).toBe(true));
 		act(() => paged.result.current.setPage(2));
-		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-100'));
+		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-200'));
 
 		// The last page's rows are deleted and the list is read again.
-		total = 100;
+		total = 200;
 		paged.pages.length = 0;
 		await act(() => client.invalidateQueries());
-		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-50'));
+		await waitFor(() => expect(paged.result.current.rows[0]?.id).toBe('row-100'));
 		expect(paged.result.current.page).toBe(1);
 		expect(paged.result.current.pageCount).toBe(2);
 		// The render that read the smaller total is thrown away before it commits,
 		// so no committed render carries a page past the count it drew beside it.
 		expect(paged.pages.filter((frame) => frame.page > frame.pageCount - 1)).toHaveLength(0);
-	});
-});
-
-/**
- * The `/map/*` list endpoints read presence, so an absent filter has to leave its
- * param out rather than send a blank one. Every explorer used to spell that rule
- * out by hand, once per filter (#101).
- */
-describe('mapQueryParams', () => {
-	it('drops absent, empty, and empty-list values', () => {
-		expect(
-			mapQueryParams({
-				regionId: [],
-				dateFrom: undefined,
-				dateTo: '',
-				search: null,
-				status: 'active',
-			}),
-		).toEqual({ status: 'active' });
-	});
-
-	it('joins id lists the way the endpoints parse them', () => {
-		expect(mapQueryParams({ regionId: ['a', 'b', 'c'] })).toEqual({ regionId: 'a,b,c' });
-	});
-
-	// `isWet=false` is a real filter — dry inspections — not an absent one.
-	it('keeps a false flag rather than treating it as unset', () => {
-		expect(mapQueryParams({ isWet: false, positive: true })).toEqual({
-			isWet: 'false',
-			positive: 'true',
-		});
 	});
 });

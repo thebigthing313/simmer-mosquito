@@ -155,7 +155,7 @@ export async function renderRefusalPage(
 /** Open a `DetailPageHeader`'s `...` and read what it holds, in order. */
 export async function openMenu(): Promise<readonly string[]> {
 	fireEvent.pointerDown(
-		screen.getByRole('button', { name: 'More Actions' }),
+		screen.getByRole('button', { name: 'More actions' }),
 		new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
 	);
 	await screen.findAllByRole('menuitem');

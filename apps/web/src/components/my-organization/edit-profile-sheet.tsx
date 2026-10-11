@@ -129,7 +129,7 @@ export function EditProfileSheet({
 						</Button>
 						<SheetClose asChild>
 							<Button type="button" variant="outline">
-								<CloseIcon data-icon="inline-start" aria-hidden="true" />
+								<CloseIcon aria-hidden="true" />
 								Cancel
 							</Button>
 						</SheetClose>

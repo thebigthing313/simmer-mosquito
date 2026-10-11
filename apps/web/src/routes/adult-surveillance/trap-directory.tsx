@@ -135,7 +135,7 @@ function MethodTabs({ tabs }: { readonly tabs: readonly MethodTab[] }) {
 			<DirectoryTab value={ALL_METHODS}>All</DirectoryTab>
 			{tabs.map((tab) => (
 				<DirectoryTab key={tab.id} value={tab.id}>
-					{tab.label}
+					{tab.label ?? 'Unknown method'}
 				</DirectoryTab>
 			))}
 		</DirectoryTabsList>
@@ -238,7 +238,7 @@ function TrapListRow({
 				isSelected={isSelected}
 				onSelect={() => onSelect(trap.id)}
 				selectLabel={`Show collections for ${label}`}
-				subtitle={showMethod ? trap.methodName : undefined}
+				subtitle={showMethod ? (trap.methodName ?? 'Unknown method') : undefined}
 				title={label}
 			/>
 		</li>

@@ -3,7 +3,8 @@ export interface RecentControlAction {
 	readonly id: string;
 	readonly actionDate: string;
 	readonly methodId: string;
-	readonly methodName: string;
+	/** `null` while the method is not in the client. */
+	readonly methodName: string | null;
 	readonly technicianProfileId: string | null;
 	readonly technicianName: string | null;
 	readonly amount: number;

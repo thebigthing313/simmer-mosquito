@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { recordSetFilterParams } from '../../../../../components/explorer/record-set';
+import type { ServiceRequestTileFilters } from '../../../../../components/map/service-request-tiles';
+import {
+	type MapTileLayer,
+	tileLayerExtentUrl,
+	tileLayerTileUrl,
+} from '../../../../../components/map/tile-layers';
 import {
 	serviceRequestFilterCodecs,
 	serviceRequestFilterDefaults,
-	sharedServiceRequestSearch,
+	serviceRequestOrderParams,
+	serviceRequestRecordSet,
+	serviceRequestTileFilters,
 } from '../../../../../components/public-engagement/service-requests/service-requests-search';
 import { resolveFilters, searchValidator } from '../../../../../lib/search-filters';
 
@@ -32,17 +41,89 @@ describe('the service requests filter contract', () => {
 		expect(validate({ status: 'open' })).toEqual({ status: 'open' });
 	});
 
-	it('carries status and dates between the two surfaces and nothing else', () => {
-		expect(
-			sharedServiceRequestSearch({
-				status: 'closed',
-				search: 'garage',
-				tags: ['tag-1'],
-				regions: ['region-1'],
-				from: '2026-08-01',
-				to: 'any',
-				sort: 'number',
-			}),
-		).toEqual({ status: 'closed', from: '2026-08-01', to: 'any' });
+	it('opens with Overdue off and keeps it off the address bar until it is on', () => {
+		const defaults = serviceRequestFilterDefaults('2026-09-15');
+		const validate = searchValidator(serviceRequestFilterCodecs);
+
+		expect(defaults.overdue).toBe(false);
+		expect(validate({ overdue: false })).toEqual({});
+		expect(validate({ overdue: true })).toEqual({ overdue: true });
+		expect(resolveFilters(defaults, serviceRequestFilterCodecs, { overdue: 'true' })).toMatchObject(
+			{ overdue: true },
+		);
 	});
 });
+
+describe('serviceRequestTileFilters', () => {
+	const window = {
+		status: 'all',
+		search: '',
+		tags: new Set<string>(),
+		regions: new Set<string>(),
+		from: '2026-01-01',
+		to: '2026-10-20',
+	} as const;
+
+	it('sends the overdue cut-off with the date window when Overdue is on', () => {
+		expect(serviceRequestTileFilters({ ...window, overdue: true }, '2026-10-06')).toEqual({
+			dateFrom: '2026-01-01',
+			dateTo: '2026-10-20',
+			overdueBefore: '2026-10-06',
+		});
+	});
+
+	it('sends no cut-off with Overdue off', () => {
+		expect(
+			serviceRequestTileFilters({ ...window, overdue: false }, '2026-10-06'),
+		).not.toHaveProperty('overdueBefore');
+	});
+
+	it('sends no cut-off with the threshold off, even when the address asks for Overdue', () => {
+		expect(serviceRequestTileFilters({ ...window, overdue: true }, null)).not.toHaveProperty(
+			'overdueBefore',
+		);
+	});
+
+	it('asks the page and the tiles for the same overdue requests', () => {
+		const filters = serviceRequestTileFilters({ ...window, overdue: true }, '2026-10-06');
+
+		expect(recordSetFilterParams(serviceRequestRecordSet, filters)).toMatchObject({
+			overdueBefore: '2026-10-06',
+		});
+		expect(tileLayerTileUrl(serviceRequestLayer(filters), {})).toContain(
+			'overdueBefore=2026-10-06',
+		);
+	});
+});
+
+describe('serviceRequestOrderParams', () => {
+	it('leaves newest first unsent', () => {
+		expect(serviceRequestOrderParams('newest')).toEqual({});
+	});
+
+	it('asks for oldest first by name', () => {
+		expect(serviceRequestOrderParams('oldest')).toEqual({ oldest: 'true' });
+	});
+
+	it('never reaches the tile or the extent URL, which the order does not narrow', () => {
+		const filters = serviceRequestTileFilters(
+			{
+				status: 'open',
+				search: '',
+				tags: new Set<string>(),
+				regions: new Set<string>(),
+				from: '',
+				to: '',
+				overdue: false,
+			},
+			null,
+		);
+
+		expect(tileLayerTileUrl(serviceRequestLayer(filters), {})).not.toContain('oldest');
+		expect(tileLayerExtentUrl(serviceRequestLayer(filters))).not.toContain('oldest');
+	});
+});
+
+function serviceRequestLayer(filters: ServiceRequestTileFilters): MapTileLayer {
+	return { kind: 'service-requests', serverUrl: 'https://api.test', filters };
+}

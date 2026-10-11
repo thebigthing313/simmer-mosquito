@@ -45,6 +45,9 @@ let distanceUnit = 'meter';
 vi.mock('../../../../hooks/queries/use-organization-settings', () => ({
 	useOrganizationSettings: () => ({ unitDefaults: { distance: distanceUnit } }),
 }));
+vi.mock('../../../../hooks/queries/use-organization-map-center', () => ({
+	useOrganizationMapCenter: () => null,
+}));
 
 // The explorer panel measures the map stage and its own box, and jsdom has no
 // observer to report one with. Every observed element reports the same size,

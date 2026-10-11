@@ -1,12 +1,19 @@
 import type {
-	AdultCollectionTimingMode,
 	LarvalDensity,
 	LarvalDensityRange,
 	LarvalDensityRanges,
 	OrganizationSettings,
 	RangeDensity,
+	ResolvedLarvalInspectionEntryPolicy,
 	ServiceRequestContextSettings,
+	ServiceRequestOverdueDays,
 	UnitDefaults,
+} from '@simmer-mosquito/domain';
+import {
+	type DomainValidationIssue,
+	isEmailAddress,
+	MAX_SERVICE_REQUEST_OVERDUE_DAYS,
+	normalizeServiceRequestOverdueDays,
 } from '@simmer-mosquito/domain';
 import type { Organization } from '@simmer-mosquito/sync';
 import { toast } from 'sonner';
@@ -18,13 +25,12 @@ import { defaultDensityRangeValues } from './constants';
 import type {
 	DensityRangeFormValue,
 	DensityRangeFormValues,
+	DisplaySettingField,
+	LarvalSettingsFormValues,
 	OrganizationDetailsFormValues,
 	PublicSettingsFormValues,
 	SelectOption,
-	SelectSettingField,
-	SettingField,
 	SimmerRole,
-	TextSettingField,
 	UnitDefaultsFormValues,
 } from './types';
 
@@ -81,15 +87,16 @@ export function organizationDetailsFormValues(
 
 /**
  * What the details sheet typed, as the write takes it: trimmed, with an
- * emptied input as `null`. Every other rule about these values is the
- * domain's.
+ * emptied input as `null`. Throws on an empty Organization name or Timezone
+ * and on a Main contact that is not an email address; an empty Main contact
+ * is no contact. Every other rule about these values is the domain's.
  */
 export function organizationDetailsFieldsFrom(
 	values: OrganizationDetailsFormValues,
 ): OrganizationDetailsFields {
 	return {
 		name: requiredTextValue(values.name, 'Organization name'),
-		mainContactEmail: nullableTextValue(values.mainContactEmail),
+		mainContactEmail: emailValue(values.mainContactEmail),
 		phoneNumber: nullableTextValue(values.phoneNumber),
 		mailingAddressLine1: nullableTextValue(values.mailingAddressLine1),
 		mailingAddressLine2: nullableTextValue(values.mailingAddressLine2),
@@ -115,15 +122,18 @@ export function unitDefaultsFrom(values: UnitDefaultsFormValues): UnitDefaults {
 
 /**
  * The service request context, from the four inputs that describe it. The
- * radius may be fractional and the day windows may not. The server checks that
- * the unit code names a distance unit that exists.
+ * radius must be greater than zero and may be fractional, which is the domain
+ * builder's rule, and the day windows are whole numbers from zero. An empty
+ * input arrives as `null` and is refused rather than read as zero. Each
+ * message names the field by the label the sheet draws. The server checks
+ * that the unit code names a distance unit that exists.
  */
 export function serviceRequestContextFrom(
 	values: PublicSettingsFormValues,
 ): ServiceRequestContextSettings {
 	return {
 		radius: {
-			amount: nonnegativeNumberValue(values.radiusAmount, 'Related-record radius'),
+			amount: positiveNumberValue(values.radiusAmount, 'Search radius'),
 			unitCode: requiredTextValue(values.radiusUnitCode, 'Radius unit'),
 		},
 		timeWindow: {
@@ -132,6 +142,35 @@ export function serviceRequestContextFrom(
 		},
 	};
 }
+
+/**
+ * The overdue threshold, from its switch and its number of days. Off ignores
+ * the number, so a sheet that turns the threshold off saves even with the
+ * days input emptied. On, the days are a whole number from 1 to 365, which is
+ * the domain builder's rule, named by the label the sheet draws.
+ */
+export function serviceRequestOverdueDaysFrom(
+	values: PublicSettingsFormValues,
+): ServiceRequestOverdueDays {
+	if (!values.overdueOn) {
+		return 'off';
+	}
+	const days = values.overdueDays;
+	if (days === null) {
+		throw new Error(`${OVERDUE_DAYS_LABEL} is required.`);
+	}
+	const issues: DomainValidationIssue[] = [];
+	const threshold = normalizeServiceRequestOverdueDays(days, OVERDUE_DAYS_LABEL, issues);
+	if (issues.length > 0) {
+		throw new Error(
+			`${OVERDUE_DAYS_LABEL} must be a whole number from 1 to ${MAX_SERVICE_REQUEST_OVERDUE_DAYS}.`,
+		);
+	}
+	return threshold;
+}
+
+/** The days input's label, which the refusals name it by. */
+export const OVERDUE_DAYS_LABEL = 'Overdue after (days)';
 
 /**
  * Report a failed write, without holding the surface open for it. The hooks in
@@ -175,19 +214,6 @@ export function saveFailureMessage(error: unknown, fallback: string): string {
 	return message === 'Unable to save changes.' ? fallback : message;
 }
 
-/**
- * A required choice, read out of the settings sheet's `FormData`, which
- * `EditSettingsSheet` keys by the label it drew.
- */
-export function requiredFormText(formData: FormData, name: string): string {
-	const value = formData.get(name);
-	const text = typeof value === 'string' ? value.trim() : '';
-	if (text.length === 0) {
-		throw new Error(`${name} is required.`);
-	}
-	return text;
-}
-
 export function requiredTextValue(value: string, label: string): string {
 	const text = value.trim();
 	if (text.length === 0) {
@@ -201,30 +227,44 @@ function nullableTextValue(value: string): string | null {
 	return text.length === 0 ? null : text;
 }
 
-export function validateEmail({ value }: { readonly value: string }): string | undefined {
-	const text = value.trim();
-	if (text.length === 0 || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
-		return undefined;
+function emailValue(value: string): string | null {
+	const text = nullableTextValue(value);
+	if (text !== null && !isEmailAddress(text)) {
+		throw new Error('Main contact must be a valid email address.');
 	}
-
-	return 'Main contact must be a valid email address.';
+	return text;
 }
 
-function nonnegativeNumberValue(value: number | null, label: string): number {
-	if (value === null || !Number.isFinite(value) || value < 0) {
-		throw new Error(`${label} must be zero or greater.`);
+/**
+ * A number input's text, with an empty one as `null`. `Number('')` is 0, so
+ * reading the text straight through would save a cleared field as zero.
+ */
+export function numberInputValue(value: string | null): number | null {
+	const text = typeof value === 'string' ? value.trim() : '';
+	return text.length === 0 ? null : Number(text);
+}
+
+function positiveNumberValue(value: number | null, label: string): number {
+	if (value === null) {
+		throw new Error(`${label} is required.`);
+	}
+	if (!Number.isFinite(value) || value <= 0) {
+		throw new Error(`${label} must be greater than zero.`);
 	}
 	return value;
 }
 
 function nonnegativeIntegerValue(value: number | null, label: string): number {
-	if (value === null || !Number.isInteger(value) || value < 0) {
+	if (value === null) {
+		throw new Error(`${label} is required.`);
+	}
+	if (!Number.isInteger(value) || value < 0) {
 		throw new Error(`${label} must be a nonnegative whole number.`);
 	}
 	return value;
 }
 
-export function densityRangeFormValues(ranges: LarvalDensityRanges | null): DensityRangeFormValues {
+function densityRangeFormValues(ranges: LarvalDensityRanges | null): DensityRangeFormValues {
 	if (ranges === null) {
 		return defaultDensityRangeValues;
 	}
@@ -263,13 +303,40 @@ export function densityRangesOrNull(
 	return densityRangesFromFormValues(values);
 }
 
+/** What the larval sheet opens with, from the policy the Organization saved. */
+export function larvalSettingsFormValues(
+	policy: ResolvedLarvalInspectionEntryPolicy,
+): LarvalSettingsFormValues {
+	return {
+		mode: policy.mode,
+		densityEnabled: policy.densityRanges !== null,
+		ranges: densityRangeFormValues(policy.densityRanges),
+	};
+}
+
+/**
+ * The entry policy to save. Throws, naming the band and the field, on a
+ * density bound it cannot read or one out of order.
+ */
+export function larvalEntryPolicyFrom(
+	values: LarvalSettingsFormValues,
+): ResolvedLarvalInspectionEntryPolicy {
+	return {
+		mode: values.mode,
+		densityRanges: densityRangesOrNull(values.densityEnabled, values.ranges),
+	};
+}
+
 function densityRangesFromFormValues(values: DensityRangeFormValues): LarvalDensityRanges {
 	const ranges = {
 		light: densityRangeFromFormValue(values.light, 'light'),
 		medium: densityRangeFromFormValue(values.medium, 'medium'),
 		heavy: densityRangeFromFormValue(values.heavy, 'heavy'),
 		veryHeavy: {
-			minInclusive: requiredFiniteNumber(values.very_heavy.minInclusive, 'Very heavy minimum'),
+			minInclusive: densityBoundValue(
+				values.very_heavy.minInclusive,
+				densityFieldName('very_heavy', 'minInclusive'),
+			),
 		},
 	};
 	validateDensityRangesForUi(ranges);
@@ -288,16 +355,25 @@ export function safeDensityRangesFromFormValues(
 
 function densityRangeFromFormValue(
 	value: DensityRangeFormValue,
-	label: string,
+	density: RangeDensity,
 ): LarvalDensityRange {
 	const minInclusive =
-		label === 'light'
+		density === 'light'
 			? 0
-			: requiredFiniteNumber(value.minInclusive, `${densityLabel(label)} lower bound`);
+			: densityBoundValue(value.minInclusive, densityFieldName(density, 'minInclusive'));
 	return {
 		minInclusive,
-		maxExclusive: requiredFiniteNumber(value.maxExclusive, `${densityLabel(label)} upper bound`),
+		maxExclusive: densityBoundValue(value.maxExclusive, densityFieldName(density, 'maxExclusive')),
 	};
+}
+
+/**
+ * A density bound named the way the sheet draws it, by the field label inside
+ * the band's fieldset, so a person can find the field a message is about.
+ */
+function densityFieldName(density: RangeDensity, bound: keyof DensityRangeFormValue): string {
+	const field = bound === 'minInclusive' ? 'Greater than' : 'Up to and including';
+	return `${field} in ${densityLabel(density)}`;
 }
 
 function validateDensityRangesForUi(ranges: LarvalDensityRanges): void {
@@ -307,31 +383,41 @@ function validateDensityRangesForUi(ranges: LarvalDensityRanges): void {
 		['heavy', ranges.heavy],
 		['very_heavy', ranges.veryHeavy],
 	];
+	let previous: RangeDensity | null = null;
 	let previousMax: number | null = null;
 	for (const [density, range] of sequence) {
-		if (previousMax === null && range.minInclusive !== 0) {
-			throw new Error('Light lower bound must be 0 larvae per dip.');
-		}
-		if (previousMax !== null && range.minInclusive !== previousMax) {
-			throw new Error(`${densityLabel(density)} lower bound must match the previous upper bound.`);
+		const greaterThan = densityFieldName(density, 'minInclusive');
+		if (previous !== null && range.minInclusive !== previousMax) {
+			throw new Error(`${greaterThan} must equal ${densityFieldName(previous, 'maxExclusive')}.`);
 		}
 		if (
 			range.maxExclusive !== null &&
 			range.maxExclusive !== undefined &&
 			range.maxExclusive <= range.minInclusive
 		) {
-			throw new Error(`${densityLabel(density)} upper bound must be greater than its lower bound.`);
+			throw new Error(
+				`${densityFieldName(density, 'maxExclusive')} must be more than ${greaterThan}.`,
+			);
 		}
+		previous = density;
 		previousMax = range.maxExclusive ?? null;
 	}
 }
 
-function requiredFiniteNumber(value: string, label: string): number {
-	const numberValue = Number(value);
-	if (!Number.isFinite(numberValue) || numberValue < 0) {
-		throw new Error(`${label} must be a number greater than or equal to zero.`);
+/**
+ * A bound the person typed, refused by name when it is empty, blank, negative
+ * or not a number. Empty is checked first, because `Number('')` is 0 and would
+ * otherwise reach the band ordering check and be blamed on the wrong rule.
+ */
+function densityBoundValue(text: string, field: string): number {
+	const value = numberInputValue(text);
+	if (value === null) {
+		throw new Error(`${field} is required.`);
 	}
-	return numberValue;
+	if (!Number.isFinite(value) || value < 0) {
+		throw new Error(`${field} must be a number of 0 or more.`);
+	}
+	return value;
 }
 
 export function densityKeyForSettings(density: RangeDensity): keyof LarvalDensityRanges {
@@ -354,33 +440,14 @@ export function formatDensityRange(range: LarvalDensityRange | null): string {
 		: `More than ${range.minInclusive} and up to ${range.maxExclusive} larvae per dip`;
 }
 
-export function textField(
-	label: string,
-	value: string,
-	options: {
-		readonly editable?: boolean;
-		readonly inputType?: React.HTMLInputTypeAttribute;
-	} = {},
-): TextSettingField {
-	return {
-		kind: 'text',
-		label,
-		value,
-		editable: options.editable ?? true,
-		inputType: options.inputType,
-	};
-}
-
-export function selectField(
+function selectField(
 	label: string,
 	value: string,
 	options: readonly SelectOption[],
-): SelectSettingField {
+): DisplaySettingField {
 	return {
-		kind: 'select',
 		label,
 		value,
-		editable: true,
 		options: selectOptionsForValue(value, options),
 	};
 }
@@ -388,7 +455,7 @@ export function selectField(
 export function unitDefaultFields(
 	unitDefaults: UnitDefaults,
 	units: readonly UnitLabel[],
-): readonly SelectSettingField[] {
+): readonly DisplaySettingField[] {
 	return (Object.entries(unitDefaults) as Array<[keyof UnitDefaults, string]>).map(
 		([unitType, code]) =>
 			selectField(
@@ -442,26 +509,6 @@ export function selectOptionsForValue(
 	return [{ label: value, value }, ...options];
 }
 
-export function displayFieldValue(field: SettingField): string {
-	if (field.kind === 'switch') {
-		return field.checked ? 'Enabled' : 'Disabled';
-	}
-
-	if (field.kind === 'select') {
-		return field.options.find((option) => option.value === field.value)?.label ?? field.value;
-	}
-
-	return field.value.length === 0 ? 'Not set' : field.value;
-}
-
-export function collectionTimingModeFromFields(
-	fields: readonly SettingField[],
-): AdultCollectionTimingMode {
-	const field = fields.find(
-		(item): item is SelectSettingField =>
-			item.kind === 'select' && item.label === 'Collection timing',
-	);
-	return field?.value === 'collection_date_duration'
-		? 'collection_date_duration'
-		: 'exact_timestamps';
+export function displayFieldValue(field: DisplaySettingField): string {
+	return field.options.find((option) => option.value === field.value)?.label ?? field.value;
 }

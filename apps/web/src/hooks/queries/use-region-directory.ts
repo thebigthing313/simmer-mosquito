@@ -17,7 +17,7 @@
 
 import { useLiveQuery } from '@tanstack/react-db';
 import { regions } from '../../lib/collections/regions';
-import { activityGcTimeMs } from './shared';
+import { liveQueryGcTimeMs } from './shared';
 
 /** A Region as the tree lists one. */
 export interface RegionListing {
@@ -35,7 +35,7 @@ export function useRegionDirectory(): {
 	readonly isError: boolean;
 } {
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ region: regions() })

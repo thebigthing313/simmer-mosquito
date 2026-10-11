@@ -1,7 +1,7 @@
 import { gte, useLiveQuery } from '@tanstack/react-db';
 import type { SpeciesTotal } from '../../components/species-composition-panel';
 import { sample_species } from '../../lib/collections/sample_species';
-import { activityGcTimeMs } from '../queries/shared';
+import { liveQueryGcTimeMs } from '../queries/shared';
 import { useSpeciesNames } from '../queries/use-species-names';
 
 interface LoadState {
@@ -51,7 +51,7 @@ export function useSpeciesComposition(sinceDate: string): {
 	const nameById = useSpeciesNames();
 
 	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
+		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
 				.from({ identification: sample_species() })

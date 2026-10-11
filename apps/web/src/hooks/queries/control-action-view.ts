@@ -50,11 +50,15 @@ interface ControlActionBase {
 /** A chemical application: a product put out at an amount, by a method. */
 export interface ChemicalApplication extends ControlActionBase {
 	readonly insecticideId: string;
-	/** The product's trade name — what an application is titled by. */
-	readonly productName: string;
 	/**
-	 * `null` when the application names no method, which every surface
-	 * distinguishes from a method it could not resolve. Guard on `methodId`.
+	 * The product's trade name, which is what an application is titled by.
+	 * `null` while the product is not in the client; the surface draws its own
+	 * stand-in.
+	 */
+	readonly productName: string | null;
+	/**
+	 * `null` both when the application names no method and when the method is
+	 * not in the client, which every surface tells apart by `methodId`.
 	 */
 	readonly methodId: string | null;
 	readonly methodName: string | null;
@@ -75,8 +79,11 @@ export interface ChemicalApplication extends ControlActionBase {
 /** A biocontrol release: an organism put out at an amount. */
 export interface BiocontrolAction extends ControlActionBase {
 	readonly methodId: string;
-	/** Never null — a release must name a method. `Unknown method` while streaming. */
-	readonly methodName: string;
+	/**
+	 * A release must name a method, so `null` means only that the method is not
+	 * in the client. The surface draws its own stand-in.
+	 */
+	readonly methodName: string | null;
 	readonly technicianProfileId: string | null;
 	readonly technicianName: string | null;
 	readonly amountReleased: number;
@@ -87,8 +94,11 @@ export interface BiocontrolAction extends ControlActionBase {
 /** A source reduction: sources eliminated, by a method. */
 export interface SourceReduction extends ControlActionBase {
 	readonly methodId: string;
-	/** Never null — a source reduction must name a method. */
-	readonly methodName: string;
+	/**
+	 * A source reduction must name a method, so `null` means only that the method
+	 * is not in the client. The surface draws its own stand-in.
+	 */
+	readonly methodName: string | null;
 	readonly technicianProfileId: string | null;
 	readonly technicianName: string | null;
 	readonly sourcesEliminated: number;

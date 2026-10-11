@@ -1,4 +1,4 @@
-import type { LarvalDensity } from '@simmer-mosquito/domain';
+import { type LarvalDensity, SAMPLE_STATUSES, type SampleStatus } from '@simmer-mosquito/domain';
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
@@ -215,6 +215,26 @@ const inspectionDisplayColumns: MapDisplayColumns<SafeInspectionDisplayRow> = {
 };
 
 /**
+ * A Positive Inspection over `inspections i`, as `CONTEXT.md` defines it: wet,
+ * and a density other than `none` or a larvae count above zero. The larval
+ * doc's own rule, which holds under all three density policies where "any band
+ * above none" misses a `count_and_dips_required` Organization that stores no
+ * density. Life-stage flags are not read: the validator holds them to this rule
+ * on every write it accepts, and nothing in the table does (#1437).
+ *
+ * The one SQL spelling of the rule. The map tile paints by it, the `positive`
+ * filter narrows by it, the summary rail counts by it and the overview ratio
+ * counts by it, and all four have to agree; `isPositiveInspection` in
+ * `@simmer-mosquito/domain` is the same rule in TypeScript. The `coalesce`
+ * makes a row with no density and no count `false` rather than `null`, so the
+ * tile property and the summary grouping have two values and not three.
+ */
+export const positiveInspectionSql = sql<boolean>`coalesce(
+	i.is_wet and (i.density <> 'none' or i.larvae_count > 0),
+	false
+)`;
+
+/**
  * The inspections map surface, with the layer it stamps into its tiles handed in
  * by the register it is declared in.
  */
@@ -231,12 +251,18 @@ export function inspectionSurface(
 			sql`i.is_wet as "isWet"`,
 			sql`i.density::text as "density"`,
 			sql`i.habitat_type_id as "habitatTypeId"`,
-			sql`(
-			i.has_eggs or i.has_first_instar or i.has_second_instar
-			or i.has_third_instar or i.has_fourth_instar or i.has_pupae
-		) as "positive"`,
+			sql`${positiveInspectionSql} as "positive"`,
 		],
 		filterWhere: inspectionFilterWhere,
+		// What the Inspections rail counts by over 100 in view (#1369), each named
+		// for the query param of the filter it applies, so a group is a button.
+		groupings: () => ({
+			isWet: sql`i.is_wet`,
+			density: sql`i.density::text`,
+			positive: positiveInspectionSql,
+			habitatTypeId: sql`i.habitat_type_id`,
+			inspectedBy: sql`i.inspected_by_profile_id`,
+		}),
 		display: {
 			columns: inspectionDisplayColumns,
 			joins: inspectionDisplayJoins,
@@ -259,12 +285,7 @@ function inspectionFilterWhere(
 	}
 
 	if (filters?.positiveOnly === true) {
-		whereClauses.push(
-			sql<boolean>`(
-				i.has_eggs or i.has_first_instar or i.has_second_instar
-				or i.has_third_instar or i.has_fourth_instar or i.has_pupae
-			)`,
-		);
+		whereClauses.push(positiveInspectionSql);
 	}
 
 	if (filters?.habitatTypeIds !== undefined && filters.habitatTypeIds.length > 0) {
@@ -315,16 +336,12 @@ function inspectionFilterWhere(
  * states are not strictly exclusive in the data (a zero-larvae sample can also
  * carry an unidentifiable reason), so the server resolves a single status by the
  * precedence in {@link sampleStatusExpression}: an identified result wins over any
- * closed-out reason.
+ * closed-out reason. The list is declared in `@simmer-mosquito/domain`, beside
+ * the map filter spec that reads it off the wire.
  */
-export type SampleStatus = 'identified' | 'awaiting' | 'zero_larvae' | 'unidentifiable';
+export type { SampleStatus };
 
-export const sampleStatusValues: readonly SampleStatus[] = [
-	'identified',
-	'awaiting',
-	'zero_larvae',
-	'unidentifiable',
-];
+export const sampleStatusValues: readonly SampleStatus[] = SAMPLE_STATUSES;
 
 /** One identified species within a sample, as rolled up for the explorer row. */
 export interface SampleSpeciesResult {
@@ -468,6 +485,14 @@ export function sampleSurface(
 		// geometry, is not on the map at all.
 		alwaysWhere: [sql<boolean>`i.deleted_at is null`, sql<boolean>`i.geom is not null`],
 		filterWhere: sampleFilterWhere,
+		// What the Samples rail counts by over 100 in view (#1370), each named for
+		// the query param of the filter it applies, so a group is a button.
+		groupings: () => ({
+			status: { each: sampleStatusesSql },
+			species: { each: sampleSpeciesIdsSql },
+			nonMosquito: sql`s.has_non_mosquito`,
+		}),
+		figures: () => ({ larvaeTotal: sampleLarvaeTotalSql }),
 		display: {
 			columns: sampleDisplayColumns,
 			joins: sampleDisplayJoins,
@@ -475,6 +500,34 @@ export function sampleSurface(
 		},
 	});
 }
+
+/**
+ * Every status whose filter would keep the sample, read off the filter's own
+ * clauses rather than the precedence the tile paints by. The states overlap in
+ * the data, a zero-larvae sample can also carry an unidentifiable reason, and
+ * a status group's count is then what clicking it narrows the page to.
+ */
+const sampleStatusesSql = sql<readonly SampleStatus[]>`array_remove(array[${sql.join(
+	sampleStatusValues.map(
+		(status) => sql`case when ${sampleStatusClause(status)} then ${status}::text end`,
+	),
+	sql`, `,
+)}], null)`;
+
+/**
+ * The species a sample carries, the table the `speciesIds` filter reads. The
+ * active-row unique index on sample and species keeps each one listed once.
+ */
+const sampleSpeciesIdsSql = sql<readonly string[]>`array(
+	select ss.species_id from sample_species ss
+	where ss.sample_id = s.id and ss.deleted_at is null
+)`;
+
+/** The larvae identified in one sample, the row's `larvaeTotal`. */
+const sampleLarvaeTotalSql = sql<number>`(
+	select coalesce(sum(ss.larvae_count), 0)::int from sample_species ss
+	where ss.sample_id = s.id and ss.deleted_at is null
+)`;
 
 function sampleFilterWhere(filters: SampleListFilters | undefined): RawBuilder<boolean>[] {
 	if (filters === undefined) {

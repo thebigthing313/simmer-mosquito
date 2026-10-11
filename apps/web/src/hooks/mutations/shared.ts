@@ -51,9 +51,9 @@
  * Ids are minted by the caller, not by the write.
  *
  * SIMMER writes carry their own ids so they are replay-safe, and a create often
- * needs the id before it fires — to warm an on-demand subset, or to write the
- * child rows that reference it the moment the parent lands. A write that minted
- * its own would hand it back too late for either.
+ * needs the id before it fires, to write the child rows that reference it the
+ * moment the parent lands. A write that minted its own would hand it back too
+ * late for that.
  */
 export function newRecordId(): string {
 	return crypto.randomUUID();

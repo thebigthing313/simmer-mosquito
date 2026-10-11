@@ -10,6 +10,8 @@
  * organization and `upsertOperatorOrganization` records it here. WorkOS goes
  * first, because its id is what the SIMMER row is keyed by, and a WorkOS
  * organization with no SIMMER row is a state an operator can see and retry from.
+ * Every payload rule is checked before WorkOS is called, so a detail the insert
+ * or the details builder would refuse never leaves that state behind (#1524).
  */
 
 import type { WorkOsIdentityWrites } from '@simmer-mosquito/auth';
@@ -18,13 +20,21 @@ import {
 	type Kysely,
 	listOperatorOrganizations,
 	listOrganizationMemberships,
+	type OrganizationContactInfo,
 	type OrganizationSubscriptionStatus,
 	type SafeOrganization,
 	type SafeOrganizationMembership,
 	type SimmerDatabase,
 	upsertOperatorOrganization,
 } from '@simmer-mosquito/db';
-import { ORGANIZATION_SUBSCRIPTION_STATUSES } from '@simmer-mosquito/domain';
+import {
+	normalizeOrganizationBillingContact,
+	normalizeOrganizationContactDetails,
+	ORGANIZATION_BILLING_CONTACT_KEYS,
+	ORGANIZATION_CONTACT_DETAIL_KEYS,
+	ORGANIZATION_SUBSCRIPTION_STATUSES,
+	type OrganizationBillingContactKey,
+} from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
@@ -116,18 +126,28 @@ interface CreateOrganizationPayload {
 	readonly billingContactName: string | null;
 	readonly billingContactEmail: string | null;
 	readonly subscriptionNotes: string | null;
-	readonly contact: {
-		readonly mainContactEmail: string | null;
-		readonly phoneNumber: string | null;
-		readonly mailingCountry: string | null;
-		readonly mailingAddressLine1: string | null;
-		readonly mailingAddressLine2: string | null;
-		readonly mailingLocality: string | null;
-		readonly mailingRegion: string | null;
-		readonly mailingPostalCode: string | null;
-	};
+	/**
+	 * The insert's own contact type. A detail added to the domain fails `tsc` at
+	 * `ORGANIZATION_CONTACT_COLUMNS` until it has a column, so no second check
+	 * is kept here.
+	 */
+	readonly contact: OrganizationContactInfo;
 	readonly linkRequesterAsOwner: boolean;
 }
+
+/**
+ * Every billing contact field the domain names, each text or `null`.
+ *
+ * A `Pick` from the payload, because `Pick` requires each key to be one of the
+ * payload's: a field added to the domain's billing limits fails `tsc` here
+ * until the payload carries it.
+ */
+type CreateOrganizationBilling = Pick<CreateOrganizationPayload, OrganizationBillingContactKey>;
+
+/** A request body once `wrongTypeReason` has passed: each text field a string or absent. */
+type CreateOrganizationBody = Readonly<Record<string, unknown>> & {
+	readonly [K in TextField]?: string | null;
+};
 
 type PayloadResult =
 	| {
@@ -159,7 +179,18 @@ async function readCreateOrganizationPayload(request: {
 		};
 	}
 
-	const name = readRequiredText(raw.name);
+	const wrongType = wrongTypeReason(raw);
+	if (wrongType !== null) {
+		return {
+			ok: false,
+			reason: wrongType,
+		};
+	}
+	// `wrongTypeReason` has refused every text field present as anything but a
+	// string, and the flag as anything but a boolean, so this is what the body is.
+	const body = raw as CreateOrganizationBody;
+
+	const name = readOptionalText(body.name);
 	if (name === null) {
 		return {
 			ok: false,
@@ -167,7 +198,7 @@ async function readCreateOrganizationPayload(request: {
 		};
 	}
 
-	const subscriptionStatus = readSubscriptionStatus(raw.subscriptionStatus);
+	const subscriptionStatus = readSubscriptionStatus(body.subscriptionStatus);
 	if (subscriptionStatus === null) {
 		return {
 			ok: false,
@@ -175,7 +206,7 @@ async function readCreateOrganizationPayload(request: {
 		};
 	}
 
-	const billingMode = readOptionalText(raw.billingMode) ?? 'manual_invoice';
+	const billingMode = readOptionalText(body.billingMode) ?? 'manual_invoice';
 	if (billingMode !== 'manual_invoice') {
 		return {
 			ok: false,
@@ -183,27 +214,114 @@ async function readCreateOrganizationPayload(request: {
 		};
 	}
 
+	const contact = readContactPayload(body);
+	if (!contact.ok) {
+		return contact;
+	}
+
 	return {
 		ok: true,
 		payload: {
 			name,
-			slug: readOptionalText(raw.slug),
+			slug: readOptionalText(body.slug),
 			subscriptionStatus,
-			billingContactName: readOptionalText(raw.billingContactName),
-			billingContactEmail: readOptionalText(raw.billingContactEmail),
-			subscriptionNotes: readOptionalText(raw.subscriptionNotes),
-			contact: {
-				mainContactEmail: readOptionalText(raw.mainContactEmail),
-				phoneNumber: readOptionalText(raw.phoneNumber),
-				mailingCountry: readOptionalText(raw.mailingCountry)?.toUpperCase() ?? null,
-				mailingAddressLine1: readOptionalText(raw.mailingAddressLine1),
-				mailingAddressLine2: readOptionalText(raw.mailingAddressLine2),
-				mailingLocality: readOptionalText(raw.mailingLocality),
-				mailingRegion: readOptionalText(raw.mailingRegion),
-				mailingPostalCode: readOptionalText(raw.mailingPostalCode),
-			},
-			linkRequesterAsOwner: raw.linkRequesterAsOwner === true,
+			...contact.billing,
+			subscriptionNotes: readOptionalText(body.subscriptionNotes),
+			contact: contact.contact,
+			linkRequesterAsOwner: body.linkRequesterAsOwner === true,
 		},
+	};
+}
+
+/**
+ * The fields a create reads as text, `name` first.
+ *
+ * The billing contact and the contact details are the domain's lists rather
+ * than copies of them, so a field the create reads is a field this checks the
+ * type of.
+ */
+const TEXT_FIELDS = [
+	'name',
+	'slug',
+	'billingMode',
+	...ORGANIZATION_BILLING_CONTACT_KEYS,
+	'subscriptionNotes',
+	...ORGANIZATION_CONTACT_DETAIL_KEYS,
+] as const;
+
+type TextField = (typeof TEXT_FIELDS)[number];
+
+/**
+ * The refusal for the first field present with a value of the wrong type, or
+ * `null` when every field is absent or of its type.
+ *
+ * It runs before anything reads the body, because `readOptionalText` answers
+ * `null` for a missing value and for a value of the wrong type alike, and a
+ * create used to store `mailingCountry: 123` as no country and answer 201
+ * (#1549). `undefined` and `null` are absent for every field, the flag
+ * included, so once this passes the flag is `true` or not sent.
+ */
+function wrongTypeReason(raw: Record<string, unknown>): string | null {
+	const field = TEXT_FIELDS.find((name) => isPresent(raw[name]) && typeof raw[name] !== 'string');
+	if (field !== undefined) {
+		return `${field} must be text.`;
+	}
+
+	const flag = raw.linkRequesterAsOwner;
+	return isPresent(flag) && typeof flag !== 'boolean'
+		? 'linkRequesterAsOwner must be true or false.'
+		: null;
+}
+
+function isPresent(value: unknown): boolean {
+	return value !== undefined && value !== null;
+}
+
+/** Every contact detail a create carries, `null` until one arrives. */
+const NO_CONTACT = Object.fromEntries(
+	ORGANIZATION_CONTACT_DETAIL_KEYS.map((key) => [key, null]),
+) as OrganizationContactInfo;
+
+/** Every billing contact field a create carries, `null` until one arrives. */
+const NO_BILLING = Object.fromEntries(
+	ORGANIZATION_BILLING_CONTACT_KEYS.map((key) => [key, null]),
+) as CreateOrganizationBilling;
+
+/**
+ * The contact details and the billing contact, checked.
+ *
+ * Both are held to the domain's rules rather than written again here, so a
+ * create cannot store what an edit would refuse, and the billing email is
+ * refused with the message the Main contact's email gets. The billing contact is a second call
+ * because the details builder does not carry it. Refusing at this point is what
+ * keeps WorkOS from being asked first for a row the insert would reject.
+ */
+function readContactPayload(body: CreateOrganizationBody):
+	| {
+			readonly ok: true;
+			readonly contact: CreateOrganizationPayload['contact'];
+			readonly billing: CreateOrganizationBilling;
+	  }
+	| { readonly ok: false; readonly reason: string } {
+	const { details, issues } = normalizeOrganizationContactDetails(
+		Object.fromEntries(
+			ORGANIZATION_CONTACT_DETAIL_KEYS.map((key) => [key, readOptionalText(body[key])]),
+		),
+	);
+	const billing = normalizeOrganizationBillingContact(
+		Object.fromEntries(
+			ORGANIZATION_BILLING_CONTACT_KEYS.map((key) => [key, readOptionalText(body[key])]),
+		),
+	);
+	const refusals = [...issues, ...billing.issues];
+	if (refusals.length > 0) {
+		return { ok: false, reason: refusals.map((issue) => issue.message).join(' ') };
+	}
+
+	return {
+		ok: true,
+		contact: { ...NO_CONTACT, ...details },
+		billing: { ...NO_BILLING, ...billing.contact },
 	};
 }
 
@@ -219,17 +337,8 @@ function readSubscriptionStatus(value: unknown): OrganizationSubscriptionStatus 
 	return null;
 }
 
-function readRequiredText(value: unknown): string | null {
-	const text = readOptionalText(value);
-	return text === null ? null : text;
-}
-
-function readOptionalText(value: unknown): string | null {
+function readOptionalText(value: string | null | undefined): string | null {
 	if (value === undefined || value === null) {
-		return null;
-	}
-
-	if (typeof value !== 'string') {
 		return null;
 	}
 
