@@ -7,9 +7,13 @@ import {
 	type OrganizationContactInfo,
 	type UpsertOperatorOrganizationInput,
 	upsertOperatorOrganization,
-} from '../../index.js';
-import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
-import { createOrganization, createProfile, createUser } from '../../test-support/row-fixtures.js';
+} from '../../../index.js';
+import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
+import {
+	createOrganization,
+	createProfile,
+	createUser,
+} from '../../../test-support/row-fixtures.js';
 
 type ContactKey = keyof typeof ORGANIZATION_CONTACT_COLUMNS;
 
@@ -21,11 +25,19 @@ const CONTACT_KEYS = Object.keys(ORGANIZATION_CONTACT_COLUMNS) as readonly Conta
  *
  * Distinct values are the point: two keys swapped on the way in or out would
  * still read back as a full set if every detail held the same string.
+ *
+ * `mailing_country` is `character(2)`, so the tagged string would be refused
+ * as too long, and a shorter one comes back space-padded. The country takes a
+ * two-letter code of its own instead, and every other key, a new one included,
+ * still gets the tagged string. The domain accepts only `US` and a state code
+ * for the region, but these cases call the database layer under that check,
+ * so a code per call is what lets a stale country show.
  */
-function contactWith(tag: string): OrganizationContactInfo {
-	return Object.fromEntries(
-		CONTACT_KEYS.map((key) => [key, `${tag} ${key}`]),
-	) as OrganizationContactInfo;
+function contactWith(tag: string, country: string): OrganizationContactInfo {
+	return {
+		...Object.fromEntries(CONTACT_KEYS.map((key) => [key, `${tag} ${key}`])),
+		mailingCountry: country,
+	} as OrganizationContactInfo;
 }
 
 function operatorInput(
@@ -40,7 +52,7 @@ function operatorInput(
 		billingContactName: 'Billing Person',
 		billingContactEmail: 'billing@example.test',
 		subscriptionNotes: 'First year on trial.',
-		contact: contactWith('first'),
+		contact: contactWith('first', 'US'),
 		...overrides,
 	};
 }
@@ -48,7 +60,7 @@ function operatorInput(
 describeDbIntegration('operator Organization create and reads', () => {
 	it('returns every contact detail under its own key from the create and both reads', async () => {
 		await withTestDb(async ({ db }) => {
-			const contact = contactWith('round trip');
+			const contact = contactWith('round trip', 'CA');
 			const created = await upsertOperatorOrganization(db, operatorInput({ contact }));
 
 			expect(created.contact).toEqual(contact);
@@ -78,7 +90,7 @@ describeDbIntegration('operator Organization create and reads', () => {
 			const first = await upsertOperatorOrganization(db, operatorInput());
 
 			const clearedKey: ContactKey = 'mailingAddressLine2';
-			const secondContact = { ...contactWith('second'), [clearedKey]: null };
+			const secondContact = { ...contactWith('second', 'MX'), [clearedKey]: null };
 			const second = await upsertOperatorOrganization(
 				db,
 				operatorInput({
