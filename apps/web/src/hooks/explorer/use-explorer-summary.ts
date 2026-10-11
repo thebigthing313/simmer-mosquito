@@ -31,7 +31,7 @@ export interface MapSummary {
 }
 
 /** One combination of a breakdown's keys, how many records carry it, and their amounts summed. */
-interface MapSummaryBreakdownRow {
+export interface MapSummaryBreakdownRow {
 	readonly by: Readonly<Record<string, string | boolean | null>>;
 	readonly count: number;
 	readonly sum: number;

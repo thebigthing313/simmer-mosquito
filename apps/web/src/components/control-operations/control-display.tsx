@@ -1,7 +1,9 @@
 import { lookupUnitConversion, totalInUnit, type UnitDefaults } from '@simmer-mosquito/domain';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
+import type { MapSummaryBreakdownRow } from '../../hooks/explorer/use-explorer-summary';
 import { calendarDateParts } from '../../lib/local-date';
 import { unreadable } from '../../lib/unreadable-input';
+import type { SummaryGroup } from '../explorer/explorer-summary';
 
 /** As much of a unit as anything here reads: its conversion key and its label. */
 interface MeasureUnit {
@@ -25,6 +27,34 @@ export function formatAmount(
 	unit: { readonly abbreviation: string } | undefined,
 ): string {
 	return formatMeasure(amount, unit?.abbreviation ?? null);
+}
+
+/**
+ * A summary breakdown keyed by unit, drawn one line per unit: labelled with the
+ * unit's name, counting the records and reading their summed amount in that
+ * unit. A row with no unit draws no line, and a unit the client does not hold
+ * reads `Unknown unit`. Biocontrol's amount released and Source Reductions'
+ * sources eliminated are both this figure.
+ */
+export function perUnitAmountGroups(
+	rows: readonly MapSummaryBreakdownRow[],
+	unitById: ReadonlyMap<string, { readonly unitName: string; readonly abbreviation: string }>,
+): SummaryGroup[] {
+	return rows.flatMap(({ by, count, sum }) => {
+		const { unitId } = by;
+		if (typeof unitId !== 'string') {
+			return [];
+		}
+		const unit = unitById.get(unitId);
+		return [
+			{
+				key: unitId,
+				label: unit?.unitName ?? 'Unknown unit',
+				count,
+				figure: formatAmount(sum, unit),
+			},
+		];
+	});
 }
 
 /**
