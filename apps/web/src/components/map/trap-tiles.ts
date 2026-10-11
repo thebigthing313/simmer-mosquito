@@ -1,5 +1,5 @@
 import { mapInteraction, mapLifecycle } from '@simmer-mosquito/design-tokens';
-import { type MapFiltersOf, TRAP_MAP_FILTERS } from '@simmer-mosquito/domain';
+import type { MapFiltersOf, TRAP_MAP_FILTERS } from '@simmer-mosquito/domain';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import {
 	allLayerIds,
@@ -7,7 +7,6 @@ import {
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
  * The filters the `traps` tiles and extent draw under, typed off the
@@ -54,25 +53,6 @@ const statusColor: ExpressionSpecification = [
 	colors.active,
 	colors.inactive,
 ];
-
-/** Build the tile template URL with the active filters folded into the query. */
-export function buildTrapTileUrl(
-	serverUrl: string,
-	filters?: TrapTileFilters,
-	options?: TileDrawOptions,
-): string {
-	return tileTemplateUrl(
-		serverUrl,
-		TRAP_SOURCE_ID,
-		tileFilterQuery(TRAP_MAP_FILTERS, filters),
-		options,
-	);
-}
-
-/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
-export function buildTrapExtentUrl(serverUrl: string, filters?: TrapTileFilters): string {
-	return tileExtentUrl(serverUrl, TRAP_SOURCE_ID, tileFilterQuery(TRAP_MAP_FILTERS, filters));
-}
 
 /** The GL layers for the trap source. `selectedId` drives the highlight set. */
 export function trapTileLayers(selectedId: string | null): GeometryTileLayer[] {

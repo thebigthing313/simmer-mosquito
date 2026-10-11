@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { recordSetFilterParams } from '../../../../../components/explorer/record-set';
+import type { ServiceRequestTileFilters } from '../../../../../components/map/service-request-tiles';
 import {
-	buildServiceRequestExtentUrl,
-	buildServiceRequestTileUrl,
-} from '../../../../../components/map/service-request-tiles';
+	type MapTileLayer,
+	tileLayerExtentUrl,
+	tileLayerTileUrl,
+} from '../../../../../components/map/tile-layers';
 import {
 	serviceRequestFilterCodecs,
 	serviceRequestFilterDefaults,
@@ -88,7 +90,7 @@ describe('serviceRequestTileFilters', () => {
 		expect(recordSetFilterParams(serviceRequestRecordSet, filters)).toMatchObject({
 			overdueBefore: '2026-10-06',
 		});
-		expect(buildServiceRequestTileUrl('https://api.test', filters)).toContain(
+		expect(tileLayerTileUrl(serviceRequestLayer(filters), {})).toContain(
 			'overdueBefore=2026-10-06',
 		);
 	});
@@ -117,7 +119,11 @@ describe('serviceRequestOrderParams', () => {
 			null,
 		);
 
-		expect(buildServiceRequestTileUrl('https://api.test', filters)).not.toContain('oldest');
-		expect(buildServiceRequestExtentUrl('https://api.test', filters)).not.toContain('oldest');
+		expect(tileLayerTileUrl(serviceRequestLayer(filters), {})).not.toContain('oldest');
+		expect(tileLayerExtentUrl(serviceRequestLayer(filters))).not.toContain('oldest');
 	});
 });
+
+function serviceRequestLayer(filters: ServiceRequestTileFilters): MapTileLayer {
+	return { kind: 'service-requests', serverUrl: 'https://api.test', filters };
+}

@@ -1,6 +1,6 @@
 import { mapDensity, mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
 import {
-	INSPECTION_MAP_FILTERS,
+	type INSPECTION_MAP_FILTERS,
 	LARVAL_DENSITIES,
 	type LarvalDensity,
 	type MapFiltersOf,
@@ -12,7 +12,6 @@ import {
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
  * The filters the `inspections` tiles and extent draw under, typed off the
@@ -80,32 +79,6 @@ const densityColor: ExpressionSpecification = [
 	],
 	colors.dry,
 ];
-
-/** Build the tile template URL with the active filters folded into the query. */
-export function buildInspectionTileUrl(
-	serverUrl: string,
-	filters?: InspectionTileFilters,
-	options?: TileDrawOptions,
-): string {
-	return tileTemplateUrl(
-		serverUrl,
-		INSPECTION_SOURCE_ID,
-		tileFilterQuery(INSPECTION_MAP_FILTERS, filters),
-		options,
-	);
-}
-
-/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
-export function buildInspectionExtentUrl(
-	serverUrl: string,
-	filters?: InspectionTileFilters,
-): string {
-	return tileExtentUrl(
-		serverUrl,
-		INSPECTION_SOURCE_ID,
-		tileFilterQuery(INSPECTION_MAP_FILTERS, filters),
-	);
-}
 
 /** The GL layers for the inspection source. `selectedId` drives the highlight set. */
 export function inspectionTileLayers(selectedId: string | null): GeometryTileLayer[] {

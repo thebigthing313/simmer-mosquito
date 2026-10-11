@@ -1,5 +1,5 @@
 import { mapInteraction, mapStatus } from '@simmer-mosquito/design-tokens';
-import { type MapFiltersOf, SAMPLE_MAP_FILTERS, type SampleStatus } from '@simmer-mosquito/domain';
+import type { MapFiltersOf, SAMPLE_MAP_FILTERS, SampleStatus } from '@simmer-mosquito/domain';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import {
 	allLayerIds,
@@ -7,7 +7,6 @@ import {
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
  * The filters the `samples` tiles and extent draw under, typed off the
@@ -66,25 +65,6 @@ const statusColor: ExpressionSpecification = [
 	colors.unidentifiable,
 	colors.awaiting,
 ];
-
-/** Build the tile template URL with the active filters folded into the query. */
-export function buildSampleTileUrl(
-	serverUrl: string,
-	filters?: SampleTileFilters,
-	options?: TileDrawOptions,
-): string {
-	return tileTemplateUrl(
-		serverUrl,
-		SAMPLE_SOURCE_ID,
-		tileFilterQuery(SAMPLE_MAP_FILTERS, filters),
-		options,
-	);
-}
-
-/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
-export function buildSampleExtentUrl(serverUrl: string, filters?: SampleTileFilters): string {
-	return tileExtentUrl(serverUrl, SAMPLE_SOURCE_ID, tileFilterQuery(SAMPLE_MAP_FILTERS, filters));
-}
 
 /** The GL layers for the sample source. `selectedId` drives the highlight set. */
 export function sampleTileLayers(selectedId: string | null): GeometryTileLayer[] {

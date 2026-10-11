@@ -1,12 +1,11 @@
 import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
-import { BIOCONTROL_MAP_FILTERS, type MapFiltersOf } from '@simmer-mosquito/domain';
+import type { BIOCONTROL_MAP_FILTERS, MapFiltersOf } from '@simmer-mosquito/domain';
 import {
 	allLayerIds,
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
  * The filters the `biocontrol` tiles and extent draw under, typed off the
@@ -29,32 +28,6 @@ const colors = {
 export const BIOCONTROL_INTERACTIVE_LAYER_IDS = interactiveLayerIds(BIOCONTROL_SOURCE_ID);
 
 export const BIOCONTROL_LAYER_IDS = allLayerIds(BIOCONTROL_SOURCE_ID);
-
-/** Build the tile template URL with the active filters folded into the query. */
-export function buildBiocontrolTileUrl(
-	serverUrl: string,
-	filters?: BiocontrolTileFilters,
-	options?: TileDrawOptions,
-): string {
-	return tileTemplateUrl(
-		serverUrl,
-		BIOCONTROL_SOURCE_ID,
-		tileFilterQuery(BIOCONTROL_MAP_FILTERS, filters),
-		options,
-	);
-}
-
-/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
-export function buildBiocontrolExtentUrl(
-	serverUrl: string,
-	filters?: BiocontrolTileFilters,
-): string {
-	return tileExtentUrl(
-		serverUrl,
-		BIOCONTROL_SOURCE_ID,
-		tileFilterQuery(BIOCONTROL_MAP_FILTERS, filters),
-	);
-}
 
 /** The GL layers for the biocontrol source. `selectedId` drives the highlight set. */
 export function biocontrolTileLayers(selectedId: string | null): GeometryTileLayer[] {

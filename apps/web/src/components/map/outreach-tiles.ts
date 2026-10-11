@@ -1,12 +1,11 @@
 import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
-import { type MapFiltersOf, OUTREACH_MAP_FILTERS } from '@simmer-mosquito/domain';
+import type { MapFiltersOf, OUTREACH_MAP_FILTERS } from '@simmer-mosquito/domain';
 import {
 	allLayerIds,
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
  * The filters the `outreach` tiles and extent draw under, typed off the
@@ -29,29 +28,6 @@ const colors = {
 export const OUTREACH_INTERACTIVE_LAYER_IDS = interactiveLayerIds(OUTREACH_SOURCE_ID);
 
 export const OUTREACH_LAYER_IDS = allLayerIds(OUTREACH_SOURCE_ID);
-
-/** Build the tile template URL with the active filters folded into the query. */
-export function buildOutreachTileUrl(
-	serverUrl: string,
-	filters?: OutreachTileFilters,
-	options?: TileDrawOptions,
-): string {
-	return tileTemplateUrl(
-		serverUrl,
-		OUTREACH_SOURCE_ID,
-		tileFilterQuery(OUTREACH_MAP_FILTERS, filters),
-		options,
-	);
-}
-
-/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
-export function buildOutreachExtentUrl(serverUrl: string, filters?: OutreachTileFilters): string {
-	return tileExtentUrl(
-		serverUrl,
-		OUTREACH_SOURCE_ID,
-		tileFilterQuery(OUTREACH_MAP_FILTERS, filters),
-	);
-}
 
 /** The GL layers for the outreach action source. `selectedId` drives the highlight set. */
 export function outreachTileLayers(selectedId: string | null): GeometryTileLayer[] {

@@ -1,5 +1,5 @@
 import { mapDomain, mapInteraction, mapLifecycle } from '@simmer-mosquito/design-tokens';
-import { HABITAT_MAP_FILTERS, type MapFiltersOf } from '@simmer-mosquito/domain';
+import type { HABITAT_MAP_FILTERS, MapFiltersOf } from '@simmer-mosquito/domain';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import {
 	allLayerIds,
@@ -7,7 +7,6 @@ import {
 	geometryTileLayers,
 	interactiveLayerIds,
 } from './geometry-tiles';
-import { type TileDrawOptions, tileExtentUrl, tileFilterQuery, tileTemplateUrl } from './tile-urls';
 
 /**
  * The filters the `habitats` tiles and extent draw under, typed off the
@@ -53,25 +52,6 @@ const statusColor: ExpressionSpecification = [
 	colors.active,
 	colors.inactive,
 ];
-
-/** Build the tile template URL with the active filters folded into the query. */
-export function buildHabitatTileUrl(
-	serverUrl: string,
-	filters?: HabitatTileFilters,
-	options?: TileDrawOptions,
-): string {
-	return tileTemplateUrl(
-		serverUrl,
-		HABITAT_SOURCE_ID,
-		tileFilterQuery(HABITAT_MAP_FILTERS, filters),
-		options,
-	);
-}
-
-/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
-export function buildHabitatExtentUrl(serverUrl: string, filters?: HabitatTileFilters): string {
-	return tileExtentUrl(serverUrl, HABITAT_SOURCE_ID, tileFilterQuery(HABITAT_MAP_FILTERS, filters));
-}
 
 /** The GL layers for the habitat source. `selectedId` drives the highlight set. */
 export function habitatTileLayers(selectedId: string | null): GeometryTileLayer[] {
