@@ -484,6 +484,17 @@ stays a pure function under the component. A summary module is left only
 where the surface draws text figures no filter selects, and it now exports the
 figures alone, which `DeclaredSummary` draws after the declared groupings.
 
+An id set's chips draw in the order its option source lists the ids, which is
+the order the control lists them, and an id the source does not hold draws
+after the rest in the order it was picked (#1613). #1609 had moved every id set
+to picked order, which turned the Service Requests Tag row from catalog order
+into a history of what the reader clicked, so one selection drew a different
+row depending on the order it was picked in. Catalog order holds the row
+still. It covers a declaration's own `chip` as well, which is why `IdSetChips`
+reads the source even when it draws the Tag badge. Only the draw order
+changed: `idSetParam` still writes the ids in picked order, so a link keeps
+them as picked and the row sorts them as it draws.
+
 Whether a filter narrows anything in this Organization is the record set's to
 say, not the declaration's. The set names its `inert` filters as a function of
 the context, the counting leaves them uncounted, and the binding hands them to
@@ -516,7 +527,7 @@ rather than once at module scope. A `choiceSet` with no `field` draws a
 `MultiSelectFilter` that writes the values in option order, which is what the
 Missions and Assignments Status popovers did by hand. Control type is an
 `idSet` over fixed options rather than a `choiceSet`, because the codec holds
-any code, and an id set's chips keep the order the types were picked in.
+any code.
 
 `ExplorerMapPage` takes it through `summary` on the row results rather than as
 a third results shape. The caller still hands over its rows, because the page

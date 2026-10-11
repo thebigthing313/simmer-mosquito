@@ -9,8 +9,8 @@ import { type IdSetDeclaration, suppliedSource } from '../explorer/filter-declar
 
 /**
  * Control type over `types`. An id set over fixed options rather than a choice
- * set, because the codec holds any code, and so the chips keep the order the
- * types were picked in.
+ * set, because the codec holds any code. Its chips draw in the order the
+ * options list the types, the way every id set's chips do.
  */
 export const CONTROL_TYPE_FILTER: IdSetDeclaration<'types'> = {
 	kind: 'idSet',
