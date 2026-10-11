@@ -8,7 +8,7 @@
 import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { catalogs } from '../../hooks/queries/catalog-register';
-import { type FilterOption, toggle } from '../explorer';
+import { toggle } from '../explorer';
 import {
 	catalogSource,
 	defineFilterDeclarations,
@@ -17,13 +17,6 @@ import {
 import { densityLabel } from '../larval-display';
 import { INSPECTION_DENSITY_COLORS } from '../map';
 import { inspectionRecordSet } from './inspections-search';
-
-/** The two catalogs both surfaces label a filtered row by. */
-export interface InspectionCatalogs {
-	readonly habitatTypes: readonly FilterOption[];
-	readonly personnel: readonly FilterOption[];
-	readonly typeNameById: ReadonlyMap<string, string>;
-}
 
 /** Each inspection filter's control, chip and summary grouping, in chip order. */
 export const inspectionFilterDeclarations = defineFilterDeclarations(inspectionRecordSet, [
