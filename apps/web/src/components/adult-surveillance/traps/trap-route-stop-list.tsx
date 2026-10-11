@@ -6,8 +6,8 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { TrapRouteStopView } from '../../../hooks/adult-surveillance/use-trap-route-stops';
 import type { StopSelection } from '../../route-planning';
-import { ResolvingStatus, resolvingToneClass } from '../../stop-order';
-import { type TrapOrdinalTone, trapStopBadgeTone } from './trap-route-data';
+import { OrdinalBadge, ResolvingStatus } from '../../stop-order';
+import { trapStopBadgeTone } from './trap-route-data';
 
 const TrapIcon = iconRegistry.entities.trap.icon;
 
@@ -42,17 +42,6 @@ export function TrapRouteStopList({
 	);
 }
 
-/**
- * The ordinal circle here is larger than `OrdinalBadge` and fills an inactive
- * stop more lightly, so it keeps a class per tone of its own and reads only the
- * resolving class from the badge.
- */
-const ordinalClass: Readonly<Record<TrapOrdinalTone, string>> = {
-	default: 'bg-primary text-primary-foreground',
-	inactive: 'bg-muted text-muted-foreground',
-	resolving: resolvingToneClass,
-};
-
 function StopRow({
 	stop,
 	isSelected,
@@ -64,8 +53,6 @@ function StopRow({
 	readonly onSelect: (id: string) => void;
 	readonly onHover: (id: string | null) => void;
 }) {
-	const tone = trapStopBadgeTone(stop);
-
 	return (
 		<li className="relative">
 			<button
@@ -84,15 +71,7 @@ function StopRow({
 			/>
 			{/* min-w-0 so the name can truncate; the block inherits pointer-events-none. */}
 			<div className="pointer-events-none relative flex items-start gap-3 px-4 py-3">
-				<span
-					className={cn(
-						'flex size-7 shrink-0 items-center justify-center rounded-full font-semibold text-xs tabular-nums',
-						ordinalClass[tone],
-					)}
-					data-tone={tone}
-				>
-					{stop.ordinal}
-				</span>
+				<OrdinalBadge ordinal={stop.ordinal} tone={trapStopBadgeTone(stop)} />
 				<div className="grid min-w-0 flex-1 gap-0.5">
 					<Link
 						className={cn(
