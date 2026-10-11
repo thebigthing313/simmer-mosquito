@@ -51,12 +51,18 @@ const INACTIVE: TrapRouteStopView = {
  * The status is the Trap's, so a stop carries it only once narrowed to
  * resolved: reading it off the union is a `tsc` error.
  */
+const ACTIVE: TrapRouteStopView = { ...INACTIVE, isActive: true };
+
 function _statusOf(stop: TrapRouteStopView) {
 	// @ts-expect-error A resolving stop has no `isActive` to read.
 	void stop.isActive;
 	return stop.isResolving ? null : stop.isActive;
 }
 void _statusOf;
+
+function badgeClass(): string | null {
+	return document.querySelector('[data-tone]')?.getAttribute('class') ?? null;
+}
 
 function badgeTone(): string | null {
 	return document.querySelector('[data-tone]')?.getAttribute('data-tone') ?? null;
@@ -105,5 +111,27 @@ describe.each([
 		expect(badgeTone()).toBe('inactive');
 		expect(screen.getByText('Inactive')).toBeTruthy();
 		expect(screen.queryByText('Loading…')).toBeNull();
+	});
+});
+
+/*
+ * Both pages draw the ordinal with `OrdinalBadge`, so one stop draws one
+ * circle on either. Until #1639 the detail list had a circle of its own, 28px
+ * and a paler inactive fill.
+ */
+describe('the ordinal circle', () => {
+	it.each([
+		['resolving', RESOLVING],
+		['inactive', INACTIVE],
+		['default', ACTIVE],
+	])('is the same on the detail and edit pages for a %s stop', (tone, stop) => {
+		renderList(stop);
+		const detail = badgeClass();
+		expect(badgeTone()).toBe(tone);
+		cleanup();
+
+		renderEditor(stop);
+		expect(badgeTone()).toBe(tone);
+		expect(badgeClass()).toBe(detail);
 	});
 });

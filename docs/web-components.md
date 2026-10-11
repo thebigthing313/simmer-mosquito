@@ -147,13 +147,13 @@ A stop whose Trap has not streamed in draws the `resolving` tone and
 `Loading…` where the `Inactive` word goes; before #1600 it read `isActive`
 from a `coalesce(trap.is_active, true)` default and drew as an active stop.
 
-The detail list draws its ordinal in a 28px circle of its own rather than
-`OrdinalBadge`, and fills an inactive stop with `bg-muted` where the badge
-uses `bg-muted-foreground`. That predates #1600, which left the resolved
-stops drawing exactly what they drew and took only `resolvingToneClass` from
-the badge, so the resolving state looks the same on all four Route pages.
-Moving this list onto the badge would change how a resolved stop looks, and
-is a decision of its own.
+Both lists draw the ordinal with `OrdinalBadge`, so a stop draws the same
+24px circle on either page in all three tones. Until #1639 the detail list
+drew a 28px circle of its own and filled an inactive stop with `bg-muted`
+where the badge uses `bg-muted-foreground`; it matched the badge only on the
+resolving tone, which #1600 had it read from the badge. The 28px size was not
+kept as a badge variant, so the detail page now matches the edit page, the
+other stop lists and the map pin.
 
 ### app-shell
 

@@ -6,8 +6,9 @@ import type { InspectionListing } from '../../../components/larval-surveillance/
 import { InspectionsFilterBar } from '../../../components/larval-surveillance/inspections-filter-bar';
 import { inspectionRecordSet } from '../../../components/larval-surveillance/inspections-search';
 import { InspectionsTable } from '../../../components/larval-surveillance/inspections-table';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
-import { useInspectionCatalogs } from '../../../hooks/larval-surveillance/use-inspection-catalogs';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { searchValidator } from '../../../lib/search-filters';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/table')({
@@ -25,7 +26,7 @@ const InspectionIcon = iconRegistry.entities.inspection.icon;
  */
 function InspectionsTableRoute() {
 	const binding = useRecordSetFilters(inspectionRecordSet, 'table');
-	const catalogs = useInspectionCatalogs();
+	const { nameById: typeNameById } = useCatalogOptions(catalogs.habitatTypes);
 	const search = Route.useSearch();
 	return (
 		<RecordSetTablePage
@@ -40,7 +41,7 @@ function InspectionsTableRoute() {
 			search={search}
 			set={inspectionRecordSet}
 			table={(rows: readonly InspectionListing[]) => (
-				<InspectionsTable rows={rows} typeNameById={catalogs.typeNameById} />
+				<InspectionsTable rows={rows} typeNameById={typeNameById} />
 			)}
 		/>
 	);
