@@ -22,6 +22,7 @@ import {
 	MAP_CREATE_TARGETS,
 } from '../../../components/map';
 import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
+import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import {
 	type ExplorerResource,
@@ -31,8 +32,8 @@ import {
 	type RecordSetFilterBinding,
 	useRecordSetFilters,
 } from '../../../hooks/explorer/use-record-set-filters';
-import { useInspectionCatalogs } from '../../../hooks/larval-surveillance/use-inspection-catalogs';
 import { useMapClustering } from '../../../hooks/map/use-map-clustering';
+import { catalogs } from '../../../hooks/queries/catalog-register';
 import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -67,7 +68,7 @@ function InspectionsExplorerRoute() {
 
 	const routeSearch = Route.useSearch();
 
-	const catalogs = useInspectionCatalogs();
+	const { nameById: typeNameById } = useCatalogOptions(catalogs.habitatTypes);
 	const {
 		rows,
 		total,
@@ -132,7 +133,7 @@ function InspectionsExplorerRoute() {
 						key={inspection.id}
 						onSelect={setSelectedId}
 						selectedId={selectedId}
-						typeNameById={catalogs.typeNameById}
+						typeNameById={typeNameById}
 					/>
 				),
 			}}
