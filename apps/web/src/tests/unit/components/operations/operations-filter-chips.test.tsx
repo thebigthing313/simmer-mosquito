@@ -8,7 +8,7 @@
  * filter at once, and the chips drawn match `activeCount`. The all-at-once
  * case also holds each card's chip labels and order to what the hand-written
  * lists drew, except that an id set's chips follow the order its options list
- * them since #1613, so the types are moved against that order here.
+ * them since #1613, so the expected types follow that order.
  */
 
 import { cleanup, render, screen } from '@testing-library/react';

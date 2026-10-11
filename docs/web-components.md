@@ -491,9 +491,9 @@ to picked order, which turned the Service Requests Tag row from catalog order
 into a history of what the reader clicked, so one selection drew a different
 row depending on the order it was picked in. Catalog order holds the row
 still. It covers a declaration's own `chip` as well, which is why `IdSetChips`
-reads the source even when it draws the Tag badge. Only the draw order
-changed: `idSetParam` still writes the ids in picked order, so a link keeps
-them as picked and the row sorts them as it draws.
+reads the source even when it draws the Tag badge. `idSetParam` still writes
+the ids in picked order, so a link keeps them as picked and the row sorts them
+as it draws.
 
 Whether a filter narrows anything in this Organization is the record set's to
 say, not the declaration's. The set names its `inert` filters as a function of

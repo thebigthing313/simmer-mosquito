@@ -395,7 +395,7 @@ function IdSetField({
  * source lists the ids, which is the order the control lists them, rather than
  * the order they were picked, so one filter always draws one row (#1613). An id
  * the source does not hold draws after the rest, in the order it was picked.
- * Only the draw order is the source's: `idSetParam` still writes picked order.
+ * `idSetParam` still writes the ids in picked order, so only the draw changes.
  */
 function IdSetChips({
 	binding,
@@ -437,8 +437,8 @@ function inSourceOrder(
 	options: readonly FilterOption[],
 ): readonly string[] {
 	const listed = options.filter((option) => selected.has(option.id)).map((option) => option.id);
-	const held = new Set(listed);
-	return [...listed, ...[...selected].filter((id) => !held.has(id))];
+	const listedIds = new Set(listed);
+	return [...listed, ...[...selected].filter((id) => !listedIds.has(id))];
 }
 
 /** An option source as the controls and chips read it. */
