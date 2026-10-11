@@ -1,5 +1,15 @@
 # @simmer-mosquito/admin
 
+## 0.7.4 — 2026-10-11
+
+### Patch Changes
+
+- Fixed: An invitation to an email address with a space in it, or with no dot after the @, is refused before anything is saved. It used to leave behind an invited membership nobody could accept.
+
+- Fixed: Creating an Organization checks the contact details the way editing one does. The Main contact and billing email must be email addresses, the state and country must be in the US, and each field has a length limit, such as 200 characters for the billing contact name. Before, a bad value failed partway through the create or was saved as blank.
+
+- Changed: When a saved record is slow to appear, the form waits up to 15 seconds for it before moving on, up from 5. Your save is kept either way.
+
 ## 0.7.3 — 2026-09-30
 
 ### Patch Changes

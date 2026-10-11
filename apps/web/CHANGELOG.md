@@ -1,5 +1,79 @@
 # @simmer-mosquito/web
 
+## 0.12.0 — 2026-10-11
+
+### Minor Changes
+
+- Added: Zoomed out, every map of points groups nearby records into one circle showing how many it holds. Click a circle to zoom in to the records under it. A switch on each map turns grouping off and on, and this browser remembers your choice for every map. A selected record stays highlighted at its own position even when it sits inside a group.
+
+- Added: With more than 100 records in view, the Addresses, Habitats, Inspections, Samples, Traps, Collections, Chemical Applications, Biocontrol Actions, Source Reductions, Outreach Actions and Service Requests maps show a summary instead of pages of rows. It counts the records by type, status, method, species, Tag, person and the other fields that matter on that page, and adds up amounts such as insecticide applied or larvae identified. Click a group to filter to it, and click it again to undo. A record with two species or two Tags counts under each. Zoom in or filter down to 100 or fewer to see the list again. The count of records in view sits at the bottom of the panel.
+
+- Added: Addresses, Traps, Collections, Chemical Applications, Biocontrol Actions, Source Reductions and Outreach Actions have a Table beside the Map. Open either one from the sidebar or the Map/Table switch, and your filters come with you. Going from the Inspections Map to its Table leaves the Region filter behind, since that Table has no Region filter.
+
+- Added: The trend charts on Monthly draw a third bar for each month, the average of that month over the five years before the year shown, beside this year and last year. The charts on Annual draw the same five-year average as a dashed line across the years. The legend above the charts names the years averaged.
+
+- Added: An open service request older than your Organization's overdue threshold is marked overdue. The threshold is 14 days unless an Admin changes it under My Organization, Public Engagement, where it can be set up to 365 days or turned off. Overdue requests show their age in the warning colour on the Service Requests map and Table, the Overdue filter narrows to them, and Operations Backlog on the Dashboard counts them and links to the map with the filter on.
+
+### Patch Changes
+
+- Fixed: Picking an address in the Address Book, from the list or on the map, moves the map once. It used to start toward the address, stop partway, and fly again when the address card finished loading.
+
+- Changed: Species Composition on the Adult Surveillance overview counts females only by default, and a Males switch beside the 7d/30d toggle adds males back in. Specimens identified as "unknown" are left out of the bars and the percentages.
+
+- Fixed: When a record saves but its additional personnel, samples or insecticide batches do not, the record opens with a message naming what did not save and telling you to edit the record to add it. A note that does not save tells you to add it as a comment. These messages used to send you to the record's page, which has no way to add them, and edit forms said Unable to Save even though the rest of the change had saved.
+
+- Fixed: Recording a collection from a trap's page, or from a trap stop on an assignment, saves on the first try. In a freshly opened tab it used to fail with "Unable to determine the collection location." The form now waits for the traps to load, then shows the trap's collection method and its point on the map.
+
+- Fixed: Moving the date window on Collections, Chemical Applications, Biocontrol Actions, Source Reductions, Outreach Actions, Service Requests, Requests for Control, Missions and Assignments shows a Dates chip naming the window. Removing it puts the page's usual window back and leaves your other filters alone.
+
+- Changed: Filter chips for Tags, Regions, people, species and the other multi-pick filters line up in the order the filter lists them, not the order you picked them, so one selection always shows the same row. A chip for something no longer in the list appears last.
+
+- Changed: Chemical Applications say Insecticide where they said Product. The filter is called Insecticide, and an application whose insecticide is unavailable shows Unknown insecticide.
+
+- Fixed: An invitation to an email address with a space in it, or with no dot after the @, is refused before anything is saved. It used to leave behind an invited membership nobody could accept.
+
+- Fixed: When the person's Profile has been deleted, the Chemical Application map card leaves out the applicator row instead of drawing it empty, and the Habitat Inspection map card says Unknown instead of Unassigned.
+
+- Changed: Maps frame records the same way on every page. A small Region can be zoomed in closer, forms and route maps leave less margin around what they show, and picking a record lands at the same zoom wherever you pick it.
+
+- Fixed: A selected record no longer lands under the results panel or off-centre after you zoom into a group, open a Region's card, or open or close the panel.
+
+- Changed: A map with nothing on it yet, such as Weather with no stations, opens over your Organization's area instead of the whole United States. The area comes from the mailing address in My Organization and takes effect the next time that address is saved.
+
+- Fixed: With both sidebars open on a laptop screen, the Dashboard, the four domain overviews and the Today, Monthly and Annual pages no longer cut their labels short. Their tiles and chart cards now lay out to fit the content column, and a panel's controls or a queue's counts drop onto a second line when there is no room beside the name.
+
+- Fixed: In the habitat, trap and service request pickers, a result with a blank description shows its name alone instead of an empty second line.
+
+- Fixed: Saving a record form with something missing now points to everything missing at once: a habitat or trap not picked, a required date left empty, or no location on the map. Before, Save sometimes did nothing, or flagged the location only after the other fields were fixed. On a Collection with set and collected dates, Set date is marked required whenever it shows.
+
+- Fixed: Coming back within 30 seconds to a Habitat's page, a contact's notification registrations, a Habitat picker or a sample's species list shows it straight away instead of loading it again.
+
+- Fixed: On Habitat Route and Trap Route pages, a stop whose Habitat or Trap is still loading shows as loading, instead of a blank name or what looked like an active stop. On a Habitat Route's edit page, that stop's description can't be edited until the Habitat loads, so saving no longer erases it.
+
+- Fixed: The date window on Missions and Assignments can end after today, so missions and assignments scheduled ahead show up. The presets are Recent and Upcoming, Next 7 Days, Next 30 Days, Last 7 Days and All Time, and both pages open on Recent and Upcoming.
+
+- Fixed: Switching basemap on a service request's map, the habitat merge map or the Daily Work map no longer drops the ring around the selected records. It stays on every selected record, and on habitat merge that is all of them.
+
+- Fixed: The Service request context panel in Public Engagement settings no longer calls its setting a default. The setting decides which nearby records every service request shows.
+
+- Fixed: In the larval surveillance and service request context settings, clearing a number field says the field is required instead of saving 0 or pointing at the wrong field. Search radius refuses zero or less, decimals such as 0.5 now save, and density messages name the band and field, such as Greater than in Medium.
+
+- Changed: The settings sheets in My Organization all report a value they can't save the same way: above the fields, with the sheet left open. A save refused after the sheet has closed shows a notification. On Organization details, a Main contact that is not an email address is always refused.
+
+- Fixed: After you add a habitat, trap or service request as a stop on a route or an assignment, its field is empty again and ready for the next one.
+
+- Changed: The lists beside every map and the record tables show 100 rows a page instead of 50. The Inspections and Service Requests tables now page with a count of matches instead of Load more. Inspections list newest first, Service Requests have an Order control for newest or oldest first, and the column sorts on both are gone. The Inspections table no longer stalls when it shows every inspection.
+
+- Changed: Inactive stops on a Trap Route's page are numbered in the same grey circle as on its edit page and the other stop lists.
+
+- Changed: When a saved record is slow to appear, the form waits up to 15 seconds for it before moving on, up from 5. Your save is kept either way.
+
+- Fixed: A link to Assignments, Missions or Requests for Control that names a status or control type that does not exist no longer shows its raw text in a chip. Assignments ignore the status, and the control type chip says Unknown control type.
+
+- Fixed: An Assignment with no name now reads as its date, such as Tue, Aug 4, 2026, everywhere it is named: the Assignments list, the card over the map, its page title, the Operations overview, and what a screen reader announces for the row.
+
+- Fixed: A time SIMMER can't read shows as it was entered on habitat history, comments, due times, activity rows and the people panel, instead of Unknown or nothing.
+
 ## 0.11.0 — 2026-09-30
 
 ### Minor Changes
