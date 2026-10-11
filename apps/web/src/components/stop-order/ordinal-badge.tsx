@@ -15,14 +15,6 @@ export type StopTone = RouteStopFeature['tone'];
 /** What the badge draws: a map tone, or `resolving` for a stop the map never gets. */
 export type OrdinalTone = StopTone | 'resolving';
 
-/**
- * The resolving tone, an outlined muted circle with no fill. The Trap Route
- * detail page draws its ordinal in a circle of its own and reads this so the
- * state looks the same there.
- */
-export const resolvingToneClass =
-	'border border-muted-foreground bg-transparent text-muted-foreground';
-
 const toneClass: Readonly<Record<OrdinalTone, string>> = {
 	default: 'bg-primary text-primary-foreground',
 	inactive: 'bg-muted-foreground text-background',
@@ -31,7 +23,8 @@ const toneClass: Readonly<Record<OrdinalTone, string>> = {
 	// stop next to an unworked one has to be told apart at 24px.
 	done: 'bg-[var(--info)] text-white',
 	skipped: 'bg-[var(--warning)] text-white',
-	resolving: resolvingToneClass,
+	// An outline with no fill, so it is told apart from `inactive`.
+	resolving: 'border border-muted-foreground bg-transparent text-muted-foreground',
 };
 
 /**
