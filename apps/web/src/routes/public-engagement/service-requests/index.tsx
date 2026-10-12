@@ -92,9 +92,6 @@ function ServiceRequestsExplorerRoute() {
 		set: serviceRequestRecordSet,
 		binding: { filters: query, context },
 		params: serviceRequestOrderParams(railOrder.order),
-		// A pick moves the map to the record and leaves the list as it was, so
-		// the reader working down the queue does not lose their place.
-		holdRailOnSelect: true,
 		summarize: true,
 	});
 
