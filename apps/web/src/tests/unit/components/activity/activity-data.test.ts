@@ -122,7 +122,7 @@ describe('groupActivityByFamily', () => {
 // in the `activityRow` table below: that table reads the describer through the
 // row builder, so a case here for the same title and subtitle failed twice for
 // one reason. What stays here is what a table keyed by category cannot express,
-// the two fallbacks for a record that names nothing.
+// the last rungs for a record that names nothing.
 describe('describeActivityEntry', () => {
 	const names = new Map([['method-1', 'CDC light trap']]);
 	const quantity = (amount: number, unitId: string | null) =>
@@ -132,20 +132,36 @@ describe('describeActivityEntry', () => {
 		return describeActivityEntry(entry(overrides), names, quantity);
 	}
 
-	// A collection recorded away from a trap names itself by the address, else
-	// by its coordinates, and `collectionEntries` resolves that whole ladder into
-	// `placeName`. So a row that arrives here with none carried no place at all,
-	// and the category is the only thing left to say (#1231).
-	it('falls back to the category when a collection carries no place', () => {
-		expect(describe_({ category: 'collection', placeName: null, refId: 'method-1' })).toEqual({
-			title: 'Collection',
-			subtitle: 'CDC light trap',
+	// An inspection at no habitat and no address used to read "Inspection", the
+	// category every row in its family already belongs to. The entry carries its
+	// own centroid, and #1231's ladder puts that ahead of the word (#1664).
+	it.each([
+		'inspection',
+		'collection',
+		'habitat',
+		'trap',
+		'serviceRequest',
+	] as const)('titles a %s that names no place by its coordinates', (category) => {
+		expect(describe_({ category, lat: 35.123456, lng: -90.5 }).title).toBe('35.12346, -90.50000');
+	});
+
+	// The kinds titled by their product or method take the same last rungs when
+	// the lookup has not resolved, and keep the place in the subtitle.
+	it('titles a record whose kind is unresolved by its coordinates', () => {
+		expect(describe_({ category: 'biocontrol' })).toEqual({
+			title: '35.50000, -90.50000',
+			subtitle: null,
 		});
 	});
 
-	// Nothing resolved and nothing joined still has to read as something.
-	it('falls back to the category when a record names nothing', () => {
-		expect(describe_({ category: 'biocontrol' })).toEqual({ title: 'Biocontrol', subtitle: null });
+	// Nothing resolved, nothing joined and no centroid still has to read as
+	// something.
+	it('falls back to the category when a record names nothing and has no centroid', () => {
+		const bare = { lat: null, lng: null } as unknown as Partial<ActivityEntry>;
+		expect(describe_({ category: 'biocontrol', ...bare })).toEqual({
+			title: 'Biocontrol',
+			subtitle: null,
+		});
 	});
 });
 

@@ -269,11 +269,13 @@ describe('the Daily Work log', () => {
 
 		// The chevron follows the title block directly: no badge column between,
 		// and no stacked line under the title either.
-		const chevron = screen.getByLabelText('View details for Application');
-		expect(chevron.previousElementSibling?.contains(screen.getByText('Application'))).toBe(true);
+		// The application names no product, so its coordinates title it (#1664).
+		const title = '35.70000, -90.50000';
+		const chevron = screen.getByLabelText(`View details for ${title}`);
+		expect(chevron.previousElementSibling?.contains(screen.getByText(title))).toBe(true);
 		expect(
 			screen
-				.getByText('Application')
+				.getByText(title)
 				.closest('li')
 				?.querySelector('[data-slot="explorer-row-stacked-badges"]'),
 		).toBeNull();

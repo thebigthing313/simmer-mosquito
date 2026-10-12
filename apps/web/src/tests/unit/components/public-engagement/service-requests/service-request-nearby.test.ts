@@ -337,9 +337,28 @@ describe('nearbyRow', () => {
 		});
 	});
 
+	// An inspection at no habitat and no address used to be titled "Inspection",
+	// which names the tab it sits on. The record's own spot is the rung #1231
+	// gave every other inspection surface, and the category moves back under it.
+	it('titles a record with no place by its coordinates (#1664)', () => {
+		const row = nearbyRow(
+			item('a', 'inspection', 10, { lat: 42.123456, lng: -71.5, refId: 'type-1' }),
+			LOOKUPS,
+			'meter',
+		);
+		expect({ title: row.title, subtitle: row.subtitle }).toEqual({
+			title: '42.12346, -71.50000',
+			subtitle: 'Inspection · Catch basin',
+		});
+	});
+
 	// The category is the title then, and a subtitle repeating it says nothing.
-	it('falls back to the category when a record has nothing to name it, once', () => {
-		const row = nearbyRow(item('a', 'habitat', 10), LOOKUPS, 'meter');
+	it('falls back to the category when a record has no coordinates either, once', () => {
+		const row = nearbyRow(
+			item('a', 'habitat', 10, { lat: null, lng: null } as unknown as Partial<NearbyItem>),
+			LOOKUPS,
+			'meter',
+		);
 		expect({ title: row.title, subtitle: row.subtitle }).toEqual({
 			title: 'Habitat',
 			subtitle: null,

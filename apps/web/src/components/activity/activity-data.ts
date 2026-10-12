@@ -6,6 +6,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { LinkProps } from '@tanstack/react-router';
 import type { Tag } from '../../hooks/queries/tag-view';
+import { adhocLabel } from '../../lib/coordinate-label';
 import {
 	type ControlContext,
 	formatAmount,
@@ -486,7 +487,12 @@ export function describeActivityEntry(
 		/** How many people an outreach action reached. */
 		reached: typeof entry.amount === 'number' ? `${formatReach(entry.amount)} reached` : null,
 		extra: text(entry.detail),
-		fallback: ACTIVITY_CATEGORY_LABEL[entry.category],
+		// The record's own spot, then the word. A category word names the family
+		// every row in it belongs to, so it tells one row from the next about as
+		// well as a blank (#1231); the coordinates do, and every entry carries them.
+		// An inspection at no habitat and no address read "Inspection" here because
+		// the ladder stopped at the place (#1664).
+		fallback: adhocLabel(entry.lat, entry.lng, ACTIVITY_CATEGORY_LABEL[entry.category]),
 	});
 }
 
@@ -499,6 +505,7 @@ interface DescriptionParts {
 	readonly measured: string | null;
 	readonly reached: string | null;
 	readonly extra: string | null;
+	/** What a record with nothing else to name it is titled: its coordinates, else its category. */
 	readonly fallback: string;
 }
 
@@ -510,9 +517,10 @@ const DESCRIBE_BY_CATEGORY: Readonly<
 	trap: (parts) => ({ title: parts.own ?? parts.fallback, subtitle: parts.kind }),
 	inspection: (parts) => ({ title: parts.place ?? parts.fallback, subtitle: parts.kind }),
 	// A collection with no trap was recorded away from one, and `place` is the
-	// whole ladder for that: the trap, then the address, then the coordinates,
-	// then the word, resolved in `collectionEntries` where the columns are. The
-	// fallback below runs only for a row that carried no place at all (#1231).
+	// whole ladder for that in a Profile's log: the trap, then the address, then
+	// the coordinates, then the word, resolved in `collectionEntries` where the
+	// columns are (#1231). The nearby read sends the trap alone, so there the
+	// fallback's coordinates are the rung that names it.
 	collection: (parts) => ({ title: parts.place ?? parts.fallback, subtitle: parts.kind }),
 	application: (parts) => ({
 		title: parts.kind ?? parts.fallback,
