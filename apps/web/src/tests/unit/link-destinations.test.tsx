@@ -36,6 +36,7 @@ import { DashboardPage } from '../../components/dashboard/dashboard-page';
 import { surfaceCodecs } from '../../components/explorer/record-set';
 import { RecordSetSwitch } from '../../components/explorer/record-set-switch';
 import { addressRecordSet } from '../../components/gis/addresses/addresses-search';
+import { AddressesTable } from '../../components/gis/addresses/addresses-table';
 import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
 import { habitatRecordSet } from '../../components/larval-surveillance/habitats/habitats-search';
 import { inspectionRecordSet } from '../../components/larval-surveillance/inspections-search';
@@ -733,6 +734,36 @@ describe('the Addresses Map/Table switch', () => {
 		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={addressRecordSet} />);
 
 		expect(linkHref('Map')).toBe(`/gis/addresses?${CARRIED}`);
+	});
+});
+
+/**
+ * A Table row's link, which names the Table in its URL so the record's trail
+ * keeps the Table even when the row is opened in a new tab (#1654). History
+ * state, which this used to ride on, does not reach a new tab.
+ */
+describe('a Table row', () => {
+	it('opens the record with the Table named in the URL', () => {
+		renderWithRouter(
+			<AddressesTable
+				rows={[
+					{
+						id: 'address-1',
+						lat: 0,
+						lng: 0,
+						displayName: 'Elm Yard',
+						country: 'US',
+						addressLine1: null,
+						addressLine2: null,
+						locality: null,
+						region: null,
+						postalCode: null,
+					},
+				]}
+			/>,
+		);
+
+		expect(linkHref('View Elm Yard')).toBe('/gis/addresses/address-1?via=table');
 	});
 });
 

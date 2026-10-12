@@ -76,7 +76,7 @@ function TrapTableRowView({
 				<Button aria-label={`View ${name}`} asChild size="icon-sm" variant="ghost">
 					<Link
 						params={{ id: row.id }}
-						state={{ breadcrumbVia: '/adult-surveillance/traps/table' }}
+						search={{ via: 'table' }}
 						to="/adult-surveillance/traps/$id"
 					>
 						<ChevronRightIcon aria-hidden="true" />

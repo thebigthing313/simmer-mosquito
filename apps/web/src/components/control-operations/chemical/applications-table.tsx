@@ -79,7 +79,7 @@ function ApplicationTableRow({
 				<Button aria-label={`View ${productName}`} asChild size="icon-sm" variant="ghost">
 					<Link
 						params={{ id: row.id }}
-						state={{ breadcrumbVia: '/control-operations/chemical/table' }}
+						search={{ via: 'table' }}
 						to="/control-operations/chemical/$id"
 					>
 						<ChevronRightIcon aria-hidden="true" />

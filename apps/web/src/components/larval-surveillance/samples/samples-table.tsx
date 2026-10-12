@@ -72,7 +72,7 @@ function SampleRow({
 				<Button aria-label={`View ${name}`} asChild size="icon-sm" variant="ghost">
 					<Link
 						params={{ id: row.id }}
-						state={{ breadcrumbVia: '/larval-surveillance/samples/table' }}
+						search={{ via: 'table' }}
 						to="/larval-surveillance/samples/$id"
 					>
 						<ChevronRightIcon aria-hidden="true" />

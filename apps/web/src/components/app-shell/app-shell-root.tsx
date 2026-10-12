@@ -1,5 +1,7 @@
 import {
 	BreadcrumbLabelProvider,
+	flattenNavItems,
+	navDestination,
 	OutletShell,
 	SearchTriggerProvider,
 	type ShellOrganization,
@@ -9,13 +11,13 @@ import {
 import { EnvironmentBanner } from '@simmer-mosquito/ui-web/components/environment-banner';
 import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { useLiveQuery } from '@tanstack/react-db';
-import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
+import { Outlet, useLocation, useNavigate, useSearch } from '@tanstack/react-router';
 import { lazy, Suspense, useRef, useState } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
 import { useDailyWorkRoster } from '../../hooks/queries/use-daily-work-roster';
 import { useProfileNames } from '../../hooks/queries/use-profile-names';
 import { useOrganizationClock } from '../../hooks/use-organization-clock';
-import { breadcrumbPath } from '../../lib/breadcrumb-via';
+import { breadcrumbPath, parseBreadcrumbVia } from '../../lib/breadcrumb-via';
 import { organizations } from '../../lib/collections/organizations';
 import { getToday } from '../../lib/get-today';
 import {
@@ -54,10 +56,8 @@ function formatRole(role: string | null | undefined): string {
  */
 export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	const navigate = useNavigate();
-	const { pathname, state } = useLocation();
-	// A record opened from a Table resolves its trail and sidebar under that
-	// Table rather than the Map both lists share a detail route with.
-	const shellPath = breadcrumbPath(pathname, state.breadcrumbVia);
+	const { pathname } = useLocation();
+	const { via } = useSearch({ strict: false });
 	// The palette is mounted here, beside the shell, because `AppHeader` takes no
 	// props and renders the trigger itself. `apps/admin` provides no such context,
 	// so its header simply loses the search field it never had a palette for.
@@ -80,6 +80,11 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	const dailyWork = useDailyWorkRoster();
 	const domains = withDailyWorkGroup(shellDomainsForRole(auth), dailyWork.listed);
 	const resolutionDomains = withDailyWorkGroup(webShellDomains, dailyWork.routable);
+	// A record opened from a Table resolves its trail and sidebar under that
+	// Table rather than under the record set it shares a detail route with.
+	const shellPath = breadcrumbPath(pathname, parseBreadcrumbVia(via), (path) =>
+		flattenNavItems(resolutionDomains).some(({ item }) => navDestination(item) === path),
+	);
 
 	const organization = (organizationResult.data ?? []).find(
 		(row) => row.id === localIdentity?.organizationId,
