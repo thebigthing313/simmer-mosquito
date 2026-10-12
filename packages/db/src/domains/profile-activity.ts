@@ -225,12 +225,14 @@ export function recordShapes(timeZone: string): {
 			category: 'collection',
 			family: 'adult',
 			table: 'collections',
-			joins: 'left join traps t on t.id = r.trap_id',
+			joins: `left join traps t on t.id = r.trap_id ${ADDRESS_JOIN}`,
 			date: `coalesce(${localDate('r.collected_at')}, r.collection_date, ${localDate('r.started_at')})`,
 			occurredAt: 'coalesce(r.collected_at, r.started_at)',
 			label: NO_TEXT,
-			// The trap it came out of. A collection with none was recorded ad hoc.
-			placeName: trapLabelSql('t'),
+			// The trap it came out of, else the address a collection recorded away
+			// from one was linked to. The client puts the coordinates after both,
+			// which is the ladder every other collection surface reads (#1664).
+			placeName: `coalesce(${trapLabelSql('t')}, ${ADDRESS_NAME})`,
 			refId: 'r.collection_method_id::text',
 			// All four states rather than the two exceptional ones. The explorer
 			// paints its dot with the same resolution, and a log saying nothing

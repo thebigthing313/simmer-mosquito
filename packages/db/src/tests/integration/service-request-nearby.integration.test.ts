@@ -157,6 +157,47 @@ describeDbIntegration('service-request nearby', () => {
 		});
 	});
 
+	// A collection recorded away from a Trap names itself by the Address it was
+	// linked to, which is the rung after the Trap on every other collection
+	// surface. The nearby read used to send the Trap alone, so the row fell
+	// through to the coordinates while the address sat one join away (#1664).
+	it('names a collection with no trap by its address', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			const method = await db
+				.insertInto('collection_methods')
+				.values({ organization_id: organizationId, name: 'CDC light trap' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			const address = await db
+				.insertInto('addresses')
+				.values({
+					organization_id: organizationId,
+					geom: NEAR,
+					display_name: '12 Elm St',
+					country: 'US',
+				})
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			await db
+				.insertInto('collections')
+				.values({
+					organization_id: organizationId,
+					geom: NEAR,
+					address_id: address.id,
+					collection_method_id: method.id,
+					collection_timing_mode: 'exact_timestamps',
+					started_at: new Date('2026-07-10T14:00:00.000Z'),
+					collected_at: new Date('2026-07-11T14:00:00.000Z'),
+				})
+				.execute();
+
+			const { items: rows } = await listNearbyRecords(db, nearby(organizationId));
+
+			expect(rows.find((row) => row.category === 'collection')?.placeName).toBe('12 Elm St');
+		});
+	});
+
 	// The row is the activity row for the same record. A nearby row used to
 	// carry one label, one ref and one status, so the service request page could
 	// not draw the list row Daily Work draws; this is what the wider row has to
