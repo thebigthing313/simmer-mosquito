@@ -85,6 +85,7 @@ function RequestsForControlRoute() {
 				<MapCanvas
 					contextMenu={{}}
 					controls={{ measure: true, readout: true }}
+					empty={bounds === null}
 					fitToData={bounds}
 					geoJson={geoJson}
 					geoJsonInteraction={{ selectedId, onSelectFeature: setSelectedId }}

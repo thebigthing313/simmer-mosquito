@@ -501,6 +501,30 @@ default stands. Detail pages and forms pass no `rememberCamera` and frame
 their own record as before. No projection is set here: the Mapbox Studio style
 carries it.
 
+#### useOrganizationAreaOpening
+
+The maps that fit only to their own rows had nothing to fit when they had no
+rows: the stop-sequence map, Requests for Control, Daily Work and Weather.
+They opened on the Organization map centre, and that column is null on every
+Organization whose address was saved before it existed, so in production they
+opened on the continental US (#1650).
+
+A page tells `MapCanvas` it has no rows with `empty`. While it does, the map
+opens on the camera the explorers stored for the Organization, and with none
+stored it frames the Regions extent, the same request `useExplorerCamera`
+makes on a first visit. It only reads the stored camera. A page that is not an
+explorer writing one back would move where every explorer opens next.
+
+Loading counts as empty, because the page cannot tell the two apart, so a map
+whose rows are on their way may ask for the Regions extent. Once the page
+reports rows the hook stops for the life of the map. Without that latch a
+filter that empties Requests for Control would pull the camera out to the
+Regions the first time, after the reader had been looking at their rows.
+
+No Organization's map centre was backfilled. The Regions extent covers an
+Organization with Regions better than a geocoded mailing address would, and
+the centre fills in the next time somebody saves the address.
+
 #### useMapExtent
 
 Two readers share it: the camera fit in `useMapExtentFit`, and the explorer
