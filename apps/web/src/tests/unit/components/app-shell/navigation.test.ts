@@ -132,8 +132,7 @@ describe('shellDomainsForRole', () => {
 		// Bindings stays under Surveillance: the keys it assigns are species keys,
 		// and the only screens that read them are sample and collection key entry.
 		const domains = shellDomainsForRole(signedInSnapshotAs('owner'));
-		const trail = (path: string) =>
-			buildBreadcrumbs(domains, path).map((crumb) => crumb.label);
+		const trail = (path: string) => buildBreadcrumbs(domains, path).map((crumb) => crumb.label);
 
 		expect(
 			domains.find((domain) => domain.id === 'organization')?.groups.map((group) => group.label),
