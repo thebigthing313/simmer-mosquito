@@ -56,4 +56,26 @@ describe('the secondary sidebar navigation', () => {
 		expect(viewport?.contains(screen.getByRole('button', { name: 'Habitats' }))).toBe(true);
 		expect(nav.className.split(' ')).not.toContain('overflow-y-auto');
 	});
+
+	it('draws no domain section on a page that belongs to none', () => {
+		// The fallback used to draw the first domain here, so Profile, Search and
+		// What's New each showed a sidebar for a domain they are not in (#1655).
+		render(
+			<ShellProvider
+				activePath="/profile"
+				currentOrganization={ORGANIZATION}
+				domains={[LARVAL]}
+				onNavigate={() => {}}
+				onSelectOrganization={() => {}}
+				organizations={[ORGANIZATION]}
+				standalonePages={[{ path: '/profile', crumbs: [{ label: 'Profile' }] }]}
+				user={{ name: 'Ada', email: 'ada@example.test' }}
+			>
+				<SecondarySidebarContent />
+			</ShellProvider>,
+		);
+
+		expect(screen.queryByRole('navigation')).toBeNull();
+		expect(screen.queryByRole('heading')).toBeNull();
+	});
 });

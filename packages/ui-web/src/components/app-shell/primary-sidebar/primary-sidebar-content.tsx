@@ -1,7 +1,7 @@
 import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { firstDestination } from '../resolve-nav';
-import { useActiveShellLocation, useShell } from '../shell-context';
+import { useActiveDomain, useShell } from '../shell-context';
 import type { ShellDomain } from '../types';
 import { PrimarySidebarActiveIndicator } from './primary-sidebar-active-indicator';
 import { AppShellPrimarySidebarIcon } from './primary-sidebar-icon';
@@ -9,7 +9,7 @@ import { AppShellPrimarySidebarIcon } from './primary-sidebar-icon';
 /** The domain switcher: one entry per domain, with the active indicator overlaid. */
 export function PrimarySidebarContent({ collapsed }: { readonly collapsed: boolean }) {
 	const { domains, onNavigate } = useShell();
-	const { domain: activeDomain } = useActiveShellLocation();
+	const activeDomain = useActiveDomain();
 
 	function handleSelect(domain: ShellDomain) {
 		const destination = firstDestination(domain);
@@ -41,7 +41,7 @@ export function PrimarySidebarContent({ collapsed }: { readonly collapsed: boole
 					<PrimarySidebarActiveIndicator />
 					{domains.map((domain) => (
 						<AppShellPrimarySidebarIcon
-							active={domain.id === activeDomain.id}
+							active={domain.id === activeDomain?.id}
 							collapsed={collapsed}
 							domain={domain}
 							key={domain.id}
