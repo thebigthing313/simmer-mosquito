@@ -7,8 +7,8 @@ import { SectionHeader } from './section-header';
 
 /**
  * One My Organization section: its header, with the edit action for a viewer
- * who can manage the Organization, and its body. A section with no body of its
- * own draws `displayFields` as a read-only grid.
+ * who can manage the Organization, then `displayFields` as a read-only grid,
+ * then its body.
  */
 export function DomainSection({
 	canManage,
@@ -33,8 +33,8 @@ export function DomainSection({
 		<OrgSection id={id}>
 			<OrgSurface>
 				<SectionHeader action={action} meta={meta} title={title} />
-				{children ??
-					(displayFields.length === 0 ? null : <SettingsDisplayGrid fields={displayFields} />)}
+				{displayFields.length === 0 ? null : <SettingsDisplayGrid fields={displayFields} />}
+				{children}
 			</OrgSurface>
 		</OrgSection>
 	);
