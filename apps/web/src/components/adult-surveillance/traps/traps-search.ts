@@ -53,6 +53,7 @@ export const trapRecordSet = defineRecordSet({
 	tileFilters: trapTileFilters,
 	filterSpec: TRAP_MAP_FILTERS,
 	defaults: () => TRAP_FILTER_DEFAULTS,
+	emptyScope: () => ({ kind: 'active' }),
 	textSearch: { key: 'search', delayMs: 200 },
 	applies: { search: 'both', status: 'both', methods: 'both', regions: 'both' },
 });

@@ -33,7 +33,6 @@ function HabitatsTableRoute() {
 			empty={{
 				emptyDescription: 'Active habitats show here as crews add them.',
 				filteredDescription: 'No habitat matches what is set above.',
-				scope: { kind: 'active' },
 			}}
 			filters={<HabitatFilterFields binding={binding} wide />}
 			icon={HabitatIcon}

@@ -33,7 +33,6 @@ function CollectionsTableRoute() {
 			empty={{
 				emptyDescription: `Collections made in the last ${COLLECTION_WINDOW_DAYS} days show here.`,
 				filteredDescription: 'No collection matches what is set above.',
-				scope: { kind: 'lastDays', days: COLLECTION_WINDOW_DAYS },
 			}}
 			filters={<CollectionFilterFields binding={binding} wide />}
 			icon={CollectionIcon}

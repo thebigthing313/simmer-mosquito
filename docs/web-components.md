@@ -1586,6 +1586,17 @@ surface's list rather than a name for its records. It draws nothing on a
 failed read because `RecordTableUnavailable` already sits above it, and a
 second failure message under the first said the same thing twice.
 
+The scope moved off the table route and onto the record set as `emptyScope`,
+and the titles moved into `recordEmptyTitle` in `record-empty-title.ts`, which
+the Map's paged rail reads too (#1653). Before that the rail wrote its own
+sentence-case titles and said `No biocontrol actions match these filters` over
+a Map whose only narrowing was the default 90-day window, while the Table over
+the same set said `No Biocontrol Actions in the Last 90 Days`. The rail now
+names the scope when no filter is counted and says `No ... Match` only when one
+is. `emptyScope` takes the surface because Inspections opens its two surfaces
+on different windows, and a suite in `record-set.test.ts` holds every set's
+scope to the window its `defaults` open on.
+
 #### RecordTableUnavailable
 
 Drawn above the table rather than in place of it, so a retry that fails while

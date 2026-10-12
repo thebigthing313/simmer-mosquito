@@ -34,7 +34,6 @@ function InspectionsTableRoute() {
 			empty={{
 				emptyDescription: 'Inspections show here as crews record them.',
 				filteredDescription: 'Nothing recorded matches what is set above.',
-				scope: { kind: 'yet' },
 			}}
 			filters={<InspectionsFilterBar binding={binding} />}
 			icon={InspectionIcon}

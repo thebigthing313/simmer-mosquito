@@ -174,6 +174,7 @@ export const serviceRequestRecordSet = defineRecordSet({
 		serviceRequestTileFilters(filters, serviceRequestOverdueCutoffFor(context)),
 	filterSpec: SERVICE_REQUEST_MAP_FILTERS,
 	defaults: ({ today }) => serviceRequestFilterDefaults(today),
+	emptyScope: () => ({ kind: 'thisYear' }),
 	counting: DATE_RANGE_COUNTING,
 	inert: serviceRequestInertFilters,
 	textSearch: { key: 'search' },

@@ -74,6 +74,7 @@ export const outreachRecordSet = defineRecordSet({
 	tileFilters: outreachTileFilters,
 	filterSpec: OUTREACH_MAP_FILTERS,
 	defaults: ({ today }) => outreachFilterDefaults(today),
+	emptyScope: () => ({ kind: 'lastDays', days: OUTREACH_WINDOW_DAYS }),
 	counting: DATE_RANGE_COUNTING,
 	applies: { from: 'both', to: 'both', people: 'both', methods: 'both', regions: 'both' },
 });

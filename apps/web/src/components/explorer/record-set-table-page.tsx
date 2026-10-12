@@ -15,16 +15,18 @@ import { type MapQueryValue, mapQueryParams } from '../../lib/map-query-params';
 import { recordNoun } from '../../lib/record-nouns';
 import { OutletSimpleLayout } from '../app-shell';
 import { ExplorerPagination } from '../explorer-pagination';
-import { RecordTableEmpty, type RecordTableScope } from '../record/record-table-empty';
+import { RecordTableEmpty } from '../record/record-table-empty';
 import { RecordTableUnavailable } from '../record/record-table-unavailable';
 import { type RecordSet, recordSetListParams } from './record-set';
 import { RecordSetSwitch } from './record-set-switch';
 
-/** What the empty state says, with nothing set and with filters set. */
+/**
+ * What the empty state says under its title, with nothing set and with filters
+ * set. The titles are the set's: its `emptyScope` for the Table names the first.
+ */
 export interface RecordSetTableEmptyCopy {
 	readonly emptyDescription: string;
 	readonly filteredDescription: string;
-	readonly scope: RecordTableScope;
 }
 
 export function RecordSetTablePage<TFilters, TTile, TRow>({
@@ -94,6 +96,7 @@ export function RecordSetTablePage<TFilters, TTile, TRow>({
 					isLoading={isLoading}
 					onClearFilters={binding.clearAll}
 					recordType={set.recordType}
+					scope={set.emptyScope('table')}
 				/>
 			) : (
 				<div className="grid gap-3">

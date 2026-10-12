@@ -33,7 +33,6 @@ function OutreachActionsTableRoute() {
 			empty={{
 				emptyDescription: `Outreach actions made in the last ${OUTREACH_WINDOW_DAYS} days show here.`,
 				filteredDescription: 'No outreach action matches what is set above.',
-				scope: { kind: 'lastDays', days: OUTREACH_WINDOW_DAYS },
 			}}
 			filters={<OutreachFilterFields binding={binding} wide />}
 			icon={OutreachIcon}

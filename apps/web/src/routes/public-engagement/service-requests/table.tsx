@@ -48,7 +48,6 @@ function ServiceRequestsTableRoute() {
 			empty={{
 				emptyDescription: 'Service requests received this year show here.',
 				filteredDescription: 'Nothing received matches what is set above.',
-				scope: { kind: 'thisYear' },
 			}}
 			filters={
 				<ServiceRequestsFilterBar

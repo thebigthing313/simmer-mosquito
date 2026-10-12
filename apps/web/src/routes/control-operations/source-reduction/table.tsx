@@ -33,7 +33,6 @@ function SourceReductionsTableRoute() {
 			empty={{
 				emptyDescription: `Source reductions made in the last ${SOURCE_REDUCTION_WINDOW_DAYS} days show here.`,
 				filteredDescription: 'No source reduction matches what is set above.',
-				scope: { kind: 'lastDays', days: SOURCE_REDUCTION_WINDOW_DAYS },
 			}}
 			filters={<SourceReductionFilterFields binding={binding} wide />}
 			icon={SourceReductionIcon}

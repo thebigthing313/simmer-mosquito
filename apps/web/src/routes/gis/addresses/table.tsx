@@ -30,7 +30,6 @@ function AddressesTableRoute() {
 			empty={{
 				emptyDescription: 'Addresses show here as they are added to the book.',
 				filteredDescription: 'No address matches what is set above.',
-				scope: { kind: 'yet' },
 			}}
 			filters={<AddressFilterFields binding={binding} wide />}
 			icon={AddressIcon}

@@ -354,7 +354,7 @@ describe('the service requests explorer with nothing on the page', () => {
 		harness.search = ALL_TIME;
 		renderServiceRequests();
 
-		await screen.findByText('No service requests yet');
+		await screen.findByText('No Service Requests Yet');
 		expect(requestCounts()).toEqual({ page: 1, extent: 1 });
 		expect(extentRequest()?.search).toBe('');
 	});
@@ -363,7 +363,7 @@ describe('the service requests explorer with nothing on the page', () => {
 		harness.search = ALL_TIME;
 		renderServiceRequests();
 
-		expect(await screen.findByText('No service requests yet')).toBeTruthy();
+		expect(await screen.findByText('No Service Requests Yet')).toBeTruthy();
 		expect(screen.getByText('Create Service Request is in the More actions menu.')).toBeTruthy();
 	});
 
@@ -373,7 +373,7 @@ describe('the service requests explorer with nothing on the page', () => {
 	it('names the create control the way the sidebar and the pointer do', async () => {
 		harness.search = ALL_TIME;
 		renderServiceRequests();
-		await screen.findByText('No service requests yet');
+		await screen.findByText('No Service Requests Yet');
 
 		const names = await createSurfaceNames('/public-engagement/service-requests/create');
 
@@ -389,19 +389,21 @@ describe('the service requests explorer with nothing on the page', () => {
 		harness.search = ALL_TIME;
 		renderServiceRequests();
 
-		expect(await screen.findByText('No service requests yet')).toBeTruthy();
+		expect(await screen.findByText('No Service Requests Yet')).toBeTruthy();
 		expect(screen.queryByText('Create Service Request is in the More actions menu.')).toBeNull();
 	});
 
 	// The route opens on this year, and the extent it sends says so. A null
-	// answer there is about this year, so the rail says the filters did it and
-	// opens the card that holds the date control.
-	it('reads the default window as a filter and opens the filter card', async () => {
+	// answer there is about this year, which nobody chose, so the rail names the
+	// year the way the Table does (#1653) and opens the card that holds the date
+	// control.
+	it('names the default window and opens the filter card', async () => {
 		renderServiceRequests();
 
-		expect(await screen.findByText('No service requests match these filters')).toBeTruthy();
+		expect(await screen.findByText('No Service Requests This Year')).toBeTruthy();
+		expect(screen.queryByText('No Service Requests Match')).toBeNull();
 		expect(extentRequest()?.search).toBe('?dateFrom=2026-01-01&dateTo=2026-09-15');
-		expect(screen.queryByText('No service requests yet')).toBeNull();
+		expect(screen.queryByText('No Service Requests Yet')).toBeNull();
 
 		fireEvent.click(screen.getByRole('button', { name: 'Show Filters' }));
 		expect(screen.getByRole('button', { name: 'This Year' })).toBeTruthy();
@@ -411,7 +413,7 @@ describe('the service requests explorer with nothing on the page', () => {
 		harness.search = { ...ALL_TIME, search: 'nowhere' };
 		renderServiceRequests();
 
-		expect(await screen.findByText('No service requests match these filters')).toBeTruthy();
+		expect(await screen.findByText('No Service Requests Match')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Reset Filters' })).toBeTruthy();
 	});
 
@@ -420,7 +422,7 @@ describe('the service requests explorer with nothing on the page', () => {
 		harness.extent = { west: 1.9, south: -0.5, east: 2.1, north: -0.3 };
 		renderServiceRequests();
 
-		expect(await screen.findByText('No service requests in view')).toBeTruthy();
+		expect(await screen.findByText('No Service Requests in View')).toBeTruthy();
 		expect(
 			screen.getByText(
 				'Pan or zoom the map, or loosen the filters to bring service requests into range.',

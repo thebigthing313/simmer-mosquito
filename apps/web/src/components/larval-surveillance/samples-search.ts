@@ -93,6 +93,7 @@ export const sampleRecordSet = defineRecordSet({
 	tileFilters: sampleTileFilters,
 	filterSpec: SAMPLE_MAP_FILTERS,
 	defaults: ({ today }) => sampleFilterDefaults(today),
+	emptyScope: () => ({ kind: 'lastDays', days: SAMPLE_WINDOW_DAYS }),
 	counting: DATE_RANGE_COUNTING,
 	applies: {
 		from: 'both',

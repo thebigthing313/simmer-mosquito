@@ -36,7 +36,6 @@ function ApplicationsTableRoute() {
 			empty={{
 				emptyDescription: `Chemical applications made in the last ${APPLICATION_WINDOW_DAYS} days show here.`,
 				filteredDescription: 'No chemical application matches what is set above.',
-				scope: { kind: 'lastDays', days: APPLICATION_WINDOW_DAYS },
 			}}
 			filters={<ApplicationFilterFields binding={binding} wide />}
 			icon={ApplicationIcon}

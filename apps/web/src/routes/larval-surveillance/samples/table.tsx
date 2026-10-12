@@ -35,7 +35,6 @@ function SamplesTableRoute() {
 			empty={{
 				emptyDescription: `Samples taken in the last ${SAMPLE_WINDOW_DAYS} days show here.`,
 				filteredDescription: 'No sample matches what is set above.',
-				scope: { kind: 'lastDays', days: SAMPLE_WINDOW_DAYS },
 			}}
 			filters={<SampleFilterFields binding={binding} wide />}
 			icon={SampleIcon}
