@@ -1553,6 +1553,18 @@ gets no state pill because the log's verb already says it. Detail badges take
 a line of their own because an inspection's density plus its six-cell strip is
 175px, which in a 380px panel left the record no room for its name.
 
+#### RecordDescription
+
+Trap, habitat and region detail each drew the description in a plain `<p>`,
+which collapses newlines, so a trap description imported from VectorSurv as
+five lines read as one run-on line (#1661). Service request detail, the
+request for control summary and comments had `whitespace-pre-wrap` on theirs
+and did not have the bug. The three pages now share this component so the
+next detail page gets the class without having to remember it. `break-words`
+is there because a pasted URL has no break point and would otherwise push the
+card wider than its column. `emptyText` is optional because habitat detail
+says `No description recorded.` and the other two draw nothing.
+
 #### LinkedTableRow
 
 The four table views opened a record from a 16px chevron and nothing else.

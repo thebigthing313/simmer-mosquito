@@ -1,6 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import {
 	Card,
 	CardContent,
@@ -14,6 +13,7 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
 	DetailPageShell,
+	RecordDescription,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -127,12 +127,7 @@ function RegionDetailsCard({
 				<DetailList>
 					<DetailRow label="Folder">{folderName}</DetailRow>
 				</DetailList>
-				{description !== null && description.trim().length > 0 ? (
-					<div className="grid gap-1">
-						<span className={eyebrow()}>Description</span>
-						<p className="m-0 text-foreground text-sm">{description}</p>
-					</div>
-				) : null}
+				<RecordDescription text={description} />
 			</CardContent>
 		</Card>
 	);

@@ -1,5 +1,4 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
@@ -43,6 +42,7 @@ import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
 	createItems,
 	DetailPageShell,
+	RecordDescription,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -483,12 +483,7 @@ function TrapDetailsCard({
 					</DetailRow>
 					<DetailRow label="Status">{trap.isActive ? 'Active' : 'Inactive'}</DetailRow>
 				</DetailList>
-				{trap.description !== null && trap.description.trim().length > 0 ? (
-					<div className="grid gap-1">
-						<span className={eyebrow()}>Description</span>
-						<p className="m-0 text-foreground text-sm">{trap.description}</p>
-					</div>
-				) : null}
+				<RecordDescription text={trap.description} />
 			</CardContent>
 		</Card>
 	);

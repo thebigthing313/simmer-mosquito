@@ -40,6 +40,7 @@ import {
 	createItems,
 	DetailPageShell,
 	detailBodyClass,
+	RecordDescription,
 	type RecordDetailLayout,
 	RecordDetailPage,
 	RecordDetailSkeleton,
@@ -247,10 +248,7 @@ function HabitatDetailsCard({ habitat }: { readonly habitat: AuditedHabitat }) {
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent padding="compact" className="grid gap-4">
-				<div className="grid gap-1">
-					<span className={eyebrow()}>Description</span>
-					<p className="m-0 max-w-[70ch] text-sm text-foreground">{habitatDescription(habitat)}</p>
-				</div>
+				<RecordDescription emptyText="No description recorded." text={habitat.description} />
 				<DetailList>
 					<DetailRow label="Habitat type">{habitatTypeLabel(habitat)}</DetailRow>
 					<DetailRow label="Address">
@@ -370,10 +368,6 @@ function HabitatRoutes({ habitatId }: { readonly habitatId: string }) {
 			))}
 		</ul>
 	);
-}
-
-function habitatDescription(habitat: Habitat): string {
-	return habitat.description.trim() || 'No description recorded.';
 }
 
 function locationSummary(geometry: HabitatGeometry | null, isPending: boolean): string {
