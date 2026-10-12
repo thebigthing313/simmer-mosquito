@@ -12,7 +12,8 @@ import { formatLocalDate, parseLocalDate } from '../lib/local-date';
  * the primary control (an explicit range); the presets are quick shortcuts that
  * fill both. Under `history`, the default, `today` bounds every selection so no
  * future date is reachable. Under `schedule` End has no upper bound and the
- * presets are the schedule set, which can end after today.
+ * presets are the schedule set, which can end after today. The rows keep their
+ * own height inside a taller container.
  */
 export function DateRangeFilter({
 	from,
@@ -41,7 +42,7 @@ export function DateRangeFilter({
 	const toDate = parseLocalDate(to);
 
 	return (
-		<div className="grid gap-2">
+		<div className="grid content-start gap-2">
 			<div className="flex items-center gap-3">
 				<span className="w-14 shrink-0 font-medium text-muted-foreground text-xs">{label}</span>
 				<div className="flex flex-1 items-center gap-2">

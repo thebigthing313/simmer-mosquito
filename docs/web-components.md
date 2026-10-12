@@ -534,6 +534,18 @@ a third results shape. The caller still hands over its rows, because the page
 request that counted them is the one that fetched them, and swapping the
 summary out for the rows on a zoom is then one prop going undefined.
 
+#### DateRangeFilter
+
+It lives at the top of `components` because the trap detail page draws it as
+well as the declared filter bars. Its rows pack to the top with
+`content-start`, so a container taller than it leaves space underneath rather
+than stretching the rows. The Service Requests and Inspections bars put it
+straight into a two-column grid instead of going through
+`FilterFieldsLayout`, and on Service Requests the Status, Overdue and Order
+column was the taller one, so the grid row stretched the filter and the preset
+buttons drew 79px tall as ovals (#1658). Fixing it in the component rather than
+in the two bars means a third bar written the same way cannot bring it back.
+
 #### The record tables
 
 Every `/table` route pages through the `/map/*` list endpoint its map surface
