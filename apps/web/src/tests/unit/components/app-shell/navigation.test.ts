@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { SimmerRole } from '@simmer-mosquito/domain';
+import { buildBreadcrumbs } from '@simmer-mosquito/ui-web/components/app-shell';
 import { describe, expect, it } from 'vitest';
 import {
 	shellDomainsForRole,
@@ -122,6 +123,51 @@ describe('shellDomainsForRole', () => {
 			'Regions',
 			'Addresses',
 			'Weather',
+		]);
+	});
+
+	it('files each organization settings page under a heading that names it', () => {
+		// Public Engagement sat under Control from the original two-rail shell, so
+		// its trail read Organization > Control > Public Engagement (#1656). Key
+		// Bindings stays under Surveillance: the keys it assigns are species keys,
+		// and the only screens that read them are sample and collection key entry.
+		const domains = shellDomainsForRole(signedInSnapshotAs('owner'));
+		const trail = (path: string) =>
+			buildBreadcrumbs(domains, path).map((crumb) => crumb.label);
+
+		expect(
+			domains.find((domain) => domain.id === 'organization')?.groups.map((group) => group.label),
+		).toEqual([undefined, 'Surveillance', 'Control', 'Public Engagement']);
+		expect(trail('/my-organization')).toEqual(['Organization', 'General']);
+		expect(trail('/my-organization/people')).toEqual(['Organization', 'People']);
+		expect(trail('/my-organization/adult-surveillance')).toEqual([
+			'Organization',
+			'Surveillance',
+			'Adult Surveillance',
+		]);
+		expect(trail('/my-organization/larval-surveillance')).toEqual([
+			'Organization',
+			'Surveillance',
+			'Larval Surveillance',
+		]);
+		expect(trail('/my-organization/key-bindings')).toEqual([
+			'Organization',
+			'Surveillance',
+			'Key Bindings',
+		]);
+		expect(trail('/my-organization/control-methods')).toEqual([
+			'Organization',
+			'Control',
+			'Control Methods',
+		]);
+		expect(trail('/my-organization/insecticides')).toEqual([
+			'Organization',
+			'Control',
+			'Insecticides',
+		]);
+		expect(trail('/my-organization/public-engagement')).toEqual([
+			'Organization',
+			'Public Engagement',
 		]);
 	});
 
