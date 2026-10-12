@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { addStopDescription } from '../../../../components/operations/operations-display';
+import {
+	addStopDescription,
+	missionStatusLabel,
+} from '../../../../components/operations/operations-display';
 import { missionDisplayName } from '../../../../hooks/queries/operations-view';
 import { createOrganizationClock } from '../../../../lib/organization-clock';
+
+describe('missionStatusLabel', () => {
+	it('reads a past-due mission as past due rather than scheduled', () => {
+		expect(missionStatusLabel('scheduled', true)).toBe('Past due');
+		expect(missionStatusLabel('scheduled', false)).toBe('Scheduled');
+	});
+});
 
 describe('addStopDescription', () => {
 	const scheduledStartAt = new Date('2026-08-04T15:00:00Z');

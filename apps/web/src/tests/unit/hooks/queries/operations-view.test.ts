@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
 	controlTypeLabel,
+	isMissionPastDue,
 	missionDisplayName,
+	missionDueCutoff,
 	missionStatus,
 	requestStatus,
 } from '../../../../hooks/queries/operations-view';
@@ -39,6 +41,55 @@ describe('missionStatus', () => {
 		const instant = new Date('2026-08-04T15:00:00Z');
 		expect(missionStatus(lifecycle(instant, null, null))).toBe('inProgress');
 		expect(missionStatus(lifecycle(instant, instant, null))).toBe('completed');
+	});
+});
+
+describe('isMissionPastDue', () => {
+	// 13:00 UTC on Oct 12 is 9am in New York.
+	const clock = createOrganizationClock('America/New_York', () => new Date('2026-10-12T13:00:00Z'));
+	const unstarted = (scheduledStartAt: Date | string) => ({
+		scheduledStartAt,
+		...lifecycle(null, null, null),
+	});
+
+	it('reads a scheduled mission one day past its start as past due', () => {
+		// 7:30pm in New York on Oct 11.
+		expect(isMissionPastDue(unstarted(new Date('2026-10-11T23:30:00Z')), clock)).toBe(true);
+	});
+
+	it('counts days in the Organization zone, not UTC', () => {
+		// 01:00 UTC on Oct 12 is 9pm on Oct 11 in New York: yesterday there.
+		expect(isMissionPastDue(unstarted('2026-10-12T01:00:00Z'), clock)).toBe(true);
+		// 04:30 UTC on Oct 12 is 12:30am on Oct 12 in New York: due today, not past it.
+		expect(isMissionPastDue(unstarted('2026-10-12T04:30:00Z'), clock)).toBe(false);
+	});
+
+	it('leaves a mission due today or later as scheduled', () => {
+		expect(isMissionPastDue(unstarted(new Date('2026-10-12T11:00:00Z')), clock)).toBe(false);
+		expect(isMissionPastDue(unstarted(new Date('2026-10-13T23:30:00Z')), clock)).toBe(false);
+	});
+
+	it('is never past due once started or ended', () => {
+		const start = new Date('2026-10-08T23:30:00Z');
+		expect(
+			isMissionPastDue({ scheduledStartAt: start, ...lifecycle('t', null, null) }, clock),
+		).toBe(false);
+		expect(
+			isMissionPastDue({ scheduledStartAt: start, ...lifecycle(null, 't', null) }, clock),
+		).toBe(false);
+		expect(
+			isMissionPastDue({ scheduledStartAt: start, ...lifecycle(null, null, 't') }, clock),
+		).toBe(false);
+	});
+
+	it('draws the line the Dashboard queue draws for the day before', () => {
+		// Past due is the queue's rule moved back a day: a start before the cut-off
+		// for yesterday. The queue's own cut-off is the same function for today.
+		expect(missionDueCutoff('2026-10-11', clock.zone).toISOString()).toBe(
+			'2026-10-12T04:00:00.000Z',
+		);
+		expect(isMissionPastDue(unstarted('2026-10-12T03:59:59Z'), clock)).toBe(true);
+		expect(isMissionPastDue(unstarted('2026-10-12T04:00:00Z'), clock)).toBe(false);
 	});
 });
 

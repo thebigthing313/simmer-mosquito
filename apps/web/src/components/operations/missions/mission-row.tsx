@@ -3,6 +3,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import {
 	controlTypeLabel,
+	isMissionPastDue,
 	type MissionListing,
 	type MissionProgressCounts,
 	missionDisplayName,
@@ -54,7 +55,10 @@ export function MissionRow({
 				<div className="min-w-0 flex-1">
 					<div className="flex flex-wrap items-center gap-2">
 						<span className="font-medium text-foreground text-sm">{name}</span>
-						<MissionStatusBadge status={missionStatus(mission)} />
+						<MissionStatusBadge
+							pastDue={isMissionPastDue(mission, clock)}
+							status={missionStatus(mission)}
+						/>
 					</div>
 					<p className="m-0 mt-1 text-muted-foreground text-xs">
 						{controlTypeLabel(mission.controlType)}

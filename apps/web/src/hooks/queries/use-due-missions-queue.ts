@@ -1,17 +1,18 @@
 /**
  * The Dashboard's "missions due today or overdue" queue: not started, no
  * terminal timestamp, and scheduled to start before the end of today in the
- * Organization's zone. It returns the count and the day the oldest was
- * scheduled.
+ * Organization's zone, the cut-off `missionDueCutoff` gives. It returns the
+ * count and the day the oldest was scheduled.
  */
 
 import { and, count, isNull, lt, min, useLiveQuery } from '@tanstack/react-db';
 import { missions } from '../../lib/collections/missions';
-import { addCalendarDays, localCalendarDay, localDayStartAsInstant } from '../../lib/local-date';
+import { localCalendarDay } from '../../lib/local-date';
+import { missionDueCutoff } from './operations-view';
 import { type ElectricQueue, liveQueryGcTimeMs } from './shared';
 
 export function useDueMissionsQueue(today: string, timeZone: string): ElectricQueue {
-	const endOfToday = localDayStartAsInstant(addCalendarDays(today, 1), timeZone);
+	const endOfToday = missionDueCutoff(today, timeZone);
 
 	const result = useLiveQuery({
 		gcTime: liveQueryGcTimeMs,

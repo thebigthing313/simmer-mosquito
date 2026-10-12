@@ -251,7 +251,8 @@ which reads the same collection.
   `completed_at` and `cancelled_at` are null.
 - `useDueMissionsQueue`: `missions` where `started_at`, `completed_at` and
   `cancelled_at` are null and `scheduled_start_at` is before the end of today,
-  the bound being `localDayStartAsInstant(tomorrow, timeZone)`.
+  the bound being `missionDueCutoff(today, timeZone)`. The mission badges read
+  the same function for yesterday as "Past due".
 
 - `useActivityStrip`, under `hooks/dashboard`: eight subsets, one per activity
   type, each `gte(<date>, priorWindow.from)`, folded into the window and prior

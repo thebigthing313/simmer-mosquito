@@ -29,6 +29,7 @@ import { useProfileName } from '../../../hooks/operations/use-profile-name';
 import { useRecommendedMethodName } from '../../../hooks/operations/use-recommended-method-name';
 import {
 	controlTypeLabel,
+	isMissionPastDue,
 	missionDisplayName,
 	requestDisplayName,
 } from '../../../hooks/queries/operations-view';
@@ -251,7 +252,7 @@ function MissionLinkRow({ mission }: { readonly mission: MissionLink }) {
 				<span className="font-medium text-foreground text-sm">
 					{missionDisplayName(mission, clock)}
 				</span>
-				<MissionStatusBadge status={mission.status} />
+				<MissionStatusBadge pastDue={isMissionPastDue(mission, clock)} status={mission.status} />
 			</div>
 			<span className="text-muted-foreground text-xs">
 				{controlTypeLabel(mission.controlType)} ·{' '}
