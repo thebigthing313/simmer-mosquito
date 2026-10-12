@@ -76,7 +76,11 @@
  * that is #949's named follow-up rather than this gate's. Not JSX text either:
  * the Missions and Assignments indexes draw their control as a `<Link>` whose
  * text calls `createLabel`, and a call inside JSX is `check:image-names`' seam
- * again, unreadable by an object-literal rule and left to the reader.
+ * again, unreadable by an object-literal rule and left to the reader. #1657
+ * settled which way that goes: an index that opens with `PageHeader` instead of
+ * `ExplorerHeader` draws its control through `CreateControl`, which takes the
+ * same `{ to, label }`, so the label is an entry here rather than JSX text. The
+ * Contacts directory's link read a bare `Create` that neither gate could see.
  *
  * ## At zero, and what it cost to get there
  *
