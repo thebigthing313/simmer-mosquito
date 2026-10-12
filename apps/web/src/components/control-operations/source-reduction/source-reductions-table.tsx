@@ -94,7 +94,7 @@ function SourceReductionTableRow({
 				<Button aria-label={`View ${methodName}`} asChild size="icon-sm" variant="ghost">
 					<Link
 						params={{ id: row.id }}
-						state={{ breadcrumbVia: '/control-operations/source-reduction/table' }}
+						search={{ via: 'table' }}
 						to="/control-operations/source-reduction/$id"
 					>
 						<ChevronRightIcon aria-hidden="true" />

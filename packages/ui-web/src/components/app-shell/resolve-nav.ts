@@ -132,6 +132,10 @@ function looksLikeRecordId(segment: string): boolean {
  * when one is supplied (e.g. a record's name), otherwise a record id renders as
  * `#id` and any other segment is title-cased.
  *
+ * Under a group's hub item the trail names the group instead of the hub, so a
+ * record below the Inspections Map reads `Inspections`, not `Map`, and no two
+ * neighbouring crumbs say the same thing.
+ *
  * An item carrying `params` covers the record segment itself, so its own label
  * is the last crumb and there is nothing trailing to name. That is how the
  * Daily Work rows put a person's name at the end of the trail without the page
@@ -157,15 +161,26 @@ export function buildBreadcrumbs(
 		return crumbs;
 	}
 
-	if (group?.label !== undefined) {
-		crumbs.push({ label: group.label });
-	}
-
-	crumbs.push({ label: item.label, to: item.to, ...(item.params ? { params: item.params } : {}) });
-
+	const itemCrumb: ShellCrumb = {
+		label: item.label,
+		to: item.to,
+		...(item.params ? { params: item.params } : {}),
+	};
 	const itemSegments = navDestination(item)?.split('/').filter(Boolean) ?? [];
 	const pathSegments = activePath.split('/').filter(Boolean);
 	const trailing = pathSegments.slice(itemSegments.length);
+
+	if (group?.label === undefined) {
+		crumbs.push(itemCrumb);
+	} else if (trailing.length > 0 && isGroupHub(group, item)) {
+		// Below the group's hub the hub's own name means nothing: a record under
+		// the Habitats Map was not necessarily reached from the Map, so the trail
+		// names the record set and links it to the hub.
+		crumbs.push({ ...itemCrumb, label: group.label });
+	} else {
+		crumbs.push({ label: group.label }, itemCrumb);
+	}
+
 	for (const segment of trailing) {
 		const override = options?.labels?.get(segment);
 		if (override !== undefined && override !== '') {
@@ -175,7 +190,30 @@ export function buildBreadcrumbs(
 		crumbs.push({ label: looksLikeRecordId(segment) ? `#${segment}` : titleCase(segment) });
 	}
 
-	return crumbs;
+	return withoutRepeats(crumbs);
+}
+
+/**
+ * Whether `item` is the page its group's other items sit under, as the Map is
+ * to its Table and its create form, and the Regions list to its import.
+ */
+function isGroupHub(group: ShellNavGroup, item: ShellNavItem): boolean {
+	const hub = navDestination(item);
+	if (hub === null) {
+		return false;
+	}
+	return group.items.some(
+		(other) => other !== item && navDestination(other)?.startsWith(`${hub}/`) === true,
+	);
+}
+
+/**
+ * Drops a crumb that says the same as the one after it, keeping the later one
+ * since it is the one that links somewhere. A group named for its only list,
+ * such as Regions, otherwise reads `GIS > Regions > Regions`.
+ */
+function withoutRepeats(crumbs: readonly ShellCrumb[]): readonly ShellCrumb[] {
+	return crumbs.filter((crumb, index) => crumbs[index + 1]?.label !== crumb.label);
 }
 
 /**

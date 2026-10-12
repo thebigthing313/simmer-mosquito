@@ -87,7 +87,7 @@ function BiocontrolTableRow({
 				<Button aria-label={`View ${methodName}`} asChild size="icon-sm" variant="ghost">
 					<Link
 						params={{ id: row.id }}
-						state={{ breadcrumbVia: '/control-operations/biocontrol/table' }}
+						search={{ via: 'table' }}
 						to="/control-operations/biocontrol/$id"
 					>
 						<ChevronRightIcon aria-hidden="true" />

@@ -85,7 +85,7 @@ function CollectionTableRow({
 				<Button aria-label={`View ${label}`} asChild size="icon-sm" variant="ghost">
 					<Link
 						params={{ id: row.id }}
-						state={{ breadcrumbVia: '/adult-surveillance/collections/table' }}
+						search={{ via: 'table' }}
 						to="/adult-surveillance/collections/$id"
 					>
 						<ChevronRightIcon aria-hidden="true" />

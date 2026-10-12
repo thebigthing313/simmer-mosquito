@@ -6,6 +6,7 @@ import {
 	WorkspaceChromeError,
 	WorkspaceChromeFallback,
 } from '../components/app-shell/workspace-chrome';
+import { type BreadcrumbVia, parseBreadcrumbVia } from '../lib/breadcrumb-via';
 import { SuspenseQueryBoundary } from '../sync/suspense-query-boundary';
 
 // Both are exported because the generated route tree names them in its inferred
@@ -14,6 +15,8 @@ import { SuspenseQueryBoundary } from '../sync/suspense-query-boundary';
 // fallow-ignore-next-line unused-type
 export interface RootSearch {
 	readonly auth?: 'organization_required';
+	/** The list a record page was opened from. See `lib/breadcrumb-via.ts`. */
+	readonly via?: BreadcrumbVia;
 }
 
 // fallow-ignore-next-line unused-type
@@ -22,8 +25,13 @@ export interface RouterContext {
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
-	validateSearch: (search): RootSearch =>
-		search.auth === 'organization_required' ? { auth: 'organization_required' } : {},
+	validateSearch: (search): RootSearch => {
+		const via = parseBreadcrumbVia(search.via);
+		return {
+			...(search.auth === 'organization_required' ? { auth: 'organization_required' } : {}),
+			...(via === undefined ? {} : { via }),
+		};
+	},
 	beforeLoad: async ({ context, location }) => {
 		if (publicPaths.has(location.pathname)) {
 			return;

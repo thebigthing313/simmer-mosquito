@@ -49,11 +49,7 @@ function AddressTableRowView({ row }: { readonly row: AddressListing }) {
 		<LinkedTableRow
 			action={
 				<Button aria-label={`View ${name}`} asChild size="icon-sm" variant="ghost">
-					<Link
-						params={{ id: row.id }}
-						state={{ breadcrumbVia: '/gis/addresses/table' }}
-						to="/gis/addresses/$id"
-					>
+					<Link params={{ id: row.id }} search={{ via: 'table' }} to="/gis/addresses/$id">
 						<ChevronRightIcon aria-hidden="true" />
 					</Link>
 				</Button>
