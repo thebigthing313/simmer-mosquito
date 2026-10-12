@@ -717,6 +717,15 @@ entry is daily and the domain never emits an open end. Every metric is on
 screen at once because an empty box on an edit clears the reading, and clearing
 is the commoner correction.
 
+#### StationDetailsCard
+
+The provider station ID row is drawn only on a provider station. An
+Organization station has no provider, and both write paths store a null id on
+one, but legacy rows came in with ids such as `1` that read as a provider's
+name under the old "Provider" label (#1660). Those ids are left in the
+database: this row was their only reader, so hiding it settles what anyone
+sees without a data migration.
+
 #### WeatherStationForm
 
 The builder is handed the stand-in geometry rather than `null`, because its
