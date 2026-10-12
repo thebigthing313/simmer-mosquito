@@ -29,6 +29,10 @@ import {
 	collectionRowDate,
 	SpeciesDistributionBars,
 } from '../../../components/adult-surveillance/adult-display';
+import {
+	collectionTallies,
+	isIdentifiedFemale,
+} from '../../../components/adult-surveillance/trap-collection-tallies';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DateRangeFilter } from '../../../components/date-range-filter';
@@ -184,6 +188,15 @@ function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
 	// `date`, and no single `orderBy` ranks across those types.
 	const collections = [...rows].sort(compareByCollectionDateDesc);
 
+	const species = useSpeciesCatalog();
+	const nameById = new Map(species.map((row) => [row.id, row.displayName] as const));
+	// The catalog carries a placeholder "Unidentified mosquito" species for specimens
+	// that were never keyed out. It isn't a real taxon, so neither tab counts it as
+	// a species.
+	const unidentifiedSpeciesIds = new Set(
+		species.filter((row) => row.epithet === 'unidentified').map((row) => row.id),
+	);
+
 	return (
 		<Card variant="surface">
 			<Tabs defaultValue="collections">
@@ -215,6 +228,7 @@ function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
 							isError={isError}
 							isReady={isReady}
 							trapId={trapId}
+							unidentifiedSpeciesIds={unidentifiedSpeciesIds}
 						/>
 					</TabsContent>
 					<TabsContent className="mt-0" value="species">
@@ -222,6 +236,8 @@ function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
 							collections={collections}
 							isError={isError}
 							isReady={isReady}
+							nameById={nameById}
+							unidentifiedSpeciesIds={unidentifiedSpeciesIds}
 						/>
 					</TabsContent>
 				</CardContent>
@@ -235,11 +251,13 @@ function TrapCollectionsList({
 	isReady,
 	isError,
 	trapId,
+	unidentifiedSpeciesIds,
 }: {
 	readonly collections: readonly TrapCollection[];
 	readonly isReady: boolean;
 	readonly isError: boolean;
 	readonly trapId: string;
+	readonly unidentifiedSpeciesIds: ReadonlySet<string>;
 }) {
 	const { page, pageCount, pageRows, setPage } = usePagedRows(collections, {
 		pageSize: collectionsPageSize,
@@ -274,31 +292,34 @@ function TrapCollectionsList({
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{pageRows.map((collection) => (
-									<TableRow key={collection.id}>
-										<TableCell>
-											<Link
-												className={recordLink()}
-												params={{ id: collection.id }}
-												to="/adult-surveillance/collections/$id"
-											>
-												{collectionRowDate(collection.effectiveDate)}
-											</Link>
-										</TableCell>
-										<TableCell>
-											<CollectionFlagBadges
-												className="flex flex-wrap items-center gap-1.5"
-												collection={collection}
-											/>
-										</TableCell>
-										<TableCell className="text-right text-muted-foreground tabular-nums">
-											{speciesCount(collection)}
-										</TableCell>
-										<TableCell className="text-right tabular-nums">
-											{femaleCount(collection).toLocaleString('en-US')}
-										</TableCell>
-									</TableRow>
-								))}
+								{pageRows.map((collection) => {
+									const tallies = collectionTallies(collection.species, unidentifiedSpeciesIds);
+									return (
+										<TableRow key={collection.id}>
+											<TableCell>
+												<Link
+													className={recordLink()}
+													params={{ id: collection.id }}
+													to="/adult-surveillance/collections/$id"
+												>
+													{collectionRowDate(collection.effectiveDate)}
+												</Link>
+											</TableCell>
+											<TableCell>
+												<CollectionFlagBadges
+													className="flex flex-wrap items-center gap-1.5"
+													collection={collection}
+												/>
+											</TableCell>
+											<TableCell className="text-right text-muted-foreground tabular-nums">
+												{tallies.species}
+											</TableCell>
+											<TableCell className="text-right tabular-nums">
+												{tallies.mosquitoes.toLocaleString('en-US')}
+											</TableCell>
+										</TableRow>
+									);
+								})}
 							</TableBody>
 						</Table>
 					</div>
@@ -332,9 +353,7 @@ function speciesInWindow(input: {
 		withinDateRange(collection.effectiveDate, input.from, input.to),
 	);
 	const specimens = inRange.flatMap((collection) =>
-		collection.species.filter(
-			(entry) => entry.sex === 'female' && !input.unidentifiedSpeciesIds.has(entry.speciesId),
-		),
+		collection.species.filter((entry) => isIdentifiedFemale(entry, input.unidentifiedSpeciesIds)),
 	);
 	return {
 		distribution: aggregateSpeciesDistribution(specimens, input.nameById),
@@ -346,20 +365,15 @@ function TrapSpeciesDistribution({
 	collections,
 	isReady,
 	isError,
+	nameById,
+	unidentifiedSpeciesIds,
 }: {
 	readonly collections: readonly TrapCollection[];
 	readonly isReady: boolean;
 	readonly isError: boolean;
+	readonly nameById: ReadonlyMap<string, string>;
+	readonly unidentifiedSpeciesIds: ReadonlySet<string>;
 }) {
-	const species = useSpeciesCatalog();
-	const nameById = new Map(species.map((row) => [row.id, row.displayName] as const));
-	// The catalog carries a placeholder "Unidentified mosquito" species for specimens
-	// that were never keyed out; it isn't a real taxon, so keep it out of the
-	// species breakdown.
-	const unidentifiedSpeciesIds = new Set(
-		species.filter((row) => row.epithet === 'unidentified').map((row) => row.id),
-	);
-
 	const clock = useOrganizationClock();
 	const today = clock.today();
 	const [from, setFrom] = useState('');
@@ -506,17 +520,4 @@ function withinDateRange(date: string | null, from: string, to: string): boolean
 		return false;
 	}
 	return !(to !== '' && (date === null || date > to));
-}
-
-/** Total female mosquitoes tallied across the collection's species rows. */
-function femaleCount(collection: TrapCollection): number {
-	return collection.species.reduce(
-		(sum, entry) => sum + (entry.sex === 'female' ? (entry.count ?? 0) : 0),
-		0,
-	);
-}
-
-/** Distinct species with at least one specimen in the collection. */
-function speciesCount(collection: TrapCollection): number {
-	return collection.species.filter((entry) => (entry.count ?? 0) > 0).length;
 }
