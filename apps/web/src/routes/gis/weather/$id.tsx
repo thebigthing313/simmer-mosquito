@@ -1,4 +1,3 @@
-import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -20,6 +19,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
+import { StationDetailsCard } from '../../../components/gis/weather/station-details-card';
 import { weatherSourceTypeLabel } from '../../../components/gis/weather/weather-display';
 import { WeatherSummariesCard } from '../../../components/gis/weather/weather-summaries-card';
 import { StationStatusBadge } from '../../../components/gis/weather/weather-ui';
@@ -139,24 +139,6 @@ function StationLocationCard({ station }: { readonly station: WeatherStation }) 
 			geomType={station.geometryKind}
 			height="h-[280px]"
 		/>
-	);
-}
-
-function StationDetailsCard({ station }: { readonly station: WeatherStation }) {
-	return (
-		<Card variant="surface">
-			<CardHeader padding="compact">
-				<CardTitle>Details</CardTitle>
-			</CardHeader>
-			<CardContent padding="compact">
-				<DetailList>
-					<DetailRow label="Type">{weatherSourceTypeLabel(station.sourceType)}</DetailRow>
-					<DetailRow label="Code">{station.sourceCode}</DetailRow>
-					<DetailRow label="Provider">{station.providerSourceId}</DetailRow>
-					<DetailRow label="Status">{station.isActive ? 'Active' : 'Inactive'}</DetailRow>
-				</DetailList>
-			</CardContent>
-		</Card>
 	);
 }
 
