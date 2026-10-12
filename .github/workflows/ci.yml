@@ -496,7 +496,7 @@ jobs:
       # A saved entry matching no current finding is allowance nothing is using.
       # fallow warns about that and exits 0; scripts/fallow.mjs fails this step
       # on the warning instead, and a step that fails on it is a step asking to
-      # be re-saved. See CLAUDE.md, "Rot gates".
+      # be re-saved. See docs/rot-gates.md.
       - name: Complexity
         run: pnpm fallow:health
 
@@ -1028,7 +1028,7 @@ jobs:
       # is what pg_dump 17.0 to 17.5 writes, so a rebuild of the tag on 17.6
       # would fail that step on every branch at once. `docker-compose.yml` and
       # `schema-drift.yml` carry the same digest; move all three together
-      # (CLAUDE.md, Database).
+      # (docs/database.md).
       postgres:
         image: postgis/postgis:17-3.5@sha256:01a6a70e41e6c4467c8f55f6063555ed72db2d6662cd0d571040d42eadaeb6f6
         env:
