@@ -256,6 +256,16 @@ function CreateButton({
 	if (isChrome || create === undefined) {
 		return null;
 	}
+	return <CreateControl create={create} />;
+}
+
+/**
+ * The create action as a filled button with a plus, hidden below its floor.
+ * Exported for the indexes that open with `PageHeader` rather than this header,
+ * so their control takes the same `{ to, label }` and `check:nav-labels` reads
+ * its label where it reads every explorer's.
+ */
+export function CreateControl({ create }: { readonly create: ExplorerCreateAction }) {
 	return (
 		<WriteOnly minimum={create.minimum ?? 'collector'}>
 			<Button asChild size="sm">
