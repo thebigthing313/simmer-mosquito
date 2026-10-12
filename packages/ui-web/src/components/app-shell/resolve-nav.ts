@@ -69,7 +69,24 @@ export function flattenNavItems(domains: readonly ShellDomain[]): readonly {
 	);
 }
 
-/** Resolve the active domain + group + item for a path, falling back to the first domain. */
+/**
+ * The standalone page a path is on, if any: a destination such as Profile or
+ * the changelog that the navigation config places in no domain.
+ */
+export function findStandalonePage(
+	standalonePages: readonly ShellStandalonePage[] | undefined,
+	activePath: string,
+): ShellStandalonePage | null {
+	return standalonePages?.find((page) => pathMatches(activePath, page.path)) ?? null;
+}
+
+/**
+ * Resolve the active domain + group + item for a path, falling back to the first domain.
+ *
+ * The fallback knows nothing of standalone pages. A caller that draws which
+ * domain is active checks {@link findStandalonePage} first, as
+ * `useActiveDomain` does.
+ */
 export function resolveActive(
 	domains: readonly ShellDomain[],
 	activePath: string,
@@ -149,8 +166,8 @@ export function buildBreadcrumbs(
 		readonly labels?: ReadonlyMap<string, string>;
 	},
 ): readonly ShellCrumb[] {
-	const standalone = options?.standalonePages?.find((page) => pathMatches(activePath, page.path));
-	if (standalone !== undefined) {
+	const standalone = findStandalonePage(options?.standalonePages, activePath);
+	if (standalone !== null) {
 		return standalone.crumbs;
 	}
 

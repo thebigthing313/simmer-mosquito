@@ -1,14 +1,23 @@
 import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { navDestination } from '../resolve-nav';
-import { useActiveShellLocation, useShell } from '../shell-context';
+import { useActiveDomain, useActiveShellLocation, useShell } from '../shell-context';
 import type { ShellNavItem } from '../types';
 import { SecondarySidebarGroup } from './secondary-sidebar-group';
 
-/** Title + grouped navigation for the active domain. */
+/**
+ * Title + grouped navigation for the active domain. A standalone page belongs
+ * to no domain, so it draws an empty panel under the organization switcher.
+ */
 export function SecondarySidebarContent() {
 	const { domains, onNavigate } = useShell();
-	const { domain: activeDomain, item } = useActiveShellLocation();
+	const activeDomain = useActiveDomain();
+	const { item } = useActiveShellLocation();
 	const activeItemId = item?.id ?? null;
+
+	if (activeDomain === null) {
+		return <div className="flex min-h-0 flex-1 flex-col" />;
+	}
+
 	// `resolveActive` answers "where am I" against the full navigation, so it can
 	// still name the domain of a path the caller does not offer. What gets *drawn*
 	// comes from the caller's `domains` — which is how the role-filtered
