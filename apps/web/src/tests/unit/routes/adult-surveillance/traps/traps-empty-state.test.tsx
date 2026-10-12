@@ -128,7 +128,7 @@ describe('the traps explorer with nothing on the page', () => {
 		harness.search = { status: 'all' };
 		renderTraps();
 
-		await screen.findByText('No traps yet');
+		await screen.findByText('No Traps Yet');
 		expect(requestCounts()).toEqual({ page: 1, extent: 1 });
 		expect(harness.sent.find((url) => url.pathname.endsWith('/extent'))?.search).toBe('');
 	});
@@ -137,7 +137,7 @@ describe('the traps explorer with nothing on the page', () => {
 		harness.search = { status: 'all' };
 		renderTraps();
 
-		expect(await screen.findByText('No traps yet')).toBeTruthy();
+		expect(await screen.findByText('No Traps Yet')).toBeTruthy();
 		expect(screen.getByText('Create Trap is in the More actions menu.')).toBeTruthy();
 	});
 
@@ -147,7 +147,7 @@ describe('the traps explorer with nothing on the page', () => {
 	it('names the create control the way the sidebar and the pointer do', async () => {
 		harness.search = { status: 'all' };
 		renderTraps();
-		await screen.findByText('No traps yet');
+		await screen.findByText('No Traps Yet');
 
 		const names = await createSurfaceNames('/adult-surveillance/traps/create');
 
@@ -163,21 +163,23 @@ describe('the traps explorer with nothing on the page', () => {
 		harness.search = { status: 'all' };
 		renderTraps();
 
-		expect(await screen.findByText('No traps yet')).toBeTruthy();
+		expect(await screen.findByText('No Traps Yet')).toBeTruthy();
 		expect(screen.queryByText('Create Trap is in the More actions menu.')).toBeNull();
 	});
 
 	// The route opens on active traps, and the extent it sends says so. A null
-	// answer there is about active traps, so the rail says the filters did it
-	// and opens the card that holds the status control.
-	it('reads the default status as a filter and opens the filter card', async () => {
+	// answer there is about active traps, which nobody chose, so the rail says
+	// so the way the Table does (#1653) and opens the card that holds the status
+	// control.
+	it('names the default status and opens the filter card', async () => {
 		renderTraps();
 
-		expect(await screen.findByText('No traps match these filters')).toBeTruthy();
+		expect(await screen.findByText('No Active Traps')).toBeTruthy();
+		expect(screen.queryByText('No Traps Match')).toBeNull();
 		expect(harness.sent.find((url) => url.pathname.endsWith('/extent'))?.search).toBe(
 			'?status=active',
 		);
-		expect(screen.queryByText('No traps yet')).toBeNull();
+		expect(screen.queryByText('No Traps Yet')).toBeNull();
 
 		fireEvent.click(screen.getByRole('button', { name: 'Show Filters' }));
 		expect(screen.getByText('Status')).toBeTruthy();
@@ -187,7 +189,7 @@ describe('the traps explorer with nothing on the page', () => {
 		harness.search = { search: 'gravid' };
 		renderTraps();
 
-		expect(await screen.findByText('No traps match these filters')).toBeTruthy();
+		expect(await screen.findByText('No Traps Match')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Reset Filters' })).toBeTruthy();
 	});
 
@@ -195,7 +197,7 @@ describe('the traps explorer with nothing on the page', () => {
 		harness.extent = { west: -1, south: -1, east: 1, north: 1 };
 		renderTraps();
 
-		expect(await screen.findByText('No traps in view')).toBeTruthy();
+		expect(await screen.findByText('No Traps in View')).toBeTruthy();
 		expect(
 			screen.getByText('Pan or zoom the map, or loosen the filters to bring traps into range.'),
 		).toBeTruthy();

@@ -194,7 +194,11 @@ function Page({
 				emptyReason !== undefined
 					? {
 							rows,
-							empty: { recordType: 'habitat', reason: emptyReason },
+							empty: {
+								recordType: 'habitat',
+								reason: emptyReason,
+								scope: { kind: 'lastDays', days: 30 },
+							},
 							renderRow: (row) => <span key={row.id}>{row.name}</span>,
 						}
 					: body === undefined
@@ -436,7 +440,7 @@ describe('ExplorerMapPage', () => {
 		it('says to pan when matches exist somewhere outside the viewport', () => {
 			render(<Page emptyReason="viewport" rows={[]} />);
 
-			expect(screen.getByText('No habitats in view')).toBeTruthy();
+			expect(screen.getByText('No Habitats in View')).toBeTruthy();
 			expect(
 				screen.getByText(
 					'Pan or zoom the map, or loosen the filters to bring habitats into range.',
@@ -455,17 +459,20 @@ describe('ExplorerMapPage', () => {
 				/>,
 			);
 
-			expect(screen.getByText('No habitats match these filters')).toBeTruthy();
+			expect(screen.getByText('No Habitats Match')).toBeTruthy();
 			fireEvent.click(screen.getByRole('button', { name: 'Reset Filters' }));
 			expect(onResetFilters).toHaveBeenCalledTimes(1);
 		});
 
-		// At the defaults there is nothing to reset, and what narrowed the request
-		// is in the filter card, so the control opens it.
-		it('opens the filter card when the defaults are what excluded everything', () => {
+		// At the defaults nothing is set, so the title names the window the set
+		// opens on, as the Table does, rather than blaming filters nobody chose
+		// (#1653). There is nothing to reset, and the window is in the filter
+		// card, so the control opens it.
+		it('names the default window when it alone excluded everything', () => {
 			render(<Page activeFilterCount={0} emptyReason="filters" rows={[]} />);
 
-			expect(screen.getByText('No habitats match these filters')).toBeTruthy();
+			expect(screen.getByText('No Habitats in the Last 30 Days')).toBeTruthy();
+			expect(screen.queryByText('No Habitats Match')).toBeNull();
 			expect(screen.queryByRole('button', { name: 'Reset Filters' })).toBeNull();
 			expect(screen.queryByText('filter controls')).toBeNull();
 
@@ -476,7 +483,7 @@ describe('ExplorerMapPage', () => {
 		it('points at the create control, by the label it draws, when there are none yet', () => {
 			render(<Page create={{ to: '/x', label: 'Create Habitat' }} emptyReason="none" rows={[]} />);
 
-			expect(screen.getByText('No habitats yet')).toBeTruthy();
+			expect(screen.getByText('No Habitats Yet')).toBeTruthy();
 			expect(screen.getByText('Create Habitat is in the More actions menu.')).toBeTruthy();
 		});
 
@@ -486,7 +493,7 @@ describe('ExplorerMapPage', () => {
 			signedInRole = 'viewer';
 			render(<Page create={{ to: '/x', label: 'Create Habitat' }} emptyReason="none" rows={[]} />);
 
-			expect(screen.getByText('No habitats yet')).toBeTruthy();
+			expect(screen.getByText('No Habitats Yet')).toBeTruthy();
 			expect(screen.queryByText('Create Habitat is in the More actions menu.')).toBeNull();
 		});
 
@@ -494,8 +501,8 @@ describe('ExplorerMapPage', () => {
 			render(<Page emptyReason="loading" isLoading rows={[]} />);
 
 			expect(skeletonCount()).toBeGreaterThan(0);
-			expect(screen.queryByText('No habitats in view')).toBeNull();
-			expect(screen.queryByText('No habitats yet')).toBeNull();
+			expect(screen.queryByText('No Habitats in View')).toBeNull();
+			expect(screen.queryByText('No Habitats Yet')).toBeNull();
 		});
 
 		// The reason alone is enough, and the pager holds back: a count of none
@@ -505,7 +512,7 @@ describe('ExplorerMapPage', () => {
 
 			expect(skeletonCount()).toBeGreaterThan(0);
 			expect(screen.queryByText('pager')).toBeNull();
-			expect(screen.queryByText('Loading habitats')).toBeNull();
+			expect(screen.queryByText('Loading Habitats')).toBeNull();
 		});
 	});
 

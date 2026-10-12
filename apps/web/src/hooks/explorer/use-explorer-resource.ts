@@ -189,6 +189,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape, TFilters, TTi
 	const empty: ExplorerEmptiness = {
 		recordType,
 		reason: isLoading ? 'loading' : emptyReason(extentUrl, extent),
+		scope: set.emptyScope('map'),
 	};
 
 	return {

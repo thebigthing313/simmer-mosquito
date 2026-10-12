@@ -123,6 +123,8 @@ export const inspectionRecordSet = defineRecordSet({
 	tileFilters: inspectionTileFilters,
 	filterSpec: INSPECTION_MAP_FILTERS,
 	defaults: ({ today }, surface) => inspectionFilterDefaults(today, surface),
+	emptyScope: (surface) =>
+		surface === 'table' ? { kind: 'yet' } : { kind: 'lastDays', days: MAP_WINDOW_DAYS },
 	counting: DATE_RANGE_COUNTING,
 	applies: {
 		from: 'both',

@@ -79,6 +79,7 @@ export const collectionRecordSet = defineRecordSet({
 	tileFilters: collectionTileFilters,
 	filterSpec: COLLECTION_MAP_FILTERS,
 	defaults: ({ today }) => collectionFilterDefaults(today),
+	emptyScope: () => ({ kind: 'lastDays', days: COLLECTION_WINDOW_DAYS }),
 	counting: DATE_RANGE_COUNTING,
 	applies: {
 		from: 'both',

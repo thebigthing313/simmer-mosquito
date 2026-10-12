@@ -117,6 +117,7 @@ function useSurfaceResource({
 		recordType,
 		tileFilters: () => tiles.filters,
 		filterSpec: [],
+		emptyScope: () => ({ kind: 'active' }),
 	} as unknown as RecordSet<null, never>;
 	return useExplorerResource<Row, null, never>({
 		set,
@@ -927,7 +928,11 @@ describe('useExplorerResource: why the rail is empty', () => {
 
 		await waitFor(() => expect(result.current.rail.isSettled).toBe(true));
 		expect(result.current.rail.rows).toHaveLength(0);
-		expect(result.current.rail.empty).toEqual({ recordType: 'habitat', reason: 'viewport' });
+		expect(result.current.rail.empty).toEqual({
+			recordType: 'habitat',
+			reason: 'viewport',
+			scope: { kind: 'active' },
+		});
 		expect(result.current.rail.isLoading).toBe(false);
 	});
 

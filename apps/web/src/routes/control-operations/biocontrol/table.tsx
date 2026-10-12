@@ -33,7 +33,6 @@ function BiocontrolActionsTableRoute() {
 			empty={{
 				emptyDescription: `Biocontrol actions made in the last ${BIOCONTROL_WINDOW_DAYS} days show here.`,
 				filteredDescription: 'No biocontrol action matches what is set above.',
-				scope: { kind: 'lastDays', days: BIOCONTROL_WINDOW_DAYS },
 			}}
 			filters={<BiocontrolFilterFields binding={binding} wide />}
 			icon={BiocontrolIcon}

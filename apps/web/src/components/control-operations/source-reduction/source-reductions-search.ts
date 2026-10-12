@@ -83,6 +83,7 @@ export const sourceReductionRecordSet = defineRecordSet({
 	tileFilters: sourceReductionTileFilters,
 	filterSpec: SOURCE_REDUCTION_MAP_FILTERS,
 	defaults: ({ today }) => sourceReductionFilterDefaults(today),
+	emptyScope: () => ({ kind: 'lastDays', days: SOURCE_REDUCTION_WINDOW_DAYS }),
 	counting: DATE_RANGE_COUNTING,
 	applies: { from: 'both', to: 'both', people: 'both', methods: 'both', regions: 'both' },
 });

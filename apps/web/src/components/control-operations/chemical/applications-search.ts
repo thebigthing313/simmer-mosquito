@@ -78,6 +78,7 @@ export const applicationRecordSet = defineRecordSet({
 	tileFilters: applicationTileFilters,
 	filterSpec: CHEMICAL_MAP_FILTERS,
 	defaults: ({ today }) => applicationFilterDefaults(today),
+	emptyScope: () => ({ kind: 'lastDays', days: APPLICATION_WINDOW_DAYS }),
 	counting: DATE_RANGE_COUNTING,
 	applies: {
 		from: 'both',

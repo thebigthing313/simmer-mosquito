@@ -80,6 +80,7 @@ export const biocontrolRecordSet = defineRecordSet({
 	tileFilters: biocontrolTileFilters,
 	filterSpec: BIOCONTROL_MAP_FILTERS,
 	defaults: ({ today }) => biocontrolFilterDefaults(today),
+	emptyScope: () => ({ kind: 'lastDays', days: BIOCONTROL_WINDOW_DAYS }),
 	counting: DATE_RANGE_COUNTING,
 	applies: {
 		from: 'both',

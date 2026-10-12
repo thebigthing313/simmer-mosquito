@@ -26,6 +26,7 @@ import { inspectionRecordSet } from '../../../../components/larval-surveillance/
 import { sampleRecordSet } from '../../../../components/larval-surveillance/samples-search';
 import { outreachRecordSet } from '../../../../components/public-engagement/outreach/outreach-actions-search';
 import { serviceRequestRecordSet } from '../../../../components/public-engagement/service-requests/service-requests-search';
+import { addDaysToDateString } from '../../../../lib/local-date';
 import { mapQueryParams } from '../../../../lib/map-query-params';
 import {
 	countActiveFilters,
@@ -167,6 +168,36 @@ describe('the Inspections opening window', () => {
 
 	it('opens the Table on all time', () => {
 		expect(inspectionRecordSet.defaults(context, 'table')).toMatchObject({ from: '', to: '' });
+	});
+});
+
+/*
+ * Both surfaces' empty states name the set's scope when nothing is set, so a
+ * scope that drifts from the defaults would title an empty Map or Table with a
+ * window the request never used (#1653).
+ */
+describe.each(SETS)('the %s empty scope', (_name, links) => {
+	const set = links as RecordSet<Record<string, unknown>>;
+	const context = contextOn('2026-10-09', 'off');
+
+	it.each(['map', 'table'] as const)('names the window the %s opens on', (surface) => {
+		const scope = set.emptyScope(surface);
+		const defaults = set.defaults(context, surface);
+		switch (scope.kind) {
+			case 'lastDays':
+				expect(defaults).toMatchObject({
+					from: addDaysToDateString(context.today, -(scope.days - 1)),
+					to: context.today,
+				});
+				break;
+			case 'thisYear':
+				expect(defaults).toMatchObject({ from: '2026-01-01', to: context.today });
+				break;
+			default:
+				// A scope with no window opens on no dates.
+				expect(defaults.from ?? '').toBe('');
+				expect(defaults.to ?? '').toBe('');
+		}
 	});
 });
 

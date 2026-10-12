@@ -8,6 +8,7 @@ import type { LinkProps } from '@tanstack/react-router';
 import type { RecordType } from '../../lib/record-nouns';
 import type { FilterCodecs, FilterCounting, SearchCodec } from '../../lib/search-filters';
 import type { MapTileLayer } from '../map/tile-layers';
+import type { RecordEmptyScope } from '../record/record-empty-title';
 
 /** The two surfaces a record set is drawn on. */
 export type RecordSetSurface = 'map' | 'table';
@@ -140,6 +141,12 @@ export interface RecordSet<TFilters, TTile = unknown> extends RecordSetLinks<TFi
 	 * that reads the surface.
 	 */
 	readonly defaults: (context: RecordSetContext, surface: RecordSetSurface) => TFilters;
+	/**
+	 * What `defaults` narrows `surface` to, which both surfaces' empty states
+	 * name when nothing is set. It reads the surface for the same reason
+	 * `defaults` does, and has to agree with it.
+	 */
+	readonly emptyScope: (surface: RecordSetSurface) => RecordEmptyScope;
 	/** How the set counts what is set, where listing the filters cannot say. */
 	readonly counting?:
 		| FilterCounting<TFilters>
@@ -185,6 +192,7 @@ export function defineRecordSet<TFilters, const TSpec extends MapFilterSpec>(
 	definition: Omit<RecordSetLinks<TFilters>, 'applies'> & {
 		readonly applies: { readonly [Key in keyof NoInfer<TFilters>]-?: AppliedOn };
 		readonly defaults: (context: RecordSetContext, surface: RecordSetSurface) => NoInfer<TFilters>;
+		readonly emptyScope: (surface: RecordSetSurface) => RecordEmptyScope;
 		readonly counting?:
 			| FilterCounting<NoInfer<TFilters>>
 			| ((context: RecordSetContext) => FilterCounting<NoInfer<TFilters>>);
