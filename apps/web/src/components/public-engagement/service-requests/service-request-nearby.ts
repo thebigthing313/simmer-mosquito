@@ -282,19 +282,25 @@ export function nearbyWindowLabel(
 }
 
 /**
- * What the panel says it is showing, before and after the fetch lands. The
- * count is every record in the response, since each is listed on one tab. The
- * window runs on to the close, or to today while
- * the request is open, so the sentence says which end won. A second sentence
- * says when the endpoint's nearest-first cap cut the read.
+ * What a tab says it is showing, before and after the fetch lands. The count
+ * is the records in the tab's own families, so it agrees with the rows under
+ * it and reads No on a tab whose list is empty. The window runs on to the
+ * close, or to today while the request is open, so the sentence says which end
+ * won. A second sentence says when the endpoint's nearest-first cap cut the
+ * read; the cap is over the whole response, so every tab says it.
  */
-export function nearbySummary(response: NearbyResponse | undefined): string {
+export function nearbySummary(
+	response: NearbyResponse | undefined,
+	families: ReadonlySet<NearbyFamily>,
+): string {
 	if (response === undefined) {
 		return 'Records around this request, from your public-engagement settings.';
 	}
 	const counts = countNearbyByFamily(response.items);
-	const count =
-		counts.infrastructure + counts.surveillance + counts.control + counts.publicEngagement;
+	let count = 0;
+	for (const family of families) {
+		count += counts[family];
+	}
 	const radius = formatRadiusLabel(response.radius.amount, response.radius.unitCode);
 	const window = nearbyWindowLabel(response);
 	const summary = `${count === 0 ? 'No' : count} record${count === 1 ? '' : 's'} within ${radius}, ${window}.`;

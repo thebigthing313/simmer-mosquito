@@ -316,7 +316,7 @@ function NearbyFamilyTab({
 	return (
 		<>
 			<p className="m-0 shrink-0 border-border/40 border-b px-4 py-2 text-muted-foreground text-xs">
-				{nearbySummary(nearby.data)}
+				{nearbySummary(nearby.data, families)}
 			</p>
 			<NearbyResultList
 				emptyDescription={emptyDescription}
