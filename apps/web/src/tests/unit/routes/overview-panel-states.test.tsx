@@ -38,6 +38,11 @@ const harness = vi.hoisted(() => ({
 	 * answered holds no rows whatever the flag says.
 	 */
 	operationsRows: false,
+	/**
+	 * Whether the source reduction and biocontrol reads answer with one row each.
+	 * Read under `state: 'empty'` only, as `operationsRows` is.
+	 */
+	controlRows: false,
 }));
 
 /** What every `isReady`/`isError` hook answers for the harness state. */
@@ -115,11 +120,32 @@ vi.mock('../../../hooks/queries/use-insecticide-usage', () => ({
 	useInsecticideUsage: () => ({ usage: [], ...reading() }),
 }));
 
+/** The one action each recent-activity read answers with under `controlRows`. */
+function controlActions() {
+	if (harness.state !== 'empty' || !harness.controlRows) {
+		return [];
+	}
+	return [
+		{
+			id: 'action-1',
+			actionDate: '2026-10-06',
+			methodId: 'method-1',
+			methodName: 'Dip out',
+			technicianProfileId: null,
+			technicianName: null,
+			amount: 2,
+			unitAbbreviation: 'gal',
+			habitatId: null,
+			inspectionId: null,
+		},
+	];
+}
+
 vi.mock('../../../hooks/queries/use-recent-source-reductions', () => ({
-	useRecentSourceReductions: () => ({ actions: [], ...reading() }),
+	useRecentSourceReductions: () => ({ actions: controlActions(), ...reading() }),
 }));
 vi.mock('../../../hooks/queries/use-recent-biocontrol-actions', () => ({
-	useRecentBiocontrolActions: () => ({ actions: [], ...reading() }),
+	useRecentBiocontrolActions: () => ({ actions: controlActions(), ...reading() }),
 }));
 
 vi.mock('../../../hooks/queries/use-control-catalog-counts', () => ({
@@ -352,12 +378,12 @@ const OVERVIEWS: readonly OverviewWords[] = [
 				empty: 'No insecticide applied in the last 7 days.',
 			},
 			{
-				title: 'Source Reductions',
+				title: 'Source Reductions · Last 14 Days',
 				unavailable: 'Source reduction activity is unavailable right now.',
 				empty: 'No source reductions recorded in the last 14 days.',
 			},
 			{
-				title: 'Biocontrol Releases',
+				title: 'Biocontrol Releases · Last 14 Days',
 				unavailable: 'Biocontrol activity is unavailable right now.',
 				empty: 'No biocontrol releases recorded in the last 14 days.',
 			},
@@ -464,6 +490,7 @@ beforeEach(() => {
 	harness.state = 'loading';
 	harness.thresholds = true;
 	harness.operationsRows = false;
+	harness.controlRows = false;
 });
 
 afterEach(cleanup);
@@ -593,6 +620,36 @@ describe('the operations overview with one row per panel', () => {
 			const empty = register.find((entry) => entry.title === words.title)?.empty;
 			expect(empty, words.title).toBeDefined();
 			expect(saysExactly(card, empty ?? ''), words.title).toBe(false);
+		}
+	});
+});
+
+/**
+ * The control overview's panels each read a different window: one picked day, a
+ * 7 or 30 day toggle, and a fortnight for the two recent lists. The page header
+ * used to say "Last 14 days" over all four, so each panel names its own now and
+ * the header names none (#1659).
+ */
+describe('the control operations overview windows', () => {
+	it('names no window in the page header', () => {
+		harness.state = 'empty';
+		renderOverview('control operations');
+
+		expect(screen.queryByText('Last 14 days')).toBeNull();
+	});
+
+	// "Oct 6, 2026" in a fixed 64px column broke after the comma on every row.
+	it('draws each action date on one line', () => {
+		harness.state = 'empty';
+		harness.controlRows = true;
+		renderOverview('control operations');
+
+		for (const title of [
+			'Source Reductions · Last 14 Days',
+			'Biocontrol Releases · Last 14 Days',
+		]) {
+			const date = within(panel(title)).getByText('Oct 6, 2026');
+			expect(date.className, title).toContain('whitespace-nowrap');
 		}
 	});
 });
