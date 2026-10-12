@@ -20,6 +20,8 @@ import { CloseIcon, EditIcon } from '../constants';
 
 export interface SettingsSheetProps<Values, Payload> extends SettingsSheetOptions<Values, Payload> {
 	readonly title: string;
+	/** The words on the button that opens the sheet; left out, it reads Edit. */
+	readonly triggerLabel?: string | undefined;
 	/** Left out, the sheet has no description and says so to Radix. */
 	readonly description?: string | undefined;
 	/** `wide` for a body that lays fields out in columns. */
@@ -36,6 +38,7 @@ export interface SettingsSheetProps<Values, Payload> extends SettingsSheetOption
  */
 export function SettingsSheet<Values, Payload>({
 	title,
+	triggerLabel = 'Edit',
 	description,
 	width = 'narrow',
 	children,
@@ -49,7 +52,7 @@ export function SettingsSheet<Values, Payload>({
 			<SheetTrigger asChild>
 				<Button type="button" variant="outline" size="sm">
 					<EditIcon aria-hidden="true" />
-					Edit
+					{triggerLabel}
 				</Button>
 			</SheetTrigger>
 			<SheetContent

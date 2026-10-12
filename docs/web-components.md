@@ -984,6 +984,17 @@ Add vehicle is hidden rather than disabled, per `components/write-only.tsx`. A
 collector on this page used to see a greyed-out control with nothing saying
 why.
 
+#### InsecticidesSection
+
+The card's Edit sheet holds one setting, batch tracking, and the card drew only
+the pointer to Control Operations, because `DomainSection` drew its
+`displayFields` only for a section with no body of its own (#1668). Control
+Operations' insecticides page sends people here to turn tracking on, so they
+arrived at a card that never said whether it was on. `DomainSection` now draws
+the fields above the body, and this card hands it the setting. The Edit button
+reads `Edit Batch Tracking` through the descriptor's `triggerLabel`, because a
+bare Edit beside a list of insecticides reads as editing the insecticides.
+
 #### SaveErrorNote
 
 A toast is the whole report for a surface that closed on submit, and it is not
