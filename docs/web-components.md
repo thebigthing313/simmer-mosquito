@@ -210,9 +210,32 @@ fluid ounces is 12.999999999999998 in doubles.
 
 #### InsecticideDrawer
 
-Deletion lives inside the edit drawer rather than as a per-row control, because
-it is rare and destructive; reversible lifecycle changes are the row's
-`CatalogLifecycleButton`.
+Deletion lives inside the edit drawer rather than in the row menu, because it
+is rare and destructive; the reversible retire is the row menu's. The same
+holds for `FormulationDrawer`.
+
+#### InsecticideSection and FormulationSection
+
+These two catalogs expand each row into a second tier, the batches of a product
+or the products in a mix, and that used to buy them a body of their own: inline
+pencil and X buttons per row, the counts on the right of a group heading, a
+"Show N inactive" disclosure, a Status column repeating the split, a Metadata
+column reading "Configured" on every row, and no search. The X deactivated a
+product and read as delete.
+
+Decided on 2026-10-12 (#1666): row expansion is not a reason for a different
+action or lifecycle pattern. Each section is a `CatalogSection`, the Active
+and Inactive sides sit under `CatalogFilteredList`'s counts and filter, the
+name carries the Inactive badge through `CatalogNameCell`, and the row has the
+`CatalogRowActions` menu. Edit opens the drawer from the menu and delete stays
+inside the drawer. The expand chevron is the only column the other catalogs do
+not have.
+
+A formulation with no products still cannot be activated, so its menu item is
+disabled with "Add a product first" under it, through `toggleDisabled` and
+`toggleHint`, and it reads "Activate" rather than "Reactivate" through
+`activateLabel`. The second tier keeps its inline controls: a product's
+batches and a mix's products are short lists inside an already open row.
 
 #### ControlMethodsPage
 

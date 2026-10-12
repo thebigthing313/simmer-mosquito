@@ -33,6 +33,7 @@ export function CatalogRowActions({
 	onToggle,
 	toggleDisabled = false,
 	toggleHint,
+	activateLabel = 'Reactivate',
 }: {
 	/** The record's own name — the menu's accessible label reads "Actions for …". */
 	readonly name: string;
@@ -43,6 +44,8 @@ export function CatalogRowActions({
 	readonly toggleDisabled?: boolean | undefined;
 	/** Why the toggle is unavailable. Shown under it, only while disabled. */
 	readonly toggleHint?: string | undefined;
+	/** What the way back is called. "Activate" where there is nothing to return to. */
+	readonly activateLabel?: 'Activate' | 'Reactivate' | undefined;
 }) {
 	return (
 		<DropdownMenu>
@@ -72,7 +75,7 @@ export function CatalogRowActions({
 							) : (
 								<>
 									<CheckIcon aria-hidden="true" />
-									Reactivate
+									{activateLabel}
 								</>
 							)}
 						</DropdownMenuItem>
