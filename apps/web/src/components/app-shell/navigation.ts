@@ -960,6 +960,8 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 				],
 			},
+			// Key Bindings belongs here: the keys it assigns are species keys, read
+			// only by sample and collection key entry (#1656).
 			{
 				id: 'organization-surveillance',
 				label: 'Surveillance',
@@ -1000,6 +1002,15 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/my-organization/insecticides',
 						icon: iconRegistry.entities.insecticide.icon,
 					},
+				],
+			},
+			// Its own heading, as Regions has, rather than a row under Control: the
+			// page holds service request context, outreach methods and notification
+			// types, none of which is control work. The breadcrumb drops the repeat.
+			{
+				id: 'organization-public-engagement',
+				label: 'Public Engagement',
+				items: [
 					{
 						id: 'org-public',
 						label: 'Public Engagement',
