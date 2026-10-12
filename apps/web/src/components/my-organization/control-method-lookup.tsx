@@ -28,6 +28,7 @@ import { catalogFields, catalogFormValues, commitCatalogSave } from '../catalog'
 import { CustomFieldsCell } from '../custom-fields-cell';
 import { AddIcon, CloseIcon, controlMethodListConfigs, EditIcon } from './constants';
 import { LookupListFrame } from './layout/lookup-list-frame';
+import { LookupListGroup } from './layout/lookup-list-group';
 import type { ControlMethodCollectionKey } from './types';
 
 export function ControlMethodLookupList({
@@ -77,14 +78,24 @@ export function ControlMethodLookupList({
 				) : null
 			}
 		>
-			<ControlMethodTable
-				canEditMethods={canEditMethods}
-				canManage={canManage}
-				collectionKey={collectionKey}
-				methods={activeMethods}
-				mutations={mutations}
-			/>
-			{inactiveMethods.length > 0 ? (
+			<LookupListGroup
+				count={activeMethods.length}
+				emptyLabel={`No active ${config.lowercaseTitle}.`}
+				title={`Active ${config.lowercaseTitle}`}
+			>
+				<ControlMethodTable
+					canEditMethods={canEditMethods}
+					canManage={canManage}
+					collectionKey={collectionKey}
+					methods={activeMethods}
+					mutations={mutations}
+				/>
+			</LookupListGroup>
+			<LookupListGroup
+				count={inactiveMethods.length}
+				emptyLabel={`No inactive ${config.lowercaseTitle}.`}
+				title={`Inactive ${config.lowercaseTitle}`}
+			>
 				<ControlMethodTable
 					canEditMethods={canEditMethods}
 					canManage={canManage}
@@ -92,7 +103,7 @@ export function ControlMethodLookupList({
 					methods={inactiveMethods}
 					mutations={mutations}
 				/>
-			) : null}
+			</LookupListGroup>
 		</LookupListFrame>
 	);
 }
@@ -117,16 +128,14 @@ function ControlMethodTable({
 				<TableHeader>
 					<TableRow>
 						<TableHead>{config.fieldLabel}</TableHead>
-						<TableHead className="w-28">Status</TableHead>
 						<TableHead className="w-[30%]">Custom Fields</TableHead>
-						{canEditMethods ? <TableHead className="w-16 text-right">Edit</TableHead> : null}
+						{canEditMethods ? <TableHead className="w-20 text-right">Actions</TableHead> : null}
 					</TableRow>
 				</TableHeader>
 				<TableBody>
 					{methods.map((method) => (
 						<TableRow key={method.id}>
 							<TableCell className="font-medium">{method.name}</TableCell>
-							<TableCell>{method.isActive ? 'Active' : 'Inactive'}</TableCell>
 							<TableCell>
 								<CustomFieldsCell schema={method.customSchema} />
 							</TableCell>
