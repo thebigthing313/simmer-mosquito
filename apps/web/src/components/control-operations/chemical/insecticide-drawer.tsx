@@ -5,7 +5,8 @@ import { useAppForm, validateMetadataValue } from '@simmer-mosquito/ui-web/compo
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type React from 'react';
-import { useState } from 'react';
+import { useCatalogDialogOpen } from '../../../hooks/catalog/use-catalog-dialog-open';
+import { useResetOnOpen } from '../../../hooks/catalog/use-reset-on-open';
 import type {
 	InsecticideFields,
 	InsecticideMutations,
@@ -31,23 +32,28 @@ const insecticideTypeOptions = [
 	{ label: 'Other', value: 'other' },
 ] as const;
 
+/**
+ * Opened by its own `trigger` (the Add button) or, from a row menu's Edit, by
+ * the controlled `open` and `onOpenChange` pair.
+ */
 export function InsecticideDrawer({
 	canManage,
 	insecticide,
 	mutations,
-	tooltip,
+	onOpenChange,
+	open: controlledOpen,
 	trigger,
 	units,
 }: {
 	readonly canManage: boolean;
 	readonly insecticide?: InsecticideRecord | undefined;
 	readonly mutations: InsecticideMutations;
-	/** When set, the trigger gets a hover/focus tooltip with this label. */
-	readonly tooltip?: string | undefined;
-	readonly trigger: React.ReactNode;
+	readonly onOpenChange?: ((open: boolean) => void) | undefined;
+	readonly open?: boolean | undefined;
+	readonly trigger?: React.ReactNode;
 	readonly units: readonly UnitLabel[];
 }) {
-	const [open, setOpen] = useState(false);
+	const [open, setOpen] = useCatalogDialogOpen(controlledOpen, onOpenChange);
 	const defaultValues = insecticideFormValues(insecticide, units[0]?.id ?? '');
 	const unitChoices = units.map(unitOption);
 	// Held on the drawer component rather than inside its content, which
@@ -85,12 +91,7 @@ export function InsecticideDrawer({
 		},
 	});
 
-	function updateOpen(nextOpen: boolean) {
-		if (nextOpen) {
-			form.reset(defaultValues);
-		}
-		setOpen(nextOpen);
-	}
+	useResetOnOpen(open, insecticide, () => form.reset(defaultValues));
 
 	return (
 		<form.AppForm>
@@ -108,11 +109,10 @@ export function InsecticideDrawer({
 						<DeleteInsecticideDialog insecticide={insecticide} mutations={mutations} />
 					)
 				}
-				onOpenChange={updateOpen}
+				onOpenChange={setOpen}
 				onSubmit={() => void form.handleSubmit()}
 				open={open}
 				title={insecticide === undefined ? 'Add Insecticide' : `Edit ${insecticide.tradeName}`}
-				tooltip={tooltip}
 				trigger={trigger}
 				width="xl"
 			>
@@ -208,8 +208,8 @@ function requiredText(label: string) {
 }
 
 /**
- * Deletion lives inside the edit drawer rather than as a per-row control;
- * reversible lifecycle changes are the row's `CatalogLifecycleButton`.
+ * Deletion lives inside the edit drawer rather than in the row menu; the
+ * reversible retire is the menu's.
  */
 function DeleteInsecticideDialog({
 	insecticide,

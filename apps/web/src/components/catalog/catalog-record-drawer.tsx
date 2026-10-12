@@ -60,7 +60,8 @@ export function CatalogRecordDrawer({
 	readonly description?: string | undefined;
 	readonly open: boolean;
 	readonly onOpenChange: (open: boolean) => void;
-	readonly trigger: ReactNode;
+	/** Omitted when a row menu opens the drawer through `open`. */
+	readonly trigger?: ReactNode | undefined;
 	/** When set, the trigger gets a hover/focus tooltip with this label. */
 	readonly tooltip?: string | undefined;
 	readonly width: keyof typeof DRAWER_WIDTHS;
@@ -74,7 +75,7 @@ export function CatalogRecordDrawer({
 }) {
 	return (
 		<Drawer direction="right" onOpenChange={onOpenChange} open={open}>
-			{tooltip === undefined ? (
+			{trigger === undefined ? null : tooltip === undefined ? (
 				<DrawerTrigger asChild>{trigger}</DrawerTrigger>
 			) : (
 				<Tooltip>

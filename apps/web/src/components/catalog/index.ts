@@ -10,6 +10,13 @@
  * table clipped its overflow instead of scrolling it, one row menu was narrower
  * than the hint it had to hold.
  *
+ * Insecticides and formulations add a second tier: each row expands into the
+ * batches of a product or the products in a mix, through
+ * {@link CatalogExpandButton} and {@link CatalogDetailPanel}. That is the only
+ * difference. Their rows sit in the same Active and Inactive sections, under
+ * the same counts and filter, and carry the same row menu, with delete inside
+ * the drawer the menu's Edit opens.
+ *
  * What stays in the page is what the catalog is *for* — its columns, its fields,
  * and its commands. In particular a page decides for itself whether a
  * deactivation can be pre-empted: {@link CatalogRowActions} takes that as a prop
@@ -30,8 +37,7 @@ export {
 	catalogFormValues,
 } from './catalog-fields';
 export { commitCatalogSave, toggleCatalogActive } from './catalog-lifecycle';
-export { CatalogLifecycleButton } from './catalog-lifecycle-button';
-export { CatalogFilteredList, CatalogGroupHeader, CatalogPage } from './catalog-page';
+export { CatalogFilteredList, CatalogPage } from './catalog-page';
 export { CatalogDialogCancel, CatalogRecordDialog } from './catalog-record-dialog';
 export { CatalogDrawerCancel, CatalogRecordDrawer } from './catalog-record-drawer';
 export { CatalogRowActions } from './catalog-row-actions';

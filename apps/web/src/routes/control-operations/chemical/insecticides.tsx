@@ -11,18 +11,17 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import {
-	CatalogGroupHeader,
-	CatalogInactiveDisclosure,
-	CatalogNote,
-	CatalogPage,
-} from '../../../components/catalog';
+import { CatalogFilteredList, CatalogPage } from '../../../components/catalog';
 import type { InsecticideCatalog } from '../../../components/control-operations/chemical/insecticide-catalog';
 import { InsecticideDrawer } from '../../../components/control-operations/chemical/insecticide-drawer';
-import { InsecticideTable } from '../../../components/control-operations/chemical/insecticide-table';
+import { InsecticideSection } from '../../../components/control-operations/chemical/insecticide-section';
+import { useCatalogSearch } from '../../../hooks/catalog/use-catalog-search';
 import { useInsecticideBatchMutations } from '../../../hooks/mutations/use-insecticide-batch-mutations';
 import { useInsecticideMutations } from '../../../hooks/mutations/use-insecticide-mutations';
-import { useInsecticideRecords } from '../../../hooks/queries/use-insecticide-records';
+import {
+	type InsecticideRecord,
+	useInsecticideRecords,
+} from '../../../hooks/queries/use-insecticide-records';
 import { type UnitType, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 
@@ -35,6 +34,12 @@ const AddIcon = iconRegistry.actions.add.icon;
 
 /** Amounts are recorded per product, so only these unit types are offered. */
 const USAGE_UNIT_TYPES = new Set<UnitType>(['volume', 'weight', 'count']);
+
+function matchesInsecticide(row: InsecticideRecord, query: string): boolean {
+	return [row.tradeName, row.shorthand ?? '', row.activeIngredient].some((text) =>
+		text.toLowerCase().includes(query),
+	);
+}
 
 function InsecticidesRoute() {
 	const { auth } = Route.useRouteContext();
@@ -54,12 +59,15 @@ function InsecticidesRoute() {
 				first.unitType.localeCompare(second.unitType) ||
 				first.unitName.localeCompare(second.unitName),
 		);
-	const activeInsecticides = insecticides.filter((row) => row.isActive);
-	const inactiveInsecticides = insecticides.filter((row) => !row.isActive);
+	const search = useCatalogSearch(
+		insecticides.filter((row) => row.isActive),
+		insecticides.filter((row) => !row.isActive),
+		matchesInsecticide,
+	);
 	const batchTrackingEnabled = settings.controlOperations.trackInsecticideBatches;
 
-	// Built once and passed down whole. Each table then names only the subset it
-	// draws, so the full catalog cannot arrive under a subset's name.
+	// Built once and passed down whole. Each section then names only the subset
+	// it draws, so the full catalog cannot arrive under a subset's name.
 	const catalog: InsecticideCatalog = {
 		allProducts: insecticides,
 		batchMutations,
@@ -89,6 +97,7 @@ function InsecticidesRoute() {
 		<CatalogPage
 			action={canManage ? addInsecticideDrawer : undefined}
 			canEdit={canManage}
+			description="Expand a product to manage the lots or batches crews draw from."
 			emptyDescription={
 				<>
 					Insecticides are the products behind every chemical application record.
@@ -102,25 +111,34 @@ function InsecticidesRoute() {
 			isEmpty={insecticides.length === 0}
 			title="Insecticides"
 		>
-			<section className="grid gap-2">
-				<CatalogGroupHeader
-					active={activeInsecticides.length}
-					description="Expand a product to manage the lots or batches crews draw from."
-					inactive={inactiveInsecticides.length}
-					title="Products"
+			{batchTrackingEnabled ? null : <BatchTrackingDisabledNotice />}
+			<CatalogFilteredList
+				noun="insecticides"
+				search={search}
+				searchLabel="Search insecticides by trade name, shorthand or active ingredient"
+				searchPlaceholder="Search insecticides…"
+			>
+				<InsecticideSection
+					catalog={catalog}
+					emptyLabel={
+						search.query.length > 0
+							? 'No active insecticides match your search.'
+							: 'No active insecticides.'
+					}
+					rows={search.filteredActive}
+					title="Active"
+					tone="active"
 				/>
-				{batchTrackingEnabled ? null : <BatchTrackingDisabledNotice />}
-				{activeInsecticides.length === 0 ? (
-					<CatalogNote>No active insecticides.</CatalogNote>
-				) : (
-					<InsecticideTable catalog={catalog} shownProducts={activeInsecticides} />
-				)}
-				{inactiveInsecticides.length > 0 ? (
-					<CatalogInactiveDisclosure count={inactiveInsecticides.length}>
-						<InsecticideTable catalog={catalog} shownProducts={inactiveInsecticides} />
-					</CatalogInactiveDisclosure>
+				{search.inactiveCount > 0 ? (
+					<InsecticideSection
+						catalog={catalog}
+						emptyLabel="No inactive insecticides match your search."
+						rows={search.filteredInactive}
+						title="Inactive"
+						tone="inactive"
+					/>
 				) : null}
-			</section>
+			</CatalogFilteredList>
 		</CatalogPage>
 	);
 }
