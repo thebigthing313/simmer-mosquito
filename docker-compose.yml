@@ -11,7 +11,7 @@ services:
     # `packages/db/schema.sql` is what pg_dump 17.0 to 17.5 writes, so a rebuild
     # of the tag on 17.6 would refuse the client. `ci.yml` and `schema-drift.yml`
     # under `.github/workflows/` carry the same digest; move all three together
-    # (CLAUDE.md, Database).
+    # (docs/database.md).
     image: postgis/postgis:17-3.5@sha256:01a6a70e41e6c4467c8f55f6063555ed72db2d6662cd0d571040d42eadaeb6f6
     command:
       - postgres

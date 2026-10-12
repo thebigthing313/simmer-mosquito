@@ -414,7 +414,7 @@ export function pgDumpRefusal({ command, local, problem }) {
 		'- the PostgreSQL 17 client tools at 17.5 or older first on the PATH;',
 		`- the compose Postgres running (docker compose up -d postgres) and the URL on`,
 		`  127.0.0.1:${PUBLISHED_PORT}, which makes the wrapper dump through the container's pg_dump.`,
-		'CLAUDE.md, Database, says why the version matters.',
+		'docs/database.md says why the version matters.',
 	].join('\n');
 }
 
