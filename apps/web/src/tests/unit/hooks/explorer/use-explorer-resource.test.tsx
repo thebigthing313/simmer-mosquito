@@ -88,7 +88,6 @@ interface ResourceOptions {
 	readonly params: Readonly<Record<string, MapQueryValue>>;
 	readonly tiles: RecordSetTiles;
 	readonly normalizeRow?: (row: Row) => Row;
-	readonly holdRailOnSelect?: boolean;
 	readonly summarize?: boolean;
 }
 
@@ -514,7 +513,7 @@ describe('useExplorerResource: the map and the selection it holds', () => {
 	 * These cases drive the hook the way `ExplorerCanvas` and the rail do. The
 	 * canvas calls `onMapReady`, and a row or a drawn record calls the setter.
 	 */
-	function renderBare(holdRailOnSelect = false) {
+	function renderBare() {
 		return renderHook(
 			() =>
 				useSurfaceResource({
@@ -524,7 +523,6 @@ describe('useExplorerResource: the map and the selection it holds', () => {
 					recordType: 'address',
 					params: {},
 					tiles: { kind: 'addresses', filters: { search: 'elm' } },
-					holdRailOnSelect,
 				}),
 			{ wrapper },
 		);
@@ -611,17 +609,26 @@ describe('useExplorerResource: the map and the selection it holds', () => {
 		expect(fake.cameraCalls).toHaveLength(2);
 	});
 
-	it('carries the rail-holding mark to the one flight', async () => {
+	it('holds the rail through the flight to a pick, and follows a move after it', async () => {
+		// Every explorer, not only Service Requests: a pick that re-paged the rail
+		// for the viewport it flew to slid the picked row down the list (#1652).
 		answer = () => ({ rows: [{ id: 'row-1', lat: 3, lng: 4 }], total: 1 });
 		const fake = createFakeMap();
-		const { result } = renderBare(true);
+		const { result } = renderBare();
 		act(() => result.current.canvas.onMapReady(fake.map));
 		await waitFor(() => expect(result.current.rows).toHaveLength(1));
+		expect(pageRequests('/map/addresses')).toHaveLength(1);
 
 		act(() => result.current.setSelectedId('row-1'));
 
 		await waitFor(() => expect(fake.cameraCalls).toHaveLength(1));
 		expect(fake.cameraCalls[0]?.eventData).toEqual({ [RAIL_HOLDS_MOVE]: true });
+
+		// A pan the reader makes afterwards is a new viewport, and the rail pages it.
+		act(() => {
+			fake.moveTo(1, 1);
+		});
+		await waitFor(() => expect(pageRequests('/map/addresses')).toHaveLength(2));
 	});
 
 	it('clears the selection and the card with it', async () => {
@@ -676,32 +683,7 @@ describe('useExplorerResource: the selected record', () => {
 		expect(result.current.selected).toBe(result.current.rows[0]);
 		await waitFor(() => expect(fake.cameraCalls).toHaveLength(1));
 		expect(fake.cameraCalls[0]?.kind).toBe('flyTo');
-		// No `holdRailOnSelect`, so the flight is an ordinary move the rail follows.
-		expect(fake.cameraCalls[0]?.eventData).toBeUndefined();
-	});
-
-	it('marks the flight to a selection so the rail keeps its rows', async () => {
-		const onPage = { id: 'row-1', lat: 3, lng: 4 };
-		answer = () => ({ rows: [onPage], total: 1 });
-		const fake = createFakeMap();
-
-		renderHook(
-			() =>
-				useResourceOnCanvas({
-					path: '/map/service-requests',
-					rowsKey: 'rows',
-					rowKey: 'row',
-					recordType: 'serviceRequest',
-					params: {},
-					tiles: { kind: 'service-requests' },
-					map: fake.map,
-					selectedId: 'row-1',
-					holdRailOnSelect: true,
-				}),
-			{ wrapper },
-		);
-
-		await waitFor(() => expect(fake.cameraCalls).toHaveLength(1));
+		// The flight carries the mark, so the rail keeps the page it was read off.
 		expect(fake.cameraCalls[0]?.eventData).toEqual({ [RAIL_HOLDS_MOVE]: true });
 	});
 

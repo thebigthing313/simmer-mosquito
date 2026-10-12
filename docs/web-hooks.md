@@ -284,13 +284,16 @@ hook says where on the canvas the record lands, because a page with chrome
 floating over its map declares that once as the canvas's viewport padding.
 
 A caller passing `holdRail` marks the flight with `RAIL_HOLDS_MOVE` in its
-event data, and `useMapBoundsParam` skips a move carrying it. The Service
-Requests explorer is the one caller: a reader working down the queue picks a
-request and the rail used to re-page for the viewport the map landed on, which
-dropped the rows around the pick and usually the pick's own place in the list.
-A flag on the event rather than a pause on the listener, because a pan the
-reader makes during or after the flight is a real change of viewport and must
-still re-page.
+event data, and `useMapBoundsParam` skips a move carrying it. Every explorer
+holds its rail on selection, because `useExplorerResource` always passes it.
+Without the mark the rail re-paged for the viewport the map landed on, which
+took in records the old box had not, dropped the rows around the pick, and
+slid the picked row from first to fifth under the cursor on Inspections. Only
+Service Requests held its rail until #1652; the other explorers were left off
+it and kept re-paging. A flag on the event rather than a pause on the
+listener, because a pan the reader makes during or after the flight is a real
+change of viewport and must still re-page. The activity pages and Requests for
+Control call the hook without it, since neither pages its list by viewport.
 
 This is the only flight an explorer selection makes, and a map card moves no
 camera. The Address card used to fly as well, once its geometry request
@@ -320,7 +323,7 @@ draws, `tileset`, and its endpoint names the key one record arrives under from
 record that is not on the page. Both were route options, written as literals
 beside the set in all eleven routes, and `rowKey` was a free `string` that
 could name another record type's key. What a route still passes is what the
-set does not decide: `normalizeRow`, `holdRailOnSelect` and `summarize`, and
+set does not decide: `normalizeRow` and `summarize`, and
 `params`, what the page request sends beside the filters, which only Service
 Requests uses, for its rail order. Those go on after the filters and never on
 the tile or extent URL, and `bbox` still goes first.
@@ -355,8 +358,9 @@ nothing else, no `bbox`, no paging, so an empty query is a request for
 everything the Organization has. A failed request reads as the viewport, which
 is the copy the rail gave before it could tell.
 
-`holdRailOnSelect` is the switch for `useFlyToSelection`'s `holdRail`, off by
-default so the other explorers keep re-paging for the record they fly to.
+The flight to a selection always carries `useFlyToSelection`'s `holdRail`, so
+picking a row leaves the rail and the row where they were. It used to be a
+`holdRailOnSelect` option that only Service Requests turned on (#1652).
 
 The hook holds the map instance, the selection and the tile layer, since
 #1423. All eleven routes used to keep a `MapboxMap` in state whose only reader
