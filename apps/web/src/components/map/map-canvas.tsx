@@ -13,6 +13,7 @@ import { useMapMeasure } from '../../hooks/map/use-map-measure';
 import { useMapPadding } from '../../hooks/map/use-map-padding';
 import { isMapLive, useMapboxMap } from '../../hooks/map/use-mapbox-map';
 import { type NearbyLayerConfig, useNearbyLayer } from '../../hooks/map/use-nearby-layer';
+import { useOrganizationAreaOpening } from '../../hooks/map/use-organization-area-opening';
 import { type RouteLayerConfig, useRouteLayer } from '../../hooks/map/use-route-layer';
 import { useSelectionOverlayLayer } from '../../hooks/map/use-selection-overlay-layer';
 import { useTileLayer } from '../../hooks/map/use-tile-layer';
@@ -84,6 +85,7 @@ export function MapCanvas({
 	contextGeoJson,
 	fitToData,
 	rememberCamera = false,
+	empty,
 	onMapReady,
 }: {
 	readonly className?: string;
@@ -150,6 +152,14 @@ export function MapCanvas({
 	 * and leaves the opening camera alone. `useExplorerCamera` has the rest.
 	 */
 	readonly rememberCamera?: boolean;
+	/**
+	 * Whether the page has no rows to put on this map. A page whose map fits
+	 * only to its own rows passes it, and while it is `true` the map opens on the
+	 * Organization's area: the stored explorer camera, or else the Regions
+	 * extent. Omitted means the map frames something of its own.
+	 * `useOrganizationAreaOpening` has the rest.
+	 */
+	readonly empty?: boolean;
 	/** Called once with the GL instance after it loads, for camera/bounds reads. */
 	readonly onMapReady?: (map: MapboxMap) => void;
 }) {
@@ -176,7 +186,8 @@ export function MapCanvas({
 	const showClustering = !show.minimal && (layers ?? []).some(tileLayerClusters);
 
 	const remembered = useExplorerCamera(rememberCamera);
-	const openingCamera = camera ?? remembered.initialCamera;
+	const organizationArea = useOrganizationAreaOpening(empty);
+	const openingCamera = camera ?? remembered.initialCamera ?? organizationArea.initialCamera;
 	const { map, isLoaded, hasToken, error } = useMapboxMap({
 		container,
 		basemapId,
@@ -200,6 +211,7 @@ export function MapCanvas({
 	useMapPadding(map, isLoaded, clear);
 	useMapExtentFit(map, isLoaded, resolveExtentFitSource(fitToData, layers), clear, rememberCamera);
 	useMapExtentFit(map, isLoaded, remembered.firstVisitFit, clear);
+	useMapExtentFit(map, isLoaded, organizationArea.fit, clear);
 	const { storageKey } = remembered;
 	useEffect(() => {
 		if (storageKey === null || !isMapLive(map)) {
