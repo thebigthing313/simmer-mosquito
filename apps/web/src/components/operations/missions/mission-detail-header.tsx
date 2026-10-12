@@ -1,7 +1,11 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import type { MissionRun } from '../../../hooks/operations/use-mission-run';
-import { controlTypeLabel, missionDisplayName } from '../../../hooks/queries/operations-view';
+import {
+	controlTypeLabel,
+	isMissionPastDue,
+	missionDisplayName,
+} from '../../../hooks/queries/operations-view';
 import type { MissionRecord } from '../../../hooks/queries/use-mission';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationClock } from '../../../hooks/use-organization-clock';
@@ -58,7 +62,9 @@ export function MissionDetailHeader({
 					params: { id: mission.id },
 					to: '/operations/missions/$id/edit',
 				}}
-				flags={<MissionStatusBadge status={mission.status} />}
+				flags={
+					<MissionStatusBadge pastDue={isMissionPastDue(mission, clock)} status={mission.status} />
+				}
 				frame="panel"
 				icon={MissionIcon}
 				recordType="mission"

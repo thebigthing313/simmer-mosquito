@@ -1,4 +1,5 @@
 import {
+	isMissionPastDue,
 	type MissionListing,
 	type MissionProgressCounts,
 	missionDisplayName,
@@ -34,7 +35,10 @@ export function SelectedMissionCard({
 							{assigneeName ?? 'Unassigned'} · {stopSummary(counts)}
 						</p>
 					</div>
-					<MissionStatusBadge status={missionStatus(mission)} />
+					<MissionStatusBadge
+						pastDue={isMissionPastDue(mission, clock)}
+						status={missionStatus(mission)}
+					/>
 				</div>
 			</div>
 		</div>

@@ -24,10 +24,28 @@ const missionStatusTones = {
 	cancelled: 'neutral',
 } as const;
 
-export function MissionStatusBadge({ status }: { readonly status: MissionStatus }) {
+/**
+ * A mission's status as words. `pastDue` is `isMissionPastDue`, and a past-due
+ * mission is scheduled, so it reads "Past due" in place of "Scheduled".
+ */
+export function missionStatusLabel(status: MissionStatus, pastDue: boolean): string {
+	return pastDue ? 'Past due' : MISSION_STATUS_LABELS[status];
+}
+
+export function MissionStatusBadge({
+	status,
+	pastDue,
+}: {
+	readonly status: MissionStatus;
+	readonly pastDue: boolean;
+}) {
 	return (
-		<Badge className="shrink-0" tone={missionStatusTones[status]} variant="outline">
-			{MISSION_STATUS_LABELS[status]}
+		<Badge
+			className="shrink-0"
+			tone={pastDue ? 'warning' : missionStatusTones[status]}
+			variant="outline"
+		>
+			{missionStatusLabel(status, pastDue)}
 		</Badge>
 	);
 }

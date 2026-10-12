@@ -1561,9 +1561,15 @@ is on no queue, because someone is doing it, and the `started_at` predicate is
 what says so.
 
 The upper bound is the start of tomorrow, so a mission due at any hour of
-today is inside it. It is an instant from `localDayStartAsInstant` rather than
-a `YYYY-MM-DD`, because `scheduled_start_at` is a `timestamptz`, and
-`useMissions` widens its window to the start of the next day the same way.
+today is inside it. It is an instant from `missionDueCutoff` in
+`operations-view.ts` rather than a `YYYY-MM-DD`, because `scheduled_start_at`
+is a `timestamptz`, and `useMissions` widens its window to the start of the
+next day the same way.
+
+The mission surfaces read the same cut-off through `isMissionPastDue`, which
+passes yesterday where the queue passes today. A mission is past due when the
+queue would have counted it yesterday, so the badge and the queue cannot
+disagree about which day a mission belongs to (#1665).
 
 #### useInProgressAssignmentsQueue
 

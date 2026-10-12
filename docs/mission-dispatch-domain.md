@@ -100,7 +100,10 @@ Derived statuses:
 - `deleted`: `deleted_at` set
 
 No `draft`, `overdue`, or mission status enum is part of v1. Overdue is a read
-concern derived from schedule fields.
+concern derived from schedule fields: in `apps/web`, a scheduled mission whose
+start fell on a day before today in the Organization's zone reads "Past due",
+through `isMissionPastDue` in `hooks/queries/operations-view.ts`. The rain date
+does not move it.
 
 `completed_at` and `cancelled_at` are mutually exclusive. Add a lightweight
 database check for this in the schema backlog. Reopening a completed or

@@ -6,11 +6,12 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link, type LinkProps } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import { missionStatusLabel } from '../../components/operations/operations-display';
 import { useControlMethodNames } from '../../hooks/explorer/use-control-method-names';
 import { assignmentDisplayName, assignmentStatus } from '../../hooks/queries/assignment-view';
 import {
 	controlTypeLabel,
-	MISSION_STATUS_LABELS,
+	isMissionPastDue,
 	missionDisplayName,
 	missionStatus,
 	requestDisplayName,
@@ -293,7 +294,7 @@ function MissionsPanel({
 									icon={<MissionIcon aria-hidden="true" className="size-4" />}
 									key={mission.id}
 									primary={missionDisplayName(mission, clock)}
-									secondary={`${MISSION_STATUS_LABELS[missionStatus(mission)]} · ${
+									secondary={`${missionStatusLabel(missionStatus(mission), isMissionPastDue(mission, clock))} · ${
 										mission.assignedToProfileId === null
 											? 'Unassigned'
 											: (nameById.get(mission.assignedToProfileId) ?? 'Unknown')
