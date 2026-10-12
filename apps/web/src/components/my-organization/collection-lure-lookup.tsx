@@ -30,6 +30,7 @@ import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../catalog';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import { LookupListFrame } from './layout/lookup-list-frame';
+import { LookupListGroup } from './layout/lookup-list-group';
 
 export function CollectionLureLookupList({ canManage }: { readonly canManage: boolean }) {
 	const { activeRecords: activeLures, inactiveRecords: inactiveLures } = useCatalogRecords(
@@ -87,58 +88,48 @@ function CollectionLureTable({
 	readonly title: string;
 }) {
 	return (
-		<div className="grid gap-2">
-			<div className="flex items-center justify-between gap-2 border-t border-border/40 pt-2">
-				<span className="text-xs font-medium text-muted-foreground">{title}</span>
-				<span className="text-xs font-medium text-muted-foreground">{lures.length}</span>
-			</div>
-			{lures.length === 0 ? (
-				<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-sm text-muted-foreground">
-					{emptyLabel}
-				</p>
-			) : (
-				<div className="overflow-hidden rounded-md border border-border/30 bg-background/70 [--lure-actions-column:76px] [--lure-name-column:32%]">
-					<Table className="w-full table-fixed">
-						<TableHeader>
-							<TableRow>
-								<TableHead className="w-(--lure-name-column)">Lure</TableHead>
-								<TableHead>Description</TableHead>
+		<LookupListGroup count={lures.length} emptyLabel={emptyLabel} title={title}>
+			<div className="overflow-hidden rounded-md border border-border/30 bg-background/70 [--lure-actions-column:76px] [--lure-name-column:32%]">
+				<Table className="w-full table-fixed">
+					<TableHeader>
+						<TableRow>
+							<TableHead className="w-(--lure-name-column)">Lure</TableHead>
+							<TableHead>Description</TableHead>
+							{canManage ? (
+								<TableHead className="w-(--lure-actions-column) text-right">Actions</TableHead>
+							) : null}
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{lures.map((lure) => (
+							<TableRow key={lure.id}>
+								<TableCell className="w-(--lure-name-column) font-medium">
+									<span className="wrap-anywhere">{lure.name}</span>
+								</TableCell>
+								<TableCell className="whitespace-normal text-muted-foreground wrap-anywhere">
+									{lure.description ?? <AbsentValue />}
+								</TableCell>
 								{canManage ? (
-									<TableHead className="w-(--lure-actions-column) text-right">Actions</TableHead>
+									<TableCell className="w-(--lure-actions-column) text-right">
+										<CollectionLureDrawer
+											canManage={canManage}
+											lure={lure}
+											mutations={mutations}
+											trigger={
+												<Button type="button" variant="outline" size="icon">
+													<EditIcon aria-hidden="true" />
+													<span className="sr-only">Edit {lure.name}</span>
+												</Button>
+											}
+										/>
+									</TableCell>
 								) : null}
 							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{lures.map((lure) => (
-								<TableRow key={lure.id}>
-									<TableCell className="w-(--lure-name-column) font-medium">
-										<span className="wrap-anywhere">{lure.name}</span>
-									</TableCell>
-									<TableCell className="whitespace-normal text-muted-foreground wrap-anywhere">
-										{lure.description ?? <AbsentValue />}
-									</TableCell>
-									{canManage ? (
-										<TableCell className="w-(--lure-actions-column) text-right">
-											<CollectionLureDrawer
-												canManage={canManage}
-												lure={lure}
-												mutations={mutations}
-												trigger={
-													<Button type="button" variant="outline" size="icon">
-														<EditIcon aria-hidden="true" />
-														<span className="sr-only">Edit {lure.name}</span>
-													</Button>
-												}
-											/>
-										</TableCell>
-									) : null}
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				</div>
-			)}
-		</div>
+						))}
+					</TableBody>
+				</Table>
+			</div>
+		</LookupListGroup>
 	);
 }
 

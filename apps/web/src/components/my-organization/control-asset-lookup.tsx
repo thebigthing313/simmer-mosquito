@@ -38,6 +38,7 @@ import { hasMetadata } from '../../lib/record-display';
 import { commitCatalogSave } from '../catalog';
 import { AddIcon, CloseIcon, controlAssetListConfigs, EditIcon } from './constants';
 import { LookupListFrame } from './layout/lookup-list-frame';
+import { LookupListGroup } from './layout/lookup-list-group';
 import type { ControlAssetCollectionKey } from './types';
 
 export function VehicleLookupList({ canManage }: { readonly canManage: boolean }) {
@@ -99,20 +100,30 @@ function ControlAssetLookupContent({
 				) : null
 			}
 		>
-			<ControlAssetTable
-				assets={activeAssets}
-				canManage={canManage}
-				collectionKey={collectionKey}
-				mutations={mutations}
-			/>
-			{inactiveAssets.length > 0 ? (
+			<LookupListGroup
+				count={activeAssets.length}
+				emptyLabel={`No active ${config.lowercaseTitle}.`}
+				title={`Active ${config.lowercaseTitle}`}
+			>
+				<ControlAssetTable
+					assets={activeAssets}
+					canManage={canManage}
+					collectionKey={collectionKey}
+					mutations={mutations}
+				/>
+			</LookupListGroup>
+			<LookupListGroup
+				count={inactiveAssets.length}
+				emptyLabel={`No inactive ${config.lowercaseTitle}.`}
+				title={`Inactive ${config.lowercaseTitle}`}
+			>
 				<ControlAssetTable
 					assets={inactiveAssets}
 					canManage={canManage}
 					collectionKey={collectionKey}
 					mutations={mutations}
 				/>
-			) : null}
+			</LookupListGroup>
 		</LookupListFrame>
 	);
 }
@@ -136,9 +147,8 @@ function ControlAssetTable({
 					<TableRow>
 						<TableHead>{config.fieldLabel}</TableHead>
 						{collectionKey === 'equipment' ? <TableHead>Serial Number</TableHead> : null}
-						<TableHead className="w-28">Status</TableHead>
 						<TableHead className="w-28">Metadata</TableHead>
-						{canManage ? <TableHead className="w-16 text-right">Edit</TableHead> : null}
+						{canManage ? <TableHead className="w-20 text-right">Actions</TableHead> : null}
 					</TableRow>
 				</TableHeader>
 				<TableBody>
@@ -148,7 +158,6 @@ function ControlAssetTable({
 							{collectionKey === 'equipment' ? (
 								<TableCell>{asset.serialNumber ?? 'Not set'}</TableCell>
 							) : null}
-							<TableCell>{asset.isActive ? 'Active' : 'Inactive'}</TableCell>
 							<TableCell>{hasMetadata(asset.metadata) ? 'Configured' : 'None'}</TableCell>
 							{canManage ? (
 								<TableCell className="text-right">

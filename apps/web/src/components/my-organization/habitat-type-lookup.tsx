@@ -31,6 +31,7 @@ import { catalogFields, catalogFormValues, commitCatalogSave } from '../catalog'
 import { CustomFieldsCell } from '../custom-fields-cell';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import { LookupListFrame } from './layout/lookup-list-frame';
+import { LookupListGroup } from './layout/lookup-list-group';
 
 export function HabitatTypeLookupList({ canManage }: { readonly canManage: boolean }) {
 	const { activeRecords: activeHabitatTypes, inactiveRecords: inactiveHabitatTypes } =
@@ -87,62 +88,52 @@ function HabitatTypeTable({
 	readonly title: string;
 }) {
 	return (
-		<div className="grid gap-2">
-			<div className="flex items-center justify-between gap-2 border-t border-border/40 pt-2">
-				<span className="text-xs font-medium text-muted-foreground">{title}</span>
-				<span className="text-xs font-medium text-muted-foreground">{habitatTypes.length}</span>
-			</div>
-			{habitatTypes.length === 0 ? (
-				<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-sm text-muted-foreground">
-					{emptyLabel}
-				</p>
-			) : (
-				<div className="overflow-hidden rounded-md border border-border/30 bg-background/70 [--habitat-actions-column:76px] [--habitat-fields-column:112px] [--habitat-name-column:28%]">
-					<Table className="w-full table-fixed">
-						<TableHeader>
-							<TableRow>
-								<TableHead className="w-(--habitat-name-column)">Habitat Type</TableHead>
-								<TableHead>Description</TableHead>
-								<TableHead className="w-(--habitat-fields-column)">Custom Fields</TableHead>
+		<LookupListGroup count={habitatTypes.length} emptyLabel={emptyLabel} title={title}>
+			<div className="overflow-hidden rounded-md border border-border/30 bg-background/70 [--habitat-actions-column:76px] [--habitat-fields-column:112px] [--habitat-name-column:28%]">
+				<Table className="w-full table-fixed">
+					<TableHeader>
+						<TableRow>
+							<TableHead className="w-(--habitat-name-column)">Habitat Type</TableHead>
+							<TableHead>Description</TableHead>
+							<TableHead className="w-(--habitat-fields-column)">Custom Fields</TableHead>
+							{canManage ? (
+								<TableHead className="w-(--habitat-actions-column) text-right">Actions</TableHead>
+							) : null}
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{habitatTypes.map((habitatType) => (
+							<TableRow key={habitatType.id}>
+								<TableCell className="w-(--habitat-name-column) font-medium">
+									<span className="wrap-anywhere">{habitatType.name}</span>
+								</TableCell>
+								<TableCell className="whitespace-normal text-muted-foreground wrap-anywhere">
+									{habitatType.description ?? <AbsentValue />}
+								</TableCell>
+								<TableCell className="w-(--habitat-fields-column)">
+									<CustomFieldsCell schema={habitatType.customSchema} />
+								</TableCell>
 								{canManage ? (
-									<TableHead className="w-(--habitat-actions-column) text-right">Actions</TableHead>
+									<TableCell className="w-(--habitat-actions-column) text-right">
+										<HabitatTypeDrawer
+											canManage={canManage}
+											habitatType={habitatType}
+											mutations={mutations}
+											trigger={
+												<Button type="button" variant="outline" size="icon">
+													<EditIcon aria-hidden="true" />
+													<span className="sr-only">Edit {habitatType.name}</span>
+												</Button>
+											}
+										/>
+									</TableCell>
 								) : null}
 							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{habitatTypes.map((habitatType) => (
-								<TableRow key={habitatType.id}>
-									<TableCell className="w-(--habitat-name-column) font-medium">
-										<span className="wrap-anywhere">{habitatType.name}</span>
-									</TableCell>
-									<TableCell className="whitespace-normal text-muted-foreground wrap-anywhere">
-										{habitatType.description ?? <AbsentValue />}
-									</TableCell>
-									<TableCell className="w-(--habitat-fields-column)">
-										<CustomFieldsCell schema={habitatType.customSchema} />
-									</TableCell>
-									{canManage ? (
-										<TableCell className="w-(--habitat-actions-column) text-right">
-											<HabitatTypeDrawer
-												canManage={canManage}
-												habitatType={habitatType}
-												mutations={mutations}
-												trigger={
-													<Button type="button" variant="outline" size="icon">
-														<EditIcon aria-hidden="true" />
-														<span className="sr-only">Edit {habitatType.name}</span>
-													</Button>
-												}
-											/>
-										</TableCell>
-									) : null}
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				</div>
-			)}
-		</div>
+						))}
+					</TableBody>
+				</Table>
+			</div>
+		</LookupListGroup>
 	);
 }
 
