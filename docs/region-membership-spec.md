@@ -11,8 +11,10 @@ migrated by this spec.
 ## The predicate
 
 A record is inside a region when their geometries meet, with area versus area
-requiring their interiors to meet. Points and lines take plain intersection;
-polygons take interior intersection. ADR 0015 has the reasoning.
+requiring their interiors to meet and their overlap to cover at least 0.1% of the
+smaller area. Points and lines take plain intersection; polygons take interior
+intersection plus the threshold. ADR 0015 has the reasoning, and its 2026-10-13
+amendment has the threshold and the validity rule.
 
 ```sql
 exists (
@@ -24,11 +26,27 @@ exists (
     and rf.geom && :record_geom
     and case
           when :record_geom_type in ('st_polygon', 'st_multipolygon')
-            then st_relate(rf.geom, :record_geom, 'T********')
+            then exists (
+              select 1
+              from (select case
+                      when st_isvalid(:record_geom) then :record_geom
+                      else st_collectionextract(st_makevalid(:record_geom), 3)
+                    end as geom) record_area
+              where st_relate(rf.geom, record_area.geom, 'T********')
+                and st_area(st_intersection(rf.geom, record_area.geom))
+                  >= 0.001 * least(st_area(rf.geom), st_area(record_area.geom))
+            )
           else st_intersects(rf.geom, :record_geom)
         end
 )
 ```
+
+The region side is valid by construction: the server writes Region geometry
+through `valid_region_geom` and `regions_geom_valid_check` refuses an invalid
+row. The record side is not, because the Split gesture writes two pieces sharing
+their cut line, so the predicate repairs a record area for the read only where
+`st_isvalid` is false. `REGION_AREA_OVERLAP_SHARE` in
+`packages/db/src/domains/map-region-filter.ts` is the 0.1%.
 
 `regions.geom` takes a Polygon or a MultiPolygon, so both sides vary, over six
 types on the record side. The interior cell is symmetric, so a multipart region
@@ -325,6 +343,13 @@ would not.
 Multipart geometry came in with ADR 0018, ten cases of it, and collection
 geometry stays out because a GeometryCollection is not a record geometry.
 
+The overlap threshold came in with #1671 and two polygon cases:
+`polygon-sliver-overlap` overlaps the region by about 0.05% of its own area and
+is outside, and `polygon-small-real-overlap` overlaps it by about 0.5% and is
+inside. Each sits an order of magnitude from the line, so precision never decides
+them. The SQL suite pins the line itself, with shares of 0.0997% and 0.1002%,
+outside the corpus.
+
 Every boundary case is built from a coordinate that appears literally in the
 region ring. A derived point on an edge is a different double in each
 implementation and the corpus becomes a tolerance argument; with shared literals
@@ -354,7 +379,7 @@ data.
 The SQL half seeds and asserts in a single `it()` with one `withTestDb`, calling
 the shipped helper rather than inline SQL. `withTestDb` applies the whole
 migration set per call, about 1s against a local container and 9s against a
-remote one, so thirty-four `it()` blocks would be thirty-four migration runs.
+remote one, so thirty-six `it()` blocks would be thirty-six migration runs.
 Seed once: one organization per distinct region, one record per case in
 `habitats` (it is `geometry(Geometry, 4326)` held to all six shapes, so it holds
 every case), then one assertion pass. The organizations are what scope each case
@@ -485,7 +510,7 @@ The corpus is the gate mobile passes before it answers offline.
 ### When web and mobile disagree
 
 They can, and the first person to find out will be someone looking at the same
-record on a phone and a laptop. The corpus is thirty-four cases;
+record on a phone and a laptop. The corpus is thirty-six cases;
 organization-drawn polygons are not the corpus, and the failure mode of a
 hand-rolled overlay is a wrong boolean on one record with nothing to make it
 visible.

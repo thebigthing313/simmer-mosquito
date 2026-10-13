@@ -188,6 +188,21 @@ export function geojsonToGeom(geojson: unknown): RawBuilder<string> {
 	), 4326))`;
 }
 
+/**
+ * A Region's GeoJSON as the geometry `regions.geom` stores, repaired where it
+ * crosses itself.
+ *
+ * `valid_region_geom` runs `st_makevalid` on an invalid ring and keeps the
+ * polygonal part, so the result is a Polygon or a MultiPolygon, and
+ * `regions_geom_valid_check` would refuse anything else. Regions only: a record
+ * area keeps the shape Split writes, which `st_makevalid` would dissolve
+ * (#518). ADR 0015's 2026-10-13 amendment has the reason the Region side must
+ * be valid.
+ */
+export function regionGeojsonToGeom(geojson: unknown): RawBuilder<string> {
+	return sql<string>`valid_region_geom(${geojsonToGeom(geojson)})`;
+}
+
 /** The geometry inside a Feature, or the value itself when it is already bare. */
 function unwrapFeature(geojson: unknown): unknown {
 	if (typeof geojson !== 'object' || geojson === null) {

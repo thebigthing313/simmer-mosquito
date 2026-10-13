@@ -1,9 +1,9 @@
-import { geojsonToGeom, softDelete, updateRow } from '@simmer-mosquito/db';
+import { regionGeojsonToGeom, softDelete, updateRow } from '@simmer-mosquito/db';
 import type { CommandTransaction } from '../../command-write.js';
 import type { CommandRow } from '../../return-columns.js';
 
 export type FoundationTransaction = CommandTransaction;
-export { geojsonToGeom, softDelete, updateRow };
+export { regionGeojsonToGeom, softDelete, updateRow };
 
 // ===========================================================================
 // Response shaping
