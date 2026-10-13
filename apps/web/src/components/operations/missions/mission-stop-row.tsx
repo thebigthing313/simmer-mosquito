@@ -4,7 +4,7 @@ import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown
 import { Link } from '@tanstack/react-router';
 import { controlTypeLabel, requestDisplayName } from '../../../hooks/queries/operations-view';
 import type { RecordType } from '../../../lib/record-nouns';
-import { createSentenceLabel } from '../../app-shell/navigation';
+import { createLabel } from '../../app-shell/navigation';
 import {
 	type MoveAction,
 	OrdinalBadge,
@@ -30,8 +30,9 @@ const ACTION_LABELS: Readonly<Record<MissionItemAction, string>> = {
 
 /**
  * Where each kind of mission sends the crew to record what they did, and the
- * record type that form writes. The button's label is `createSentenceLabel`
- * over the record type, the wording a detail page's menu reads for the same
+ * record type that form writes. The button's label is `createLabel` over the
+ * record type: Title Case, because a button with visible text takes it, and
+ * the same words a detail page's menu reads in sentence case for the same
  * form (#1702).
  */
 const RECORD_ROUTE: Readonly<
@@ -69,7 +70,7 @@ function RecordMissionWorkButton({
 	}
 	const route = RECORD_ROUTE[controlType];
 	const search = { missionItemId: stop.missionItemId, missionId };
-	const label = createSentenceLabel(route.recordType);
+	const label = createLabel(route.recordType);
 
 	return (
 		<Button asChild={enabled} disabled={!enabled} size="sm" variant="default">

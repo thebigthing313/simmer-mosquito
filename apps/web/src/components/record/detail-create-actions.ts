@@ -16,8 +16,9 @@ import type { DetailAction } from './detail-page-header';
  * from `RECORD_NOUNS`. Sentence case, because the items sit in a menu under the
  * record's own heading. The labels were literals until #1702, and two had
  * drifted from the register, `Record application` and `Record biocontrol
- * release`. A mission stop's record button reads the same helper, so one form
- * carries one name wherever it is offered from.
+ * release`. A mission stop's record button reads `createLabel` over the same
+ * record type, so one form carries one name wherever it is offered from, in
+ * Title Case on the button and sentence case here.
  *
  * The trap page shows why the wording is decided once. It carries a "Record
  * Collection" button on its collections card and the same action in its menu,

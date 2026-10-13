@@ -8,7 +8,8 @@
  * `RECORD_NOUNS`: a mission stop offered "Record biocontrol" and a detail menu
  * "Record biocontrol release" for a form the register calls a biocontrol
  * action. Both read the record type's create verb and the register's singular
- * now, in sentence case, so one destination reads the same words in both.
+ * now, so one destination reads the same words in both: sentence case in the
+ * menu, Title Case on the stop's button, which has visible text.
  */
 
 import type { ControlType } from '@simmer-mosquito/domain';
@@ -104,22 +105,22 @@ function renderStop(controlType: ControlType) {
 
 describe('a mission stop', () => {
 	it.each([
-		['application', 'Record chemical application', '/control-operations/chemical/create'],
-		['source_reduction', 'Record source reduction', '/control-operations/source-reduction/create'],
-		['biocontrol', 'Record biocontrol action', '/control-operations/biocontrol/create'],
-		['outreach', 'Record outreach action', '/public-engagement/outreach/create'],
+		['application', 'Record Chemical Application', '/control-operations/chemical/create'],
+		['source_reduction', 'Record Source Reduction', '/control-operations/source-reduction/create'],
+		['biocontrol', 'Record Biocontrol Action', '/control-operations/biocontrol/create'],
+		['outreach', 'Record Outreach Action', '/public-engagement/outreach/create'],
 	] as const)('on a %s mission offers %s', (controlType, label, to) => {
 		renderStop(controlType);
 
 		expect(screen.getByRole('link', { name: label }).getAttribute('href')).toBe(to);
 	});
 
-	it('reads the same words as the detail menu for the same form', () => {
+	it('reads the same words as the detail menu for the same form, in its own case', () => {
 		renderStop('biocontrol');
 		const labels = createItems('habitatId', 'habitat-1', [
 			'/control-operations/biocontrol/create',
-		]).map((item) => item.label);
+		]).map((item) => item.label.toLowerCase());
 
-		expect(labels).toEqual([screen.getByRole('link').textContent]);
+		expect(labels).toEqual([screen.getByRole('link').textContent?.toLowerCase()]);
 	});
 });

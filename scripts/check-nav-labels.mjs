@@ -102,8 +102,10 @@
  *
  * This gate does not read them, because the object-literal rule has nothing to
  * hold there. Neither register carries a `label` any more: an entry names a
- * `recordType`, typed `RecordType`, and the one site that draws it calls
- * `createSentenceLabel`, the sentence-case sibling of `createLabel`.
+ * `recordType`, typed `RecordType`. The menu draws it through
+ * `createSentenceLabel`, the sentence-case sibling of `createLabel`, and the
+ * stop's button through `createLabel`, since a button with visible text takes
+ * Title Case.
  * `CREATE_TARGETS` is checked with `satisfies` and `RECORD_ROUTE` is
  * annotated, so a `label` written back into either is an excess property `tsc`
  * refuses, which is a stronger refusal than this gate gives the sidebar. The
