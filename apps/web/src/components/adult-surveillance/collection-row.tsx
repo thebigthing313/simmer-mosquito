@@ -23,23 +23,26 @@ import {
 	SpeciesSexBadge,
 	SpeciesStatusBadge,
 } from './adult-display';
+import { collectionTallies } from './trap-collection-tallies';
 import {
 	type DirectoryCollection,
 	type DirectorySpecies,
-	specimenTotals,
 	summaryLabel,
 } from './trap-directory-data';
 
 export function CollectionRow({
 	collection,
 	speciesNameById,
+	unidentifiedSpeciesIds,
 }: {
 	readonly collection: DirectoryCollection;
 	readonly speciesNameById: ReadonlyMap<string, string>;
+	/** The catalog's "Unidentified mosquito" placeholder, a mosquito but not a species. */
+	readonly unidentifiedSpeciesIds: ReadonlySet<string>;
 }) {
 	const date = collection.effectiveDate;
 	const isPending = isPendingCollection(collection);
-	const totals = specimenTotals(collection.species);
+	const tallies = collectionTallies(collection.species, unidentifiedSpeciesIds);
 
 	return (
 		<li>
@@ -57,7 +60,7 @@ export function CollectionRow({
 						collection={collection}
 					/>
 					<span className="ml-auto shrink-0 text-muted-foreground text-xs tabular-nums">
-						{summaryLabel(collection, totals)}
+						{summaryLabel(collection, tallies)}
 					</span>
 				</CollapsibleTrigger>
 				<CollapsibleContent>
