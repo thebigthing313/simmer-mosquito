@@ -73,14 +73,24 @@
  * it is one there, and only then, which is what keeps a `spell` imported from
  * anywhere a finding. Not the whole app, because a detail page's own menu is
  * the other create wording, `Record collection` under a trap's heading, and
- * that is #949's named follow-up rather than this gate's. Not JSX text either:
- * the Missions and Assignments indexes draw their control as a `<Link>` whose
- * text calls `createLabel`, and a call inside JSX is `check:image-names`' seam
- * again, unreadable by an object-literal rule and left to the reader. #1657
- * settled which way that goes: an index that opens with `PageHeader` instead of
- * `ExplorerHeader` draws its control through `CreateControl`, which takes the
- * same `{ to, label }`, so the label is an entry here rather than JSX text. The
- * Contacts directory's link read a bare `Create` that neither gate could see.
+ * that is #949's named follow-up rather than this gate's. Not JSX text either,
+ * because a call inside JSX is `check:image-names`' seam again and an
+ * object-literal rule cannot read it. #1657 settled which way that goes: an
+ * index that opens with `PageHeader` instead of `ExplorerHeader` draws its
+ * control through `CreateControl`, which takes the same `{ to, label }`, so the
+ * label is an entry here rather than JSX text. The Contacts directory's link
+ * read a bare `Create` that neither gate could see.
+ *
+ * #1687 moved the last four onto it. The Missions and Assignments indexes drew
+ * their control as a `<Link>` whose text called `createLabel`, in the header
+ * and again in the empty state of each result list, and the gate counted none
+ * of them. Two of the four live in a component rather than a route, so the
+ * corpus also takes every module under `apps/web/src/components` that imports
+ * `CreateControl`: importing the control is what makes a module a create
+ * surface, and reading the rest of the components tree would reach the detail
+ * menus this gate leaves to #949. A component names the navigation module
+ * without the `components/` a route goes through, which is why
+ * `NAVIGATION_SPECIFIER` starts at `app-shell`.
  *
  * ## At zero, and what it cost to get there
  *
@@ -108,15 +118,17 @@
  *
  * `MINIMUM_HEADER_CONTROLS` is the third floor, for the same reason over the
  * second corpus: a walk that has stopped finding the explorer routes selects
- * nothing and prints a clean line. There were 13 on 2026-09-15.
+ * nothing and prints a clean line. There were 13 on 2026-09-15 and 18 once
+ * #1687 moved the Missions and Assignments controls onto `CreateControl`.
  *
  * `PROBES` is the fourth guard and cannot be a floor. The gate is at zero, so no
  * count over the sidebar can say whether the detector still reads a label
  * wrong: a rule that answered "reaches the register" to everything would print
- * the same clean line. Eight sources with known answers go through the same
- * reading the file does, four holding a finding and four holding none. The
+ * the same clean line. Nine sources with known answers go through the same
+ * reading the file does, four holding a finding and five holding none. The
  * noes are a helper call, a direct accessor call, an entry off a write surface
- * and a call to a helper imported from the navigation module; the yeses are a
+ * and a call to a helper imported from the navigation module, once by the path
+ * a route writes and once by the shorter one a component writes; the yeses are a
  * literal, a template literal, a call to a helper that spells the noun itself,
  * which is the one a "not a string literal" rule would pass, and a call to an
  * imported name the navigation module does not read the register through.
@@ -138,12 +150,16 @@ const fail = failure(GATE);
 const NAVIGATION = join(workspaceRoot, 'apps/web/src/components/app-shell/navigation.ts');
 const REGISTER = join(workspaceRoot, 'apps/web/src/lib/record-nouns.ts');
 const ROUTES = join(workspaceRoot, 'apps/web/src/routes');
+const COMPONENTS = join(workspaceRoot, 'apps/web/src/components');
 
 /** The one accessor `RECORD_NOUNS` is reached through. */
 const REGISTER_ACCESSOR = 'recordNoun';
 
-/** How a route names the navigation module, however many `../` are in front. */
-const NAVIGATION_SPECIFIER = /\/components\/app-shell\/navigation$/;
+/**
+ * How a route or a component names the navigation module, however many `../`
+ * are in front: a route goes through `components/`, a component does not.
+ */
+const NAVIGATION_SPECIFIER = /\/app-shell\/navigation$/;
 
 /**
  * How few navigation entries means the parse has stopped finding them rather
@@ -159,11 +175,11 @@ const MINIMUM_SELECTED = 15;
 
 /**
  * How few explorer header controls means the walk has stopped finding the
- * explorer routes. There were 13 on 2026-09-15.
+ * explorer routes. There were 13 on 2026-09-15 and 18 after #1687.
  */
 const MINIMUM_HEADER_CONTROLS = 10;
 
-/** Eight sources with known answers, run through the same reading the file gets. */
+/** Nine sources with known answers, run through the same reading the file gets. */
 const PROBES = [
 	{
 		name: 'probe-helper.ts',
@@ -210,6 +226,15 @@ const PROBES = [
 		source: [
 			"import { createLabel } from '../../components/app-shell/navigation';",
 			"const page = { create: { label: createLabel('habitat'), to: '/larval/habitats/create' } };",
+		].join('\n'),
+		imported: ['createLabel'],
+		finds: 0,
+	},
+	{
+		name: 'probe-component-helper.tsx',
+		source: [
+			"import { createLabel } from '../../app-shell/navigation';",
+			"const create = { label: createLabel('mission'), to: '/operations/missions/create' };",
 		].join('\n'),
 		imported: ['createLabel'],
 		finds: 0,
@@ -262,23 +287,39 @@ function main() {
 }
 
 /**
- * Every explorer header's create control: an entry landing on a write surface
- * in an `index.tsx` under the route tree, read with the navigation module's
- * readers standing in for what the route imports from it.
+ * Every create control outside the sidebar: an entry landing on a write surface
+ * in an `index.tsx` under the route tree, or in a component module that
+ * imports `CreateControl`, read with the navigation module's readers standing
+ * in for what the module imports from it.
  */
 function headerControls(readers) {
 	const controls = [];
 	for (const path of typeScriptFilesUnder(ROUTES)) {
-		if (basename(path) !== 'index.tsx') {
-			continue;
+		if (basename(path) === 'index.tsx') {
+			controls.push(...controlsIn(path, readers));
 		}
-		const program = parse(short(path), readFileSync(path, 'utf8'));
-		controls.push(
-			...entriesIn(program, readers, path).filter((entry) => isWriteSurfacePath(entry.to)),
-		);
+	}
+	for (const path of typeScriptFilesUnder(COMPONENTS)) {
+		if (path !== NAVIGATION && importsCreateControl(readFileSync(path, 'utf8'))) {
+			controls.push(...controlsIn(path, readers));
+		}
 	}
 	return controls;
 }
+
+/** The entries in one module that land on a write surface. */
+function controlsIn(path, readers) {
+	const program = parse(short(path), readFileSync(path, 'utf8'));
+	return entriesIn(program, readers, path).filter((entry) => isWriteSurfacePath(entry.to));
+}
+
+/**
+ * Whether a component module draws a create control of its own: it imports
+ * `CreateControl` from the explorer header. Read as text before the parse, so
+ * the walk parses the handful that do rather than every component.
+ */
+const importsCreateControl = (source) =>
+	/import\s*\{[^}]*\bCreateControl\b[^}]*\}\s*from\s*'[^']*\/explorer-header'/.test(source);
 
 // ---------------------------------------------------------------------------
 // Reading
@@ -514,7 +555,7 @@ const entryCount = (total) => `${total} ${total === 1 ? 'entry' : 'entries'}`;
 function report(findings, selected, entries, controls) {
 	if (findings.length === 0) {
 		console.log(
-			`${GATE}: ${entryCount(selected)} of ${entries} land on a write surface, named with one of the ${WRITE_VERBS.length} write verbs, ${count(controls, 'explorer header control')} land on one too, and every one builds its label through the register.`,
+			`${GATE}: ${entryCount(selected)} of ${entries} land on a write surface, named with one of the ${WRITE_VERBS.length} write verbs, ${count(controls, 'create control')} land on one too, and every one builds its label through the register.`,
 		);
 		return;
 	}

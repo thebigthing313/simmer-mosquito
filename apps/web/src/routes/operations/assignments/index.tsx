@@ -1,14 +1,12 @@
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { CreateControl } from '../../../components/explorer/explorer-header';
 import { StopSequenceMap } from '../../../components/map/stop-sequence-map';
 import { AssignmentFilterBar } from '../../../components/operations/assignments/assignment-filter-bar';
 import { AssignmentResults } from '../../../components/operations/assignments/assignment-results';
 import { SelectedAssignmentCard } from '../../../components/operations/assignments/selected-assignment-card';
-import { WriteOnly } from '../../../components/write-only';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import {
 	assignmentFilterCodecs,
@@ -20,7 +18,7 @@ import { assignmentStatus } from '../../../hooks/queries/assignment-view';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useAssignmentItemCounts } from '../../../hooks/queries/use-assignment-item-counts';
 import { useAssignments } from '../../../hooks/queries/use-assignments';
-import { recordNoun } from '../../../lib/record-nouns';
+import { recordCount, recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
 export const Route = createFileRoute('/operations/assignments/')({
@@ -98,17 +96,16 @@ function AssignmentsIndexRoute() {
 								{recordNoun('assignment').titleMany}
 							</h1>
 							<span className="text-muted-foreground text-sm">
-								{visible.length === 1 ? '1 assignment' : `${visible.length} assignments`}
+								{recordCount('assignment', visible.length)}
 							</span>
 						</div>
-						<WriteOnly minimum="manager">
-							<Button asChild size="sm">
-								<Link to="/operations/assignments/create">
-									<PlusIcon aria-hidden="true" />
-									{createLabel('assignment')}
-								</Link>
-							</Button>
-						</WriteOnly>
+						<CreateControl
+							create={{
+								to: '/operations/assignments/create',
+								label: createLabel('assignment'),
+								minimum: 'manager',
+							}}
+						/>
 					</div>
 
 					<AssignmentFilterBar assigneeOptions={assigneeOptions} binding={binding} />

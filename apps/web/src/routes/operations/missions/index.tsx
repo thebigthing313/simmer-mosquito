@@ -1,15 +1,13 @@
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { CreateControl } from '../../../components/explorer/explorer-header';
 import { StopSequenceMap } from '../../../components/map/stop-sequence-map';
 import { MissionFilterBar } from '../../../components/operations/missions/mission-filter-bar';
 import { MissionResults } from '../../../components/operations/missions/mission-results';
 import { SelectedMissionCard } from '../../../components/operations/missions/selected-mission-card';
 import { missionStopFeatures } from '../../../components/operations/operations-display';
-import { WriteOnly } from '../../../components/write-only';
 import { useCatalogOptions } from '../../../hooks/explorer/use-catalog-options';
 import { useControlMethodNames } from '../../../hooks/explorer/use-control-method-names';
 import {
@@ -22,7 +20,7 @@ import { catalogs } from '../../../hooks/queries/catalog-register';
 import { missionStatus } from '../../../hooks/queries/operations-view';
 import { useMissionItemCounts } from '../../../hooks/queries/use-mission-item-counts';
 import { useMissions } from '../../../hooks/queries/use-missions';
-import { recordNoun } from '../../../lib/record-nouns';
+import { recordCount, recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
 export const Route = createFileRoute('/operations/missions/')({
@@ -109,17 +107,16 @@ function MissionsRoute() {
 								{recordNoun('mission').titleMany}
 							</h1>
 							<span className="text-muted-foreground text-sm">
-								{visible.length === 1 ? '1 mission' : `${visible.length} missions`}
+								{recordCount('mission', visible.length)}
 							</span>
 						</div>
-						<WriteOnly minimum="manager">
-							<Button asChild size="sm">
-								<Link to="/operations/missions/create">
-									<PlusIcon aria-hidden="true" />
-									{createLabel('mission')}
-								</Link>
-							</Button>
-						</WriteOnly>
+						<CreateControl
+							create={{
+								to: '/operations/missions/create',
+								label: createLabel('mission'),
+								minimum: 'manager',
+							}}
+						/>
 					</div>
 
 					<MissionFilterBar assigneeOptions={assigneeOptions} binding={binding} />

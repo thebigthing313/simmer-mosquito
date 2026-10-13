@@ -261,9 +261,10 @@ function CreateButton({
 
 /**
  * The create action as a filled button with a plus, hidden below its floor.
- * Exported for the indexes that open with `PageHeader` rather than this header,
- * so their control takes the same `{ to, label }` and `check:nav-labels` reads
- * its label where it reads every explorer's.
+ * Exported for the indexes that draw their own header rather than this one, and
+ * for the empty states that repeat the control, so each takes the same
+ * `{ to, label }` and `check:nav-labels` reads its label where it reads every
+ * explorer's.
  */
 export function CreateControl({ create }: { readonly create: ExplorerCreateAction }) {
 	return (
