@@ -71,10 +71,10 @@
  * one thing a route cannot do that the sidebar can is declare the helper: it
  * imports it. So a name imported from the navigation module is a reader when
  * it is one there, and only then, which is what keeps a `spell` imported from
- * anywhere a finding. Not the whole app, because a detail page's own menu is
- * the other create wording, `Record collection` under a trap's heading, and
- * that is #949's named follow-up rather than this gate's. Not JSX text either,
- * because a call inside JSX is `check:image-names`' seam again and an
+ * anywhere a finding. Not the whole app, because the detail menus and the
+ * mission stop hold a record type rather than a label, which is the section
+ * below. Not JSX text either, because a call inside JSX is `check:image-names`'
+ * seam again and an
  * object-literal rule cannot read it. #1657 settled which way that goes: an
  * index that opens with `PageHeader` instead of `ExplorerHeader` draws its
  * control through `CreateControl`, which takes the same `{ to, label }`, so the
@@ -87,10 +87,32 @@
  * of them. Two of the four live in a component rather than a route, so the
  * corpus also takes every module under `apps/web/src/components` that imports
  * `CreateControl`: importing the control is what makes a module a create
- * surface, and reading the rest of the components tree would reach the detail
- * menus this gate leaves to #949. A component names the navigation module
- * without the `components/` a route goes through, which is why
- * `NAVIGATION_SPECIFIER` starts at `app-shell`.
+ * surface. A component names the navigation module without the `components/` a
+ * route goes through, which is why `NAVIGATION_SPECIFIER` starts at
+ * `app-shell`.
+ *
+ * ## The detail menus and the mission stop, since #1702
+ *
+ * Two more registers name a create form: `CREATE_TARGETS` in
+ * `components/record/detail-create-actions.ts`, behind a detail page's `...`,
+ * and `RECORD_ROUTE` in `components/operations/missions/mission-stop-row.tsx`,
+ * behind a mission stop's record button. Both held sentence-case literals, and
+ * the nouns had drifted: `Record biocontrol release` in one and `Record
+ * biocontrol` in the other, for a form the register calls a biocontrol action.
+ *
+ * This gate does not read them, because the object-literal rule has nothing to
+ * hold there. Neither register carries a `label` any more: an entry names a
+ * `recordType`, typed `RecordType`. The menu draws it through
+ * `createSentenceLabel`, the sentence-case sibling of `createLabel`, and the
+ * stop's button through `createLabel`, since a button with visible text takes
+ * Title Case.
+ * `CREATE_TARGETS` is checked with `satisfies` and `RECORD_ROUTE` is
+ * annotated, so a `label` written back into either is an excess property `tsc`
+ * refuses, which is a stronger refusal than this gate gives the sidebar. The
+ * draw sites are a `DetailAction` whose `to` is a variable and JSX text on the
+ * stop, so the entry shape selects neither, and widening the shape to reach
+ * them would reach every field label in the components tree, which is
+ * `check:record-nouns`' 73 findings again.
  *
  * ## At zero, and what it cost to get there
  *
