@@ -1039,6 +1039,16 @@ which draws the Edit control only at the Admin floor, so no sheet takes a role
 or disables its inputs on one. The server refuses the settings commands below
 that floor either way.
 
+The trigger's words are required, on the frame and on a `SettingsSection`
+descriptor alike. They used to fall back to a bare Edit, and after batch
+tracking named its own (#1668) every other sheet still did, so a screen reader
+listed a page of identical Edit buttons (#1697). Each label names what the
+sheet writes rather than the card it sits on: the Adult Surveillance card's
+sheet reads `Edit Collection Timing`, Public Engagement's reads
+`Edit Service Request Settings`, and Larval Surveillance's reads
+`Edit Inspection Entry`, because the entry mode and density bands are both
+fields of the inspection entry policy it saves.
+
 The body is the caller's, handed the form, rather than a field list the frame
 reads. Unit defaults draws one select per unit type read off its values and
 the larval sheet lays its density bands out in fieldsets, and neither is a

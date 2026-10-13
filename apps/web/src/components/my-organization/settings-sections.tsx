@@ -19,6 +19,7 @@ export const collectionTimingSection: SettingsSection<
 	AdultCollectionTimingMode
 > = {
 	title: 'Edit Adult Surveillance',
+	triggerLabel: 'Edit Collection Timing',
 	read: (settings) => ({
 		collectionTimingMode: settings.adultSurveillance.collectionTimingMode,
 	}),
@@ -82,6 +83,7 @@ export const serviceRequestContextSection: SettingsSection<
 	PublicEngagementSettingsWrite
 > = {
 	title: 'Edit Public Engagement',
+	triggerLabel: 'Edit Service Request Settings',
 	read: (settings) => {
 		const { radius, timeWindow } = settings.publicEngagement.serviceRequestContext;
 		const overdue = settings.publicEngagement.serviceRequestOverdueDays;
