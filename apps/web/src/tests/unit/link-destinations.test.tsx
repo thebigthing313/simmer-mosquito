@@ -804,6 +804,7 @@ describe('the Dashboard', () => {
 				id: 'inspection-today',
 				lat: 40,
 				lng: -74,
+				habitat_id: null,
 				inspection_date: '2026-09-15',
 				inspected_by_profile_id: 'profile-1',
 				is_wet: false,
