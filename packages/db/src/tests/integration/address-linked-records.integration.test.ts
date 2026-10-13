@@ -28,26 +28,23 @@ const timeZone = 'America/New_York';
 async function insertLandingRate(
 	db: DbExecutor,
 	organizationId: string,
-	addressId: string,
+	links: { readonly addressId: string; readonly durationUnitId: string },
 	collectionDate: string,
 ): Promise<string> {
 	const method = await createCollectionMethod(db, organizationId, {
 		name: `Landing rate ${collectionDate}`,
 	});
-	// `unit_name` is unique across every Organization, and a case that also
-	// files control actions has made a unit under the default name already.
-	const unit = await createUnit(db, { unit_name: `minutes ${organizationId} ${collectionDate}` });
 	const row = await db
 		.insertInto('collections')
 		.values({
 			organization_id: organizationId,
-			address_id: addressId,
+			address_id: links.addressId,
 			collection_method_id: method,
 			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
 			collection_timing_mode: 'collection_date_duration',
 			collection_date: sql`${collectionDate}::date`,
 			duration_amount: 10,
-			duration_unit_id: unit,
+			duration_unit_id: links.durationUnitId,
 			metadata: null,
 		})
 		.returning(['id'])
@@ -76,7 +73,15 @@ describeDbIntegration('address linked records', () => {
 			const addressId = await createAddress(db, organizationId);
 			const contactId = await createContact(db, organizationId);
 			const requestId = await createServiceRequest(db, organizationId, { addressId, contactId });
-			const collectionId = await insertLandingRate(db, organizationId, addressId, '2026-08-03');
+			// Units are global and their names unique, so each case makes one and
+			// hands it to everything that needs a unit.
+			const durationUnitId = await createUnit(db);
+			const collectionId = await insertLandingRate(
+				db,
+				organizationId,
+				{ addressId, durationUnitId },
+				'2026-08-03',
+			);
 
 			const { families, limit } = await listAddressLinkedRecords(db, {
 				organizationId,
@@ -129,7 +134,12 @@ describeDbIntegration('address linked records', () => {
 					{ address_id: addressId, is_active: false },
 				),
 				inspection: await createInspection(db, organizationId, { address_id: addressId }),
-				collection: await insertLandingRate(db, organizationId, addressId, '2026-08-02'),
+				collection: await insertLandingRate(
+					db,
+					organizationId,
+					{ addressId, durationUnitId: unitId },
+					'2026-08-02',
+				),
 				application: await createApplication(
 					db,
 					organizationId,
@@ -294,7 +304,12 @@ describeDbIntegration('address linked records', () => {
 				contactId: otherContactId,
 			});
 			await createInspection(db, otherOrganizationId, { address_id: addressId });
-			await insertLandingRate(db, otherOrganizationId, addressId, '2026-08-04');
+			await insertLandingRate(
+				db,
+				otherOrganizationId,
+				{ addressId, durationUnitId: await createUnit(db) },
+				'2026-08-04',
+			);
 			await createMissionItem(
 				db,
 				otherOrganizationId,
