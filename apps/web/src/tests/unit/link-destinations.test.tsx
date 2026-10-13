@@ -34,7 +34,11 @@ import { applicationRecordSet } from '../../components/control-operations/chemic
 import { sourceReductionRecordSet } from '../../components/control-operations/source-reduction/source-reductions-search';
 import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
 import { DashboardPage } from '../../components/dashboard/dashboard-page';
-import { surfaceCodecs } from '../../components/explorer/record-set';
+import {
+	type RecordSetLinks,
+	type RecordSetSurface,
+	surfaceCodecs,
+} from '../../components/explorer/record-set';
 import { RecordSetSwitch } from '../../components/explorer/record-set-switch';
 import type { LinkedRecordItem } from '../../components/gis/addresses/address-linked-records';
 import { LinkedRecordsBody } from '../../components/gis/addresses/address-linked-records-card';
@@ -73,6 +77,18 @@ import { installMemoryCollections, seedRows } from './lib/collections/memory-col
 import { STUB_ROW_HEIGHT, stubRailViewportHeight } from './rail-viewport-stub';
 import { linkHref, linkHrefs, renderWithRouter } from './router-harness';
 import { stubPanelLayout } from './routes/explorer-route-harness';
+
+/**
+ * `raw` as the `surface` route of `set` validates it: the search that route
+ * hands its switch. A param the surface has no codec for is gone from it.
+ */
+function validatedOn<TFilters extends object>(
+	set: RecordSetLinks<TFilters>,
+	surface: RecordSetSurface,
+	raw: Record<string, unknown>,
+) {
+	return searchValidator(surfaceCodecs(set, surface))(raw);
+}
 
 const HABITAT = 'habitat-1';
 
@@ -325,10 +341,11 @@ describe('the People roster', () => {
  *
  * The two surfaces read the same filter params and the sidebar links between
  * them carry none, so a reader who narrowed one arrived at the other unfiltered
- * (#521). The control that fixes it is a `Link` naming its `search`, and `tsc`
- * checks neither half of that: the search type both routes validate to is a
- * plain record, so a switch carrying nothing, or carrying the table's sort to a
- * map with no sort, compiles either way. Only the resolved href says which.
+ * (#521). The control that fixes it is a `Link` naming its `search`. `tsc`
+ * holds the switch to a search validated for its set (#1589), but not which
+ * keys it carries to which surface, so a switch carrying nothing, or carrying
+ * the table's sort to a map with no sort, compiles either way. Only the
+ * resolved href says which.
  *
  * The fixture sets five of the eight filters and both of the table's sort
  * params, so a link that carried everything and a link that carried only the
@@ -358,9 +375,7 @@ describe('the Inspections Map/Table switch', () => {
 	it('carries the filters from the Table to the Map, and leaves the sort and Region behind', () => {
 		// The Table's own validated search: Region has no codec the Table reads,
 		// so a hand-typed one is gone before the switch sees the address.
-		const tableAddress = searchValidator(surfaceCodecs(inspectionRecordSet, 'table'))(
-			HAND_TYPED_TABLE_ADDRESS,
-		);
+		const tableAddress = validatedOn(inspectionRecordSet, 'table', HAND_TYPED_TABLE_ADDRESS);
 
 		renderWithRouter(
 			<RecordSetSwitch current="table" search={tableAddress} set={inspectionRecordSet} />,
@@ -381,14 +396,24 @@ describe('the Inspections Map/Table switch', () => {
 		};
 
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={mapAddress} set={inspectionRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(inspectionRecordSet, 'map', mapAddress)}
+				set={inspectionRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/larval-surveillance/inspections/table?${SHARED}`);
 	});
 
 	it('offers the two surfaces and nothing else', () => {
-		renderWithRouter(<RecordSetSwitch current="map" search={{}} set={inspectionRecordSet} />);
+		renderWithRouter(
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(inspectionRecordSet, 'map', {})}
+				set={inspectionRecordSet}
+			/>,
+		);
 
 		expect(linkHrefs()).toEqual([
 			'/larval-surveillance/inspections',
@@ -402,22 +427,74 @@ describe('the Inspections Map/Table switch', () => {
  * register, so it is spelled out here rather than built the same way.
  */
 describe('the name of each Map/Table switch', () => {
+	/**
+	 * A switch over `set` on an empty Map address. Built per set, because the
+	 * switch is generic over the set's filters and a union of sets infers none.
+	 */
+	function emptyMapSwitch<TFilters extends object>(set: RecordSetLinks<TFilters>) {
+		return <RecordSetSwitch current="map" search={validatedOn(set, 'map', {})} set={set} />;
+	}
+
 	it.each([
-		['Habitats view', habitatRecordSet],
-		['Inspections view', inspectionRecordSet],
-		['Samples view', sampleRecordSet],
-		['Traps view', trapRecordSet],
-		['Collections view', collectionRecordSet],
-		['Chemical applications view', applicationRecordSet],
-		['Biocontrol actions view', biocontrolRecordSet],
-		['Source reductions view', sourceReductionRecordSet],
-		['Outreach actions view', outreachRecordSet],
-		['Service requests view', serviceRequestRecordSet],
-		['Addresses view', addressRecordSet],
-	] as const)('is %s', async (name, set) => {
-		renderWithRouter(<RecordSetSwitch current="map" search={{}} set={set} />);
+		['Habitats view', emptyMapSwitch(habitatRecordSet)],
+		['Inspections view', emptyMapSwitch(inspectionRecordSet)],
+		['Samples view', emptyMapSwitch(sampleRecordSet)],
+		['Traps view', emptyMapSwitch(trapRecordSet)],
+		['Collections view', emptyMapSwitch(collectionRecordSet)],
+		['Chemical applications view', emptyMapSwitch(applicationRecordSet)],
+		['Biocontrol actions view', emptyMapSwitch(biocontrolRecordSet)],
+		['Source reductions view', emptyMapSwitch(sourceReductionRecordSet)],
+		['Outreach actions view', emptyMapSwitch(outreachRecordSet)],
+		['Service requests view', emptyMapSwitch(serviceRequestRecordSet)],
+		['Addresses view', emptyMapSwitch(addressRecordSet)],
+	] as const)('is %s', async (name, element) => {
+		renderWithRouter(element);
 
 		expect(await screen.findByRole('navigation', { name })).toBeTruthy();
+	});
+});
+
+/**
+ * The search a switch takes. Every route hands its switch `Route.useSearch()`,
+ * and `tsc` holds that to the set beside it, so a route passing another set's
+ * search, or none, fails to compile rather than drawing a switch that carries
+ * nothing (#1589). Each element is built and never drawn: the cases are the
+ * `@ts-expect-error` lines, which fail the typecheck once the switch takes the
+ * search they mark.
+ */
+describe('the search a Map/Table switch takes', () => {
+	it('is a search validated for its own set', () => {
+		const switches = [
+			<RecordSetSwitch
+				current="map"
+				key="plain"
+				// @ts-expect-error: no route validated a literal.
+				search={{}}
+				set={habitatRecordSet}
+			/>,
+			<RecordSetSwitch
+				current="map"
+				key="other-set"
+				// @ts-expect-error: a Traps search beside the Habitats set.
+				search={validatedOn(trapRecordSet, 'map', {})}
+				set={habitatRecordSet}
+			/>,
+			<RecordSetSwitch
+				current="map"
+				key="more-filters"
+				// @ts-expect-error: Traps' filters hold every Address filter and more.
+				search={validatedOn(trapRecordSet, 'map', {})}
+				set={addressRecordSet}
+			/>,
+			<RecordSetSwitch
+				current="map"
+				key="own-set"
+				search={validatedOn(addressRecordSet, 'map', {})}
+				set={addressRecordSet}
+			/>,
+		];
+
+		expect(switches).toHaveLength(4);
 	});
 });
 
@@ -440,7 +517,11 @@ describe('the Service Requests Map/Table switch', () => {
 		};
 
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={mapAddress} set={serviceRequestRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(serviceRequestRecordSet, 'map', mapAddress)}
+				set={serviceRequestRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/public-engagement/service-requests/table?${CARRIED}`);
@@ -456,7 +537,11 @@ describe('the Service Requests Map/Table switch', () => {
 		};
 
 		renderWithRouter(
-			<RecordSetSwitch current="table" search={tableAddress} set={serviceRequestRecordSet} />,
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(serviceRequestRecordSet, 'table', tableAddress)}
+				set={serviceRequestRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Map')).toBe(`/public-engagement/service-requests?${CARRIED}`);
@@ -481,14 +566,24 @@ describe('the Habitats Map/Table switch', () => {
 
 	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={habitatRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(habitatRecordSet, 'map', { ...ADDRESS, page: 3 })}
+				set={habitatRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/larval-surveillance/habitats/table?${CARRIED}`);
 	});
 
 	it('carries every filter from the Table to the Map', () => {
-		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={habitatRecordSet} />);
+		renderWithRouter(
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(habitatRecordSet, 'table', ADDRESS)}
+				set={habitatRecordSet}
+			/>,
+		);
 
 		expect(linkHref('Map')).toBe(`/larval-surveillance/habitats?${CARRIED}`);
 	});
@@ -510,13 +605,25 @@ describe('the Samples Map/Table switch', () => {
 		'from=2026-08-01&to=2026-08-31&status=identified&species=%5B%22species-1%22%5D&regions=%5B%22region-1%22%5D';
 
 	it('carries every filter from the Map to the Table', () => {
-		renderWithRouter(<RecordSetSwitch current="map" search={ADDRESS} set={sampleRecordSet} />);
+		renderWithRouter(
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(sampleRecordSet, 'map', ADDRESS)}
+				set={sampleRecordSet}
+			/>,
+		);
 
 		expect(linkHref('Table')).toBe(`/larval-surveillance/samples/table?${CARRIED}`);
 	});
 
 	it('carries every filter from the Table to the Map', () => {
-		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={sampleRecordSet} />);
+		renderWithRouter(
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(sampleRecordSet, 'table', ADDRESS)}
+				set={sampleRecordSet}
+			/>,
+		);
 
 		expect(linkHref('Map')).toBe(`/larval-surveillance/samples?${CARRIED}`);
 	});
@@ -538,14 +645,24 @@ describe('the Traps Map/Table switch', () => {
 
 	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={trapRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(trapRecordSet, 'map', { ...ADDRESS, page: 3 })}
+				set={trapRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/adult-surveillance/traps/table?${CARRIED}`);
 	});
 
 	it('carries every filter from the Table to the Map', () => {
-		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={trapRecordSet} />);
+		renderWithRouter(
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(trapRecordSet, 'table', ADDRESS)}
+				set={trapRecordSet}
+			/>,
+		);
 
 		expect(linkHref('Map')).toBe(`/adult-surveillance/traps?${CARRIED}`);
 	});
@@ -569,7 +686,11 @@ describe('the Collections Map/Table switch', () => {
 
 	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={collectionRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(collectionRecordSet, 'map', { ...ADDRESS, page: 3 })}
+				set={collectionRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/adult-surveillance/collections/table?${CARRIED}`);
@@ -577,7 +698,11 @@ describe('the Collections Map/Table switch', () => {
 
 	it('carries every filter from the Table to the Map', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="table" search={ADDRESS} set={collectionRecordSet} />,
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(collectionRecordSet, 'table', ADDRESS)}
+				set={collectionRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Map')).toBe(`/adult-surveillance/collections?${CARRIED}`);
@@ -602,7 +727,11 @@ describe('the Chemical Applications Map/Table switch', () => {
 
 	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={applicationRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(applicationRecordSet, 'map', { ...ADDRESS, page: 3 })}
+				set={applicationRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/control-operations/chemical/table?${CARRIED}`);
@@ -610,7 +739,11 @@ describe('the Chemical Applications Map/Table switch', () => {
 
 	it('carries every filter from the Table to the Map', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="table" search={ADDRESS} set={applicationRecordSet} />,
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(applicationRecordSet, 'table', ADDRESS)}
+				set={applicationRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Map')).toBe(`/control-operations/chemical?${CARRIED}`);
@@ -637,7 +770,7 @@ describe('the Source Reductions Map/Table switch', () => {
 		renderWithRouter(
 			<RecordSetSwitch
 				current="map"
-				search={{ ...ADDRESS, page: 3 }}
+				search={validatedOn(sourceReductionRecordSet, 'map', { ...ADDRESS, page: 3 })}
 				set={sourceReductionRecordSet}
 			/>,
 		);
@@ -647,7 +780,11 @@ describe('the Source Reductions Map/Table switch', () => {
 
 	it('carries every filter from the Table to the Map', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="table" search={ADDRESS} set={sourceReductionRecordSet} />,
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(sourceReductionRecordSet, 'table', ADDRESS)}
+				set={sourceReductionRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Map')).toBe(`/control-operations/source-reduction?${CARRIED}`);
@@ -673,7 +810,11 @@ describe('the Biocontrol Actions Map/Table switch', () => {
 
 	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={biocontrolRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(biocontrolRecordSet, 'map', { ...ADDRESS, page: 3 })}
+				set={biocontrolRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/control-operations/biocontrol/table?${CARRIED}`);
@@ -681,7 +822,11 @@ describe('the Biocontrol Actions Map/Table switch', () => {
 
 	it('carries every filter from the Table to the Map', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="table" search={ADDRESS} set={biocontrolRecordSet} />,
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(biocontrolRecordSet, 'table', ADDRESS)}
+				set={biocontrolRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Map')).toBe(`/control-operations/biocontrol?${CARRIED}`);
@@ -705,14 +850,24 @@ describe('the Outreach Actions Map/Table switch', () => {
 
 	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={outreachRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(outreachRecordSet, 'map', { ...ADDRESS, page: 3 })}
+				set={outreachRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/public-engagement/outreach/table?${CARRIED}`);
 	});
 
 	it('carries every filter from the Table to the Map', () => {
-		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={outreachRecordSet} />);
+		renderWithRouter(
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(outreachRecordSet, 'table', ADDRESS)}
+				set={outreachRecordSet}
+			/>,
+		);
 
 		expect(linkHref('Map')).toBe(`/public-engagement/outreach?${CARRIED}`);
 	});
@@ -728,14 +883,24 @@ describe('the Addresses Map/Table switch', () => {
 
 	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={addressRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(addressRecordSet, 'map', { ...ADDRESS, page: 3 })}
+				set={addressRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/gis/addresses/table?${CARRIED}`);
 	});
 
 	it('carries every filter from the Table to the Map', () => {
-		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={addressRecordSet} />);
+		renderWithRouter(
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(addressRecordSet, 'table', ADDRESS)}
+				set={addressRecordSet}
+			/>,
+		);
 
 		expect(linkHref('Map')).toBe(`/gis/addresses?${CARRIED}`);
 	});

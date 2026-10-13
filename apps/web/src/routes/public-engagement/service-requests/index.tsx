@@ -52,10 +52,10 @@ const EMPTY_TAGS: readonly Tag[] = [];
 
 export const Route = createFileRoute('/public-engagement/service-requests/')({
 	component: ServiceRequestsExplorerRoute,
-	validateSearch: searchValidator({
-		...surfaceCodecs(serviceRequestRecordSet, 'map'),
-		...serviceRequestRailOrderCodecs,
-	}),
+	validateSearch: searchValidator(
+		surfaceCodecs(serviceRequestRecordSet, 'map'),
+		serviceRequestRailOrderCodecs,
+	),
 });
 
 function ServiceRequestsExplorerRoute() {

@@ -1,3 +1,5 @@
+import type { SearchSchemaInput } from '@tanstack/react-router';
+
 export interface SearchCodec<TValue> {
 	/** Read a raw search value. Must never throw — a hand-edited URL is input. */
 	readonly decode: (raw: unknown) => TValue | undefined;
@@ -140,19 +142,58 @@ export function resolveFilters<TFilters extends object>(
 	return resolved;
 }
 
+declare const validatedFilters: unique symbol;
+
+/**
+ * A search as `searchValidator` returns it, marked with the filters its codecs
+ * decode, so `tsc` can hold a route's search to the record set it is drawn
+ * beside (#1589). The mark is a type alone: at runtime this is the plain object
+ * of encoded params, and anything typed `Record<string, unknown>` takes it.
+ *
+ * The mark is a function of `TFilters` both ways, so it is invariant: a search
+ * over more filters than a set's does not pass for that set's, which a plain
+ * property would allow. Two sets whose filters are the same type, as Outreach's
+ * and Source Reduction's are, still take each other's.
+ */
+export type ValidatedSearch<TFilters> = Record<string, unknown> & {
+	readonly [validatedFilters]: (filters: TFilters) => TFilters;
+};
+
+/**
+ * A `validateSearch` as `searchValidator` returns it.
+ *
+ * The router reads the last signature. Its parameter is marked
+ * `SearchSchemaInput`, which tells the router a `Link` to the route may pass
+ * any params: left unmarked, it takes the return type for that too, and every
+ * `Link` would owe a search carrying the mark. The first signature is the one a
+ * direct call resolves to, so a suite can validate a plain object.
+ */
+export interface SearchValidator<TFilters> {
+	(search: Record<string, unknown>): ValidatedSearch<TFilters>;
+	(search: Record<string, unknown> & SearchSchemaInput): ValidatedSearch<TFilters>;
+}
+
 /**
  * A `validateSearch` built from the same codecs the page reads with.
  *
  * Junk is dropped rather than rejected — a truncated or hand-edited URL should
  * land the operator on the explorer's defaults, not an error boundary.
+ *
+ * `beside` is params the route reads that are not its filters, such as the
+ * Service Requests rail's order. They are validated the same way and left out
+ * of the mark, so the search still passes for the record set's.
  */
-export function searchValidator<TFilters extends object>(
+export function searchValidator<TFilters extends object, TBeside extends object = never>(
 	codecs: FilterCodecs<TFilters>,
-): (search: Record<string, unknown>) => Record<string, unknown> {
-	return (search) => {
+	beside?: FilterCodecs<TBeside>,
+): SearchValidator<TFilters> {
+	const every = {
+		...(codecs as Record<string, SearchCodec<unknown>>),
+		...(beside as Record<string, SearchCodec<unknown>> | undefined),
+	};
+	return (search: Record<string, unknown>) => {
 		const result: Record<string, unknown> = {};
-		for (const key of filterKeys(codecs)) {
-			const codec = codecs[key];
+		for (const [key, codec] of Object.entries(every)) {
 			const decoded = codec.decode(search[key]);
 			if (decoded === undefined) {
 				continue;
@@ -162,7 +203,7 @@ export function searchValidator<TFilters extends object>(
 				result[key] = encoded;
 			}
 		}
-		return result;
+		return result as ValidatedSearch<TFilters>;
 	};
 }
 
