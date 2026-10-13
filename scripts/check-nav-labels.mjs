@@ -293,18 +293,10 @@ function main() {
  * in for what the module imports from it.
  */
 function headerControls(readers) {
-	const controls = [];
-	for (const path of typeScriptFilesUnder(ROUTES)) {
-		if (basename(path) === 'index.tsx') {
-			controls.push(...controlsIn(path, readers));
-		}
-	}
-	for (const path of typeScriptFilesUnder(COMPONENTS)) {
-		if (path !== NAVIGATION && importsCreateControl(readFileSync(path, 'utf8'))) {
-			controls.push(...controlsIn(path, readers));
-		}
-	}
-	return controls;
+	return [
+		...[...typeScriptFilesUnder(ROUTES)].filter((path) => basename(path) === 'index.tsx'),
+		...[...typeScriptFilesUnder(COMPONENTS)].filter(importsCreateControl),
+	].flatMap((path) => controlsIn(path, readers));
 }
 
 /** The entries in one module that land on a write surface. */
@@ -316,10 +308,14 @@ function controlsIn(path, readers) {
 /**
  * Whether a component module draws a create control of its own: it imports
  * `CreateControl` from the explorer header. Read as text before the parse, so
- * the walk parses the handful that do rather than every component.
+ * the walk parses the handful that do rather than every component. The
+ * navigation module imports nothing of the kind, so the sidebar is never read
+ * twice.
  */
-const importsCreateControl = (source) =>
-	/import\s*\{[^}]*\bCreateControl\b[^}]*\}\s*from\s*'[^']*\/explorer-header'/.test(source);
+const importsCreateControl = (path) =>
+	/import\s*\{[^}]*\bCreateControl\b[^}]*\}\s*from\s*'[^']*\/explorer-header'/.test(
+		readFileSync(path, 'utf8'),
+	);
 
 // ---------------------------------------------------------------------------
 // Reading
