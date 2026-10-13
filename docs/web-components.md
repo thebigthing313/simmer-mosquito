@@ -394,6 +394,16 @@ The definition also holds what the filter state reads: `defaults(context,
 surface)`, the counting rule, and the `textSearch` key for a set with a search
 box. `useRecordSetFilters` in `docs/web-hooks.md` says what each is for.
 
+A dated set names its `windows` too, the date window each surface opens on
+with a one-sentence reason, and that is the one register of them (#1669).
+`defineRecordSet` hands `defaults` the window's bounds on the context, so a
+set's defaults never compute a date, and derives `emptyScope` from the same
+windows, so an empty surface cannot name a window its request did not use.
+Six `*_WINDOW_DAYS` constants and an Inspections `MAP_WINDOW_DAYS` used to say
+this, each in its own module, none with a reason, and the Table routes
+imported them for their empty copy. An undated set (Habitats, Traps,
+Addresses) has no `windows` and names its `emptyScope` itself.
+
 And it holds the request. `endpoint` names the `/map/*` list endpoint and the
 key its rows arrive under, `tileFilters` turns the filters into what the tile
 layer reads, and `filterSpec` names the spec in `@simmer-mosquito/domain` that
@@ -577,6 +587,38 @@ reads, over `WHOLE_WORLD_BBOX`, with `usePagedMapResource` and
 holds one page of 100. Each table has one fixed order, the endpoint's, and no
 column sorts. Service Requests is the one table with a control over it,
 newest or oldest first, under the `order` param the Map's rail already sent.
+
+Every dated Table opens on all time, and every Map keeps a window (#1669):
+
+| Set | Map opens on | Table opens on | Order, both surfaces |
+| --- | --- | --- | --- |
+| Inspections | last 30 days | all time | inspection date, newest first |
+| Samples | last 30 days | all time | parent inspection's date, newest first |
+| Collections | last 90 days | all time | the effective collection date the Organization's timing mode picks, newest first |
+| Chemical Applications | last 90 days | all time | application date, newest first |
+| Source Reductions | last 90 days | all time | source reduction date, newest first |
+| Biocontrol Actions | last 90 days | all time | biocontrol date, newest first |
+| Outreach Actions | last 90 days | all time | outreach date, newest first |
+| Service Requests | this year | all time | request date, newest first, or oldest under `order` |
+| Habitats | no window | no window | name, natural sort |
+| Traps | no window | no window | code, or name where there is none, natural sort |
+| Addresses | no window | no window | display name, natural sort |
+
+Ties on the date break on `created_at` the same way and then on `id`, so a
+page boundary never moves under a reader. The order is the endpoint's
+`orderBy` in `packages/db/src/domains`, and this table is the place it is
+written down for the web.
+
+A Map draws every matching record at once, so a season of inspections or
+samples is a solid block of dots and the Map opens on 30 days; the rest of the
+field work opens on 90 days, one season of it; and requests open on this
+year. A Table pays for none of that. It pages 100 rows newest first, and on
+the local clone of production an unfiltered first page with its count took
+82 ms over 106,307 inspections and 40 ms over 55,203 chemical applications. A
+window on the Table only hid older records from a reader who had come to the
+Table to look through them. An empty Table with nothing set titles itself
+`No ... Yet`. A switch from the Map carries the dates a reader set and not the
+Map's window, because the window is a default and never on the address.
 
 `RecordSetTablePage` draws all eleven (#1419). They were eleven copies of one
 page, the header with the switch, the filter panel, `RecordTableUnavailable`,
@@ -1670,9 +1712,10 @@ sentence-case titles and said `No biocontrol actions match these filters` over
 a Map whose only narrowing was the default 90-day window, while the Table over
 the same set said `No Biocontrol Actions in the Last 90 Days`. The rail now
 names the scope when no filter is counted and says `No ... Match` only when one
-is. `emptyScope` takes the surface because Inspections opens its two surfaces
-on different windows, and a suite in `record-set.test.ts` holds every set's
-scope to the window its `defaults` open on.
+is. `emptyScope` takes the surface because every dated set opens its Map on a
+window and its Table on all time (#1669). A dated set's scope is derived from
+its `windows`, and a suite in `record-set.test.ts` holds every set's scope to
+the window its `defaults` open on and spells each title out.
 
 #### RecordTableUnavailable
 

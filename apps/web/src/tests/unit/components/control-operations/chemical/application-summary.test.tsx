@@ -98,7 +98,7 @@ const SUMMARY: MapSummary = {
 	},
 };
 
-const DEFAULTS = applicationFilterDefaults('2026-09-28');
+const DEFAULTS = applicationFilterDefaults({ from: '2026-07-01', to: '2026-09-28' });
 
 function renderSummary(filters: Partial<ApplicationFilters> = {}, summary = SUMMARY) {
 	const setFilters = vi.fn<(patch: Partial<ApplicationFilters>) => void>();

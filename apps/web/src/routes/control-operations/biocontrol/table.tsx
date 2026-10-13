@@ -1,9 +1,6 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import {
-	BIOCONTROL_WINDOW_DAYS,
-	biocontrolRecordSet,
-} from '../../../components/control-operations/biocontrol/biocontrol-actions-search';
+import { biocontrolRecordSet } from '../../../components/control-operations/biocontrol/biocontrol-actions-search';
 import { BiocontrolActionsTable } from '../../../components/control-operations/biocontrol/biocontrol-actions-table';
 import { BiocontrolFilterFields } from '../../../components/control-operations/biocontrol/biocontrol-filters';
 import type { BiocontrolListRow } from '../../../components/control-operations/biocontrol/biocontrol-row-parts';
@@ -20,8 +17,9 @@ export const Route = createFileRoute('/control-operations/biocontrol/table')({
 const BiocontrolIcon = iconRegistry.entities.biocontrolAction.icon;
 
 /**
- * The Biocontrol Actions in the date window as a table, newest first, narrowed
- * by the same filters as the Biocontrol Actions Map.
+ * Every Biocontrol Action as a table, newest first, narrowed by the same
+ * filters as the Biocontrol Actions Map. It opens on all time where the Map
+ * opens on a window, which the set's `windows` state.
  */
 function BiocontrolActionsTableRoute() {
 	const binding = useRecordSetFilters(biocontrolRecordSet, 'table');
@@ -29,9 +27,9 @@ function BiocontrolActionsTableRoute() {
 	return (
 		<RecordSetTablePage
 			binding={binding}
-			description="Biocontrol actions in the date window, newest first."
+			description="Every biocontrol action, newest first."
 			empty={{
-				emptyDescription: `Biocontrol actions made in the last ${BIOCONTROL_WINDOW_DAYS} days show here.`,
+				emptyDescription: 'Biocontrol actions show here as crews record them.',
 				filteredDescription: 'No biocontrol action matches what is set above.',
 			}}
 			filters={<BiocontrolFilterFields binding={binding} wide />}

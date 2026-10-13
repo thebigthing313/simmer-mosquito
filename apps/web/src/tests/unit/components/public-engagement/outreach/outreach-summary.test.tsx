@@ -79,7 +79,7 @@ const SUMMARY: MapSummary = {
 	figures: { reachTotal: 18_400 },
 };
 
-const DEFAULTS = outreachFilterDefaults('2026-09-28');
+const DEFAULTS = outreachFilterDefaults({ from: '2026-07-01', to: '2026-09-28' });
 
 function renderSummary(filters: Partial<OutreachFilters> = {}, summary = SUMMARY) {
 	const setFilters = vi.fn<(patch: Partial<OutreachFilters>) => void>();

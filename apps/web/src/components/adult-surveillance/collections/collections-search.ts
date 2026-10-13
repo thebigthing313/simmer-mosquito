@@ -1,5 +1,4 @@
 import { COLLECTION_MAP_FILTERS } from '@simmer-mosquito/domain';
-import { addDaysToDateString } from '../../../lib/local-date';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -7,7 +6,11 @@ import {
 	flagParam,
 	idSetParam,
 } from '../../../lib/search-filters';
-import { defineRecordSet } from '../../explorer/record-set';
+import {
+	defineRecordSet,
+	type RecordSetWindowBounds,
+	TABLE_OPENS_ON_ALL_TIME,
+} from '../../explorer/record-set';
 import { whenAny, whenOn, whenText } from '../../explorer/tile-filter-params';
 import type { CollectionTileFilters } from '../../map';
 
@@ -37,17 +40,14 @@ export const collectionFilterCodecs: FilterCodecs<CollectionFilters> = {
 	regions: idSetParam,
 };
 
-/** How many days the window opens on, ending on the Organization's today. */
-export const COLLECTION_WINDOW_DAYS = 90;
-
 /**
- * What an address with no filter params means: every collection over the last
- * ninety days, ending on the Organization's today.
+ * What an address with no filter params means: every collection inside `window`, the
+ * bounds the set's `windows` open the surface on.
  */
-export function collectionFilterDefaults(today: string): CollectionFilters {
+export function collectionFilterDefaults(window: RecordSetWindowBounds): CollectionFilters {
 	return {
-		from: addDaysToDateString(today, -(COLLECTION_WINDOW_DAYS - 1)),
-		to: today,
+		from: window.from,
+		to: window.to,
 		methods: new Set(),
 		problems: false,
 		awaiting: false,
@@ -78,8 +78,11 @@ export const collectionRecordSet = defineRecordSet({
 	tileset: 'collections',
 	tileFilters: collectionTileFilters,
 	filterSpec: COLLECTION_MAP_FILTERS,
-	defaults: ({ today }) => collectionFilterDefaults(today),
-	emptyScope: () => ({ kind: 'lastDays', days: COLLECTION_WINDOW_DAYS }),
+	defaults: ({ window }) => collectionFilterDefaults(window),
+	windows: {
+		map: { kind: 'lastDays', days: 90, reason: 'Ninety days is one season of collections.' },
+		table: TABLE_OPENS_ON_ALL_TIME,
+	},
 	counting: DATE_RANGE_COUNTING,
 	applies: {
 		from: 'both',

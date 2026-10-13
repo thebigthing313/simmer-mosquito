@@ -1,12 +1,15 @@
 import { SOURCE_REDUCTION_MAP_FILTERS } from '@simmer-mosquito/domain';
-import { addDaysToDateString } from '../../../lib/local-date';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
 	idSetParam,
 } from '../../../lib/search-filters';
-import { defineRecordSet } from '../../explorer/record-set';
+import {
+	defineRecordSet,
+	type RecordSetWindowBounds,
+	TABLE_OPENS_ON_ALL_TIME,
+} from '../../explorer/record-set';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
 import type { SourceReductionTileFilters } from '../../map';
 
@@ -34,17 +37,16 @@ export const sourceReductionFilterCodecs: FilterCodecs<SourceReductionFilters> =
 	regions: idSetParam,
 };
 
-/** How many days the window opens on, ending on the Organization's today. */
-export const SOURCE_REDUCTION_WINDOW_DAYS = 90;
-
 /**
- * What an address with no filter params means: every source reduction over the
- * last ninety days, ending on the Organization's today.
+ * What an address with no filter params means: every source reduction inside `window`, the
+ * bounds the set's `windows` open the surface on.
  */
-export function sourceReductionFilterDefaults(today: string): SourceReductionFilters {
+export function sourceReductionFilterDefaults(
+	window: RecordSetWindowBounds,
+): SourceReductionFilters {
 	return {
-		from: addDaysToDateString(today, -(SOURCE_REDUCTION_WINDOW_DAYS - 1)),
-		to: today,
+		from: window.from,
+		to: window.to,
 		people: new Set(),
 		methods: new Set(),
 		regions: new Set(),
@@ -82,8 +84,11 @@ export const sourceReductionRecordSet = defineRecordSet({
 	tileset: 'source-reduction',
 	tileFilters: sourceReductionTileFilters,
 	filterSpec: SOURCE_REDUCTION_MAP_FILTERS,
-	defaults: ({ today }) => sourceReductionFilterDefaults(today),
-	emptyScope: () => ({ kind: 'lastDays', days: SOURCE_REDUCTION_WINDOW_DAYS }),
+	defaults: ({ window }) => sourceReductionFilterDefaults(window),
+	windows: {
+		map: { kind: 'lastDays', days: 90, reason: 'Ninety days is one season of source reductions.' },
+		table: TABLE_OPENS_ON_ALL_TIME,
+	},
 	counting: DATE_RANGE_COUNTING,
 	applies: { from: 'both', to: 'both', people: 'both', methods: 'both', regions: 'both' },
 });

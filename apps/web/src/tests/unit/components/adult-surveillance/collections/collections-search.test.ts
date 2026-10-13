@@ -10,8 +10,10 @@ import {
  * in `apps/server` holds them.
  */
 describe('the collections tile filters', () => {
-	it('open on the last 90 days, ending on the day they are given', () => {
-		expect(collectionTileFilters(collectionFilterDefaults('2026-09-28'))).toEqual({
+	it('carry the window they are given and nothing else', () => {
+		expect(
+			collectionTileFilters(collectionFilterDefaults({ from: '2026-07-01', to: '2026-09-28' })),
+		).toEqual({
 			dateFrom: '2026-07-01',
 			dateTo: '2026-09-28',
 		});

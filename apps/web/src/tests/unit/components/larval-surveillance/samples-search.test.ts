@@ -7,8 +7,8 @@ import {
 import { resolveFilters } from '../../../../lib/search-filters';
 
 describe('the samples filter contract', () => {
-	it('opens on every status over the last thirty days, today included', () => {
-		const defaults = sampleFilterDefaults('2026-09-24');
+	it('opens on every status inside the window it is given', () => {
+		const defaults = sampleFilterDefaults({ from: '2026-08-26', to: '2026-09-24' });
 
 		expect(resolveFilters(defaults, sampleFilterCodecs, {})).toMatchObject({
 			status: 'all',
@@ -17,8 +17,10 @@ describe('the samples filter contract', () => {
 		});
 	});
 
-	it('carries the opening window and nothing else to the tiles', () => {
-		expect(sampleTileFilters(sampleFilterDefaults('2026-09-24'))).toEqual({
+	it('carries the window and nothing else to the tiles', () => {
+		expect(
+			sampleTileFilters(sampleFilterDefaults({ from: '2026-08-26', to: '2026-09-24' })),
+		).toEqual({
 			dateFrom: '2026-08-26',
 			dateTo: '2026-09-24',
 		});

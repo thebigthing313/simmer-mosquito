@@ -21,8 +21,8 @@ const InspectionIcon = iconRegistry.entities.inspection.icon;
 /**
  * Every inspection as a table, newest first, a hundred to a page, narrowed by
  * six of the Inspections Map's seven filters. Region is the Map's alone, and
- * the Table opens on all time where the Map opens on the last 30 days, which
- * `inspectionRecordSet` states.
+ * the Table opens on all time where the Map opens on a window, which the set's
+ * `windows` state.
  */
 function InspectionsTableRoute() {
 	const binding = useRecordSetFilters(inspectionRecordSet, 'table');

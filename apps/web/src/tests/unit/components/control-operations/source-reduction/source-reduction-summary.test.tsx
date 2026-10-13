@@ -82,7 +82,7 @@ const SUMMARY: MapSummary = {
 	},
 };
 
-const DEFAULTS = sourceReductionFilterDefaults('2026-09-28');
+const DEFAULTS = sourceReductionFilterDefaults({ from: '2026-07-01', to: '2026-09-28' });
 
 function renderSummary(filters: Partial<SourceReductionFilters> = {}, summary = SUMMARY) {
 	const setFilters = vi.fn<(patch: Partial<SourceReductionFilters>) => void>();
