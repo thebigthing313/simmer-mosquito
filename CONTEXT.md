@@ -20,7 +20,7 @@ domain doc instead of expanding this file.
 | **Linked Address** | The Address a record named when it was saved. It does not move the record when the Address moves, and it does not say the work happened there. The Address page lists every record that names it as **Linked Records**. | address of record, site |
 | **Region** | Organization-defined area used for GIS grouping, reporting, and spatial lookup. One boundary, in one piece or several. | district, zone |
 | **Part** | One of the pieces of a record's geometry. Two or more parts store a Multi shape, one part stores the base shape, and part order carries no meaning. User-facing copy says "piece". | feature, shape, sub-geometry |
-| **Covers no ground** | Said of a geometry that encloses zero area or spans zero length. Refused on write, naming the part. Distinct from **invalid**, a ring crossing itself, which SIMMER does not police. | empty, degenerate, invalid |
+| **Covers no ground** | Said of a geometry that encloses zero area or spans zero length. Refused on write, naming the part. Distinct from **invalid**, a ring crossing itself, which the server repairs on a Region and leaves alone on a record area. | empty, degenerate, invalid |
 | **Global Taxonomy** | SIMMER-controlled mosquito genus/species vocabulary shared across organizations. | species list, organization species |
 | **Organization Species** | Organization-selected subset of global species available for new data entry. | enabled species, species setting |
 | **Organization Lookup** | Organization-owned catalog value used to configure surveillance or control workflows. | dropdown option, enum |
@@ -155,9 +155,11 @@ Common source terms:
   carries no meaning. The draw control and the import preview call a part a
   **piece** on screen, which is the word a user reads for the thing they drew.
 - A geometry **covers no ground** when it encloses zero area or spans zero
-  length. It is distinct from invalid, which is about a ring crossing itself and
-  which the server does not police. The field app's draw control refuses to
-  finish an area whose edges cross.
+  length. It is distinct from invalid, which is about a ring crossing itself.
+  The server repairs an invalid Region on write and a CHECK holds Regions valid,
+  but it leaves a record area as drawn, because Split stores two pieces sharing
+  their cut line. The field app's draw control refuses to finish an area whose
+  edges cross.
 
 ## Ambiguities to preserve
 

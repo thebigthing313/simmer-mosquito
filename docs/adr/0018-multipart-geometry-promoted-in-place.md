@@ -6,7 +6,8 @@ Date: 2026-09-03
 
 Accepted. Amends ADR 0015, which assumed multipart geometry could not occur and
 said so in its own Decision text. `docs/multipart-geometry-spec.md` is what gets
-built.
+built. The line below that leaves validity unpoliced now holds for record areas
+only; see the 2026-10-13 note at the end.
 
 ## Context
 
@@ -131,3 +132,26 @@ Two other documents say 32 and are right as they stand.
 `docs/research/multipart-region-membership.md` is the research behind this
 decision, and slice 3 of `docs/multipart-geometry-spec.md` records what that
 slice carried. Both are history rather than a live claim, so neither is amended.
+
+## Amendment, 2026-10-13: Regions are held valid
+
+The Decision above says validity "stays unpoliced". Since #1671 that is true of
+record areas and not of Regions. ADR 0015's amendment of 2026-10-13 is the
+decision; this note points at it and leaves the text above as it was accepted.
+
+The area arm of the membership predicate now measures overlap with
+`ST_Intersection`, which throws on a ring that crosses itself. So the server
+stores Region geometry through `valid_region_geom`, which repairs an invalid ring
+with `ST_MakeValid` rather than refusing the save, and `regions_geom_valid_check`
+refuses an invalid Region that reaches the table any other way. The fifteen
+production Regions this ADR counted were repaired by the migration that added
+the CHECK, `202610130001_region_geometry_validity.sql`.
+
+Record areas get neither. The Split gesture stores two pieces that share the
+line they were cut along (#497), which OGC calls invalid and #518 kept on
+purpose, and `ST_MakeValid` would dissolve them back into one. The predicate
+reads an invalid record area through `ST_MakeValid` instead, so the read answers
+rather than throwing, and the stored row keeps its shape.
+
+#437, which this ADR names, is closed. Its measurement that repair changed no
+answer held only while the predicate stopped at `ST_Relate`.

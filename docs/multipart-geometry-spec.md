@@ -322,6 +322,12 @@ live Regions the next time anyone saved one. Filed separately as #437, because a
 relate on an invalid geometry is undefined in GEOS and those 15 rows have a
 membership answer nobody has checked.
 
+Later, #1671 held Regions valid, by repairing on write rather than refusing. The
+server stores a Region through `valid_region_geom`, which runs `ST_MakeValid` on
+an invalid ring, and `regions_geom_valid_check` refuses an invalid one. Record
+areas are still not checked, because the Split gesture writes a shape OGC calls
+invalid. ADR 0015's amendment of 2026-10-13 has the reasoning.
+
 ### Rejection is per write, named per part
 
 A Multi whose parts are one real shape and one degenerate one rejects the whole
@@ -958,6 +964,10 @@ structure and positions only, and there is no self-intersection test anywhere in
 the stack, client or server. A bowtie stores today and finding one costs a real
 algorithm. That is #437, not this effort.
 
+Since #1671 the server repairs a crossed Region ring on write and a CHECK holds
+Regions valid, so this paragraph now describes record areas only. The draw
+control still has no self-intersection test.
+
 A hole that escapes its part blocks Finish. This one is nearly free:
 `geometryContainsLngLat` (`packages/mapping/src/geometry.ts:136`) is a shipping
 runtime point-in-polygon that is already hole-aware and already handles
@@ -1316,7 +1326,8 @@ tolerate two answers until that slice ships.
   is undefined. Not a blocker. It is here because the corpus deliberately excludes
   that ring and somebody will ask why. The corpus does hold invalid geometry of
   the other kind since #518, which is the distinction to keep: a shared edge is
-  defined and agreed on by both engines, a crossed ring is neither.
+  defined and agreed on by both engines, a crossed ring is neither. #437 is
+  closed, and #1671 repaired the 15 rows and holds Regions valid.
 
 ## Out of scope
 
@@ -1360,8 +1371,10 @@ Ruled out on the map, each with the ticket that ruled it.
   rewrites `lat` and `lng` for every existing row on all 15 tables, which is a
   migration in disguise. Written down so the next person who finds a marker
   outside its region reads this instead of rediscovering it.
-- Geometry validity. A ring that crosses itself stores and SIMMER tests for it
-  nowhere. See #437.
+- Geometry validity for record areas. A record ring that crosses itself stores,
+  and nothing refuses it. Regions are the exception since #1671: the server
+  repairs an invalid Region ring on write and `regions_geom_valid_check` refuses
+  an invalid one. See ADR 0015's amendment of 2026-10-13.
 - Mobile's TypeScript implementation of region membership. The corpus it must pass
   grows here; the implementation does not.
 - Backfilling existing rows. No row changes type.
@@ -1375,5 +1388,5 @@ parts stores a Multi shape; one part stores the base shape. Part order carries n
 meaning.
 
 A geometry **covers no ground** when it encloses zero area or spans zero length.
-It is distinct from invalid, which is about a ring crossing itself and which
-SIMMER does not police.
+It is distinct from invalid, which is about a ring crossing itself. SIMMER
+polices that for Regions only, repairing on write, and not for record areas.

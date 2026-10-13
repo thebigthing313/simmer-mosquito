@@ -118,7 +118,9 @@ until a count in a report is wrong.
   `packages/db/src/tests/integration/domains/region-membership.integration.test.ts`
   seeds that pair and pins both answers, so the next person reads the measurement
   instead of taking it again. Validity is unpoliced. The neighbouring rule, that
-  a stored geometry must cover ground, is #434's and is enforced.
+  a stored geometry must cover ground, is #434's and is enforced. The 2026-10-13
+  amendment below supersedes this bullet for Regions, which are now held valid;
+  for record areas it stands.
 - The empty answer is a real answer. A trap in no spray zone is an operational
   fact, not a gap.
 
@@ -177,7 +179,8 @@ tile read or answer wrongly. ADR 0018 leaves validity unpoliced, because 15 of
 345 production Regions already fail `ST_IsValid` and a gate would refuse them on
 their next save. #437 measured what those 15 answer and left them where they are.
 The Consequences bullet above on validity carries the numbers and names the
-guard.
+guard. The 2026-10-13 amendment below lifts the assumption for Regions, which are
+now repaired on write and held by a CHECK, and not for record areas.
 
 ### Consequences of the amendment
 

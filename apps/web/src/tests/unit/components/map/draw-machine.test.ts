@@ -658,7 +658,8 @@ describe('next, driven the way a form drives it', () => {
 		});
 
 		// The one validity rule the control buys, because the point-in-polygon test
-		// already ships. Everything else a bad ring can be is #437.
+		// already ships. A crossed ring still finishes: the server repairs it on a
+		// Region and stores it as drawn on a record area (ADR 0015, 2026-10-13).
 		it('refuses to finish a hole that has left its piece', () => {
 			const placed = drive(
 				drawPolygon(begin(), BLOCK),
