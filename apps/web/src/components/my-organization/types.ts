@@ -150,8 +150,8 @@ type SettingsFieldKind<Values> =
  */
 export interface SettingsSection<Values, Payload> {
 	readonly title: string;
-	/** The words on the button that opens the sheet; left out, it reads Edit. */
-	readonly triggerLabel?: string | undefined;
+	/** The words on the button that opens the sheet, naming what it edits: Edit Collection Timing. */
+	readonly triggerLabel: string;
 	readonly description?: string | undefined;
 	/** The values the sheet opens with. */
 	readonly read: (settings: OrganizationSettings) => Values;

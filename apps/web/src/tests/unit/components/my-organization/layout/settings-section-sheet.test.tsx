@@ -94,7 +94,7 @@ describe('SettingsSectionSheet', () => {
 
 		fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 		await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-		fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Edit Service Request Settings' }));
 
 		expect(inputValue('Days before')).toBe('7');
 		expect(screen.queryByRole('alert')).toBeNull();
@@ -246,6 +246,7 @@ describe('SettingsSectionSheet', () => {
 		const write = vi.fn().mockResolvedValue(undefined);
 		const section: SettingsSection<ConditionalValues, ConditionalValues> = {
 			title: 'Edit Conditional',
+			triggerLabel: 'Edit Conditional',
 			read: () => ({ shown: false, note: 'kept' }),
 			fields: [
 				{ kind: 'switch', key: 'shown', label: 'Show note' },
@@ -256,7 +257,7 @@ describe('SettingsSectionSheet', () => {
 			failureMessage: 'Unable to save.',
 		};
 		render(<SettingsSectionSheet section={section} settings={SETTINGS} />);
-		fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Edit Conditional' }));
 
 		expect(screen.queryByLabelText('Note')).toBeNull();
 
@@ -274,7 +275,7 @@ describe('SettingsSectionSheet', () => {
 
 	it('moves the active collection timing card as the select changes', async () => {
 		render(<SettingsSectionSheet section={collectionTimingSection} settings={SETTINGS} />);
-		fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Edit Collection Timing' }));
 		const sheet = screen.getByRole('dialog');
 
 		expect(card(sheet, 'Exact Timestamps').dataset.active).toBe('true');
@@ -304,7 +305,7 @@ const OFF_SETTINGS = {
 
 function openContextSheet(settings: OrganizationSettings = SETTINGS): void {
 	render(<SettingsSectionSheet section={serviceRequestContextSection} settings={settings} />);
-	fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+	fireEvent.click(screen.getByRole('button', { name: 'Edit Service Request Settings' }));
 }
 
 function save(): void {

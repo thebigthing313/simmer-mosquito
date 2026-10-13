@@ -22,6 +22,7 @@ export function EditOrganizationDetailsSheet({
 			description={description}
 			failureMessage="Unable to save organization details."
 			title={title}
+			triggerLabel="Edit Organization Details"
 			values={defaultValues}
 			write={saveOrganizationDetails}
 		>

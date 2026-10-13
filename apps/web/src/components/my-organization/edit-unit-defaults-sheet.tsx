@@ -26,6 +26,7 @@ export function EditUnitDefaultsSheet({
 			description={description}
 			failureMessage="Unable to save unit defaults."
 			title={title}
+			triggerLabel="Edit Unit Defaults"
 			values={defaultValues}
 			write={setUnitDefaults}
 		>
