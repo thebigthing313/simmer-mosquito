@@ -22,6 +22,7 @@ const clock = createOrganizationClock('America/New_York');
 function renderBody(read: Partial<LinkedRecordsRead>): void {
 	render(
 		<LinkedRecordsBody
+			addressName="19 Mission Drive"
 			clock={clock}
 			lookups={lookups}
 			read={{

@@ -128,11 +128,16 @@ export interface LinkedRecordRow {
  * Mission stop are described here, because none of them is in the activity
  * log the shared row describes. Pure, so every kind can be asserted through
  * one function.
+ *
+ * `addressName` is the page's Address, which every row names and the heading
+ * already shows: an activity row whose place is the Address drops it, and one
+ * that would be titled by it is titled by its kind.
  */
 export function linkedRecordRow(
 	item: LinkedRecordItem,
 	lookups: ActivityLookups,
 	clock: OrganizationClock,
+	addressName: string,
 ): LinkedRecordRow {
 	const date = formatListDate(item.date);
 	switch (item.category) {
@@ -169,7 +174,9 @@ export function linkedRecordRow(
 		case 'missionItem':
 			return missionStopRow(item, lookups, clock, date);
 		default: {
-			const parts = mixedListRowParts({ ...item, category: item.category }, lookups);
+			const parts = mixedListRowParts({ ...item, category: item.category }, lookups, {
+				omitPlaceName: addressName,
+			});
 			return {
 				title: parts.title,
 				subtitle: parts.subtitle,

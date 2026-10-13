@@ -31,9 +31,16 @@ import {
 /**
  * The records whose Linked Address is this Address, below what is sited
  * there: one tab per family that has any, each its newest records and its
- * total, drawn as the service request page's nearby rows. Takes the Address id.
+ * total, drawn as the service request page's nearby rows. Takes the Address id
+ * and its name, which the rows leave out because the page heading shows it.
  */
-export function AddressLinkedRecordsCard({ addressId }: { readonly addressId: string }) {
+export function AddressLinkedRecordsCard({
+	addressId,
+	addressName,
+}: {
+	readonly addressId: string;
+	readonly addressName: string;
+}) {
 	const read = useAddressLinkedRecords(addressId);
 	const lookups = useActivityLookups();
 	const clock = useOrganizationClock();
@@ -44,7 +51,7 @@ export function AddressLinkedRecordsCard({ addressId }: { readonly addressId: st
 				<CardTitle>Linked Records</CardTitle>
 			</CardHeader>
 			<CardContent padding="compact">
-				<LinkedRecordsBody clock={clock} lookups={lookups} read={read} />
+				<LinkedRecordsBody addressName={addressName} clock={clock} lookups={lookups} read={read} />
 			</CardContent>
 		</Card>
 	);
@@ -55,8 +62,10 @@ export function LinkedRecordsBody({
 	read,
 	lookups,
 	clock,
+	addressName,
 }: {
 	readonly read: LinkedRecordsRead;
+	readonly addressName: string;
 	readonly lookups: ActivityLookups;
 	readonly clock: OrganizationClock;
 }) {
@@ -110,7 +119,7 @@ export function LinkedRecordsBody({
 			</TabStrip>
 			{pages.map((page) => (
 				<TabsContent key={page.family} value={page.family}>
-					<LinkedFamilyList clock={clock} lookups={lookups} page={page} />
+					<LinkedFamilyList addressName={addressName} clock={clock} lookups={lookups} page={page} />
 				</TabsContent>
 			))}
 		</Tabs>
@@ -122,8 +131,10 @@ function LinkedFamilyList({
 	page,
 	lookups,
 	clock,
+	addressName,
 }: {
 	readonly page: LinkedRecordFamilyPage;
+	readonly addressName: string;
 	readonly lookups: ActivityLookups;
 	readonly clock: OrganizationClock;
 }) {
@@ -138,7 +149,12 @@ function LinkedFamilyList({
 						className={index === 0 ? undefined : 'border-border/40 border-t'}
 						key={linkedRecordKey(item)}
 					>
-						<LinkedRecordExplorerRow clock={clock} item={item} lookups={lookups} />
+						<LinkedRecordExplorerRow
+							addressName={addressName}
+							clock={clock}
+							item={item}
+							lookups={lookups}
+						/>
 					</li>
 				))}
 			</ul>
@@ -155,12 +171,14 @@ function LinkedRecordExplorerRow({
 	item,
 	lookups,
 	clock,
+	addressName,
 }: {
 	readonly item: LinkedRecordItem;
+	readonly addressName: string;
 	readonly lookups: ActivityLookups;
 	readonly clock: OrganizationClock;
 }) {
-	const row = linkedRecordRow(item, lookups, clock);
+	const row = linkedRecordRow(item, lookups, clock, addressName);
 	return (
 		<ExplorerRow
 			badges={

@@ -7,6 +7,7 @@ import {
 import type { LinkProps } from '@tanstack/react-router';
 import type { Tag } from '../../hooks/queries/tag-view';
 import { adhocLabel } from '../../lib/coordinate-label';
+import { type RecordType, recordNoun } from '../../lib/record-nouns';
 import {
 	type ControlContext,
 	formatAmount,
@@ -109,6 +110,24 @@ export const ACTIVITY_ROLE_LABEL: Readonly<Record<string, string>> = {
 	closed: 'Closed',
 	assisted: 'Assisted',
 };
+
+/** Each record kind under the record-noun register's name for it. */
+const ACTIVITY_RECORD_TYPE = {
+	habitat: 'habitat',
+	inspection: 'inspection',
+	trap: 'trap',
+	collection: 'collection',
+	application: 'application',
+	sourceReduction: 'sourceReduction',
+	biocontrol: 'biocontrolAction',
+	outreach: 'outreachAction',
+	serviceRequest: 'serviceRequest',
+} as const satisfies Record<ActivityCategory, RecordType>;
+
+/** What the register titles a record of this kind: `Chemical Application`, `Collection`. */
+export function activityRecordTitle(category: ActivityCategory): string {
+	return recordNoun(ACTIVITY_RECORD_TYPE[category]).title;
+}
 
 /** Where each record kind's detail page lives. Every one takes an `$id`. */
 const ACTIVITY_DETAIL_ROUTE = {
@@ -440,16 +459,32 @@ export interface ActivityRowParts {
 	readonly tags: readonly Tag[];
 }
 
+/** What a surface tells the describer about where it is drawn. */
+export interface ActivityDescribeOptions {
+	/**
+	 * A place every row on the surface names, which the surface already shows,
+	 * the way the Address page's heading names its Address. A record whose
+	 * place is this one drops it, and one that would be titled by it is titled
+	 * by the register's name for its kind instead.
+	 */
+	readonly omitPlaceName?: string;
+}
+
 /**
  * One activity record, resolved to what both of its rows draw: the describer,
  * the category label, the detail route, the badge register and the Tags. A pure
  * resolution so the nine categories can be asserted through one function.
  */
-export function activityRow(record: ActivityRowRecord, lookups: ActivityLookups): ActivityRowParts {
+export function activityRow(
+	record: ActivityRowRecord,
+	lookups: ActivityLookups,
+	options: ActivityDescribeOptions = {},
+): ActivityRowParts {
 	const { title, subtitle } = describeActivityEntry(
 		record,
 		lookups.nameById,
 		lookups.formatQuantity,
+		options,
 	);
 	return {
 		title,
@@ -476,7 +511,10 @@ export function describeActivityEntry(
 	entry: ActivityRowRecord,
 	nameById: ReadonlyMap<string, string>,
 	formatQuantity: (amount: number, unitId: string | null) => string,
+	options: ActivityDescribeOptions = {},
 ): ActivityDescription {
+	const place = text(entry.placeName);
+	const placeOmitted = place !== null && place === text(options.omitPlaceName ?? null);
 	return DESCRIBE_BY_CATEGORY[entry.category]({
 		/** The lookup that names the record's kind. */
 		kind: resolve(entry.refId, nameById),
@@ -485,7 +523,7 @@ export function describeActivityEntry(
 		/** The record's own name. */
 		own: text(entry.label),
 		/** The place it hangs off. */
-		place: text(entry.placeName),
+		place: placeOmitted ? null : place,
 		/** What it measured, already in its unit. */
 		// `typeof` rather than a null check: a server that predates these columns
 		// sends no field at all, and `undefined` reaching the formatter is a crash.
@@ -499,7 +537,11 @@ export function describeActivityEntry(
 		// well as a blank (#1231); the coordinates do, and every entry carries them.
 		// An inspection at no habitat and no address read "Inspection" here because
 		// the ladder stopped at the place (#1664).
-		fallback: adhocLabel(entry.lat, entry.lng, ACTIVITY_CATEGORY_LABEL[entry.category]),
+		// Where the place was dropped, every row on the surface is at the place it
+		// names, so the coordinates tell the rows apart no better than the kind.
+		fallback: placeOmitted
+			? activityRecordTitle(entry.category)
+			: adhocLabel(entry.lat, entry.lng, ACTIVITY_CATEGORY_LABEL[entry.category]),
 	});
 }
 
@@ -512,7 +554,10 @@ interface DescriptionParts {
 	readonly measured: string | null;
 	readonly reached: string | null;
 	readonly extra: string | null;
-	/** What a record with nothing else to name it is titled: its coordinates, else its category. */
+	/**
+	 * What a record with nothing else to name it is titled: its coordinates, else
+	 * its category, or its kind's register name where the place was omitted.
+	 */
 	readonly fallback: string;
 }
 
