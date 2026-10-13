@@ -159,7 +159,7 @@ Common source terms:
   The server repairs an invalid Region on write and a CHECK holds Regions valid,
   but it leaves a record area as drawn, because Split stores two pieces sharing
   their cut line. The field app's draw control refuses to finish an area whose
-  edges cross.
+  edges cross, a rule #1337 settled for the field app's v1.
 
 ## Ambiguities to preserve
 
