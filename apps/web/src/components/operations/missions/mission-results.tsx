@@ -1,4 +1,3 @@
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Empty,
 	EmptyContent,
@@ -9,12 +8,11 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { Link } from '@tanstack/react-router';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type { MissionListing, MissionProgressCounts } from '../../../hooks/queries/operations-view';
 import { createLabel } from '../../app-shell/navigation';
 import { RESULT_SKELETON_KEYS } from '../../explorer';
-import { WriteOnly } from '../../write-only';
+import { CreateControl } from '../../explorer/explorer-header';
 import { MissionRow } from './mission-row';
 
 const MissionIcon = iconRegistry.entities.route.icon;
@@ -73,14 +71,13 @@ export function MissionResults({
 					</EmptyHeader>
 					{hasFilters ? null : (
 						<EmptyContent>
-							<WriteOnly minimum="manager">
-								<Button asChild size="sm">
-									<Link to="/operations/missions/create">
-										<PlusIcon aria-hidden="true" />
-										{createLabel('mission')}
-									</Link>
-								</Button>
-							</WriteOnly>
+							<CreateControl
+								create={{
+									to: '/operations/missions/create',
+									label: createLabel('mission'),
+									minimum: 'manager',
+								}}
+							/>
 						</EmptyContent>
 					)}
 				</Empty>

@@ -1,4 +1,3 @@
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Empty,
 	EmptyContent,
@@ -9,12 +8,11 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { Link } from '@tanstack/react-router';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type { AssignmentListing, ProgressCounts } from '../../../hooks/queries/assignment-view';
 import { createLabel } from '../../app-shell/navigation';
 import { RESULT_SKELETON_KEYS } from '../../explorer';
-import { WriteOnly } from '../../write-only';
+import { CreateControl } from '../../explorer/explorer-header';
 import { AssignmentRow } from './assignment-row';
 
 const AssignmentIcon = iconRegistry.entities.vehicle.icon;
@@ -71,14 +69,13 @@ export function AssignmentResults({
 					</EmptyHeader>
 					{hasFilters ? null : (
 						<EmptyContent>
-							<WriteOnly minimum="manager">
-								<Button asChild size="sm">
-									<Link to="/operations/assignments/create">
-										<PlusIcon aria-hidden="true" />
-										{createLabel('assignment')}
-									</Link>
-								</Button>
-							</WriteOnly>
+							<CreateControl
+								create={{
+									to: '/operations/assignments/create',
+									label: createLabel('assignment'),
+									minimum: 'manager',
+								}}
+							/>
 						</EmptyContent>
 					)}
 				</Empty>
