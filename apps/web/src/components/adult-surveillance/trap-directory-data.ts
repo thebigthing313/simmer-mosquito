@@ -2,6 +2,7 @@ import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
 import { compareByCollectionDateDesc } from '../../hooks/queries/collection-view';
 import type { TrapListing } from '../../hooks/queries/use-active-traps';
 import { isPendingCollection } from './adult-display';
+import type { CollectionTallies } from './trap-collection-tallies';
 
 /**
  * The fold behind the trap directory's right half: a trap's flat run of
@@ -75,11 +76,6 @@ export interface CollectionYear {
 	readonly collections: readonly DirectoryCollection[];
 }
 
-export interface SpecimenTotals {
-	readonly specimens: number;
-	readonly species: number;
-}
-
 /**
  * Cut a trap's collections into years, most recent first, with the undated ones
  * ahead of them. The year comes off the effective date, because the two timing
@@ -144,36 +140,21 @@ export function splitSeasons(years: readonly CollectionYear[]): {
 }
 
 /**
- * What a collection caught. Non-positive counts are ignored, so a zero row
- * neither inflates the total nor claims a species was present.
+ * The one line a closed row carries: the trap Collections tab's two numbers,
+ * from `collectionTallies`. A collection still out, or empty by
+ * declaration, says so rather than showing "0 species · 0 mosquitoes", and one
+ * with no female rows reads as not identified.
  */
-export function specimenTotals(species: readonly DirectorySpecies[]): SpecimenTotals {
-	let specimens = 0;
-	const distinct = new Set<string>();
-	for (const entry of species) {
-		const count = entry.count ?? 0;
-		if (count <= 0) {
-			continue;
-		}
-		specimens += count;
-		distinct.add(entry.speciesId);
-	}
-	return { specimens, species: distinct.size };
-}
-
-/**
- * The one line a closed row carries. A collection still out, or empty by
- * declaration, says so rather than showing "0 species · 0 specimens".
- */
-export function summaryLabel(collection: DirectoryCollection, totals: SpecimenTotals): string {
+export function summaryLabel(collection: DirectoryCollection, tallies: CollectionTallies): string {
 	if (isPendingCollection(collection)) {
 		return 'Not yet collected';
 	}
 	if (collection.isZeroResult) {
 		return 'No specimens';
 	}
-	if (totals.specimens === 0) {
+	if (tallies.mosquitoes === 0) {
 		return 'Not identified';
 	}
-	return `${totals.species} species · ${totals.specimens.toLocaleString('en-US')} specimens`;
+	const noun = tallies.mosquitoes === 1 ? 'mosquito' : 'mosquitoes';
+	return `${tallies.species} species · ${tallies.mosquitoes.toLocaleString('en-US')} ${noun}`;
 }

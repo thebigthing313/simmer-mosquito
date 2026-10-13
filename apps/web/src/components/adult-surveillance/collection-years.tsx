@@ -22,6 +22,7 @@ export function CollectionYears({
 	isReady,
 	isError,
 	speciesNameById,
+	unidentifiedSpeciesIds,
 	header,
 	onLoadEarlier,
 }: {
@@ -29,6 +30,8 @@ export function CollectionYears({
 	readonly isReady: boolean;
 	readonly isError: boolean;
 	readonly speciesNameById: ReadonlyMap<string, string>;
+	/** The catalog's "Unidentified mosquito" placeholder, which no row counts as a species. */
+	readonly unidentifiedSpeciesIds: ReadonlySet<string>;
 	/** The trap this history belongs to, pinned above its own scroll. */
 	readonly header: ReactNode;
 	/** Lifts the default season window. Absent once every season is loaded. */
@@ -108,6 +111,7 @@ export function CollectionYears({
 								collection={collection}
 								key={collection.id}
 								speciesNameById={speciesNameById}
+								unidentifiedSpeciesIds={unidentifiedSpeciesIds}
 							/>
 						))}
 					</ul>

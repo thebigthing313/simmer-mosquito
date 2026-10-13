@@ -1,8 +1,8 @@
 import type { SpeciesSex } from '@simmer-mosquito/domain';
 
 /**
- * The two numbers a row of a trap's Collections tab carries, and the filter the
- * Species tab shares with them. Pure, so a species counted from a male row can
+ * The two numbers a row of a trap's Collections tab and a trap directory row
+ * carry, and the filter the Species tab shares with them. Pure, so a species counted from a male row can
  * be asserted.
  */
 
@@ -18,6 +18,16 @@ export interface CollectionTallies {
 	readonly species: number;
 	/** Female mosquitoes, identified or not. */
 	readonly mosquitoes: number;
+}
+
+/**
+ * The ids of the catalog's "Unidentified mosquito" placeholder, recognised by
+ * its `unidentified` epithet. Specimens never keyed out are recorded against it.
+ */
+export function unidentifiedSpeciesIdsOf(
+	catalog: readonly { readonly id: string; readonly epithet: string }[],
+): ReadonlySet<string> {
+	return new Set(catalog.filter((row) => row.epithet === 'unidentified').map((row) => row.id));
 }
 
 /**

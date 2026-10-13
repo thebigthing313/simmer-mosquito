@@ -31,6 +31,7 @@ import {
 import {
 	collectionTallies,
 	isIdentifiedFemale,
+	unidentifiedSpeciesIdsOf,
 } from '../../../components/adult-surveillance/trap-collection-tallies';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -193,9 +194,7 @@ function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
 	// The catalog carries a placeholder "Unidentified mosquito" species for specimens
 	// that were never keyed out. It isn't a real taxon, so neither tab counts it as
 	// a species.
-	const unidentifiedSpeciesIds = new Set(
-		species.filter((row) => row.epithet === 'unidentified').map((row) => row.id),
-	);
+	const unidentifiedSpeciesIds = unidentifiedSpeciesIdsOf(species);
 
 	return (
 		<Card variant="surface">

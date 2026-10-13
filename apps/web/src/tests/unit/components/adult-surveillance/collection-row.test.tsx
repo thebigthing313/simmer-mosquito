@@ -19,7 +19,11 @@ afterEach(cleanup);
 const SPECIES_NAMES = new Map([
 	['species-vexans', 'Aedes vexans'],
 	['species-sollicitans', 'Aedes sollicitans'],
+	['species-unidentified', 'Unidentified mosquito'],
 ]);
+
+/** The catalog's placeholder taxon, as `useSpeciesCatalog` recognises it. */
+const UNIDENTIFIED_SPECIES_IDS: ReadonlySet<string> = new Set(['species-unidentified']);
 
 /**
  * A collection as `useTrapCollections` hands it up, with its `effectiveDate`
@@ -64,7 +68,13 @@ function collection(
 const ORGANIZATION_TIME_ZONE = 'America/New_York';
 
 function renderRow(row: DirectoryCollection) {
-	return render(<CollectionRow collection={row} speciesNameById={SPECIES_NAMES} />);
+	return render(
+		<CollectionRow
+			collection={row}
+			speciesNameById={SPECIES_NAMES}
+			unidentifiedSpeciesIds={UNIDENTIFIED_SPECIES_IDS}
+		/>,
+	);
 }
 
 /**
@@ -79,8 +89,54 @@ describe('CollectionRow', () => {
 		renderRow(collection());
 
 		expect(screen.getByText('Tue, Jul 14')).toBeTruthy();
-		expect(screen.getByText('2 species · 160 specimens')).toBeTruthy();
+		expect(screen.getByText('2 species · 160 mosquitoes')).toBeTruthy();
 		expect(screen.queryByText('Aedes vexans')).toBeNull();
+	});
+
+	// The line carries the trap Collections tab's two numbers, read off the
+	// female rows by the same rule, so the two surfaces never disagree.
+	it('counts a species with a female row and a male row once, and only its females', () => {
+		renderRow(
+			collection({
+				species: [
+					{ id: 'row-1', speciesId: 'species-vexans', count: 40, sex: 'female', status: null },
+					{ id: 'row-2', speciesId: 'species-vexans', count: 15, sex: 'male', status: null },
+				],
+			}),
+		);
+
+		expect(screen.getByText('1 species · 40 mosquitoes')).toBeTruthy();
+	});
+
+	it('counts unidentified females as mosquitoes but not as a species', () => {
+		renderRow(
+			collection({
+				species: [
+					{
+						id: 'row-1',
+						speciesId: 'species-unidentified',
+						count: 7,
+						sex: 'female',
+						status: null,
+					},
+				],
+			}),
+		);
+
+		expect(screen.getByText('0 species · 7 mosquitoes')).toBeTruthy();
+	});
+
+	it('shows no count for a collection of males alone', () => {
+		renderRow(
+			collection({
+				species: [
+					{ id: 'row-1', speciesId: 'species-vexans', count: 3, sex: 'male', status: null },
+				],
+			}),
+		);
+
+		expect(screen.getByText('Not identified')).toBeTruthy();
+		expect(screen.queryByText(/species ·/)).toBeNull();
 	});
 
 	it('shows the specimens, most numerous first, once it is opened', () => {
