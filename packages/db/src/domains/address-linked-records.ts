@@ -10,6 +10,7 @@ import { type Kysely, type RawBuilder, sql } from 'kysely';
 import type { SimmerDatabase } from '../index.js';
 import {
 	type ActivityRecordRow,
+	type PlaceSource,
 	type RecordColumnsShape,
 	recordColumns,
 	recordShapes,
@@ -27,6 +28,12 @@ import { assertIanaTimeZone, localDateSql } from './record-display-sql.js';
 export interface LinkedRecordRow extends Omit<ActivityRecordRow, 'category' | 'family'> {
 	readonly category: LinkedRecordCategory;
 	readonly family: LinkedRecordFamily;
+	/**
+	 * Which rung `placeName` came from. The card drops a place that came from
+	 * this Address, which its heading already names, and keeps a habitat or a
+	 * trap that only shares the Address's name.
+	 */
+	readonly placeSource: PlaceSource | null;
 	/** A Requested Control Action's or a Mission's control type. */
 	readonly controlType: string | null;
 	/** A Notification Registration's contact, which its page hangs off. */
@@ -158,6 +165,7 @@ function linkedShapes(timeZone: string): readonly LinkedShape[] {
 			occurredAt: 'r.created_at',
 			label: `nullif(btrim(co.contact_name), '')`,
 			placeName: NO_TEXT,
+			placeSource: NO_TEXT,
 			refId: NO_TEXT,
 			detail: `case when r.is_active then 'active' else 'inactive' end`,
 			extras: {
@@ -179,6 +187,7 @@ function linkedShapes(timeZone: string): readonly LinkedShape[] {
 			occurredAt: 'r.requested_at',
 			label: `nullif(btrim(r.summary), '')`,
 			placeName: NO_TEXT,
+			placeSource: NO_TEXT,
 			refId: 'r.recommended_method_id::text',
 			detail: `case when r.resolved_at is null then 'open' else 'resolved' end`,
 			extras: { controlType: 'r.control_type::text' },
@@ -200,6 +209,7 @@ function linkedShapes(timeZone: string): readonly LinkedShape[] {
 			// the request it was drawn from. The Address it sits at is this page.
 			label: `coalesce(nullif(btrim(r.name), ''), nullif(btrim(rca.summary), ''))`,
 			placeName: NO_TEXT,
+			placeSource: NO_TEXT,
 			refId: NO_TEXT,
 			detail: `case when r.completed_at is not null then 'done'
 				when r.skipped_at is not null then 'skipped' else 'open' end`,
@@ -293,6 +303,7 @@ function linkedSelect(
 		sql`${sql.raw(expression ?? NO_TEXT)}::text as ${sql.ref(name)}`;
 	return sql<LinkedRecordRow>`
 		select ${recordColumns(shape, { date: shape.date, occurredAt: shape.occurredAt })},
+			${sql.raw(shape.placeSource)}::text as "placeSource",
 			${sql.join([
 				column(extras.controlType, 'controlType'),
 				column(extras.contactId, 'contactId'),

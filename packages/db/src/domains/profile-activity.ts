@@ -34,6 +34,14 @@ import {
 export type { ActivityCategory, ActivityFamily };
 
 /**
+ * Which rung of the ladder a row's `placeName` came from: the habitat, the
+ * trap, or the Linked Address. Two rungs can hold the same text, a habitat
+ * named exactly like the Address it sits at, so a reader that treats one rung
+ * differently reads this rather than comparing names (#1711).
+ */
+export type PlaceSource = 'habitat' | 'trap' | 'address';
+
+/**
  * The half of an activity row that describes the record rather than the
  * person: which record it is, where it is, when its work is dated, and what a
  * list row is titled and badged by. Every column here is read off the
@@ -132,6 +140,13 @@ export interface RecordShape {
 	readonly occurredAt: string;
 	readonly label: string;
 	readonly placeName: string;
+	/**
+	 * The {@link PlaceSource} rung `placeName` resolved to, null where it
+	 * resolved to nothing. {@link recordColumns} leaves it out, so the nearby
+	 * read answers what it always has; the Address page's linked read selects
+	 * it beside the place.
+	 */
+	readonly placeSource: string;
 	readonly refId: string;
 	readonly methodRefId?: string;
 	readonly amount?: string;
@@ -152,9 +167,32 @@ const NO_TEXT_ARRAY = 'null::text[]';
 /** The habitat, else the address, a record was performed at. */
 const SITE_JOINS =
 	'left join habitats h on h.id = r.habitat_id left join addresses ad on ad.id = r.address_id';
-const PLACE_NAME = `coalesce(nullif(btrim(h.habitat_name), ''), nullif(btrim(ad.display_name), ''))`;
+const HABITAT_NAME = `nullif(btrim(h.habitat_name), '')`;
 const ADDRESS_JOIN = 'left join addresses ad on ad.id = r.address_id';
 const ADDRESS_NAME = `nullif(btrim(ad.display_name), '')`;
+
+/**
+ * A place ladder's two columns: the first rung's name that is present, and
+ * which rung that was. Both are read off one list, so the name and its rung
+ * cannot disagree about which rung answered.
+ */
+function placeLadder(rungs: readonly (readonly [PlaceSource, string])[]): {
+	readonly placeName: string;
+	readonly placeSource: string;
+} {
+	const arms = rungs.map(([source, name]) => `when ${name} is not null then '${source}'`);
+	return {
+		placeName: `coalesce(${rungs.map(([, name]) => name).join(', ')})`,
+		placeSource: `case ${arms.join(' ')} end`,
+	};
+}
+
+const NO_PLACE = { placeName: NO_TEXT, placeSource: NO_TEXT } as const;
+const SITE_PLACE = placeLadder([
+	['habitat', HABITAT_NAME],
+	['address', ADDRESS_NAME],
+]);
+const ADDRESS_PLACE = placeLadder([['address', ADDRESS_NAME]]);
 
 /**
  * The nine record shapes, dated in one organization's timezone.
@@ -188,7 +226,7 @@ export function recordShapes(timeZone: string): {
 			occurredAt: 'r.created_at',
 			label: 'r.habitat_name',
 			// A habitat *is* the site, so it names no other one.
-			placeName: NO_TEXT,
+			...NO_PLACE,
 			refId: 'r.habitat_type_id::text',
 			detail: habitatStatusSql('r'),
 			tagIds: recordTagIdsSql('r', 'habitat'),
@@ -201,7 +239,7 @@ export function recordShapes(timeZone: string): {
 			date: 'r.inspection_date',
 			occurredAt: NO_TIMESTAMP,
 			label: NO_TEXT,
-			placeName: PLACE_NAME,
+			...SITE_PLACE,
 			refId: 'r.habitat_type_id::text',
 			// What the explorer's badge reads: dry, or how much was found.
 			detail: inspectionResultSql('r'),
@@ -217,7 +255,7 @@ export function recordShapes(timeZone: string): {
 			date: localDate('r.created_at'),
 			occurredAt: 'r.created_at',
 			label: trapLabelSql('r'),
-			placeName: NO_TEXT,
+			...NO_PLACE,
 			refId: 'r.collection_method_id::text',
 			detail: trapStatusSql('r'),
 		},
@@ -232,7 +270,10 @@ export function recordShapes(timeZone: string): {
 			// The trap it came out of, else the address a collection recorded away
 			// from one was linked to. The client puts the coordinates after both,
 			// which is the ladder every other collection surface reads (#1664).
-			placeName: `coalesce(${trapLabelSql('t')}, ${ADDRESS_NAME})`,
+			...placeLadder([
+				['trap', trapLabelSql('t')],
+				['address', ADDRESS_NAME],
+			]),
 			refId: 'r.collection_method_id::text',
 			// All four states rather than the two exceptional ones. The explorer
 			// paints its dot with the same resolution, and a log saying nothing
@@ -248,7 +289,7 @@ export function recordShapes(timeZone: string): {
 			date: 'r.application_date',
 			occurredAt: NO_TIMESTAMP,
 			label: NO_TEXT,
-			placeName: PLACE_NAME,
+			...SITE_PLACE,
 			refId: 'r.insecticide_id::text',
 			methodRefId: 'r.application_method_id::text',
 			amount: 'r.amount_applied',
@@ -262,7 +303,7 @@ export function recordShapes(timeZone: string): {
 			date: 'r.source_reduction_date',
 			occurredAt: NO_TIMESTAMP,
 			label: NO_TEXT,
-			placeName: PLACE_NAME,
+			...SITE_PLACE,
 			refId: 'r.source_reduction_method_id::text',
 			amount: 'r.sources_eliminated_amount',
 			unitId: 'r.sources_eliminated_unit_id::text',
@@ -275,7 +316,7 @@ export function recordShapes(timeZone: string): {
 			date: 'r.biocontrol_date',
 			occurredAt: NO_TIMESTAMP,
 			label: NO_TEXT,
-			placeName: PLACE_NAME,
+			...SITE_PLACE,
 			refId: 'r.biocontrol_method_id::text',
 			amount: 'r.amount_released',
 			unitId: 'r.release_unit_id::text',
@@ -292,7 +333,7 @@ export function recordShapes(timeZone: string): {
 			date: 'r.outreach_date',
 			occurredAt: NO_TIMESTAMP,
 			label: NO_TEXT,
-			placeName: ADDRESS_NAME,
+			...ADDRESS_PLACE,
 			refId: 'r.outreach_method_id::text',
 			// Reach is a count of people, not a measured quantity, so it carries no unit.
 			amount: 'r.reach',
@@ -306,7 +347,7 @@ export function recordShapes(timeZone: string): {
 			date: 'r.request_date',
 			occurredAt: NO_TIMESTAMP,
 			label: `nullif(concat('Request ', r.display_name::text), 'Request ')`,
-			placeName: ADDRESS_NAME,
+			...ADDRESS_PLACE,
 			// Requests carry no method or type lookup; the intake type is a column.
 			refId: NO_TEXT,
 			detail: `case when r.closed_at is null then 'open' else 'closed' end`,

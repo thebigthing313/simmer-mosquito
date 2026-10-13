@@ -13,7 +13,7 @@ import { formatCount } from '../../../lib/format-count';
 import { formatListDate } from '../../../lib/local-date';
 import type { OrganizationClock } from '../../../lib/organization-clock';
 import { recordNoun } from '../../../lib/record-nouns';
-import type { ActivityLookups, ActivityRowRecord } from '../../activity/activity-data';
+import type { ActivityLookups, ActivityRowRecord, PlaceSource } from '../../activity/activity-data';
 import {
 	mixedListRowParts,
 	recordCountWords,
@@ -31,6 +31,8 @@ import type { RecordBadgeFacts, StateToken } from '../../record/record-badges';
 export interface LinkedRecordItem extends Omit<ActivityRowRecord, 'category'> {
 	readonly category: LinkedRecordCategory;
 	readonly family: LinkedRecordFamily;
+	/** Which rung `placeName` came from, which the linked read always sends. */
+	readonly placeSource: PlaceSource | null;
 	readonly controlType: string | null;
 	readonly contactId: string | null;
 	readonly contactName: string | null;
@@ -129,15 +131,14 @@ export interface LinkedRecordRow {
  * log the shared row describes. Pure, so every kind can be asserted through
  * one function.
  *
- * `addressName` is the page's Address, which every row names and the heading
- * already shows: an activity row whose place is the Address drops it, and one
- * that would be titled by it is titled by its kind.
+ * Every row names the page's Address, which the heading already shows: an
+ * activity row whose place came from the Address drops it, and one that would
+ * be titled by it is titled by its kind.
  */
 export function linkedRecordRow(
 	item: LinkedRecordItem,
 	lookups: ActivityLookups,
 	clock: OrganizationClock,
-	addressName: string,
 ): LinkedRecordRow {
 	const date = formatListDate(item.date);
 	switch (item.category) {
@@ -175,7 +176,7 @@ export function linkedRecordRow(
 			return missionStopRow(item, lookups, clock, date);
 		default: {
 			const parts = mixedListRowParts({ ...item, category: item.category }, lookups, {
-				omitPlaceName: addressName,
+				omitAddressPlace: true,
 			});
 			return {
 				title: parts.title,

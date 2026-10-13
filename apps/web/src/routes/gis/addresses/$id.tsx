@@ -101,7 +101,7 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 		>
 			<RecordRegionsBand recordId={address.id} recordType="addresses" />
 			<AddressSurveillanceCard addressId={address.id} />
-			<AddressLinkedRecordsCard addressId={address.id} addressName={address.displayName} />
+			<AddressLinkedRecordsCard addressId={address.id} />
 		</DetailPageShell>
 	);
 }

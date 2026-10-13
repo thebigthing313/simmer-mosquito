@@ -22,6 +22,9 @@ import type { InspectionResult, LifecycleStatus, RecordBadgeFacts } from '../rec
 // entries come off `useDayActivity`, one day of the Organization's records
 // filtered to the person, so nothing below groups by date.
 
+/** The rung of the place ladder a `placeName` came from. `packages/db` declares the server half. */
+export type PlaceSource = 'habitat' | 'trap' | 'address';
+
 export interface ActivityEntry {
 	readonly category: ActivityCategory;
 	readonly family: ActivityFamily;
@@ -36,6 +39,11 @@ export interface ActivityEntry {
 	readonly label: string | null;
 	/** The place it hangs off (habitat, trap or address), resolved off the joined row. */
 	readonly placeName: string | null;
+	/**
+	 * Which rung `placeName` came from. Only the Address page's linked read
+	 * sends it; an entry without it is read as though no rung is known.
+	 */
+	readonly placeSource?: PlaceSource | null;
 	/** The lookup that names its kind (type/method/insecticide). */
 	readonly refId: string | null;
 	/** A second lookup where one exists, an application's method, beside its product. */
@@ -462,12 +470,13 @@ export interface ActivityRowParts {
 /** What a surface tells the describer about where it is drawn. */
 export interface ActivityDescribeOptions {
 	/**
-	 * A place every row on the surface names, which the surface already shows,
-	 * the way the Address page's heading names its Address. A record whose
-	 * place is this one drops it, and one that would be titled by it is titled
-	 * by the register's name for its kind instead.
+	 * The surface already shows the Linked Address every row names, the way the
+	 * Address page's heading does. A record whose place came from the Address
+	 * drops it, and one that would be titled by it is titled by the register's
+	 * name for its kind instead. A habitat or trap that only shares the
+	 * Address's name keeps it (#1711).
 	 */
-	readonly omitPlaceName?: string;
+	readonly omitAddressPlace?: boolean;
 }
 
 /**
@@ -514,7 +523,8 @@ export function describeActivityEntry(
 	options: ActivityDescribeOptions = {},
 ): ActivityDescription {
 	const place = text(entry.placeName);
-	const placeOmitted = place !== null && place === text(options.omitPlaceName ?? null);
+	const placeOmitted =
+		place !== null && options.omitAddressPlace === true && entry.placeSource === 'address';
 	return DESCRIBE_BY_CATEGORY[entry.category]({
 		/** The lookup that names the record's kind. */
 		kind: resolve(entry.refId, nameById),

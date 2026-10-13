@@ -1249,6 +1249,7 @@ describe('the linked records on an address', () => {
 			occurredAt: null,
 			label: `Record ${id}`,
 			placeName: null,
+			placeSource: null,
 			refId: null,
 			methodRefId: null,
 			amount: null,
@@ -1297,7 +1298,6 @@ describe('the linked records on an address', () => {
 	it('sends each row to its own page, and a mission stop to its mission', () => {
 		renderWithRouter(
 			<LinkedRecordsBody
-				addressName="19 Mission Drive"
 				clock={createOrganizationClock('America/New_York')}
 				lookups={{ nameById: new Map(), formatQuantity: String, tagById: new Map() }}
 				read={{

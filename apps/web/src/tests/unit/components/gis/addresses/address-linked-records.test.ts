@@ -21,6 +21,7 @@ function linkedItem(overrides: Partial<LinkedRecordItem>): LinkedRecordItem {
 		occurredAt: null,
 		label: null,
 		placeName: null,
+		placeSource: null,
 		refId: null,
 		methodRefId: null,
 		amount: null,
@@ -57,15 +58,20 @@ const clock = createOrganizationClock('America/New_York');
 
 describe('linkedRecordRow', () => {
 	// Every row on the card names this Address, which the page heading already
-	// shows, so a row whose place is the Address drops it (#1708).
+	// shows, so a row whose place came from the Address drops it (#1708). A
+	// habitat or trap that only shares its name keeps it (#1711).
 	const address = '19 Mission Drive';
 
 	it('keeps a service request titled by its summary and drops the Address from its subtitle', () => {
 		const request = linkedRecordRow(
-			linkedItem({ label: 'Request 15737', placeName: address, detail: 'open' }),
+			linkedItem({
+				label: 'Request 15737',
+				placeName: address,
+				placeSource: 'address',
+				detail: 'open',
+			}),
 			lookups,
 			clock,
-			address,
 		);
 		expect(request).toMatchObject({
 			title: 'Request 15737',
@@ -83,12 +89,12 @@ describe('linkedRecordRow', () => {
 				family: 'collections',
 				id: 'collection-1',
 				placeName: address,
+				placeSource: 'address',
 				refId: 'method-1',
 				detail: 'collected',
 			}),
 			lookups,
 			clock,
-			address,
 		);
 		expect(collection).toMatchObject({
 			title: 'Collection',
@@ -98,10 +104,14 @@ describe('linkedRecordRow', () => {
 		});
 
 		const inspection = linkedRecordRow(
-			linkedItem({ category: 'inspection', family: 'inspections', placeName: address }),
+			linkedItem({
+				category: 'inspection',
+				family: 'inspections',
+				placeName: address,
+				placeSource: 'address',
+			}),
 			lookups,
 			clock,
-			address,
 		);
 		expect(inspection).toMatchObject({ title: 'Inspection', subtitle: null });
 	});
@@ -112,13 +122,13 @@ describe('linkedRecordRow', () => {
 				category: 'application',
 				family: 'controlActions',
 				placeName: address,
+				placeSource: 'address',
 				refId: 'insecticide-1',
 				methodRefId: 'ulv-1',
 				amount: 4,
 			}),
 			lookups,
 			clock,
-			address,
 		);
 		expect(application).toMatchObject({
 			title: 'Altosid XR-G',
@@ -126,10 +136,14 @@ describe('linkedRecordRow', () => {
 		});
 
 		const unnamed = linkedRecordRow(
-			linkedItem({ category: 'sourceReduction', family: 'controlActions', placeName: address }),
+			linkedItem({
+				category: 'sourceReduction',
+				family: 'controlActions',
+				placeName: address,
+				placeSource: 'address',
+			}),
 			lookups,
 			clock,
-			address,
 		);
 		expect(unnamed).toMatchObject({ title: 'Source Reduction', subtitle: null });
 	});
@@ -140,11 +154,11 @@ describe('linkedRecordRow', () => {
 				category: 'collection',
 				family: 'collections',
 				placeName: 'Trap 12',
+				placeSource: 'trap',
 				refId: 'method-1',
 			}),
 			lookups,
 			clock,
-			address,
 		);
 		expect(collection).toMatchObject({
 			title: 'Trap 12',
@@ -152,7 +166,55 @@ describe('linkedRecordRow', () => {
 		});
 	});
 
-	it('never draws the Address as a title or subtitle', () => {
+	it('keeps the title of a habitat named exactly like its Address', () => {
+		const inspection = linkedRecordRow(
+			linkedItem({
+				category: 'inspection',
+				family: 'inspections',
+				placeName: address,
+				placeSource: 'habitat',
+			}),
+			lookups,
+			clock,
+		);
+		expect(inspection).toMatchObject({ title: address, subtitle: 'Inspection' });
+
+		const application = linkedRecordRow(
+			linkedItem({
+				category: 'application',
+				family: 'controlActions',
+				placeName: address,
+				placeSource: 'habitat',
+				refId: 'insecticide-1',
+			}),
+			lookups,
+			clock,
+		);
+		expect(application).toMatchObject({
+			title: 'Altosid XR-G',
+			subtitle: `Application · ${address}`,
+		});
+	});
+
+	it('keeps the title of a trap named exactly like its Address', () => {
+		const collection = linkedRecordRow(
+			linkedItem({
+				category: 'collection',
+				family: 'collections',
+				placeName: address,
+				placeSource: 'trap',
+				refId: 'method-1',
+			}),
+			lookups,
+			clock,
+		);
+		expect(collection).toMatchObject({
+			title: address,
+			subtitle: 'Collection · CDC light trap',
+		});
+	});
+
+	it('never draws a place that came from the Address as a title or subtitle', () => {
 		const categories = [
 			'serviceRequest',
 			'inspection',
@@ -164,10 +226,9 @@ describe('linkedRecordRow', () => {
 		] as const;
 		for (const category of categories) {
 			const row = linkedRecordRow(
-				linkedItem({ category, label: null, placeName: address }),
+				linkedItem({ category, label: null, placeName: address, placeSource: 'address' }),
 				lookups,
 				clock,
-				address,
 			);
 			expect(row.title).not.toContain(address);
 			expect(row.subtitle ?? '').not.toContain(address);
@@ -185,7 +246,6 @@ describe('linkedRecordRow', () => {
 			}),
 			lookups,
 			clock,
-			address,
 		);
 
 		expect(row).toMatchObject({
@@ -213,7 +273,6 @@ describe('linkedRecordRow', () => {
 			}),
 			lookups,
 			clock,
-			address,
 		);
 
 		expect(row).toMatchObject({
@@ -243,7 +302,6 @@ describe('linkedRecordRow', () => {
 			}),
 			lookups,
 			clock,
-			address,
 		);
 
 		expect(row).toMatchObject({
@@ -267,7 +325,6 @@ describe('linkedRecordRow', () => {
 			}),
 			lookups,
 			clock,
-			address,
 		);
 
 		expect(row.title).toBe('Source Reduction on Aug 5, 2026, 6:00 AM');

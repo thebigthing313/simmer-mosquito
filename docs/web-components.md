@@ -774,14 +774,19 @@ rows select nothing because the page has no map.
 The nearby row names a record by its place, and on this card that place is
 usually the Address the page heading already shows, so every service request
 repeated it under its summary and an inspection or collection with no habitat
-or trap was titled by it (#1708). The card passes the Address's name as
-`omitPlaceName`, an option on `activityRow` and `mixedListRowParts` that
-leaves both unchanged when it is absent: a place equal to it is dropped, and a
-record that would have been titled by it is titled by the record-noun
-register's name for its kind. The match is on the name because the read sends
-`placeName` already resolved, habitat or trap first, then the Address; a
-habitat named exactly like its Address loses its title to the kind the same
-way.
+or trap was titled by it (#1708). The card passes `omitAddressPlace`, an
+option on `activityRow` and `mixedListRowParts` that leaves both unchanged when
+it is absent: a place that came from the Address is dropped, and a record that
+would have been titled by it is titled by the record-noun register's name for
+its kind.
+
+The read sends `placeName` already resolved, habitat or trap first, then the
+Address, so it sends `placeSource` beside it, the rung the name came from. The
+first cut matched on the name, and a habitat or trap named exactly like its
+Address lost its title to the kind (#1711). The rung is read off the same list
+as the name in `packages/db`'s `placeLadder`, and only the linked read selects
+it: `recordColumns` leaves it out, so the nearby read answers what it did, and
+an entry with no rung keeps its place.
 
 #### RegionBoundary (import-parse)
 
