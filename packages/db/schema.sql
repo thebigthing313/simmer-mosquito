@@ -571,7 +571,8 @@ CREATE TABLE public.regions (
     lng double precision,
     geom_type text,
     geojson jsonb GENERATED ALWAYS AS ((public.st_asgeojson(geom))::jsonb) STORED,
-    CONSTRAINT regions_geom_type_check CHECK ((public.geometrytype(geom) = ANY (ARRAY['POLYGON'::text, 'MULTIPOLYGON'::text])))
+    CONSTRAINT regions_geom_type_check CHECK ((public.geometrytype(geom) = ANY (ARRAY['POLYGON'::text, 'MULTIPOLYGON'::text]))),
+    CONSTRAINT regions_geom_valid_check CHECK (public.st_isvalid(geom))
 );
 
 
@@ -895,6 +896,32 @@ begin
   new.lng := st_x(st_centroid(new.geom));
   new.geom_type := lower(st_geometrytype(new.geom));
   return new;
+end;
+$$;
+
+
+--
+-- Name: valid_region_geom(public.geometry); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.valid_region_geom(geom public.geometry) RETURNS public.geometry
+    LANGUAGE plpgsql IMMUTABLE STRICT
+    AS $$
+declare
+  repaired geometry;
+begin
+  if st_isvalid(geom) then
+    return geom;
+  end if;
+  repaired := st_collectionextract(st_makevalid(geom), 3);
+  if st_isempty(repaired) then
+    raise exception 'Region geometry covers no ground once its self-intersections are repaired.'
+      using errcode = '22023';
+  end if;
+  if st_numgeometries(repaired) = 1 then
+    return st_geometryn(repaired, 1);
+  end if;
+  return repaired;
 end;
 $$;
 
@@ -6756,4 +6783,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('202609230001'),
     ('202609240001'),
     ('202609290001'),
-    ('202610080001');
+    ('202610080001'),
+    ('202610130001');

@@ -20,8 +20,10 @@ import { type RawBuilder, sql } from 'kysely';
  * with it, including a boundary. A line is inside when it shares any point with
  * it, so a habitat line running across a district boundary is still work in that
  * district and is not dropped for also leaving. An area is inside only when the
- * two *interiors* meet, so an area that shares an edge with a district and
- * overlaps it nowhere is work next to the district rather than in it.
+ * two *interiors* meet and the overlap covers at least
+ * `REGION_AREA_OVERLAP_SHARE` of the smaller of the two areas, so an area that
+ * shares an edge with a district, or overlaps it by a digitizing sliver, is next
+ * to the district rather than in it.
  *
  * Area means Polygon or MultiPolygon. A MultiPolygon's interior is the union of
  * its parts' interiors, so a record with one part interior-inside is a member and
@@ -29,8 +31,9 @@ import { type RawBuilder, sql } from 'kysely';
  * MultiLineString stay on plain intersection for the reason their single-part
  * forms do.
  *
- * ADR 0015 has the reasoning and the alternatives that were rejected, and its
- * 2026-09-03 amendment has the multipart half.
+ * ADR 0015 has the reasoning and the alternatives that were rejected, its
+ * 2026-09-03 amendment has the multipart half, and its 2026-10-13 amendment has
+ * the threshold.
  */
 export function regionMembershipClause(input: {
 	/** The record's geometry column, e.g. ``sql`h.geom` ``. */
@@ -78,6 +81,18 @@ export function regionMembershipClause(input: {
 }
 
 /**
+ * The share of the smaller area two areas must have in common to be members of
+ * each other: 0.1%.
+ *
+ * Measured on the production clone of 2026-08-24 (#1671): sixteen digitizing
+ * slivers between Plainsboro and its neighbours reached at most 0.034% of the
+ * smaller area, and thirteen real overlaps started at 0.48%. The corpus carries
+ * the same number as `AREA_OVERLAP_SHARE`, and the integration suite holds the
+ * two equal.
+ */
+export const REGION_AREA_OVERLAP_SHARE = 0.001;
+
+/**
  * The branch itself, without the region set around it.
  *
  * Split out so the detail-page read can scope the region set its own way, every
@@ -95,11 +110,19 @@ export function regionMembershipMatch(input: {
 	/** The region's geometry column, e.g. ``sql`rf.geom` ``. */
 	readonly regionGeom: RawBuilder<unknown>;
 }): RawBuilder<boolean> {
-	// `'T********'` is the DE-9IM cell for "the interiors intersect" and nothing
-	// else. No named PostGIS predicate replaces it: `ST_Overlaps` drops a polygon
-	// drawn wholly inside a district, `ST_Contains` and `ST_Within` drop one
-	// straddling a boundary, and `ST_Covers` counts the boundary-only case this
-	// rule exists to exclude.
+	// The area arm asks two things. `st_relate(..., 'T********')` is the DE-9IM
+	// cell for "the interiors intersect" and nothing else, and it answers the
+	// boundary-only and disjoint pairs before any overlay runs, which is most of
+	// what the `&&` prefilter lets through. The measured share is what separates
+	// a sliver from a real overlap; `st_area` here is in square degrees, which is
+	// fine for a ratio between two shapes in one place.
+	//
+	// The record is read through `st_makevalid` where it is invalid, and only
+	// there. The Split gesture writes two pieces sharing the line they were cut
+	// along (#518), which OGC calls invalid, and `st_intersection` can throw a
+	// TopologyException on an invalid input. Its polygonal part is kept so a
+	// stray line from the repair cannot reach the area sum. The region side
+	// needs no wrapping: `regions_geom_valid_check` holds it valid.
 	//
 	// The areal set is two literal names rather than a normalization. A
 	// `replace(geom_type, 'st_multi', 'st_')` is a string trick that only looks
@@ -108,7 +131,19 @@ export function regionMembershipMatch(input: {
 	// two, because GeometryCollection is not a record geometry.
 	return sql<boolean>`case
 		when ${input.geomType} in ('st_polygon', 'st_multipolygon')
-			then st_relate(${input.regionGeom}, ${input.geom}, 'T********')
+			then exists (
+				select 1
+				from (
+					select case
+						when st_isvalid(${input.geom}) then ${input.geom}
+						else st_collectionextract(st_makevalid(${input.geom}), 3)
+					end as geom
+				) record_area
+				where st_relate(${input.regionGeom}, record_area.geom, 'T********')
+					and st_area(st_intersection(${input.regionGeom}, record_area.geom))
+						>= ${sql.lit(REGION_AREA_OVERLAP_SHARE)}
+							* least(st_area(${input.regionGeom}), st_area(record_area.geom))
+			)
 		else st_intersects(${input.regionGeom}, ${input.geom})
 	end`;
 }

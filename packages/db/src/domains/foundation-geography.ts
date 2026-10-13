@@ -10,7 +10,7 @@ import {
 	mapRecordSurface,
 	mapSurface,
 } from './map-surface.js';
-import { geojsonToGeom, type SelectedRow } from './org-owned-writes.js';
+import { geojsonToGeom, regionGeojsonToGeom, type SelectedRow } from './org-owned-writes.js';
 import { checkedValues } from './write-references.js';
 
 export interface CreateAddressInput {
@@ -543,7 +543,7 @@ export async function createRegion(db: DbExecutor, input: CreateRegionInput): Pr
 			await checkedValues(db, input.organizationId, {
 				organization_id: input.organizationId,
 				region_folder_id: input.regionFolderId ?? null,
-				geom: geojsonToGeom(input.geojson),
+				geom: regionGeojsonToGeom(input.geojson),
 				name: input.name,
 				description: input.description ?? null,
 				metadata: input.metadata ?? null,

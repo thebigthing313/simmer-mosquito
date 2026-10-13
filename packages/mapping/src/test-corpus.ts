@@ -17,9 +17,14 @@
  * fat-fingers is caught, and the rule stays the one that was decided.
  *
  * The rule, restated once: a record is inside a region when their geometries
- * meet, except that area against area needs their **interiors** to meet.
+ * meet, except that area against area needs their **interiors** to meet, and to
+ * share at least `AREA_OVERLAP_SHARE` (0.1%) of the smaller of the two areas.
  * Boundary-only contact is excluded there and nowhere else, because a point or
- * a line has no other kind of contact to offer.
+ * a line has no other kind of contact to offer. The threshold is the 2026-10-13
+ * amendment on ADR 0015 (#1671): two neighbouring boundaries digitized
+ * separately overlap by square-metre slivers, and a sliver is not membership.
+ * `polygon-sliver-overlap` and `polygon-small-real-overlap` are the pair that
+ * holds it, one an order of magnitude under the line and one over it.
  *
  * ## Why the geometry looks like this
  *
@@ -44,7 +49,7 @@
  *
  * ## Multipart
  *
- * ADR 0018 lets a record hold several parts, so twelve of the thirty-four cases
+ * ADR 0018 lets a record hold several parts, so twelve of the thirty-six cases
  * are multipart. The rule does not change: a MultiPolygon's interior is the union
  * of its parts' interiors, so the interior cell reads "does any part's interior
  * meet the region's". That is existential, and the two cases that prove it are
@@ -79,8 +84,11 @@
  *
  * ## What is deliberately absent
  *
- * No self-intersecting ring. Fifteen production Regions hold one and `ST_Relate`
- * is undefined on them, which is #437 rather than a rule to pin down here.
+ * No self-intersecting ring. A Region cannot hold one any more: the server
+ * repairs Region geometry on write and a CHECK refuses an invalid one (#1671).
+ * A record area can, and the SQL half reads it through `ST_MakeValid`, but GEOS
+ * leaves a relate on the raw ring undefined, so no hand-written expectation
+ * belongs here.
  *
  * No three-part case. Part count is not a variable the predicate reads, so a
  * third part tests the same arm twice.
@@ -110,7 +118,7 @@ import type {
  * wrongly routed through plain intersection answers correctly on every case here
  * except `polygon-sharing-one-edge`, `multipolygon-all-parts-sharing-an-edge` and
  * `multipolygon-split-parts-touching-the-southern-edge`, so without this field
- * three cases out of thirty-four are the whole defence against a misroute.
+ * three cases out of thirty-six are the whole defence against a misroute.
  */
 export type MembershipBranch = 'plain-intersection' | 'interior-intersection';
 
@@ -154,7 +162,7 @@ export interface CorpusCase {
  * Outer: lng -90.00 to -89.90, lat 30.00 to 30.10.
  * Hole: lng -89.97 to -89.94, lat 30.03 to 30.06.
  *
- * Thirty-two of the thirty-four cases run against it. The two that do not carry
+ * Thirty-four of the thirty-six cases run against it. The two that do not carry
  * `MULTIPART_REGION` instead.
  */
 export const CORPUS_REGION: GeoJsonPolygon = {
@@ -410,6 +418,31 @@ const POLYGON_CASES: readonly CorpusCase[] = [
 			'of them.',
 	},
 	{
+		id: 'polygon-sliver-overlap',
+		geomType: 'st_polygon',
+		branch: 'interior-intersection',
+		record: box(-90.1, 30.02, -89.99995, 30.04),
+		inside: false,
+		because:
+			'A wide area west of the region whose eastern edge runs five hundred-thousandths of a ' +
+			'degree past the western edge. The interiors meet, but the overlap is about 0.05% of ' +
+			'the record, the smaller of the two, which is under the 0.1% threshold. This is the ' +
+			'digitizing sliver two neighbouring boundaries leave, and it is next to the region, ' +
+			'not in it.',
+	},
+	{
+		id: 'polygon-small-real-overlap',
+		geomType: 'st_polygon',
+		branch: 'interior-intersection',
+		record: box(-90.1, 30.02, -89.9995, 30.04),
+		inside: true,
+		because:
+			'The same area reaching ten times as far east, so the overlap is about 0.5% of the ' +
+			'record. A small share, but over the 0.1% threshold, so the record is in the region. ' +
+			'The two cases sit an order of magnitude either side of the line, the way the measured ' +
+			'slivers and real overlaps do.',
+	},
+	{
 		id: 'polygon-disjoint',
 		geomType: 'st_polygon',
 		branch: 'interior-intersection',
@@ -579,7 +612,7 @@ const MULTIPOLYGON_CASES: readonly CorpusCase[] = [
 ];
 
 /**
- * Every case. Thirty-four of them, and `REGION_MEMBERSHIP_CORPUS_SIZE` is checked
+ * Every case. Thirty-six of them, and `REGION_MEMBERSHIP_CORPUS_SIZE` is checked
  * in beside the list so a case lost to a bad merge fails rather than quietly
  * shrinking the suite.
  */
@@ -592,7 +625,18 @@ export const REGION_MEMBERSHIP_CORPUS: readonly CorpusCase[] = [
 	...MULTIPOLYGON_CASES,
 ];
 
-export const REGION_MEMBERSHIP_CORPUS_SIZE = 34;
+export const REGION_MEMBERSHIP_CORPUS_SIZE = 36;
+
+/**
+ * The share of the smaller area two areas must have in common to be members of
+ * each other. `REGION_AREA_OVERLAP_SHARE` in `packages/db` is the SQL half's copy,
+ * and its integration suite asserts the two are equal.
+ *
+ * 0.1% sits between what the production clone measured on 2026-10-13: digitizing
+ * slivers reached at most 0.034% of the smaller area and real overlaps started at
+ * 0.48%. ADR 0015's amendment has the table.
+ */
+export const AREA_OVERLAP_SHARE = 0.001;
 
 /**
  * The branch a `geom_type` takes. The rule, in one place, for both halves.
