@@ -1,5 +1,4 @@
 import { SAMPLE_MAP_FILTERS } from '@simmer-mosquito/domain';
-import { addDaysToDateString } from '../../lib/local-date';
 import {
 	choiceParam,
 	DATE_RANGE_COUNTING,
@@ -8,7 +7,11 @@ import {
 	flagParam,
 	idSetParam,
 } from '../../lib/search-filters';
-import { defineRecordSet } from '../explorer/record-set';
+import {
+	defineRecordSet,
+	type RecordSetWindowBounds,
+	TABLE_OPENS_ON_ALL_TIME,
+} from '../explorer/record-set';
 import { whenAny, whenOn, whenText } from '../explorer/tile-filter-params';
 import type { SampleTileFilters } from '../map';
 
@@ -51,17 +54,14 @@ export const sampleFilterCodecs: FilterCodecs<SampleFilters> = {
 	regions: idSetParam,
 };
 
-/** How many days the window opens on, ending on the Organization's today. */
-export const SAMPLE_WINDOW_DAYS = 30;
-
 /**
- * What an address with no filter params means: every status over the last
- * thirty days of inspections, ending on the Organization's today.
+ * What an address with no filter params means: every status inside `window`, the
+ * bounds the set's `windows` open the surface on.
  */
-export function sampleFilterDefaults(today: string): SampleFilters {
+export function sampleFilterDefaults(window: RecordSetWindowBounds): SampleFilters {
 	return {
-		from: addDaysToDateString(today, -(SAMPLE_WINDOW_DAYS - 1)),
-		to: today,
+		from: window.from,
+		to: window.to,
 		status: 'all',
 		species: new Set(),
 		nonMosquito: false,
@@ -92,8 +92,11 @@ export const sampleRecordSet = defineRecordSet({
 	tileset: 'samples',
 	tileFilters: sampleTileFilters,
 	filterSpec: SAMPLE_MAP_FILTERS,
-	defaults: ({ today }) => sampleFilterDefaults(today),
-	emptyScope: () => ({ kind: 'lastDays', days: SAMPLE_WINDOW_DAYS }),
+	defaults: ({ window }) => sampleFilterDefaults(window),
+	windows: {
+		map: { kind: 'lastDays', days: 30, reason: 'A season of samples fills the Map solid.' },
+		table: TABLE_OPENS_ON_ALL_TIME,
+	},
 	counting: DATE_RANGE_COUNTING,
 	applies: {
 		from: 'both',

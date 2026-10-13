@@ -5,10 +5,7 @@ import { RecordSetTablePage } from '../../../components/explorer/record-set-tabl
 import { SampleFilterFields } from '../../../components/larval-surveillance/samples/sample-filters';
 import type { SampleListRow } from '../../../components/larval-surveillance/samples/sample-row-parts';
 import { SamplesTable } from '../../../components/larval-surveillance/samples/samples-table';
-import {
-	SAMPLE_WINDOW_DAYS,
-	sampleRecordSet,
-} from '../../../components/larval-surveillance/samples-search';
+import { sampleRecordSet } from '../../../components/larval-surveillance/samples-search';
 import { useRecordSetFilters } from '../../../hooks/explorer/use-record-set-filters';
 import { searchValidator } from '../../../lib/search-filters';
 
@@ -33,7 +30,7 @@ function SamplesTableRoute() {
 			binding={binding}
 			description="Every sample taken, newest inspection first."
 			empty={{
-				emptyDescription: `Samples taken in the last ${SAMPLE_WINDOW_DAYS} days show here.`,
+				emptyDescription: 'Samples show here as crews take them.',
 				filteredDescription: 'No sample matches what is set above.',
 			}}
 			filters={<SampleFilterFields binding={binding} wide />}

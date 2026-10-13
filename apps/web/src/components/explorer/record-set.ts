@@ -5,6 +5,8 @@ import {
 	type OrganizationSettings,
 } from '@simmer-mosquito/domain';
 import type { LinkProps } from '@tanstack/react-router';
+import { startOfYear } from '../../lib/date-presets';
+import { addDaysToDateString } from '../../lib/local-date';
 import type { RecordType } from '../../lib/record-nouns';
 import type { FilterCodecs, FilterCounting, SearchCodec } from '../../lib/search-filters';
 import type { MapTileLayer } from '../map/tile-layers';
@@ -40,6 +42,66 @@ export type AppliedOn = 'both' | RecordSetSurface;
 export interface RecordSetContext {
 	readonly today: string;
 	readonly settings: OrganizationSettings;
+}
+
+/**
+ * The date window a surface opens on when its address names no dates, and why
+ * it opens there. The reason is one sentence, and the record set suite holds
+ * every window to having one (#1669).
+ */
+export type RecordSetWindow =
+	| { readonly kind: 'allTime'; readonly reason: string }
+	| { readonly kind: 'lastDays'; readonly days: number; readonly reason: string }
+	| { readonly kind: 'thisYear'; readonly reason: string };
+
+/** The window each surface of a dated set opens on. */
+export type RecordSetWindows = { readonly [Surface in RecordSetSurface]: RecordSetWindow };
+
+/**
+ * Where every dated Table opens. `docs/web-components.md`, under "The record
+ * tables", has the measurements behind it.
+ */
+export const TABLE_OPENS_ON_ALL_TIME: RecordSetWindow = {
+	kind: 'allTime',
+	reason: 'A Table pages 100 rows newest first, so it opens on every record.',
+};
+
+/** A date window as the filters hold it: `YYYY-MM-DD` bounds, `''` for none. */
+export interface RecordSetWindowBounds {
+	readonly from: string;
+	readonly to: string;
+}
+
+/** The bounds `window` opens on, ending on the Organization's `today`. */
+function recordSetWindowBounds(window: RecordSetWindow, today: string): RecordSetWindowBounds {
+	switch (window.kind) {
+		case 'allTime':
+			return { from: '', to: '' };
+		case 'lastDays':
+			return { from: addDaysToDateString(today, -(window.days - 1)), to: today };
+		case 'thisYear':
+			return { from: startOfYear(today), to: today };
+	}
+}
+
+/** What an empty surface that opened on `window` says it holds. */
+function windowEmptyScope(window: RecordSetWindow): RecordEmptyScope {
+	switch (window.kind) {
+		case 'allTime':
+			return { kind: 'yet' };
+		case 'lastDays':
+			return { kind: 'lastDays', days: window.days };
+		case 'thisYear':
+			return { kind: 'thisYear' };
+	}
+}
+
+/**
+ * What a set's `defaults` reads: the context, and the bounds of the window the
+ * surface opens on, which is all time for a set with no `windows`.
+ */
+export interface RecordSetDefaultsContext extends RecordSetContext {
+	readonly window: RecordSetWindowBounds;
 }
 
 /** The filter keys that narrow nothing in a context. */
@@ -136,15 +198,16 @@ type RecordSetTileset<TTile> = {
  */
 export interface RecordSet<TFilters, TTile = unknown> extends RecordSetLinks<TFilters> {
 	/**
-	 * What an address with no filter params means on `surface`. A set whose two
-	 * surfaces open on different windows says so here, and it is the only place
-	 * that reads the surface.
+	 * The date window each surface opens on, for a set whose records are dated.
+	 * This is the one register of them: `defaults` reads its bounds and
+	 * `emptyScope` its name.
 	 */
+	readonly windows: RecordSetWindows | undefined;
+	/** What an address with no filter params means on `surface`. */
 	readonly defaults: (context: RecordSetContext, surface: RecordSetSurface) => TFilters;
 	/**
 	 * What `defaults` narrows `surface` to, which both surfaces' empty states
-	 * name when nothing is set. It reads the surface for the same reason
-	 * `defaults` does, and has to agree with it.
+	 * name when nothing is set. A dated set's follows from its `windows`.
 	 */
 	readonly emptyScope: (surface: RecordSetSurface) => RecordEmptyScope;
 	/** How the set counts what is set, where listing the filters cannot say. */
@@ -185,14 +248,21 @@ export interface RecordSet<TFilters, TTile = unknown> extends RecordSetLinks<TFi
 }
 
 /**
- * Declares a record set. An identity at runtime; what it adds is the
- * inference, so every other field is read against the keys `codecs` declares.
+ * Declares a record set. What it adds is the inference, so every other field
+ * is read against the keys `codecs` declares, and the window register: a dated
+ * set names its `windows`, its `defaults` read their bounds off the context,
+ * and its empty scope follows from them. An undated set names its
+ * `emptyScope`, which left out is `yet`.
  */
 export function defineRecordSet<TFilters, const TSpec extends MapFilterSpec>(
 	definition: Omit<RecordSetLinks<TFilters>, 'applies'> & {
 		readonly applies: { readonly [Key in keyof NoInfer<TFilters>]-?: AppliedOn };
-		readonly defaults: (context: RecordSetContext, surface: RecordSetSurface) => NoInfer<TFilters>;
-		readonly emptyScope: (surface: RecordSetSurface) => RecordEmptyScope;
+		readonly windows?: RecordSetWindows;
+		readonly defaults: (
+			context: RecordSetDefaultsContext,
+			surface: RecordSetSurface,
+		) => NoInfer<TFilters>;
+		readonly emptyScope?: (surface: RecordSetSurface) => RecordEmptyScope;
 		readonly counting?:
 			| FilterCounting<NoInfer<TFilters>>
 			| ((context: RecordSetContext) => FilterCounting<NoInfer<TFilters>>);
@@ -207,7 +277,25 @@ export function defineRecordSet<TFilters, const TSpec extends MapFilterSpec>(
 		) => NoInfer<MapFiltersOf<TSpec>>;
 	},
 ): RecordSet<TFilters, MapFiltersOf<TSpec>> {
-	return definition;
+	const { windows } = definition;
+	return {
+		...definition,
+		windows,
+		defaults: (context, surface) =>
+			definition.defaults(
+				{
+					...context,
+					window:
+						windows === undefined
+							? { from: '', to: '' }
+							: recordSetWindowBounds(windows[surface], context.today),
+				},
+				surface,
+			),
+		emptyScope:
+			definition.emptyScope ??
+			((surface) => (windows === undefined ? { kind: 'yet' } : windowEmptyScope(windows[surface]))),
+	};
 }
 
 /** Whether `surface` applies a filter applied on `appliedOn`. */

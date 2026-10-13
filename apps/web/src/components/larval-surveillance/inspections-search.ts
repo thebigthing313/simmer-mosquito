@@ -3,7 +3,6 @@ import {
 	LARVAL_DENSITIES,
 	type LarvalDensity,
 } from '@simmer-mosquito/domain';
-import { addDaysToDateString } from '../../lib/local-date';
 import {
 	choiceParam,
 	choiceSetParam,
@@ -13,7 +12,11 @@ import {
 	flagParam,
 	idSetParam,
 } from '../../lib/search-filters';
-import { defineRecordSet, type RecordSetSurface } from '../explorer/record-set';
+import {
+	defineRecordSet,
+	type RecordSetWindowBounds,
+	TABLE_OPENS_ON_ALL_TIME,
+} from '../explorer/record-set';
 import { whenAny, whenOn, whenText } from '../explorer/tile-filter-params';
 import type { InspectionTileFilters } from '../map';
 
@@ -68,21 +71,15 @@ export type InspectionsSearch = {
 	readonly regions?: readonly string[];
 };
 
-/** How far back the Map opens, and what Clear all returns it to. */
-const MAP_WINDOW_DAYS = 30;
-
 /**
- * What an inspection surface's address with no filter params means. The two
- * surfaces open on different windows when the address names no dates: the Map
- * on the last 30 days, because a season of inspections is a solid block of
- * dots, and the Table on all time, because it shows a page of rows whatever
- * the reach and says it holds every inspection.
+ * What an inspection surface's address with no filter params means: every
+ * inspection inside `window`, the bounds the set's `windows` open the surface
+ * on.
  */
-function inspectionFilterDefaults(today: string, surface: RecordSetSurface): InspectionFilters {
-	const allTime = surface === 'table';
+function inspectionFilterDefaults(window: RecordSetWindowBounds): InspectionFilters {
 	return {
-		from: allTime ? '' : addDaysToDateString(today, -(MAP_WINDOW_DAYS - 1)),
-		to: allTime ? '' : today,
+		from: window.from,
+		to: window.to,
 		water: 'all',
 		density: new Set<LarvalDensity>(),
 		positive: false,
@@ -122,9 +119,11 @@ export const inspectionRecordSet = defineRecordSet({
 	tileset: 'inspections',
 	tileFilters: inspectionTileFilters,
 	filterSpec: INSPECTION_MAP_FILTERS,
-	defaults: ({ today }, surface) => inspectionFilterDefaults(today, surface),
-	emptyScope: (surface) =>
-		surface === 'table' ? { kind: 'yet' } : { kind: 'lastDays', days: MAP_WINDOW_DAYS },
+	defaults: ({ window }) => inspectionFilterDefaults(window),
+	windows: {
+		map: { kind: 'lastDays', days: 30, reason: 'A season of inspections fills the Map solid.' },
+		table: TABLE_OPENS_ON_ALL_TIME,
+	},
 	counting: DATE_RANGE_COUNTING,
 	applies: {
 		from: 'both',

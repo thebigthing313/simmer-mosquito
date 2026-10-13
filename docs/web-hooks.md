@@ -218,12 +218,12 @@ taking arguments. The defaults come from `defaults(context, surface)`, and the
 context is the Organization's today and its settings. The window ends on the
 Organization's today rather than the browser's, because the server cuts a
 record's day in that zone too, and a window ending on the browser's day would
-drop the evening's records for a reader west of the Organization. Inspections
-is the one set whose two surfaces open on different windows, which its
-definition states: the Map draws every matching record at once, so a season of
-inspections is a solid block of dots and it opens on the last 30 days, while
-the Table says it holds every inspection and opens on all time. The window is
-a fixed number of days back rather than a calendar month, so the Map opens on
+drop the evening's records for a reader west of the Organization. Every dated
+set opens its two surfaces on different windows, which its `windows` state:
+the Map draws every matching record at once and opens on 30 days, 90 days or
+this year, while the Table pages and opens on all time (#1669). "The record
+tables" in `docs/web-components.md` has the list and the reasons. A window of
+days is a fixed number back rather than a calendar month, so the Map opens on
 the same amount of work whenever it is opened.
 
 A surface reads the set's codecs through `surfaceCodecs`, so a key it does not

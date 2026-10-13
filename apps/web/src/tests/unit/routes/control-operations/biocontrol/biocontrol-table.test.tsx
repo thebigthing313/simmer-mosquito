@@ -115,10 +115,13 @@ describe('the biocontrol actions table', () => {
 		expect(screen.getByRole('button', { name: 'Clear Filters' })).toBeTruthy();
 	});
 
-	it('draws the empty state for the window when nothing is set', async () => {
+	it('opens on all time, sending no date bound, and draws the empty state for it', async () => {
 		renderExplorer(BiocontrolTable);
 
-		expect(await screen.findByText('No Biocontrol Actions in the Last 90 Days')).toBeTruthy();
+		expect(await screen.findByText('No Biocontrol Actions Yet')).toBeTruthy();
+		const request = harness.sent.find((url) => url.pathname === '/map/biocontrol');
+		expect(request?.searchParams.has('dateFrom')).toBe(false);
+		expect(request?.searchParams.has('dateTo')).toBe(false);
 	});
 
 	it('draws the load-failure strip and no empty state when the request fails', async () => {
@@ -127,6 +130,6 @@ describe('the biocontrol actions table', () => {
 
 		expect(await screen.findByText('Biocontrol actions could not be loaded.')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
-		expect(screen.queryByText('No Biocontrol Actions in the Last 90 Days')).toBeNull();
+		expect(screen.queryByText('No Biocontrol Actions Yet')).toBeNull();
 	});
 });

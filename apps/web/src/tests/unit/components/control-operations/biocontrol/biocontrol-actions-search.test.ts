@@ -10,8 +10,10 @@ import {
  * in `apps/server` holds them.
  */
 describe('the biocontrol actions tile filters', () => {
-	it('open on the last 90 days, ending on the day they are given', () => {
-		expect(biocontrolTileFilters(biocontrolFilterDefaults('2026-09-28'))).toEqual({
+	it('carry the window they are given and nothing else', () => {
+		expect(
+			biocontrolTileFilters(biocontrolFilterDefaults({ from: '2026-07-01', to: '2026-09-28' })),
+		).toEqual({
 			dateFrom: '2026-07-01',
 			dateTo: '2026-09-28',
 		});

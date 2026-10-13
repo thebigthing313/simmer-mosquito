@@ -63,7 +63,7 @@ const SUMMARY: MapSummary = {
 	figures: { zeroResult: 41, collected: 309 },
 };
 
-const DEFAULTS = collectionFilterDefaults('2026-09-28');
+const DEFAULTS = collectionFilterDefaults({ from: '2026-07-01', to: '2026-09-28' });
 
 function renderSummary(filters: Partial<CollectionFilters> = {}, summary = SUMMARY) {
 	const setFilters = vi.fn<(patch: Partial<CollectionFilters>) => void>();
