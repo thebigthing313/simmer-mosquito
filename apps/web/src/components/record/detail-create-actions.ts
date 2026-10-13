@@ -1,19 +1,23 @@
 import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import type { RecordType } from '../../lib/record-nouns';
 import { WRITE_SURFACE_FLOORS, type WriteSurfacePath } from '../../lib/write-surfaces';
+import { createSentenceLabel } from '../app-shell/navigation';
 import type { DetailAction } from './detail-page-header';
 
 /**
- * The child records a detail page can start, and what each is called there.
+ * The child records a detail page can start, and the record type each form
+ * writes.
  *
- * ## Two verbs, and the rule between them
+ * ## The label is the register's
  *
- * **Record** for dated field work: an inspection, a collection, a control
- * action. It happened, and the form writes down what happened. **Create** for a
- * record that goes on existing afterwards: a habitat, a trap, a service
- * request. That is the rule `CONTEXT.md` states under Core language, and the
- * map's own menu reads it through `createLabel` since #949; these labels are
- * sentence case because they sit in a menu under a record's own heading, and
- * routing them through the register is the follow-up that issue names.
+ * An entry names a record type, not a label, and {@link createItems} builds
+ * the label with `createSentenceLabel`: the record type's verb from
+ * `CREATE_VERBS`, which is `CONTEXT.md`'s Record/Create rule, and its singular
+ * from `RECORD_NOUNS`. Sentence case, because the items sit in a menu under the
+ * record's own heading. The labels were literals until #1702, and two had
+ * drifted from the register, `Record application` and `Record biocontrol
+ * release`. A mission stop's record button reads the same helper, so one form
+ * carries one name wherever it is offered from.
  *
  * The trap page shows why the wording is decided once. It carries a "Record
  * Collection" button on its collections card and the same action in its menu,
@@ -30,38 +34,38 @@ import type { DetailAction } from './detail-page-header';
 const CREATE_TARGETS = {
 	'/adult-surveillance/collections/create': {
 		icon: iconRegistry.entities.collection.icon,
-		label: 'Record collection',
+		recordType: 'collection',
 	},
 	'/adult-surveillance/traps/create': {
 		icon: iconRegistry.entities.trap.icon,
-		label: 'Create trap',
+		recordType: 'trap',
 	},
 	'/control-operations/biocontrol/create': {
 		icon: iconRegistry.entities.biocontrolAction.icon,
-		label: 'Record biocontrol release',
+		recordType: 'biocontrolAction',
 	},
 	'/control-operations/chemical/create': {
 		icon: iconRegistry.entities.application.icon,
-		label: 'Record application',
+		recordType: 'application',
 	},
 	'/control-operations/source-reduction/create': {
 		icon: iconRegistry.entities.sourceReduction.icon,
-		label: 'Record source reduction',
+		recordType: 'sourceReduction',
 	},
 	'/larval-surveillance/habitats/create': {
 		icon: iconRegistry.entities.habitat.icon,
-		label: 'Create habitat',
+		recordType: 'habitat',
 	},
 	'/larval-surveillance/inspections/create': {
 		icon: iconRegistry.entities.inspection.icon,
-		label: 'Record inspection',
+		recordType: 'inspection',
 	},
 	'/public-engagement/service-requests/create': {
 		icon: iconRegistry.entities.serviceRequest.icon,
-		label: 'Create service request',
+		recordType: 'serviceRequest',
 	},
 } as const satisfies Partial<
-	Record<WriteSurfacePath, { readonly icon: RegistryIcon; readonly label: string }>
+	Record<WriteSurfacePath, { readonly icon: RegistryIcon; readonly recordType: RecordType }>
 >;
 
 /** A create form a detail page can send a reader to with its own record named. */
@@ -92,7 +96,7 @@ export function createItems(
 		hidden: seedValue === null,
 		icon: CREATE_TARGETS[path].icon,
 		id: `create:${path}`,
-		label: CREATE_TARGETS[path].label,
+		label: createSentenceLabel(CREATE_TARGETS[path].recordType),
 		minimum: WRITE_SURFACE_FLOORS[path],
 		search: { [seedKey]: seedValue ?? '' },
 		separatorBefore: index === 0,

@@ -50,7 +50,9 @@ expected to differ. **New** is not used.
 
 The noun is the record's term above, read from `RECORD_NOUNS` in `apps/web`,
 and the verb is `CREATE_VERBS` in the same app's navigation module, so a surface
-calls `createLabel` and reads both rather than spelling either.
+calls `createLabel` and reads both rather than spelling either. A create form
+offered from a record, in a detail page's menu or on a mission stop, calls
+`createSentenceLabel` for the same words in sentence case.
 
 ## Workflow language
 
