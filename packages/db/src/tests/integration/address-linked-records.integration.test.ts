@@ -6,8 +6,10 @@ import {
 	createAddress,
 	createApplication,
 	createBiocontrolAction,
+	createCollection,
 	createCollectionMethod,
 	createContact,
+	createHabitat,
 	createInsecticide,
 	createInspection,
 	createMission,
@@ -19,6 +21,7 @@ import {
 	createServiceRequest,
 	createSourceReduction,
 	createSourceReductionMethod,
+	createTrap,
 	createUnit,
 } from '../../test-support/row-fixtures.js';
 
@@ -233,6 +236,79 @@ describeDbIntegration('address linked records', () => {
 			expect(inspections.items).toHaveLength(25);
 			expect(inspections.items[0]?.date).toBe('2026-07-27');
 			expect(inspections.items.at(-1)?.date).toBe('2026-07-03');
+		});
+	});
+
+	// The card drops a place that came from the Address. A habitat or trap named
+	// exactly like the Address shares its text, so the row says which rung the
+	// place came from rather than leaving the card to compare names (#1711).
+	it('says which rung each place came from', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			const addressId = await createAddress(db, organizationId, {
+				display_name: '19 Mission Drive',
+			});
+			const habitatId = await createHabitat(db, organizationId, {
+				habitat_name: '19 Mission Drive',
+				address_id: addressId,
+			});
+			const methodId = await createCollectionMethod(db, organizationId);
+			const trapId = await createTrap(db, organizationId, methodId, {
+				trap_name: '19 Mission Drive',
+				address_id: addressId,
+			});
+			const unitId = await createUnit(db);
+
+			const atHabitat = await createInspection(db, organizationId, {
+				address_id: addressId,
+				habitat_id: habitatId,
+			});
+			const atAddress = await createInspection(db, organizationId, { address_id: addressId });
+			const fromTrap = await createCollection(
+				db,
+				organizationId,
+				{ trapId, collectionMethodId: methodId },
+				{ address_id: addressId },
+			);
+			const landingRate = await insertLandingRate(
+				db,
+				organizationId,
+				{ addressId, durationUnitId: unitId },
+				'2026-08-02',
+			);
+			const contactId = await createContact(db, organizationId);
+			const request = await createServiceRequest(db, organizationId, { addressId, contactId });
+			const rca = await createRequestedControlAction(db, organizationId, {
+				address_id: addressId,
+			});
+
+			const { families } = await listAddressLinkedRecords(db, {
+				organizationId,
+				addressId,
+				timeZone,
+			});
+			const byId = new Map(
+				families.flatMap((entry) => entry.items.map((item) => [item.id, item] as const)),
+			);
+
+			expect(byId.get(atHabitat)).toMatchObject({
+				placeName: '19 Mission Drive',
+				placeSource: 'habitat',
+			});
+			expect(byId.get(atAddress)).toMatchObject({
+				placeName: '19 Mission Drive',
+				placeSource: 'address',
+			});
+			expect(byId.get(fromTrap)).toMatchObject({
+				placeName: '19 Mission Drive',
+				placeSource: 'trap',
+			});
+			expect(byId.get(landingRate)).toMatchObject({
+				placeName: '19 Mission Drive',
+				placeSource: 'address',
+			});
+			expect(byId.get(request)).toMatchObject({ placeSource: 'address' });
+			expect(byId.get(rca)).toMatchObject({ placeName: null, placeSource: null });
 		});
 	});
 
