@@ -56,39 +56,122 @@ const lookups: ActivityLookups = {
 const clock = createOrganizationClock('America/New_York');
 
 describe('linkedRecordRow', () => {
-	// The issue's address: a service request and a landing-rate collection name
-	// it, and both draw through the nearby list's row.
-	it('draws a service request and a landing-rate collection the way the nearby list does', () => {
+	// Every row on the card names this Address, which the page heading already
+	// shows, so a row whose place is the Address drops it (#1708).
+	const address = '19 Mission Drive';
+
+	it('keeps a service request titled by its summary and drops the Address from its subtitle', () => {
 		const request = linkedRecordRow(
-			linkedItem({ label: 'Request 15737', placeName: '19 Mission Drive', detail: 'open' }),
+			linkedItem({ label: 'Request 15737', placeName: address, detail: 'open' }),
 			lookups,
 			clock,
+			address,
 		);
 		expect(request).toMatchObject({
 			title: 'Request 15737',
-			subtitle: 'Service Request · 19 Mission Drive',
+			subtitle: 'Service Request',
 			date: 'Aug 1, 2026',
 			link: { to: '/public-engagement/service-requests/$id', params: { id: 'record-1' } },
 			badge: { kind: 'facts', facts: { category: 'serviceRequest', status: 'open' } },
 		});
+	});
 
+	it('titles a record linked only to the Address by its kind', () => {
 		const collection = linkedRecordRow(
 			linkedItem({
 				category: 'collection',
 				family: 'collections',
 				id: 'collection-1',
-				placeName: '19 Mission Drive',
+				placeName: address,
 				refId: 'method-1',
 				detail: 'collected',
 			}),
 			lookups,
 			clock,
+			address,
 		);
 		expect(collection).toMatchObject({
-			title: '19 Mission Drive',
-			subtitle: 'Collection · CDC light trap',
+			title: 'Collection',
+			subtitle: 'CDC light trap',
+			date: 'Aug 1, 2026',
 			link: { to: '/adult-surveillance/collections/$id', params: { id: 'collection-1' } },
 		});
+
+		const inspection = linkedRecordRow(
+			linkedItem({ category: 'inspection', family: 'inspections', placeName: address }),
+			lookups,
+			clock,
+			address,
+		);
+		expect(inspection).toMatchObject({ title: 'Inspection', subtitle: null });
+	});
+
+	it('drops the Address from a control action titled by its product', () => {
+		const application = linkedRecordRow(
+			linkedItem({
+				category: 'application',
+				family: 'controlActions',
+				placeName: address,
+				refId: 'insecticide-1',
+				methodRefId: 'ulv-1',
+				amount: 4,
+			}),
+			lookups,
+			clock,
+			address,
+		);
+		expect(application).toMatchObject({
+			title: 'Altosid XR-G',
+			subtitle: 'Application · 4 · Truck ULV',
+		});
+
+		const unnamed = linkedRecordRow(
+			linkedItem({ category: 'sourceReduction', family: 'controlActions', placeName: address }),
+			lookups,
+			clock,
+			address,
+		);
+		expect(unnamed).toMatchObject({ title: 'Source Reduction', subtitle: null });
+	});
+
+	it('keeps the trap a collection came out of as its title', () => {
+		const collection = linkedRecordRow(
+			linkedItem({
+				category: 'collection',
+				family: 'collections',
+				placeName: 'Trap 12',
+				refId: 'method-1',
+			}),
+			lookups,
+			clock,
+			address,
+		);
+		expect(collection).toMatchObject({
+			title: 'Trap 12',
+			subtitle: 'Collection · CDC light trap',
+		});
+	});
+
+	it('never draws the Address as a title or subtitle', () => {
+		const categories = [
+			'serviceRequest',
+			'inspection',
+			'collection',
+			'application',
+			'sourceReduction',
+			'biocontrol',
+			'outreach',
+		] as const;
+		for (const category of categories) {
+			const row = linkedRecordRow(
+				linkedItem({ category, label: null, placeName: address }),
+				lookups,
+				clock,
+				address,
+			);
+			expect(row.title).not.toContain(address);
+			expect(row.subtitle ?? '').not.toContain(address);
+		}
 	});
 
 	it('names a registration by its contact and links to their registrations', () => {
@@ -102,6 +185,7 @@ describe('linkedRecordRow', () => {
 			}),
 			lookups,
 			clock,
+			address,
 		);
 
 		expect(row).toMatchObject({
@@ -129,6 +213,7 @@ describe('linkedRecordRow', () => {
 			}),
 			lookups,
 			clock,
+			address,
 		);
 
 		expect(row).toMatchObject({
@@ -158,6 +243,7 @@ describe('linkedRecordRow', () => {
 			}),
 			lookups,
 			clock,
+			address,
 		);
 
 		expect(row).toMatchObject({
@@ -181,6 +267,7 @@ describe('linkedRecordRow', () => {
 			}),
 			lookups,
 			clock,
+			address,
 		);
 
 		expect(row.title).toBe('Source Reduction on Aug 5, 2026, 6:00 AM');

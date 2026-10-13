@@ -771,6 +771,18 @@ page, so it links to its Mission, and a done stop names the newest action
 recorded against it (ADR 0012). A family with no records gets no tab, and the
 rows select nothing because the page has no map.
 
+The nearby row names a record by its place, and on this card that place is
+usually the Address the page heading already shows, so every service request
+repeated it under its summary and an inspection or collection with no habitat
+or trap was titled by it (#1708). The card passes the Address's name as
+`omitPlaceName`, an option on `activityRow` and `mixedListRowParts` that
+leaves both unchanged when it is absent: a place equal to it is dropped, and a
+record that would have been titled by it is titled by the record-noun
+register's name for its kind. The match is on the name because the read sends
+`placeName` already resolved, habitat or trap first, then the Address; a
+habitat named exactly like its Address loses its title to the kind the same
+way.
+
 #### RegionBoundary (import-parse)
 
 Read from the geometry register rather than a hand-written pair. The pair

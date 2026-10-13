@@ -19,9 +19,11 @@ import { countPhrase, formatCount } from '../../../lib/format-count';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import {
+	type ActivityDescribeOptions,
 	type ActivityLookups,
 	type ActivityRecord,
 	type ActivityRowRecord,
+	activityRecordTitle,
 	activityRow,
 } from '../../activity/activity-data';
 import type { RecordBadgeFacts } from '../../record/record-badges';
@@ -203,16 +205,19 @@ export interface MixedListRowParts {
  * row's title, link, badges and Tags, with the category ahead of the
  * subtitle, because there is no verb in such a list to say an inspection is a
  * visit rather than a place. The nearby list and the Address page's linked
- * records both draw through this.
+ * records both draw through this; `options` is the describer's, which the
+ * linked records pass to drop their Address.
  */
 export function mixedListRowParts(
 	item: ActivityRowRecord,
 	lookups: ActivityLookups,
+	options: ActivityDescribeOptions = {},
 ): MixedListRowParts {
-	const { title, subtitle, categoryLabel, link, facts, tags } = activityRow(item, lookups);
+	const { title, subtitle, categoryLabel, link, facts, tags } = activityRow(item, lookups, options);
 	// A record with nothing to name it is titled by its category already, and a
 	// subtitle repeating the word under it says nothing twice.
-	const parts = [title === categoryLabel ? null : categoryLabel, subtitle].filter(
+	const titledByKind = title === categoryLabel || title === activityRecordTitle(item.category);
+	const parts = [titledByKind ? null : categoryLabel, subtitle].filter(
 		(part): part is string => part !== null,
 	);
 	return { title, subtitle: parts.length === 0 ? null : parts.join(' · '), link, facts, tags };
