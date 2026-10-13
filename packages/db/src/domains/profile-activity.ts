@@ -318,6 +318,17 @@ export function recordShapes(timeZone: string): {
 export type RecordShapes = ReturnType<typeof recordShapes>;
 
 /**
+ * A shape as {@link recordColumns} reads it: the register's entry, with the
+ * category and family widened to text. The Address page's linked-records read
+ * selects through the same columns under its own vocabulary, which groups the
+ * same tables differently and adds three that are not activity.
+ */
+export type RecordColumnsShape = Omit<RecordShape, 'category' | 'family'> & {
+	readonly category: string;
+	readonly family: string;
+};
+
+/**
  * The {@link ActivityRecordRow} columns of one shape, for a select whose record
  * table is aliased `r` and whose `from` carries the shape's `joins`.
  *
@@ -328,7 +339,7 @@ export type RecordShapes = ReturnType<typeof recordShapes>;
  * reader with one moment per record passes the shape's own.
  */
 export function recordColumns(
-	shape: RecordShape,
+	shape: RecordColumnsShape,
 	moment: { readonly date: string; readonly occurredAt: string },
 ): RawBuilder<unknown> {
 	return sql`

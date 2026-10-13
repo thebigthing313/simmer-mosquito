@@ -1,4 +1,5 @@
 export * from './acknowledgements.js';
+export * from './address-linked-records.js';
 export * from './adult-surveillance/index.js';
 export * from './column-vocabularies.js';
 /**

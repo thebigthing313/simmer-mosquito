@@ -228,8 +228,20 @@ export function hasDetailBadges(facts: RecordBadgeFacts): boolean {
 	return badgesFor(facts).hasDetail(facts);
 }
 
-/** The states a pill can name, across the four categories that have one. */
-type StateToken = LifecycleStatus | CollectionStatus | 'open' | 'closed';
+/**
+ * The states a pill can name: the four categories above that have one, and
+ * the three kinds the Address page's linked records add, a request for control
+ * (open or resolved) and a Mission stop (open, done or skipped). A
+ * registration's active and inactive are the lifecycle's own words.
+ */
+export type StateToken =
+	| LifecycleStatus
+	| CollectionStatus
+	| 'open'
+	| 'closed'
+	| 'resolved'
+	| 'done'
+	| 'skipped';
 
 const STATE_BADGE: Readonly<
 	Record<StateToken, { readonly label: string; readonly tone: BadgeTone }>
@@ -244,11 +256,15 @@ const STATE_BADGE: Readonly<
 	// The attention family, which is the map's colour for an open request.
 	open: { label: 'Open', tone: 'warning' },
 	closed: { label: 'Closed', tone: 'neutral' },
+	resolved: { label: 'Resolved', tone: 'neutral' },
+	done: { label: 'Done', tone: 'success' },
+	skipped: { label: 'Skipped', tone: 'neutral' },
 };
 
 type BadgeTone = 'success' | 'neutral' | 'warning' | 'info';
 
-function StateBadge({ token }: { readonly token: StateToken }) {
+/** One state as a pill, for a row that draws a kind the register does not cover. */
+export function StateBadge({ token }: { readonly token: StateToken }) {
 	const { label, tone } = STATE_BADGE[token];
 	return (
 		<Badge tone={tone} variant="outline">
