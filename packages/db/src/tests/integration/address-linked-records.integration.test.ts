@@ -34,7 +34,9 @@ async function insertLandingRate(
 	const method = await createCollectionMethod(db, organizationId, {
 		name: `Landing rate ${collectionDate}`,
 	});
-	const unit = await createUnit(db);
+	// `unit_name` is unique across every Organization, and a case that also
+	// files control actions has made a unit under the default name already.
+	const unit = await createUnit(db, { unit_name: `minutes ${organizationId} ${collectionDate}` });
 	const row = await db
 		.insertInto('collections')
 		.values({
