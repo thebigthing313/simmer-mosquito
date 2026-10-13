@@ -60,12 +60,12 @@ import { compareNames } from '../../../lib/natural-order';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { type FilterCodecs, searchValidator, textParam } from '../../../lib/search-filters';
 
-interface RegionFilters {
-	readonly search: string;
-}
+// A type alias rather than an interface: the route's validated search names
+// it, and the generated route tree can spell out an alias it cannot import.
+type RegionSearch = { readonly search: string };
 
-const REGION_FILTER_DEFAULTS: RegionFilters = { search: '' };
-const REGION_FILTER_CODECS: FilterCodecs<RegionFilters> = { search: textParam };
+const REGION_FILTER_DEFAULTS: RegionSearch = { search: '' };
+const REGION_FILTER_CODECS: FilterCodecs<RegionSearch> = { search: textParam };
 
 export const Route = createFileRoute('/gis/regions/')({
 	component: RegionsExplorerRoute,

@@ -439,6 +439,25 @@ paths. The label is the register's `many` with its first letter raised, plus
 default is already off it, and an order or a page is not a filter key and is
 never carried.
 
+The switch and `RecordSetTablePage` take that search as a `ValidatedSearch` of
+the set's filters, which is what `searchValidator` returns, so a route handing
+its switch another set's search, or a plain object, fails `tsc` (#1589). Both
+props used to be typed `Record<string, unknown>` and a set over `unknown`,
+and a wrong search drew a switch that carried nothing. The mark is a type
+alone and invariant in the filters, because a plain property would let Traps'
+search, which holds every Address filter, pass for the Addresses set's.
+Outreach's filters and Source Reduction's are one type, so those two still
+take each other's. The Service Requests routes validate the rail's order as
+well, and pass its codecs to `searchValidator` as `beside`, which validates
+them and leaves them out of the mark. The router reads a function validator's
+parameter as what a `Link` to the route may pass, and when it is unmarked it
+uses the return type, so every `Link` would owe a marked search.
+`SearchValidator`'s last signature marks the parameter `SearchSchemaInput` for
+the router, and its first is the one a suite's direct call resolves to. The
+link suite builds each search with `validatedOn`, the surface's own
+validator, and the generic switch needs one element per set in its `it.each`,
+because a union of sets infers no filters.
+
 #### ExplorerSummary
 
 What an explorer rail draws in place of its rows over 100 in view (#1244).

@@ -20,10 +20,10 @@ const ORDER_DEFAULTS: ServiceRequestRailSearch = { order: 'newest' };
 
 export const Route = createFileRoute('/public-engagement/service-requests/table')({
 	component: ServiceRequestsTableRoute,
-	validateSearch: searchValidator({
-		...surfaceCodecs(serviceRequestRecordSet, 'table'),
-		...serviceRequestRailOrderCodecs,
-	}),
+	validateSearch: searchValidator(
+		surfaceCodecs(serviceRequestRecordSet, 'table'),
+		serviceRequestRailOrderCodecs,
+	),
 });
 
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;

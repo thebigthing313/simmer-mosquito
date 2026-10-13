@@ -13,6 +13,7 @@ import { usePagedMapResource, WHOLE_WORLD_BBOX } from '../../hooks/explorer/use-
 import type { RecordSetFilterBinding } from '../../hooks/explorer/use-record-set-filters';
 import { type MapQueryValue, mapQueryParams } from '../../lib/map-query-params';
 import { recordNoun } from '../../lib/record-nouns';
+import type { ValidatedSearch } from '../../lib/search-filters';
 import { OutletSimpleLayout } from '../app-shell';
 import { ExplorerPagination } from '../explorer-pagination';
 import { RecordTableEmpty } from '../record/record-table-empty';
@@ -46,7 +47,7 @@ export function RecordSetTablePage<TFilters, TTile, TRow>({
 	/** The Table's binding, from `useRecordSetFilters(set, 'table')`. */
 	readonly binding: RecordSetFilterBinding<TFilters>;
 	/** The route's validated search, which the switch carries from. */
-	readonly search: Record<string, unknown>;
+	readonly search: ValidatedSearch<NoInfer<TFilters>>;
 	readonly icon: RegistryIcon;
 	/** The heading, where the surface is named for more than its records. Left out, the register's plural. */
 	readonly title?: string;
