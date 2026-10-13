@@ -746,6 +746,31 @@ the Map's, `Address Book`, rather than the register's `Addresses`: CONTEXT.md
 glosses an Address as an address book entry, so both views are the book, and
 the two switch segments name one page in two forms (#985).
 
+#### AddressLinkedRecordsCard and address-linked-records
+
+The Address page listed only what is **Sited** there, and said nothing was
+there when service requests and landing-rate collections named the Address
+(#1670). The card lists every record whose `address_id` names it, its
+**Linked Address**, matched on the column rather than on distance, since a
+Linked Address is what the record named and not where the work happened.
+
+The read is the nearby read's address-scoped sibling,
+`GET /records/address/:id/linked-records` over `listAddressLinkedRecords` in
+`packages/db`. Seven of its ten kinds select through the activity register's
+`recordColumns`, so a linked row and a nearby row for one record carry one set
+of columns, and draw through `mixedListRowParts`, the nearby list's row. A
+registration, a request for control and a Mission stop are not activity, so
+`linkedRecordRow` describes those three itself. The families are the domain's
+`LINKED_RECORD_FAMILIES` rather than the nearby page's four, because a
+Requested Control Action is a record of its own and a Mission stop belongs with
+neither control actions nor requests.
+
+Each family is its newest 25 and its total, ranked in one query. There is no
+link to the rest until an explorer can filter by address. A Mission stop has no
+page, so it links to its Mission, and a done stop names the newest action
+recorded against it (ADR 0012). A family with no records gets no tab, and the
+rows select nothing because the page has no map.
+
 #### RegionBoundary (import-parse)
 
 Read from the geometry register rather than a hand-written pair. The pair

@@ -62,6 +62,13 @@ export interface ActivityEntry {
  */
 export type ActivityRecord = Omit<ActivityEntry, 'involvement' | 'role'>;
 
+/**
+ * What a row reads off a record: everything but its family. The Address
+ * page's linked records group the same kinds under families of their own, and
+ * nothing a row draws reads the family.
+ */
+export type ActivityRowRecord = Omit<ActivityRecord, 'family'>;
+
 export const ACTIVITY_FAMILY_LABELS: readonly {
 	readonly key: ActivityFamily;
 	readonly label: string;
@@ -296,7 +303,7 @@ export function activityPanelState(
  * rather than an assertion (a wet site whose density will not resolve says
  * "Wet").
  */
-export function activityBadgeFacts(entry: ActivityRecord): RecordBadgeFacts {
+export function activityBadgeFacts(entry: ActivityRowRecord): RecordBadgeFacts {
 	const detail = text(entry.detail);
 	switch (entry.category) {
 		case 'habitat':
@@ -355,7 +362,7 @@ function controlContextOf(context: string | null): ControlContext {
  * What an inspection found. `dry` and a density are the same field; the stages
  * ride separately, and an inspection that found none sends nothing.
  */
-function inspectionResult(entry: ActivityRecord): InspectionResult {
+function inspectionResult(entry: ActivityRowRecord): InspectionResult {
 	const detail = text(entry.detail);
 	if (detail === 'dry') {
 		return { isWet: false, density: null, stages: null };
@@ -403,7 +410,7 @@ function lifeStageFlags(codes: string | null): LifeStageFlags | null {
  * name as `useEntityTags` orders them. A tag id with no catalog row draws nothing.
  */
 export function activityTags(
-	entry: ActivityRecord,
+	entry: ActivityRowRecord,
 	tagById: ReadonlyMap<string, Tag>,
 ): readonly Tag[] {
 	if (entry.tagIds === null || entry.tagIds.length === 0) {
@@ -438,7 +445,7 @@ export interface ActivityRowParts {
  * the category label, the detail route, the badge register and the Tags. A pure
  * resolution so the nine categories can be asserted through one function.
  */
-export function activityRow(record: ActivityRecord, lookups: ActivityLookups): ActivityRowParts {
+export function activityRow(record: ActivityRowRecord, lookups: ActivityLookups): ActivityRowParts {
 	const { title, subtitle } = describeActivityEntry(
 		record,
 		lookups.nameById,
@@ -466,7 +473,7 @@ export interface ActivityDescription {
  * already text, because habitats and addresses are not synced to the client.
  */
 export function describeActivityEntry(
-	entry: ActivityRecord,
+	entry: ActivityRowRecord,
 	nameById: ReadonlyMap<string, string>,
 	formatQuantity: (amount: number, unitId: string | null) => string,
 ): ActivityDescription {

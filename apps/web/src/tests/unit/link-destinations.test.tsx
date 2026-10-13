@@ -19,6 +19,7 @@
  * different href and fails here.
  */
 
+import { LINKED_RECORD_FAMILIES } from '@simmer-mosquito/domain';
 import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
@@ -35,6 +36,8 @@ import type { DashboardResponse } from '../../components/dashboard/dashboard-dat
 import { DashboardPage } from '../../components/dashboard/dashboard-page';
 import { surfaceCodecs } from '../../components/explorer/record-set';
 import { RecordSetSwitch } from '../../components/explorer/record-set-switch';
+import type { LinkedRecordItem } from '../../components/gis/addresses/address-linked-records';
+import { LinkedRecordsBody } from '../../components/gis/addresses/address-linked-records-card';
 import { addressRecordSet } from '../../components/gis/addresses/addresses-search';
 import { AddressesTable } from '../../components/gis/addresses/addresses-table';
 import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
@@ -63,6 +66,7 @@ import { requested_control_actions } from '../../lib/collections/requested_contr
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 import { source_reductions } from '../../lib/collections/source_reductions';
+import { createOrganizationClock } from '../../lib/organization-clock';
 import { searchValidator } from '../../lib/search-filters';
 import { dayOverview, monthOverview, yearOverview } from './components/overview/overview-fixtures';
 import { installMemoryCollections, seedRows } from './lib/collections/memory-collections';
@@ -1193,6 +1197,130 @@ describe('the nearby list', () => {
 		const index = CATEGORIES.indexOf('serviceRequest');
 		const href = `/public-engagement/service-requests/serviceRequest-${index}`;
 		expect(linkHrefs()).toEqual([href, href]);
+	});
+});
+
+/**
+ * The Address page's Linked Records, one tab per family.
+ *
+ * Ten kinds under seven tabs. Three of them link somewhere other than their own
+ * id: a registration opens its contact's registrations, and a Mission stop
+ * opens its Mission. Every fixture's foreign id differs from its own, so a
+ * row that read the wrong one resolves somewhere else and fails here.
+ */
+describe('the linked records on an address', () => {
+	const ITEMS: readonly LinkedRecordItem[] = [
+		linkedItem('serviceRequest', 'requests', 'request-1'),
+		linkedItem('notificationRegistration', 'requests', 'registration-1', {
+			contactId: 'contact-1',
+		}),
+		linkedItem('inspection', 'inspections', 'inspection-1'),
+		linkedItem('collection', 'collections', 'collection-1'),
+		linkedItem('application', 'controlActions', 'application-1'),
+		linkedItem('sourceReduction', 'controlActions', 'source-reduction-1'),
+		linkedItem('biocontrol', 'controlActions', 'biocontrol-1'),
+		linkedItem('outreach', 'outreach', 'outreach-1'),
+		linkedItem('requestedControlAction', 'requestedControlActions', 'rca-1', {
+			controlType: 'application',
+		}),
+		linkedItem('missionItem', 'missionStops', 'stop-1', {
+			detail: 'done',
+			controlType: 'application',
+			missionId: 'mission-1',
+			missionScheduledStartAt: '2026-08-05T10:00:00Z',
+			closedByCategory: 'application',
+			closedById: 'application-1',
+		}),
+	];
+
+	function linkedItem(
+		category: LinkedRecordItem['category'],
+		family: LinkedRecordItem['family'],
+		id: string,
+		overrides: Partial<LinkedRecordItem> = {},
+	): LinkedRecordItem {
+		return {
+			category,
+			family,
+			id,
+			lat: 30,
+			lng: -90,
+			date: '2026-08-01',
+			occurredAt: null,
+			label: `Record ${id}`,
+			placeName: null,
+			refId: null,
+			methodRefId: null,
+			amount: null,
+			unitId: null,
+			detail: null,
+			stages: null,
+			context: null,
+			hasBycatch: null,
+			tagIds: null,
+			controlType: null,
+			contactId: null,
+			contactName: null,
+			missionId: null,
+			missionName: null,
+			missionScheduledStartAt: null,
+			closedByCategory: null,
+			closedById: null,
+			closedByRefId: null,
+			...overrides,
+		};
+	}
+
+	const EXPECTED: readonly (readonly [RegExp, readonly string[]])[] = [
+		[
+			/^Requests\d+$/,
+			[
+				'/public-engagement/service-requests/request-1',
+				'/public-engagement/contacts/contact-1/registrations',
+			],
+		],
+		[/^Inspections/, ['/larval-surveillance/inspections/inspection-1']],
+		[/^Collections/, ['/adult-surveillance/collections/collection-1']],
+		[
+			/^Control Actions/,
+			[
+				'/control-operations/chemical/application-1',
+				'/control-operations/source-reduction/source-reduction-1',
+				'/control-operations/biocontrol/biocontrol-1',
+			],
+		],
+		[/^Outreach/, ['/public-engagement/outreach/outreach-1']],
+		[/^Requests for Control/, ['/operations/requests-for-control/rca-1']],
+		[/^Mission Stops/, ['/operations/missions/mission-1']],
+	];
+
+	it('sends each row to its own page, and a mission stop to its mission', () => {
+		renderWithRouter(
+			<LinkedRecordsBody
+				clock={createOrganizationClock('America/New_York')}
+				lookups={{ nameById: new Map(), formatQuantity: String, tagById: new Map() }}
+				read={{
+					data: {
+						addressId: 'address-1',
+						families: LINKED_RECORD_FAMILIES.map((family) => {
+							const items = ITEMS.filter((item) => item.family === family);
+							return { family, total: items.length, items };
+						}),
+						limit: 25,
+					},
+					isLoading: false,
+					isError: false,
+					refetch: () => Promise.resolve(),
+				}}
+			/>,
+		);
+
+		for (const [tab, hrefs] of EXPECTED) {
+			// `mouseDown`, for the reason the History card's cases give.
+			fireEvent.mouseDown(screen.getByRole('tab', { name: tab }));
+			// The title and the chevron are the row's two links.
+			expect(linkHrefs(), String(tab)).toEqual(hrefs.flatMap((href) => [href, href]));
+		}
 	});
 });
 

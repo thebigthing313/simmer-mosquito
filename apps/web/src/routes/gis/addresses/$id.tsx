@@ -9,6 +9,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { AddressSurveillanceCard } from '../../../components/address-surveillance';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
+import { AddressLinkedRecordsCard } from '../../../components/gis/addresses/address-linked-records-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
@@ -100,6 +101,7 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 		>
 			<RecordRegionsBand recordId={address.id} recordType="addresses" />
 			<AddressSurveillanceCard addressId={address.id} />
+			<AddressLinkedRecordsCard addressId={address.id} />
 		</DetailPageShell>
 	);
 }
