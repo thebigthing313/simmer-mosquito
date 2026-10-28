@@ -760,6 +760,14 @@ const collectionDisplayColumns: MapDisplayColumns<SafeCollectionDisplayRow> = {
 	updatedAt: sql`c.updated_at`,
 };
 
+/** A collection's status as the page's rail and key name it. */
+const collectionStatusLabelSql = sql`case (${collectionStatusExpression})
+	when 'pending' then 'Trap out'
+	when 'collected' then 'Collected'
+	when 'zero_result' then 'Zero result'
+	when 'problem' then 'Problem reported'
+end`;
+
 /**
  * A collection as a spreadsheet row, over the display join's address (`a`).
  *
@@ -768,7 +776,9 @@ const collectionDisplayColumns: MapDisplayColumns<SafeCollectionDisplayRow> = {
  * does: the day of `collected_at` on its clock under exact timestamps, the
  * stored `collection_date` under date and duration. Each mode's own columns
  * are filled for its rows and left empty for the other's. The species are
- * named with their sex and count, most first.
+ * named with their sex, physiological status and count, most first, and the
+ * labels are the ones the page draws: `Trap out` for a pending collection,
+ * `Unsexed` for a specimen with no sex recorded.
  */
 function collectionExport(effectiveDate: RawBuilder<unknown>): MapSurfaceExport {
 	return {
@@ -785,12 +795,15 @@ function collectionExport(effectiveDate: RawBuilder<unknown>): MapSurfaceExport 
 					sum(per.total)::int as mosquitoes
 				from (
 					select
-						sp.display_name || coalesce(', ' || cs.sex::text, '') || ' (' || sum(cs.count) || ')' as entry,
+						sp.display_name
+							|| ', ' || case cs.sex when 'female' then 'Female' when 'male' then 'Male' else 'Unsexed' end
+							|| coalesce(', ' || ${exportVocabularyLabel(sql`cs.status`)}, '')
+							|| ' (' || sum(cs.count) || ')' as entry,
 						sum(cs.count) as total
 					from collection_species cs
 					join species sp on sp.id = cs.species_id
 					where cs.collection_id = c.id and cs.deleted_at is null
-					group by sp.display_name, cs.sex
+					group by sp.display_name, cs.sex, cs.status
 				) per
 			) caught on true
 		`,
@@ -818,7 +831,7 @@ function collectionExport(effectiveDate: RawBuilder<unknown>): MapSurfaceExport 
 			{ header: 'Lure', value: sql`cl.name` },
 			{ header: 'Set by', value: sql`set_by.display_name` },
 			{ header: 'Collected by', value: sql`collected_by.display_name` },
-			{ header: 'Status', value: exportVocabularyLabel(sql`(${collectionStatusExpression})`) },
+			{ header: 'Status', value: collectionStatusLabelSql },
 			{ header: 'Problem', value: exportYesNo(sql`c.has_problem`) },
 			{ header: 'Zero result', value: exportYesNo(sql`c.is_zero_result`) },
 			{ header: 'Bycatch', value: exportYesNo(sql`c.has_bycatch`) },

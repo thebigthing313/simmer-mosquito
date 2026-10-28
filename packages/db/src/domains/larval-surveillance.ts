@@ -501,6 +501,14 @@ const sampleDisplayColumns: MapDisplayColumns<SafeSampleDisplayRow> = {
 	updatedAt: sql`s.updated_at`,
 };
 
+/** A sample's status as the page's chips, rail and key name it. */
+const sampleStatusLabelSql = sql`case (${sampleStatusExpression})
+	when 'identified' then 'Identified'
+	when 'awaiting' then 'Awaiting ID'
+	when 'zero_larvae' then 'No larvae'
+	when 'unidentifiable' then 'Unidentifiable'
+end`;
+
 /**
  * A sample as a spreadsheet row, over the display joins' habitat (`h`),
  * address (`a`) and species roll-up (`agg`), with each identified species
@@ -525,9 +533,10 @@ const sampleExport: MapSurfaceExport = {
 		{ header: 'Inspection date', value: sql`i.inspection_date::text` },
 		{ header: 'Habitat', value: sql`h.habitat_name` },
 		{ header: 'Address', value: sql`a.display_name` },
-		{ header: 'Status', value: exportVocabularyLabel(sql`(${sampleStatusExpression})`) },
+		{ header: 'Status', value: sampleStatusLabelSql },
 		{ header: 'Species', value: sql`named.species` },
-		{ header: 'Larvae', value: sql`coalesce(agg.larvae_total, 0)::int` },
+		// Null until a species is keyed out, so an unread sample does not read as zero.
+		{ header: 'Larvae', value: sql`agg.larvae_total` },
 		{ header: 'Identified', value: sql`agg.identified_at` },
 		{ header: 'Zero larvae', value: exportYesNo(sql`s.is_zero_larvae`) },
 		{ header: 'Non-mosquito', value: exportYesNo(sql`s.has_non_mosquito`) },

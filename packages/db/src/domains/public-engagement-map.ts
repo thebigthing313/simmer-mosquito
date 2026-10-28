@@ -159,8 +159,10 @@ const serviceRequestDisplayColumns: MapDisplayColumns<SafeServiceRequestDisplayR
 
 /**
  * A service request as a spreadsheet row, with its contact, Address, Tags and
- * the people who received and closed it by name. The contact's phone and
- * email are on it because the page that exports it shows them.
+ * the people who received and closed it by name. The contact is named and
+ * not reached: a phone number and an email address are read one request at a
+ * time on the page, and a file of up to 50,000 of them is a different
+ * exposure from that, so they are left out.
  */
 const serviceRequestExport: MapSurfaceExport = {
 	joins: sql`
@@ -171,12 +173,10 @@ const serviceRequestExport: MapSurfaceExport = {
 	`,
 	columns: (context) => [
 		{ header: 'Request', value: sql`sr.display_name` },
-		{ header: 'Request date', value: sql`to_char(sr.request_date, 'YYYY-MM-DD')` },
+		{ header: 'Request date', value: sql`sr.request_date::text` },
 		{ header: 'Status', value: sql`case when sr.closed_at is null then 'Open' else 'Closed' end` },
 		{ header: 'Intake', value: exportVocabularyLabel(sql`sr.intake_type`) },
 		{ header: 'Contact', value: sql`ct.contact_name` },
-		{ header: 'Phone', value: sql`ct.preferred_phone` },
-		{ header: 'Email', value: sql`ct.email` },
 		{ header: 'Address', value: sql`ad.display_name` },
 		{ header: 'Details', value: sql`sr.details` },
 		{ header: 'Tags', value: tagNamesSql({ id: sql`sr.id`, entityType: 'service_request' }) },

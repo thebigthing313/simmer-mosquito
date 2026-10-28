@@ -1429,6 +1429,12 @@ describeDbIntegration('record set exports against Postgres', () => {
 				throw new Error('expected rows');
 			}
 			const byDuration = all.rows.filter((row) => row[all.headers.indexOf('Duration')] !== null);
+			// Statuses read the way the page's rail and key name them.
+			const statuses = new Set(all.rows.map((row) => row[all.headers.indexOf('Status')]));
+			expect(statuses).toEqual(
+				new Set(['Trap out', 'Problem reported', 'Zero result', 'Collected']),
+			);
+
 			// A date-and-duration collection carries its duration and no clock time.
 			expect(byDuration.length).toBeGreaterThan(0);
 			for (const row of byDuration) {
@@ -1437,6 +1443,26 @@ describeDbIntegration('record set exports against Postgres', () => {
 					row[all.headers.indexOf('Duration')],
 					row[all.headers.indexOf('Duration unit')],
 				]).toEqual([null, 12, 'Hour']);
+			}
+		});
+	});
+
+	it('names a sample awaiting identification as the page does, with no larvae counted yet', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+
+			const { exported } = await surfaceExportAndPage(
+				db,
+				MAP_SURFACES.samples as ExportingSurface<unknown>,
+				{ status: 'awaiting' },
+			);
+			if (exported.kind !== 'rows') {
+				throw new Error('expected rows');
+			}
+			expect(exported.rows.length).toBeGreaterThan(0);
+			for (const row of exported.rows) {
+				expect(row[exported.headers.indexOf('Status')]).toBe('Awaiting ID');
+				expect(row[exported.headers.indexOf('Larvae')]).toBeNull();
 			}
 		});
 	});

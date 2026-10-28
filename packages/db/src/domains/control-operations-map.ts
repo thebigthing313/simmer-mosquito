@@ -119,8 +119,8 @@ const applicationDisplayColumns: MapDisplayColumns<SafeApplicationDisplayRow> = 
 };
 
 /**
- * An application as a spreadsheet row, over the display joins' applicator
- * (`ap`) and batches. The amount is the row's own, in the row's own unit, and
+ * An application as a spreadsheet row, over the display join's applicator
+ * (`ap`), with its batches by name. The amount is the row's own, in the row's own unit, and
  * never summed: gallons and ounces of one product are two rows.
  */
 const applicationExport: MapSurfaceExport = {
@@ -130,6 +130,14 @@ const applicationExport: MapSurfaceExport = {
 		left join units au on au.id = a.application_unit_id
 		left join habitats hb on hb.id = a.habitat_id
 		left join addresses ad on ad.id = a.address_id
+		left join lateral (
+			select string_agg(ib.batch_name, ', ' order by ib.batch_name) as names
+			from application_batches abx
+			join insecticide_batches ib on ib.id = abx.insecticide_batch_id
+			where abx.application_id = a.id
+				and abx.deleted_at is null
+				and ib.deleted_at is null
+		) batch_list on true
 	`,
 	columns: (context) => [
 		{ header: 'Application date', value: sql`a.application_date::text` },
@@ -139,10 +147,7 @@ const applicationExport: MapSurfaceExport = {
 		{ header: 'Method', value: sql`am.name` },
 		{ header: 'Amount', value: sql`a.amount_applied` },
 		{ header: 'Unit', value: sql`au.unit_name` },
-		{
-			header: 'Batches',
-			value: sql`(select string_agg(batch.name, ', ') from json_array_elements_text(batches.batch_names) as batch(name))`,
-		},
+		{ header: 'Batches', value: sql`batch_list.names` },
 		{ header: 'Applicator', value: sql`ap.display_name` },
 		{ header: 'Habitat', value: sql`hb.habitat_name` },
 		{ header: 'Address', value: sql`ad.display_name` },

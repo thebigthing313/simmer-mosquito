@@ -329,14 +329,18 @@ const addressDisplayColumns: MapDisplayColumns<SafeAddressDisplayRow> = {
 	updatedAt: sql`a.updated_at`,
 };
 
-/** An Address as a spreadsheet row, one column per postal field. */
+/**
+ * An Address as a spreadsheet row, one column per postal field, headed the way
+ * the address form labels them. The `region` column is the State, and is not
+ * headed Region, which names a drawn boundary everywhere else.
+ */
 const addressExport: MapSurfaceExport = {
 	columns: (context) => [
 		{ header: 'Address', value: sql`a.display_name` },
-		{ header: 'Address line 1', value: sql`a.address_line_1` },
-		{ header: 'Address line 2', value: sql`a.address_line_2` },
-		{ header: 'Locality', value: sql`a.locality` },
-		{ header: 'Region', value: sql`a.region` },
+		{ header: 'Street address', value: sql`a.address_line_1` },
+		{ header: 'Unit', value: sql`a.address_line_2` },
+		{ header: 'City', value: sql`a.locality` },
+		{ header: 'State', value: sql`a.region` },
 		{ header: 'Postal code', value: sql`a.postal_code` },
 		{ header: 'Country', value: sql`a.country` },
 		{ header: 'Latitude', value: sql`a.lat` },
