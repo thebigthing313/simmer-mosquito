@@ -68,6 +68,7 @@ function SourceReductionExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
+		exportRequest,
 	}: ExplorerResource<SourceReductionListRow> = useExplorerResource({
 		set: sourceReductionRecordSet,
 		binding,
@@ -80,6 +81,7 @@ function SourceReductionExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
+			exportRequest={exportRequest}
 			actions={
 				<RecordSetSwitch
 					compact

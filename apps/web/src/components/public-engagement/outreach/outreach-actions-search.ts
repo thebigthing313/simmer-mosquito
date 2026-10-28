@@ -69,7 +69,12 @@ export const outreachRecordSet = defineRecordSet({
 	recordType: 'outreachAction',
 	paths: { map: '/public-engagement/outreach', table: '/public-engagement/outreach/table' },
 	codecs: outreachFilterCodecs,
-	endpoint: { path: '/map/outreach', rowsKey: 'outreachActions', rowKey: 'outreachAction' },
+	endpoint: {
+		path: '/map/outreach',
+		rowsKey: 'outreachActions',
+		rowKey: 'outreachAction',
+		exports: true,
+	},
 	tileset: 'outreach',
 	tileFilters: outreachTileFilters,
 	filterSpec: OUTREACH_MAP_FILTERS,

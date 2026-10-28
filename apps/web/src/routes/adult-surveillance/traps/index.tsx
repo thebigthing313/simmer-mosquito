@@ -73,6 +73,7 @@ function TrapsExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
+		exportRequest,
 	}: ExplorerResource<TrapRow> = useExplorerResource({
 		set: trapRecordSet,
 		binding,
@@ -81,6 +82,7 @@ function TrapsExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
+			exportRequest={exportRequest}
 			actions={<RecordSetSwitch compact current="map" search={routeSearch} set={trapRecordSet} />}
 			activeFilterCount={activeFilterCount}
 			filters={<TrapFilterFields binding={binding} />}

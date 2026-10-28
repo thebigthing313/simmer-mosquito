@@ -94,6 +94,7 @@ const defaultMapReaders = {
 	listHabitatDisplayRows: MAP_SURFACES.habitats.listByBounds,
 	summarizeHabitats: MAP_SURFACES.habitats.summarizeByBounds,
 	getHabitatDisplayRow: MAP_SURFACES.habitats.getById,
+	exportHabitats: MAP_SURFACES.habitats.exportByBounds,
 
 	getInspectionTile: MAP_SURFACES.inspections.getTile,
 	getInspectionExtent: MAP_SURFACES.inspections.getExtent,
@@ -107,54 +108,63 @@ const defaultMapReaders = {
 	listSampleDisplayRows: MAP_SURFACES.samples.listByBounds,
 	summarizeSamples: MAP_SURFACES.samples.summarizeByBounds,
 	getSampleDisplayRow: MAP_SURFACES.samples.getById,
+	exportSamples: MAP_SURFACES.samples.exportByBounds,
 
 	getTrapTile: MAP_SURFACES.traps.getTile,
 	getTrapExtent: MAP_SURFACES.traps.getExtent,
 	listTrapDisplayRows: MAP_SURFACES.traps.listByBounds,
 	summarizeTraps: MAP_SURFACES.traps.summarizeByBounds,
 	getTrapDisplayRow: MAP_SURFACES.traps.getById,
+	exportTraps: MAP_SURFACES.traps.exportByBounds,
 
 	getCollectionTile: MAP_SURFACES.collections.getTile,
 	getCollectionExtent: MAP_SURFACES.collections.getExtent,
 	listCollectionDisplayRows: MAP_SURFACES.collections.listByBounds,
 	summarizeCollections: MAP_SURFACES.collections.summarizeByBounds,
 	getCollectionDisplayRow: MAP_SURFACES.collections.getById,
+	exportCollections: MAP_SURFACES.collections.exportByBounds,
 
 	getApplicationTile: MAP_SURFACES.chemical.getTile,
 	getApplicationExtent: MAP_SURFACES.chemical.getExtent,
 	listApplicationDisplayRows: MAP_SURFACES.chemical.listByBounds,
 	summarizeApplications: MAP_SURFACES.chemical.summarizeByBounds,
 	getApplicationDisplayRow: MAP_SURFACES.chemical.getById,
+	exportApplications: MAP_SURFACES.chemical.exportByBounds,
 
 	getSourceReductionTile: MAP_SURFACES['source-reduction'].getTile,
 	getSourceReductionExtent: MAP_SURFACES['source-reduction'].getExtent,
 	listSourceReductionDisplayRows: MAP_SURFACES['source-reduction'].listByBounds,
 	summarizeSourceReductions: MAP_SURFACES['source-reduction'].summarizeByBounds,
 	getSourceReductionDisplayRow: MAP_SURFACES['source-reduction'].getById,
+	exportSourceReductions: MAP_SURFACES['source-reduction'].exportByBounds,
 
 	getBiocontrolTile: MAP_SURFACES.biocontrol.getTile,
 	getBiocontrolExtent: MAP_SURFACES.biocontrol.getExtent,
 	listBiocontrolDisplayRows: MAP_SURFACES.biocontrol.listByBounds,
 	summarizeBiocontrolActions: MAP_SURFACES.biocontrol.summarizeByBounds,
 	getBiocontrolDisplayRow: MAP_SURFACES.biocontrol.getById,
+	exportBiocontrolActions: MAP_SURFACES.biocontrol.exportByBounds,
 
 	getOutreachTile: MAP_SURFACES.outreach.getTile,
 	getOutreachExtent: MAP_SURFACES.outreach.getExtent,
 	listOutreachDisplayRows: MAP_SURFACES.outreach.listByBounds,
 	summarizeOutreachActions: MAP_SURFACES.outreach.summarizeByBounds,
 	getOutreachDisplayRow: MAP_SURFACES.outreach.getById,
+	exportOutreachActions: MAP_SURFACES.outreach.exportByBounds,
 
 	getAddressTile: MAP_SURFACES.addresses.getTile,
 	getAddressExtent: MAP_SURFACES.addresses.getExtent,
 	listAddressDisplayRows: MAP_SURFACES.addresses.listByBounds,
 	summarizeAddresses: MAP_SURFACES.addresses.summarizeByBounds,
 	getAddressDisplayRow: MAP_SURFACES.addresses.getById,
+	exportAddresses: MAP_SURFACES.addresses.exportByBounds,
 
 	getServiceRequestTile: MAP_SURFACES['service-requests'].getTile,
 	getServiceRequestExtent: MAP_SURFACES['service-requests'].getExtent,
 	listServiceRequestDisplayRows: MAP_SURFACES['service-requests'].listByBounds,
 	summarizeServiceRequests: MAP_SURFACES['service-requests'].summarizeByBounds,
 	getServiceRequestDisplayRow: MAP_SURFACES['service-requests'].getById,
+	exportServiceRequests: MAP_SURFACES['service-requests'].exportByBounds,
 
 	// Regions are drawn from their surface and read as rows through their own
 	// catalog, so the by-id reader is not a surface method.
@@ -312,6 +322,13 @@ export function registerMapTileRoutes(
 		return context.json({ habitats });
 	});
 
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/habitats/export',
+		parseFilters: parseHabitatTileFilters,
+		export: readers.exportHabitats,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/habitats/:id',
 		key: 'habitat',
@@ -348,6 +365,13 @@ export function registerMapTileRoutes(
 		path: '/map/addresses/summary',
 		parseFilters: parseAddressTileFilters,
 		summarize: readers.summarizeAddresses,
+	});
+
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/addresses/export',
+		parseFilters: parseAddressTileFilters,
+		export: readers.exportAddresses,
 	});
 
 	registerByIdRoute(app, options, {
@@ -402,6 +426,13 @@ export function registerMapTileRoutes(
 		summarize: readers.summarizeSamples,
 	});
 
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/samples/export',
+		parseFilters: parseSampleTileFilters,
+		export: readers.exportSamples,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/samples/:id',
 		key: 'sample',
@@ -423,6 +454,13 @@ export function registerMapTileRoutes(
 		path: '/map/chemical/summary',
 		parseFilters: parseApplicationMapFilters,
 		summarize: readers.summarizeApplications,
+	});
+
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/chemical/export',
+		parseFilters: parseApplicationMapFilters,
+		export: readers.exportApplications,
 	});
 
 	registerByIdRoute(app, options, {
@@ -448,6 +486,13 @@ export function registerMapTileRoutes(
 		summarize: readers.summarizeSourceReductions,
 	});
 
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/source-reduction/export',
+		parseFilters: parseSourceReductionMapFilters,
+		export: readers.exportSourceReductions,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/source-reduction/:id',
 		key: 'sourceReduction',
@@ -469,6 +514,13 @@ export function registerMapTileRoutes(
 		path: '/map/biocontrol/summary',
 		parseFilters: parseBiocontrolMapFilters,
 		summarize: readers.summarizeBiocontrolActions,
+	});
+
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/biocontrol/export',
+		parseFilters: parseBiocontrolMapFilters,
+		export: readers.exportBiocontrolActions,
 	});
 
 	registerByIdRoute(app, options, {
@@ -493,6 +545,13 @@ export function registerMapTileRoutes(
 		path: '/map/outreach/summary',
 		parseFilters: parseOutreachMapFilters,
 		summarize: readers.summarizeOutreachActions,
+	});
+
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/outreach/export',
+		parseFilters: parseOutreachMapFilters,
+		export: readers.exportOutreachActions,
 	});
 
 	registerByIdRoute(app, options, {
@@ -522,6 +581,13 @@ export function registerMapTileRoutes(
 		path: '/map/service-requests/summary',
 		parseFilters: parseServiceRequestMapFilters,
 		summarize: readers.summarizeServiceRequests,
+	});
+
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/service-requests/export',
+		parseFilters: parseServiceRequestMapFilters,
+		export: readers.exportServiceRequests,
 	});
 
 	registerByIdRoute(app, options, {
@@ -588,6 +654,13 @@ export function registerMapTileRoutes(
 		summarize: readers.summarizeTraps,
 	});
 
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/traps/export',
+		parseFilters: parseTrapMapFilters,
+		export: readers.exportTraps,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/traps/:id',
 		key: 'trap',
@@ -609,6 +682,13 @@ export function registerMapTileRoutes(
 		path: '/map/collections/summary',
 		parseFilters: parseCollectionMapFilters,
 		summarize: readers.summarizeCollections,
+	});
+
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/collections/export',
+		parseFilters: parseCollectionMapFilters,
+		export: readers.exportCollections,
 	});
 
 	registerByIdRoute(app, options, {

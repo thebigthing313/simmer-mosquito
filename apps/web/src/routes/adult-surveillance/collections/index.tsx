@@ -73,6 +73,7 @@ function CollectionsExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
+		exportRequest,
 	}: ExplorerResource<CollectionListRow> = useExplorerResource({
 		set: collectionRecordSet,
 		binding,
@@ -81,6 +82,7 @@ function CollectionsExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
+			exportRequest={exportRequest}
 			actions={
 				<RecordSetSwitch compact current="map" search={routeSearch} set={collectionRecordSet} />
 			}

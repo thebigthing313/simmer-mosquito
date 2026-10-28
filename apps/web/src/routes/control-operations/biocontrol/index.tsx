@@ -72,6 +72,7 @@ function BiocontrolExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
+		exportRequest,
 	}: ExplorerResource<BiocontrolListRow> = useExplorerResource({
 		set: biocontrolRecordSet,
 		binding,
@@ -84,6 +85,7 @@ function BiocontrolExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
+			exportRequest={exportRequest}
 			actions={
 				<RecordSetSwitch compact current="map" search={routeSearch} set={biocontrolRecordSet} />
 			}

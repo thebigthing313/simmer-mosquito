@@ -64,6 +64,7 @@ function OutreachExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
+		exportRequest,
 	}: ExplorerResource<OutreachListRow> = useExplorerResource({
 		set: outreachRecordSet,
 		binding,
@@ -72,6 +73,7 @@ function OutreachExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
+			exportRequest={exportRequest}
 			actions={
 				<RecordSetSwitch compact current="map" search={routeSearch} set={outreachRecordSet} />
 			}

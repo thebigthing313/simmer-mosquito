@@ -863,6 +863,162 @@ const exportReads: ReadonlyArray<{
 				},
 			}),
 	},
+	{
+		name: 'habitat export',
+		organizationAlias: 'h',
+		geomAlias: 'h',
+		read: (db) =>
+			MAP_SURFACES.habitats.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: {
+					isActive: true,
+					habitatTypeIds: ids,
+					tagIds: ids,
+					regionIds,
+					search: 'ditch',
+					untreatedOnly: true,
+				},
+			}),
+	},
+	{
+		name: 'sample export',
+		organizationAlias: 's',
+		geomAlias: 'i',
+		read: (db) =>
+			MAP_SURFACES.samples.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: {
+					speciesIds: ids,
+					status: 'awaiting',
+					nonMosquitoOnly: true,
+					regionIds,
+					...dates,
+				},
+			}),
+	},
+	{
+		name: 'trap export',
+		organizationAlias: 't',
+		geomAlias: 't',
+		read: (db) =>
+			MAP_SURFACES.traps.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: { collectionMethodIds: ids, isActive: true, search: 'gravid', regionIds },
+			}),
+	},
+	{
+		name: 'collection export',
+		organizationAlias: 'c',
+		geomAlias: 'c',
+		read: (db) =>
+			MAP_SURFACES.collections.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: {
+					collectionMethodIds: ids,
+					problemOnly: true,
+					awaitingOnly: true,
+					regionIds,
+					...dates,
+				},
+			}),
+	},
+	{
+		name: 'application export',
+		organizationAlias: 'a',
+		geomAlias: 'a',
+		read: (db) =>
+			MAP_SURFACES.chemical.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: {
+					insecticideIds: ids,
+					applicationMethodIds: ids,
+					applicatorProfileIds: ids,
+					regionIds,
+					...dates,
+				},
+			}),
+	},
+	{
+		name: 'source reduction export',
+		organizationAlias: 'sr',
+		geomAlias: 'sr',
+		read: (db) =>
+			MAP_SURFACES['source-reduction'].exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: {
+					sourceReductionMethodIds: ids,
+					technicianProfileIds: ids,
+					regionIds,
+					...dates,
+				},
+			}),
+	},
+	{
+		name: 'biocontrol export',
+		organizationAlias: 'ba',
+		geomAlias: 'ba',
+		read: (db) =>
+			MAP_SURFACES.biocontrol.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: {
+					biocontrolMethodIds: ids,
+					technicianProfileIds: ids,
+					habitatLinkedOnly: true,
+					regionIds,
+					...dates,
+				},
+			}),
+	},
+	{
+		name: 'outreach export',
+		organizationAlias: 'oa',
+		geomAlias: 'oa',
+		read: (db) =>
+			MAP_SURFACES.outreach.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: { outreachMethodIds: ids, technicianProfileIds: ids, regionIds, ...dates },
+			}),
+	},
+	{
+		name: 'address export',
+		organizationAlias: 'a',
+		geomAlias: 'a',
+		read: (db) =>
+			MAP_SURFACES.addresses.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: { search: 'main st', regionIds },
+			}),
+	},
+	{
+		name: 'service request export',
+		organizationAlias: 'sr',
+		geomAlias: 'sr',
+		read: (db) =>
+			MAP_SURFACES['service-requests'].exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: { isOpen: false, search: '#12', tagIds: ids, regionIds, oldestFirst: true },
+			}),
+	},
 ];
 
 describe('map surface export', () => {

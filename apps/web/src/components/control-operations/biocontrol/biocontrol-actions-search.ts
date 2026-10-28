@@ -75,7 +75,12 @@ export const biocontrolRecordSet = defineRecordSet({
 	recordType: 'biocontrolAction',
 	paths: { map: '/control-operations/biocontrol', table: '/control-operations/biocontrol/table' },
 	codecs: biocontrolFilterCodecs,
-	endpoint: { path: '/map/biocontrol', rowsKey: 'biocontrolActions', rowKey: 'biocontrolAction' },
+	endpoint: {
+		path: '/map/biocontrol',
+		rowsKey: 'biocontrolActions',
+		rowKey: 'biocontrolAction',
+		exports: true,
+	},
 	tileset: 'biocontrol',
 	tileFilters: biocontrolTileFilters,
 	filterSpec: BIOCONTROL_MAP_FILTERS,

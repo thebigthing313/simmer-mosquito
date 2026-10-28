@@ -613,6 +613,26 @@ describe('the export request', () => {
 	});
 
 	it('is absent for a set whose endpoint declares no export', () => {
-		expect(recordSetExportRequest(biocontrolRecordSet, params, '2026-10-28')).toBeUndefined();
+		const { path, rowsKey, rowKey } = biocontrolRecordSet.endpoint;
+		const endpoint = { path, rowsKey, rowKey };
+		expect(
+			recordSetExportRequest({ ...biocontrolRecordSet, endpoint }, params, '2026-10-28'),
+		).toBeUndefined();
+	});
+
+	it.each([
+		habitatRecordSet,
+		inspectionRecordSet,
+		sampleRecordSet,
+		trapRecordSet,
+		collectionRecordSet,
+		applicationRecordSet,
+		biocontrolRecordSet,
+		sourceReductionRecordSet,
+		outreachRecordSet,
+		serviceRequestRecordSet,
+		addressRecordSet,
+	] as readonly RecordSet<unknown, unknown>[])('is read for $endpoint.path', (set) => {
+		expect(recordSetExportRequest(set, params, '2026-10-28')?.path).toBe(set.endpoint.path);
 	});
 });

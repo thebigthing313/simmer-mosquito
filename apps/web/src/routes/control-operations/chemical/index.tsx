@@ -68,6 +68,7 @@ function ApplicationsExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
+		exportRequest,
 	}: ExplorerResource<ApplicationListRow> = useExplorerResource({
 		set: applicationRecordSet,
 		binding,
@@ -77,6 +78,7 @@ function ApplicationsExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
+			exportRequest={exportRequest}
 			actions={
 				<RecordSetSwitch compact current="map" search={routeSearch} set={applicationRecordSet} />
 			}
