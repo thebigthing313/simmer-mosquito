@@ -161,7 +161,7 @@ export function ExplorerMapPage<TRow>({
 	/**
 	 * `ExplorerResource.exportRequest`, for a record set's Map: the Export
 	 * control is drawn beside `actions` over the viewport and filters. Left
-	 * out, or undefined, by a surface with nothing to export.
+	 * out by a surface that is not a record set, such as Regions or Daily Work.
 	 */
 	readonly exportRequest?: RecordSetExportRequest | null | undefined;
 	readonly panel: ExplorerPanel;

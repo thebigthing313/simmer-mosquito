@@ -8,8 +8,8 @@ import {
 	type MapByIdInput,
 	type MapDisplayColumns,
 	type MapExportColumn,
-	type MapExportingSurfaceReaders,
 	type MapReadContext,
+	type MapRecordSurfaceReaders,
 	type MapSurfaceExport,
 	mapDisplaySelectList,
 	mapRecordSurface,
@@ -161,7 +161,7 @@ const applicationExport: MapSurfaceExport = {
  */
 export function applicationSurface(
 	layer: MapTilesetLayer,
-): MapExportingSurfaceReaders<ApplicationMapFilters, SafeApplicationDisplayRow> {
+): MapRecordSurfaceReaders<ApplicationMapFilters, SafeApplicationDisplayRow> {
 	return mapRecordSurface<ApplicationMapFilters, SafeApplicationDisplayRow>({
 		layer,
 		from: sql`applications a`,
@@ -304,7 +304,7 @@ const sourceReductionExport: MapSurfaceExport = {
  */
 export function sourceReductionSurface(
 	layer: MapTilesetLayer,
-): MapExportingSurfaceReaders<SourceReductionMapFilters, SafeSourceReductionDisplayRow> {
+): MapRecordSurfaceReaders<SourceReductionMapFilters, SafeSourceReductionDisplayRow> {
 	return mapRecordSurface<SourceReductionMapFilters, SafeSourceReductionDisplayRow>({
 		layer,
 		from: sql`source_reductions sr`,
@@ -449,7 +449,7 @@ const biocontrolExport: MapSurfaceExport = {
  */
 export function biocontrolSurface(
 	layer: MapTilesetLayer,
-): MapExportingSurfaceReaders<BiocontrolMapFilters, SafeBiocontrolDisplayRow> {
+): MapRecordSurfaceReaders<BiocontrolMapFilters, SafeBiocontrolDisplayRow> {
 	return mapRecordSurface<BiocontrolMapFilters, SafeBiocontrolDisplayRow>({
 		layer,
 		from: sql`biocontrol_actions ba`,
@@ -593,7 +593,7 @@ const outreachExport: MapSurfaceExport = {
  */
 export function outreachSurface(
 	layer: MapTilesetLayer,
-): MapExportingSurfaceReaders<OutreachMapFilters, SafeOutreachDisplayRow> {
+): MapRecordSurfaceReaders<OutreachMapFilters, SafeOutreachDisplayRow> {
 	return mapRecordSurface<OutreachMapFilters, SafeOutreachDisplayRow>({
 		layer,
 		from: sql`outreach_actions oa`,

@@ -77,7 +77,6 @@ export const applicationRecordSet = defineRecordSet({
 		path: '/map/chemical',
 		rowsKey: 'applications',
 		rowKey: 'application',
-		exports: true,
 	},
 	tileset: 'chemical',
 	tileFilters: applicationTileFilters,

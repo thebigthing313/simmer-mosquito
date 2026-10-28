@@ -460,33 +460,94 @@ because a union of sets infers no filters.
 
 #### RecordSetExport
 
-The Export control on a record set's Map and Table. The file is built in the
-browser by SheetJS, which `apps/web` already carries for the weather import,
-through a dynamic `import()` in `lib/record-export.ts`, so the chunk is
-fetched the first time someone exports and the boot bundle does not carry it.
-The server answers rows of values rather than a file, which keeps one read
-behind both formats.
+The Export control on every record set's Map and Table, offering the set's
+matches as a CSV or an Excel workbook. Every role that can read the page can
+export, so the control has no role floor.
+
+**What a file holds.** Each surface exports its own page request without the
+paging, read from `GET /map/<set>/export`:
+
+- The Table exports every record that matches its filters. Its page request
+  carries the box around the whole world (`WHOLE_WORLD_BBOX`), so its export
+  does too.
+- The Map exports the records in the current viewport that match its
+  filters, which is what its rail lists and its tiles draw.
+- A filter applied on one surface only (`AppliedOn`) narrows only that
+  surface's export, because the other surface's request never carries it.
+
+The server reads the export with the predicate the page and the summary
+narrow with, `surfaceWhere` and `envelopeWhere` in
+`packages/db/src/domains/map-surface.ts`, so the file's row count is the
+page's `total` for the same request. The integration suite holds every set
+to that.
+
+**Why the Map export follows the viewport.** #920 made the rail and the map
+one set: the rail is a page of what is in view, not of the Organization. An
+export that ignored the viewport would be a third set, one nobody on the Map
+was looking at, and a reader who panned to a district and exported it would
+get the whole Organization. The Table is where the whole filtered set lives,
+and it is one click away on the Map/Table switch, carrying the filters both
+surfaces apply.
+
+**Why the ceiling is 50,000.** Over 50,000 matches the read refuses with a
+422, and the toast gives the count and asks for narrower filters. Two costs
+set the number. The server answers the rows as one JSON body, and the browser
+builds the file on the main thread: measured in Node, 50,000 rows of 20
+columns took about 6 seconds as XLSX and about 1.2 seconds as CSV, and the
+tab does not repaint in that time. Both grow with the row count, so the
+ceiling bounds the worst wait to a few seconds. The refusal writes nothing,
+because a file cut off at a limit reads as complete. The read counts first so
+a refusal costs a count, and limits the row read to one past the ceiling so
+rows committed between the two statements cannot take the file over it.
+
+**What the columns are.** Each surface declares its export columns on its map
+surface (`export` on `mapRecordSurface`), apart from the display
+projection, which carries ids the rail resolves through its catalogs. A
+spreadsheet has no catalog, so a column is a label: a habitat type, method or
+unit by name, a person by display name, a flag as `Yes` or `No`, a status by
+the label the page draws. Dates are `YYYY-MM-DD` and times
+`YYYY-MM-DD HH:MM` on the Organization's clock, and every set carries
+latitude and longitude. A few sets carry a rule of their own:
+
+- Collections are dated by the effective date the page windows and orders by:
+  the day of `collected_at` on the Organization's clock under exact
+  timestamps, the stored `collection_date` under date and duration. Each
+  timing mode's own columns are filled for its rows and left empty for the
+  other's.
+- Chemical, Source Reduction and Biocontrol write each amount in its row's
+  unit and never sum it, since gallons and ounces of one product do not add.
+- Samples and Collections name their species with counts, and Habitats and
+  Service Requests list their Tags.
+- Service Requests name the contact and leave out its phone and email. The
+  page shows them one request at a time, and a file of up to 50,000 of them is
+  a different exposure.
+- Samples leave Larvae empty until a species is keyed out, so an unread sample
+  does not read as zero.
+
+The declaration is required, so `tsc` refuses a record set's surface without
+one, and the control has no branch for a set that cannot export.
+
+**How the file is built.** The server answers rows of values rather than a
+file, which keeps one read behind both formats. SheetJS, which `apps/web`
+already carries for the weather import, writes the file through a dynamic
+`import()` in `lib/record-export.ts`, so the chunk is fetched the first
+time someone exports and the boot bundle does not carry it. The file is named
+for the records and the Organization's today, `Inspections 2026-10-28.csv`.
 
 The CSV writes a text value that starts with `=`, `+`, `-`, `@`, a tab or a
 carriage return behind an apostrophe. A CSV cell is text, and Excel runs one
 that starts with those as a formula when the file is opened, so a habitat
 named `=HYPERLINK(...)` would otherwise be a link in somebody's spreadsheet.
 The workbook needs no guard: SheetJS writes a string as a string cell. It does
-write the server's `YYYY-MM-DD` and `YYYY-MM-DD HH:MM` values as date cells,
-so a column sorts and filters as dates. SheetJS reads a `Date` by its UTC
-fields, so the cell is built from the value's own fields as UTC and holds the
-Organization's wall-clock time in any browser zone.
+write the server's dates and times as date cells, so a column sorts and
+filters as dates. SheetJS reads a `Date` by its UTC fields, so the cell is
+built from the value's own fields as UTC and holds the Organization's
+wall-clock time in any browser zone. A worker for the build is the change to
+make if the full-ceiling wait turns out to matter.
 
-SheetJS builds the file on the main thread. Measured in Node at the ceiling,
-50,000 rows of 20 columns took about 6 seconds as XLSX and about 1.2 seconds
-as CSV, and the tab does not repaint in that time. An export of a few
-thousand rows, which is what a filtered set usually is, takes well under a
-second. A worker is the change to make if the full-ceiling case turns out to
-matter.
-
-On the Map it is an icon in the panel header beside the Map/Table switch, and
-is disabled until the map has a viewport, since the export is the viewport's.
-On the Table it is a labelled button in the page header.
+On the Map the control is an icon in the panel header beside the Map/Table
+switch, disabled until the map has a viewport, since the export is the
+viewport's. On the Table it is a labelled button in the page header.
 
 #### ExplorerSummary
 

@@ -612,14 +612,6 @@ describe('the export request', () => {
 		expect(recordSetExportRequest(inspectionRecordSet, null, '2026-10-28')).toBeNull();
 	});
 
-	it('is absent for a set whose endpoint declares no export', () => {
-		const { path, rowsKey, rowKey } = biocontrolRecordSet.endpoint;
-		const endpoint = { path, rowsKey, rowKey };
-		expect(
-			recordSetExportRequest({ ...biocontrolRecordSet, endpoint }, params, '2026-10-28'),
-		).toBeUndefined();
-	});
-
 	it.each([
 		habitatRecordSet,
 		inspectionRecordSet,

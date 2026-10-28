@@ -6,7 +6,7 @@ import { regionMembershipClauses } from './map-region-filter.js';
 import {
 	exportTimestamp,
 	type MapDisplayColumns,
-	type MapExportingSurfaceReaders,
+	type MapRecordSurfaceReaders,
 	type MapSurfaceExport,
 	type MapSurfaceReaders,
 	mapRecordSurface,
@@ -367,7 +367,7 @@ const addressExport: MapSurfaceExport = {
  */
 export function addressSurface(
 	layer: MapTilesetLayer,
-): MapExportingSurfaceReaders<AddressMvtTileFilters, SafeAddressDisplayRow> {
+): MapRecordSurfaceReaders<AddressMvtTileFilters, SafeAddressDisplayRow> {
 	return mapRecordSurface<AddressMvtTileFilters, SafeAddressDisplayRow>({
 		layer,
 		from: sql`addresses a`,

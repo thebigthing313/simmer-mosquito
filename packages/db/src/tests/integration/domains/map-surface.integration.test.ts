@@ -18,11 +18,7 @@ import {
 	sampleStatusValues,
 } from '../../../domains/larval-surveillance.js';
 import type { MapExtent } from '../../../domains/map-extent.js';
-import {
-	MAP_EXPORT_CEILING,
-	type MapExportingSurfaceReaders,
-	type MapRecordSurfaceReaders,
-} from '../../../domains/map-surface.js';
+import { MAP_EXPORT_CEILING, type MapRecordSurfaceReaders } from '../../../domains/map-surface.js';
 import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import { MAP_TILE_ENCODING } from '../../../domains/map-tile.js';
 import {
@@ -1490,7 +1486,7 @@ describeDbIntegration('record set exports against Postgres', () => {
 });
 
 type ExportingSurface<TFilters> = Pick<
-	MapExportingSurfaceReaders<TFilters, unknown>,
+	MapRecordSurfaceReaders<TFilters, unknown>,
 	'exportByBounds' | 'listByBounds'
 >;
 

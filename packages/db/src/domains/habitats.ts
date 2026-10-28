@@ -8,8 +8,8 @@ import {
 	exportTimestamp,
 	exportYesNo,
 	type MapDisplayColumns,
-	type MapExportingSurfaceReaders,
 	type MapReadContext,
+	type MapRecordSurfaceReaders,
 	type MapSurfaceExport,
 	mapRecordSurface,
 } from './map-surface.js';
@@ -206,7 +206,7 @@ const habitatExport: MapSurfaceExport = {
  */
 export function habitatSurface(
 	layer: MapTilesetLayer,
-): MapExportingSurfaceReaders<HabitatMvtTileFilters, SafeHabitatDisplayRow> {
+): MapRecordSurfaceReaders<HabitatMvtTileFilters, SafeHabitatDisplayRow> {
 	return mapRecordSurface<HabitatMvtTileFilters, SafeHabitatDisplayRow>({
 		layer,
 		from: sql`habitats h`,

@@ -176,7 +176,6 @@ export const serviceRequestRecordSet = defineRecordSet({
 		path: '/map/service-requests',
 		rowsKey: 'serviceRequests',
 		rowKey: 'serviceRequest',
-		exports: true,
 	},
 	tileset: 'service-requests',
 	tileFilters: (filters: ServiceRequestFilters, context: RecordSetContext) =>

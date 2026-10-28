@@ -4,10 +4,11 @@ import {
 	PostgresAdapter,
 	PostgresIntrospector,
 	PostgresQueryCompiler,
+	sql,
 } from 'kysely';
 import { describe, expect, it } from 'vitest';
 import { getRequestedControlActionDisplayRowById } from '../../../domains/control-operations-map.js';
-import { MAP_EXPORT_CEILING } from '../../../domains/map-surface.js';
+import { MAP_EXPORT_CEILING, mapRecordSurface } from '../../../domains/map-surface.js';
 import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import type { SimmerDatabase } from '../../../index.js';
 
@@ -1022,6 +1023,29 @@ const exportReads: ReadonlyArray<{
 ];
 
 describe('map surface export', () => {
+	it('is part of declaring a record surface', () => {
+		const declaration = {
+			layer: 'habitats',
+			from: sql`habitats h`,
+			alias: 'h',
+			geom: sql`h.geom`,
+			properties: [],
+			display: { columns: { id: sql`h.id` }, orderBy: sql`h.id` },
+		} as const;
+
+		// A record set with no export cannot be declared, so no Map or Table
+		// ships without the file its frame offers.
+		// @ts-expect-error `export` is required.
+		const withoutExport = () => mapRecordSurface<unknown, { id: string }>(declaration);
+		const withExport = mapRecordSurface<unknown, { id: string }>({
+			...declaration,
+			export: { columns: () => [{ header: 'Id', value: sql`h.id` }] },
+		});
+
+		expect(typeof withoutExport).toBe('function');
+		expect(typeof withExport.exportByBounds).toBe('function');
+	});
+
 	it.each(
 		exportReads.map((read) => [read.name, read] as const),
 	)('the %s counts and reads one scoped box', async (_name, exportRead) => {

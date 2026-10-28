@@ -79,7 +79,6 @@ export const biocontrolRecordSet = defineRecordSet({
 		path: '/map/biocontrol',
 		rowsKey: 'biocontrolActions',
 		rowKey: 'biocontrolAction',
-		exports: true,
 	},
 	tileset: 'biocontrol',
 	tileFilters: biocontrolTileFilters,

@@ -10,8 +10,8 @@ import {
 	exportVocabularyLabel,
 	type MapByIdInput,
 	type MapDisplayColumns,
-	type MapExportingSurfaceReaders,
 	type MapReadContext,
+	type MapRecordSurfaceReaders,
 	type MapSurfaceExport,
 	mapRecordSurface,
 } from './map-surface.js';
@@ -208,7 +208,7 @@ const serviceRequestExport: MapSurfaceExport = {
  */
 export function serviceRequestSurface(
 	layer: MapTilesetLayer,
-): MapExportingSurfaceReaders<ServiceRequestMapFilters, SafeServiceRequestDisplayRow> {
+): MapRecordSurfaceReaders<ServiceRequestMapFilters, SafeServiceRequestDisplayRow> {
 	return mapRecordSurface<ServiceRequestMapFilters, SafeServiceRequestDisplayRow>({
 		layer,
 		from: sql`service_requests sr`,

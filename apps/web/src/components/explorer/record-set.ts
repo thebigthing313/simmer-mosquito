@@ -148,11 +148,6 @@ export interface RecordSetEndpoint {
 	 * not on the page.
 	 */
 	readonly rowKey: string;
-	/**
-	 * `GET {path}/export` answers, because the server's surface declares
-	 * export columns. Both surfaces draw the Export control only where it does.
-	 */
-	readonly exports?: true;
 }
 
 /**
@@ -365,20 +360,17 @@ export function recordSetFilterParams(
 
 /**
  * What the Export control reads for a surface whose page request sends
- * `params`. The paging is not in `params`: an export is every match.
+ * `params`, at `GET {path}/export`, which every record set's surface answers.
+ * The paging is not in `params`: an export is every match.
  *
  * Null while there are no params yet, on a Map with no viewport, which draws
- * the control disabled. Undefined for a set whose endpoint declares no export,
- * which draws no control.
+ * the control disabled.
  */
 export function recordSetExportRequest(
 	set: Pick<RecordSet<unknown>, 'endpoint' | 'recordType'>,
 	params: Readonly<Record<string, string>> | null,
 	today: string,
-): RecordSetExportRequest | null | undefined {
-	if (set.endpoint.exports !== true) {
-		return undefined;
-	}
+): RecordSetExportRequest | null {
 	if (params === null) {
 		return null;
 	}

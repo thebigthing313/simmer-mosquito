@@ -88,7 +88,7 @@ export const sampleRecordSet = defineRecordSet({
 	recordType: 'sample',
 	paths: { map: '/larval-surveillance/samples', table: '/larval-surveillance/samples/table' },
 	codecs: sampleFilterCodecs,
-	endpoint: { path: '/map/samples', rowsKey: 'samples', rowKey: 'sample', exports: true },
+	endpoint: { path: '/map/samples', rowsKey: 'samples', rowKey: 'sample' },
 	tileset: 'samples',
 	tileFilters: sampleTileFilters,
 	filterSpec: SAMPLE_MAP_FILTERS,
