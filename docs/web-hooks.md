@@ -1219,6 +1219,25 @@ It listens on `move`, not `rotate`. Every camera change fires `move`, while
 that arrives through a fit or a jump can land without one and leave the
 arrow describing a camera the map no longer has.
 
+#### useLandingPin
+
+`MapCanvas` calls it once and hands the result to both `MapSearch` and the
+right-click menu's Go to coordinates dialog, so a map holds one pin whichever
+feature put it down, and the next search result or coordinate replaces it
+(#1722). Each feature owning its own pin would have left two on the map.
+
+It is a `mapboxgl.Marker` around a DOM element rather than a GeoJSON layer,
+the way `GeolocateControl` draws its dot. A layer would have to be re-added
+after every basemap switch wipes the style, and a marker survives that. The
+element carries `role="img"` and the name the caller passes, which a canvas
+symbol cannot. Its colours come from `mapInteraction.landing` and
+`landingStroke` in the map palette.
+
+Every `drop` and `clear` bumps a generation counter, and a drop adds its
+marker only if no later call has moved the counter while the runtime loaded.
+Without it, clearing the search box in the turn between choosing a result and
+the loader resolving would leave a pin nothing can clear.
+
 #### usePlaceSuggestions
 
 The debounced suggest request and the four states it drives, results,

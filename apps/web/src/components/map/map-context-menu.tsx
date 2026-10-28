@@ -12,6 +12,7 @@ import { useNavigate } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import type { LandingPin } from '../../hooks/map/use-landing-pin';
 import { useHasRole } from '../../hooks/use-can-write';
 import { GoToCoordinatesDialog } from './go-to-coordinates-dialog';
 import type { MapCreateTarget } from './map-create-targets';
@@ -44,10 +45,13 @@ export interface MapContextMenuConfig {
 export function MapContextMenu({
 	map,
 	config,
+	pin,
 	children,
 }: {
 	readonly map: MapboxMap | null;
 	readonly config: MapContextMenuConfig | undefined;
+	/** Where Go to coordinates marks the point it flew to. */
+	readonly pin: LandingPin;
 	readonly children: ReactNode;
 }) {
 	const [point, setPoint] = useState<{ readonly lat: number; readonly lng: number } | null>(null);
@@ -117,7 +121,7 @@ export function MapContextMenu({
 				)}
 			</ContextMenu>
 			{/* Beside the menu rather than in it, because the menu's content unmounts as it closes. */}
-			<GoToCoordinatesDialog map={map} onOpenChange={setGoingTo} open={goingTo} />
+			<GoToCoordinatesDialog map={map} onOpenChange={setGoingTo} open={goingTo} pin={pin} />
 		</>
 	);
 }

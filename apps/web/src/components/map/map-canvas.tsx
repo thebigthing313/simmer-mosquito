@@ -7,6 +7,7 @@ import { type ActivityLayerConfig, useActivityLayer } from '../../hooks/map/use-
 import { useContextGeoJsonLayer } from '../../hooks/map/use-context-geojson-layer';
 import { useExplorerCamera } from '../../hooks/map/use-explorer-camera';
 import { type GeoJsonLayerInteraction, useGeoJsonLayer } from '../../hooks/map/use-geojson-layer';
+import { useLandingPin } from '../../hooks/map/use-landing-pin';
 import { useMapClustering } from '../../hooks/map/use-map-clustering';
 import { type MapExtentFitSource, useMapExtentFit } from '../../hooks/map/use-map-extent-fit';
 import { useMapMeasure } from '../../hooks/map/use-map-measure';
@@ -196,6 +197,9 @@ export function MapCanvas({
 	});
 
 	const measure = useMapMeasure({ map, isLoaded: isLoaded && show.measure });
+	// One per map, shared by the place search and Go to coordinates, so either
+	// one's pin replaces the other's.
+	const landingPin = useLandingPin(map);
 
 	// The tile layers are mounted as children (see TileLayerMount). Everything
 	// here runs after them: Mapbox appends layers in add order and a child's
@@ -272,7 +276,7 @@ export function MapCanvas({
 			{contextMenu === undefined ? (
 				<div className="absolute inset-0 size-full" ref={setContainer} />
 			) : (
-				<MapContextMenu config={contextMenu} map={map}>
+				<MapContextMenu config={contextMenu} map={map} pin={landingPin}>
 					<div className="absolute inset-0 size-full" ref={setContainer} />
 				</MapContextMenu>
 			)}
@@ -303,7 +307,7 @@ export function MapCanvas({
 							// it, so a control that is reached for while typing a place name
 							// does not move when the panel opens.
 							<div className="pointer-events-auto absolute top-4 left-4">
-								<MapSearch map={map} width={searchWidth} />
+								<MapSearch map={map} pin={landingPin} width={searchWidth} />
 							</div>
 						) : null}
 						{show.basemap || legend !== undefined ? (

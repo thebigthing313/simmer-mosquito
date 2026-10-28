@@ -1,4 +1,4 @@
-import { type ParsedLatLng, parseLatLng } from '@simmer-mosquito/mapping';
+import { formatLatLng, type ParsedLatLng, parseLatLng } from '@simmer-mosquito/mapping';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Dialog,
@@ -11,6 +11,7 @@ import { Field, FieldError, FieldLabel } from '@simmer-mosquito/ui-web/component
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type FormEvent, useId, useState } from 'react';
+import type { LandingPin } from '../../hooks/map/use-landing-pin';
 import { focusOnMap } from './map-camera';
 
 const REFUSALS: Record<Extract<ParsedLatLng, { ok: false }>['reason'], string> = {
@@ -20,16 +21,19 @@ const REFUSALS: Record<Extract<ParsedLatLng, { ok: false }>['reason'], string> =
 
 /**
  * The map right-click menu's Go to coordinates dialog: one field for a pasted
- * `lat, lng`, which flies `map` there on submit and closes. Text that does not
- * read as a coordinate stays in the field with an error under it.
+ * `lat, lng`, which flies `map` there on submit, drops `pin` on it and closes.
+ * Text that does not read as a coordinate stays in the field with an error
+ * under it.
  */
 export function GoToCoordinatesDialog({
 	map,
 	open,
 	onOpenChange,
+	pin,
 }: {
 	readonly map: MapboxMap | null;
 	readonly open: boolean;
+	readonly pin: LandingPin;
 	readonly onOpenChange: (open: boolean) => void;
 }) {
 	return (
@@ -44,6 +48,7 @@ export function GoToCoordinatesDialog({
 					onGo={(point) => {
 						if (map !== null) {
 							focusOnMap(map, point, { purpose: 'place' });
+							pin.drop(point, `Coordinates ${formatLatLng(point.lat, point.lng)}`);
 						}
 						onOpenChange(false);
 					}}

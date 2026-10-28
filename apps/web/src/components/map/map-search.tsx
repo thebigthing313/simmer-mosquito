@@ -17,6 +17,7 @@ import {
 	useRef,
 	useState,
 } from 'react';
+import type { LandingPin } from '../../hooks/map/use-landing-pin';
 import { usePlaceSuggestions } from '../../hooks/map/use-place-suggestions';
 import { MAP_CHROME_SURFACE } from './chrome';
 import { getMapboxToken } from './map-styles';
@@ -31,7 +32,8 @@ const MIN_QUERY_LENGTH = 3;
 
 /**
  * Mapbox-powered place search. Debounces suggestions, keeps a session token
- * across the suggest→retrieve pair, and flies the map to the chosen result.
+ * across the suggest→retrieve pair, flies the map to the chosen result and
+ * drops `pin` on it. Clearing the box takes the pin away.
  *
  * It is a combobox, and the ARIA is what makes it one. The suggestions used to
  * be buttons in a popover with no `role`, no `aria-expanded`, and no arrow-key
@@ -41,9 +43,11 @@ const MIN_QUERY_LENGTH = 3;
  */
 export function MapSearch({
 	map,
+	pin,
 	width,
 }: {
 	readonly map: MapboxMap | null;
+	readonly pin: LandingPin;
 	/**
 	 * Match a column of chrome this box sits at the top of, in px. Without one it
 	 * takes its own comfortable reading width.
@@ -99,6 +103,7 @@ export function MapSearch({
 	function resetSearch() {
 		retrieveController.current?.abort();
 		suggestions.clear();
+		pin.clear();
 		setQuery('');
 		sessionToken.current = createSessionToken();
 	}
@@ -162,6 +167,8 @@ export function MapSearch({
 			.then((resolved) => {
 				setQuery(result.label);
 				moveMapToResult(map, resolved);
+				const [lng, lat] = resolved.center;
+				pin.drop({ lng, lat }, `Search result ${result.label}`);
 				setOpen(false);
 				suggestions.clear();
 				sessionToken.current = createSessionToken();

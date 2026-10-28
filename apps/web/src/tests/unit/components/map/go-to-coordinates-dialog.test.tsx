@@ -1,9 +1,10 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GoToCoordinatesDialog } from '../../../../components/map/go-to-coordinates-dialog';
 import { FOCUS_PURPOSES } from '../../../../components/map/map-camera';
+import type { LandingPin } from '../../../../hooks/map/use-landing-pin';
 import { cleanupRenderedHooks, createFakeMap, type FakeMap } from './fake-map';
 
 /**
@@ -18,14 +19,20 @@ afterEach(() => {
 });
 
 /** The dialog with its open state held, the way the menu holds it. */
-function Harness({ fake }: { readonly fake: FakeMap }) {
+function Harness({
+	fake,
+	pin = { drop: vi.fn(), clear: vi.fn() },
+}: {
+	readonly fake: FakeMap;
+	readonly pin?: LandingPin;
+}) {
 	const [open, setOpen] = useState(true);
 	return (
 		<>
 			<button onClick={() => setOpen(true)} type="button">
 				Reopen
 			</button>
-			<GoToCoordinatesDialog map={fake.map} onOpenChange={setOpen} open={open} />
+			<GoToCoordinatesDialog map={fake.map} onOpenChange={setOpen} open={open} pin={pin} />
 		</>
 	);
 }
@@ -62,6 +69,27 @@ describe('Go to coordinates', () => {
 			}),
 		]);
 		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('drops the landing pin on the coordinate, named by it', () => {
+		const pin = { drop: vi.fn(), clear: vi.fn() };
+		render(<Harness fake={createFakeMap()} pin={pin} />);
+
+		submit('40.5 -74.25');
+
+		expect(pin.drop).toHaveBeenCalledExactlyOnceWith(
+			{ lng: -74.25, lat: 40.5 },
+			'Coordinates 40.500000, -74.250000',
+		);
+	});
+
+	it('drops no pin for a coordinate it refuses', () => {
+		const pin = { drop: vi.fn(), clear: vi.fn() };
+		render(<Harness fake={createFakeMap()} pin={pin} />);
+
+		submit('91, 0');
+
+		expect(pin.drop).not.toHaveBeenCalled();
 	});
 
 	it('takes a pair split by spaces alone', () => {
