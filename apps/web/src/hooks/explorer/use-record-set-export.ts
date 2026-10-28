@@ -2,6 +2,7 @@ import { sessionFetch } from '@simmer-mosquito/sync';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { getServerUrl } from '../../auth';
+import { formatCount } from '../../lib/format-count';
 import {
 	type RecordExportFormat,
 	type RecordExportTable,
@@ -9,7 +10,7 @@ import {
 	saveRecordExport,
 	writeRecordExport,
 } from '../../lib/record-export';
-import { type RecordType, recordNoun } from '../../lib/record-nouns';
+import { type RecordType, recordCount, recordNoun } from '../../lib/record-nouns';
 
 /**
  * What an export reads: the set's list endpoint and the params its surface
@@ -63,26 +64,47 @@ async function runExport(request: RecordSetExportRequest, format: RecordExportFo
 			url.searchParams.set(key, value);
 		}
 		const response = await sessionFetch(url);
-		const body = (await response.json()) as Partial<RecordExportTable> & {
-			readonly reason?: unknown;
-		};
+		const body: unknown = await response.json();
 		if (!response.ok) {
 			// A refusal over the ceiling says how many matched and what to do,
 			// which is the toast. Anything else falls through to the general one.
-			if (response.status === 422 && typeof body.reason === 'string') {
-				toast.error(`${noun.titleMany} not exported`, { description: body.reason });
+			const refusal = response.status === 422 ? ceilingRefusal(body) : null;
+			if (refusal !== null) {
+				toast.error(`${noun.titleMany} not exported`, {
+					description: `${recordCount(request.recordType, refusal.total)} match. Narrow the filters to ${formatCount(refusal.ceiling)} or fewer to export them.`,
+				});
 				return;
 			}
 			throw new Error(`Export failed (${response.status}).`);
 		}
-		const blob = await writeRecordExport(format, noun.titleMany, {
-			headers: body.headers ?? [],
-			rows: body.rows ?? [],
-		});
+		// A body without both arrays is not an export, and saving it would write
+		// an empty or headless file under a name that says it is complete.
+		if (!isExportTable(body)) {
+			throw new Error('Export answered without headers and rows.');
+		}
+		const blob = await writeRecordExport(format, noun.titleMany, body);
 		saveRecordExport(blob, recordExportFileName(noun.titleMany, request.today, format));
 	} catch {
 		toast.error(`${noun.titleMany} not exported`, {
 			description: 'The export could not be read. Try again.',
 		});
 	}
+}
+
+function isExportTable(body: unknown): body is RecordExportTable {
+	if (typeof body !== 'object' || body === null) {
+		return false;
+	}
+	const { headers, rows } = body as Record<string, unknown>;
+	return Array.isArray(headers) && Array.isArray(rows) && rows.every(Array.isArray);
+}
+
+function ceilingRefusal(
+	body: unknown,
+): { readonly total: number; readonly ceiling: number } | null {
+	if (typeof body !== 'object' || body === null) {
+		return null;
+	}
+	const { total, ceiling } = body as Record<string, unknown>;
+	return typeof total === 'number' && typeof ceiling === 'number' ? { total, ceiling } : null;
 }

@@ -340,7 +340,7 @@ export type MapExportResult =
 
 /** `Yes` or `No` for a flag, and nothing for a null one. */
 export function exportYesNo(flag: RawBuilder<unknown>): RawBuilder<unknown> {
-	return sql`case when ${flag} then 'Yes' when not ${flag} then 'No' end`;
+	return sql`case ${flag} when true then 'Yes' when false then 'No' end`;
 }
 
 /**
@@ -568,6 +568,11 @@ type MapRecordDefinition<TFilters, TRow> = MapSummaryDefinition<TFilters> & {
  * page's `total`. The rows read in the rail's order, under the display joins
  * that order may name, and the columns go out under positional aliases, `c0`,
  * `c1`, so a header never reaches the SQL as an identifier.
+ *
+ * The two statements are two snapshots, so rows committed between them can
+ * take a box the count passed over the ceiling. The read is limited to one row
+ * past it and refuses when that row comes back, so the ceiling holds whatever
+ * commits in between.
  */
 async function readMapExport<TFilters, TRow>(
 	db: DbExecutor,
@@ -620,7 +625,11 @@ async function readMapExport<TFilters, TRow>(
 		cross join bounds
 		where ${where}
 		order by ${orderBy}
+		limit ${MAP_EXPORT_CEILING + 1}
 	`.execute(db);
+	if (result.rows.length > MAP_EXPORT_CEILING) {
+		return { kind: 'overCeiling', total: result.rows.length, ceiling: MAP_EXPORT_CEILING };
+	}
 
 	return {
 		kind: 'rows',

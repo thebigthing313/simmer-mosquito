@@ -7,6 +7,7 @@ import {
 } from 'kysely';
 import { describe, expect, it } from 'vitest';
 import { getRequestedControlActionDisplayRowById } from '../../../domains/control-operations-map.js';
+import { MAP_EXPORT_CEILING } from '../../../domains/map-surface.js';
 import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import type { SimmerDatabase } from '../../../index.js';
 
@@ -884,8 +885,10 @@ describe('map surface export', () => {
 				compiled.indexOf(`st_intersects(${exportRead.geomAlias}.geom, bounds.geom_4326)`),
 			).toBeGreaterThan(overlap);
 		}
-		// The rows are not paged: the ceiling is the count's to enforce.
-		expect(normalize(queries[1]?.sql ?? '')).not.toMatch(/\blimit\b|\boffset\b/);
+		// The rows are not paged. The one limit is a row past the ceiling, which
+		// refuses a box that grew over it between the count and the read.
+		expect(normalize(queries[1]?.sql ?? '')).not.toMatch(/\boffset\b/);
+		expect(queries[1]?.parameters.at(-1)).toBe(MAP_EXPORT_CEILING + 1);
 	});
 
 	it('emits the same SQL for every export read', async () => {

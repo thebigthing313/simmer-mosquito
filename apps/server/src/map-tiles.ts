@@ -376,7 +376,6 @@ export function registerMapTileRoutes(
 	// Registered before `/:id` so the literal segment wins.
 	registerExportRoute(app, options, {
 		path: '/map/inspections/export',
-		noun: 'inspections',
 		parseFilters: parseInspectionTileFilters,
 		export: readers.exportInspections,
 	});
@@ -793,8 +792,10 @@ function registerSummaryRoute<TFilters>(
  * answered with every matching row as the surface's export columns.
  *
  * The rail's 100-row page cap does not apply. The reader's ceiling does, and
- * a request over it is refused with a 422 whose reason the page shows, rather
- * than answered with the first 50,000 rows as though they were all of them.
+ * a request over it is refused with a 422 carrying the count and the ceiling,
+ * rather than answered with the first 50,000 rows as though they were all of
+ * them. The page writes its own sentence from the two numbers, in the noun
+ * its register spells the records with.
  */
 function registerExportRoute<TFilters>(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -804,8 +805,6 @@ function registerExportRoute<TFilters>(
 	},
 	route: {
 		readonly path: string;
-		/** The plural in `12,345 <noun> match.`, lower case. */
-		readonly noun: string;
 		readonly parseFilters: (params: URLSearchParams) => FilterResult<TFilters>;
 		readonly export: MapExportReader<TFilters>;
 	},
@@ -825,11 +824,10 @@ function registerExportRoute<TFilters>(
 
 		const result = await route.export(options.db, queryResult.input);
 		if (result.kind === 'overCeiling') {
-			const count = (value: number) => value.toLocaleString('en-US');
 			return context.json(
 				{
 					error: 'export_too_large',
-					reason: `${count(result.total)} ${route.noun} match. Narrow the filters to ${count(result.ceiling)} or fewer to export them.`,
+					reason: `${result.total} records match, over the export ceiling of ${result.ceiling}.`,
 					total: result.total,
 					ceiling: result.ceiling,
 				},

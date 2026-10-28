@@ -467,6 +467,23 @@ fetched the first time someone exports and the boot bundle does not carry it.
 The server answers rows of values rather than a file, which keeps one read
 behind both formats.
 
+The CSV writes a text value that starts with `=`, `+`, `-`, `@`, a tab or a
+carriage return behind an apostrophe. A CSV cell is text, and Excel runs one
+that starts with those as a formula when the file is opened, so a habitat
+named `=HYPERLINK(...)` would otherwise be a link in somebody's spreadsheet.
+The workbook needs no guard: SheetJS writes a string as a string cell. It does
+write the server's `YYYY-MM-DD` and `YYYY-MM-DD HH:MM` values as date cells,
+so a column sorts and filters as dates. SheetJS reads a `Date` by its UTC
+fields, so the cell is built from the value's own fields as UTC and holds the
+Organization's wall-clock time in any browser zone.
+
+SheetJS builds the file on the main thread. Measured in Node at the ceiling,
+50,000 rows of 20 columns took about 6 seconds as XLSX and about 1.2 seconds
+as CSV, and the tab does not repaint in that time. An export of a few
+thousand rows, which is what a filtered set usually is, takes well under a
+second. A worker is the change to make if the full-ceiling case turns out to
+matter.
+
 On the Map it is an icon in the panel header beside the Map/Table switch, and
 is disabled until the map has a viewport, since the export is the viewport's.
 On the Table it is a labelled button in the page header.

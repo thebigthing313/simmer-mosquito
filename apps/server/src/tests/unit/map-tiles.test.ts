@@ -983,7 +983,7 @@ describe('registerMapTileRoutes — inspections', () => {
 		expect(getInspectionDisplayRow).not.toHaveBeenCalled();
 	});
 
-	it('refuses an export over the ceiling with a reason the page shows', async () => {
+	it('refuses an export over the ceiling with the count and the ceiling', async () => {
 		const app = createApp({
 			getHabitatTile: async () => new Uint8Array(),
 			exportInspections: async () => ({ kind: 'overCeiling', total: 61234, ceiling: 50000 }),
@@ -994,7 +994,7 @@ describe('registerMapTileRoutes — inspections', () => {
 		expect(response.status).toBe(422);
 		await expect(response.json()).resolves.toEqual({
 			error: 'export_too_large',
-			reason: '61,234 inspections match. Narrow the filters to 50,000 or fewer to export them.',
+			reason: '61234 records match, over the export ceiling of 50000.',
 			total: 61234,
 			ceiling: 50000,
 		});

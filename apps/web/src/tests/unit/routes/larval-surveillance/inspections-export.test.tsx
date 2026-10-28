@@ -171,7 +171,9 @@ describe('exporting from the Inspections Table', () => {
 		const workbook = XLSX.read(await saved?.blob.arrayBuffer(), { type: 'array' });
 		expect(workbook.SheetNames).toEqual(['Inspections']);
 		const sheet = workbook.Sheets.Inspections;
-		expect(sheet === undefined ? [] : XLSX.utils.sheet_to_json(sheet, { header: 1 })).toEqual([
+		expect(
+			sheet === undefined ? [] : XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }),
+		).toEqual([
 			['Inspection date', 'Density'],
 			['2026-09-02', 'Heavy'],
 		]);
@@ -190,6 +192,25 @@ describe('exporting from the Inspections Table', () => {
 
 		await waitFor(() =>
 			expect(harness.toasts).toEqual([{ title: 'Inspections not exported', description: reason }]),
+		);
+		expect(harness.saved).toHaveLength(0);
+	});
+});
+
+describe('an export answered without rows', () => {
+	it('saves nothing and says the export could not be read', async () => {
+		harness.exported = { status: 200, body: { rows: [['2026-09-02', 'Heavy']] } };
+		renderExplorer(InspectionsTable);
+
+		await exportAs(await screen.findByRole('button', { name: 'Export' }), 'CSV');
+
+		await waitFor(() =>
+			expect(harness.toasts).toEqual([
+				{
+					title: 'Inspections not exported',
+					description: 'The export could not be read. Try again.',
+				},
+			]),
 		);
 		expect(harness.saved).toHaveLength(0);
 	});
