@@ -5,6 +5,7 @@ import {
 	type OrganizationSettings,
 } from '@simmer-mosquito/domain';
 import type { LinkProps } from '@tanstack/react-router';
+import type { RecordSetExportRequest } from '../../hooks/explorer/use-record-set-export';
 import { startOfYear } from '../../lib/date-presets';
 import { addDaysToDateString } from '../../lib/local-date';
 import type { RecordType } from '../../lib/record-nouns';
@@ -147,6 +148,11 @@ export interface RecordSetEndpoint {
 	 * not on the page.
 	 */
 	readonly rowKey: string;
+	/**
+	 * `GET {path}/export` answers, because the server's surface declares
+	 * export columns. Both surfaces draw the Export control only where it does.
+	 */
+	readonly exports?: true;
 }
 
 /**
@@ -355,6 +361,28 @@ export function recordSetFilterParams(
 	// `defineRecordSet` pairs the two, `TTile` being `MapFiltersOf` the spec; a
 	// generic `TTile` cannot be followed back to the spec it came from here.
 	return encodeMapFilterParams(set.filterSpec, tile as MapFiltersOf<MapFilterSpec>);
+}
+
+/**
+ * What the Export control reads for a surface whose page request sends
+ * `params`. The paging is not in `params`: an export is every match.
+ *
+ * Null while there are no params yet, on a Map with no viewport, which draws
+ * the control disabled. Undefined for a set whose endpoint declares no export,
+ * which draws no control.
+ */
+export function recordSetExportRequest(
+	set: Pick<RecordSet<unknown>, 'endpoint' | 'recordType'>,
+	params: Readonly<Record<string, string>> | null,
+	today: string,
+): RecordSetExportRequest | null | undefined {
+	if (set.endpoint.exports !== true) {
+		return undefined;
+	}
+	if (params === null) {
+		return null;
+	}
+	return { path: set.endpoint.path, params, recordType: set.recordType, today };
 }
 
 /** The filter keys that narrow nothing in `context`: none for a set that names none. */

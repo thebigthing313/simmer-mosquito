@@ -287,6 +287,79 @@ export function mapDisplaySelectList<TRow>(columns: MapDisplayColumns<TRow>): Ra
 	);
 }
 
+/**
+ * The most rows an export holds. Over it the read refuses rather than writing a
+ * partial file, since a spreadsheet cut off at a limit reads as complete.
+ */
+export const MAP_EXPORT_CEILING = 50_000;
+
+/** One column of an export: the header a spreadsheet shows and the value under it. */
+export interface MapExportColumn {
+	readonly header: string;
+	/**
+	 * A readable value over the surface's from-clause and the export's joins: a
+	 * label rather than an id, a time on the Organization's clock, `Yes` or `No`
+	 * rather than a flag.
+	 */
+	readonly value: RawBuilder<unknown>;
+}
+
+/**
+ * What a surface's export holds, in column order.
+ *
+ * Separate from the display projection, which is shaped for the explorer: ids
+ * the rail resolves through its catalogs, chip names, sort keys. A spreadsheet
+ * has no catalog to resolve an id through, so it is handed the label. A
+ * function of the read context because a timestamp is written in the
+ * Organization's zone.
+ */
+export interface MapSurfaceExport {
+	readonly columns: (context: MapReadContext) => readonly MapExportColumn[];
+	/**
+	 * Joins the columns need beyond the surface's from-clause and its display
+	 * joins. The export reads under both, so a column may name a display join's
+	 * alias, and a join here takes an alias of its own.
+	 */
+	readonly joins?: RawBuilder<unknown>;
+}
+
+/** The box and filters of an export, which are a summary's: no paging. */
+export type MapExportInput<TFilters> = MapBoundsSummaryInput<TFilters>;
+
+/**
+ * An export's answer: the headers and every matching row as values in column
+ * order, or the count that put it over {@link MAP_EXPORT_CEILING}.
+ */
+export type MapExportResult =
+	| {
+			readonly kind: 'rows';
+			readonly headers: readonly string[];
+			readonly rows: readonly (readonly unknown[])[];
+	  }
+	| { readonly kind: 'overCeiling'; readonly total: number; readonly ceiling: number };
+
+/** `Yes` or `No` for a flag, and nothing for a null one. */
+export function exportYesNo(flag: RawBuilder<unknown>): RawBuilder<unknown> {
+	return sql`case when ${flag} then 'Yes' when not ${flag} then 'No' end`;
+}
+
+/**
+ * A stored vocabulary value as a sentence-case label: `very_heavy` reads
+ * `Very heavy`, the spelling the web's labels use.
+ */
+export function exportVocabularyLabel(value: RawBuilder<unknown>): RawBuilder<unknown> {
+	const spaced = sql`replace(${value}::text, '_', ' ')`;
+	return sql`(upper(left(${spaced}, 1)) || substr(${spaced}, 2))`;
+}
+
+/** A `timestamptz` as `YYYY-MM-DD HH24:MI` on the Organization's clock. */
+export function exportTimestamp(
+	value: RawBuilder<unknown>,
+	context: MapReadContext,
+): RawBuilder<unknown> {
+	return sql`to_char(${value} at time zone ${context.timeZone}, 'YYYY-MM-DD HH24:MI')`;
+}
+
 /** The geometry reads every map surface offers. */
 export interface MapSurfaceReaders<TFilters> {
 	/** One tile's worth of features, narrowed to the tile envelope. */
@@ -323,6 +396,28 @@ export interface MapRecordSurfaceReaders<TFilters, TRow> extends MapSurfaceReade
 	): Promise<MapSummaryResult>;
 	/** One row, or nothing when it is another organization's, deleted, or absent. */
 	getById(db: DbExecutor, input: MapByIdInput): Promise<TRow | undefined>;
+	/** {@link MapExportingSurfaceReaders.exportByBounds}, on a surface that declares an export. */
+	readonly exportByBounds?: MapExportReader<TFilters>;
+}
+
+/**
+ * Every row in a box that matches the filters, as an export's columns, or a
+ * refusal over {@link MAP_EXPORT_CEILING}.
+ *
+ * The same box and filters as {@link MapRecordSurfaceReaders.listByBounds},
+ * narrowed by the same predicate, so the rows it answers are the page's
+ * `total` for the same request. The box is the Map's viewport, or the whole
+ * world for the Table.
+ */
+export type MapExportReader<TFilters> = (
+	db: DbExecutor,
+	input: MapExportInput<TFilters>,
+) => Promise<MapExportResult>;
+
+/** The readers of a surface that declares an export. */
+export interface MapExportingSurfaceReaders<TFilters, TRow>
+	extends MapRecordSurfaceReaders<TFilters, TRow> {
+	readonly exportByBounds: MapExportReader<TFilters>;
 }
 
 /**
@@ -371,16 +466,27 @@ export function mapSurface<TFilters>(
  * and a record the list shows are the same set by construction.
  */
 export function mapRecordSurface<TFilters, TRow>(
-	definition: MapSummaryDefinition<TFilters> & {
-		readonly display: MapSurfaceDisplay<TRow, TFilters>;
-	},
+	definition: MapRecordDefinition<TFilters, TRow> & { readonly export: MapSurfaceExport },
+): MapExportingSurfaceReaders<TFilters, TRow>;
+export function mapRecordSurface<TFilters, TRow>(
+	definition: MapRecordDefinition<TFilters, TRow>,
+): MapRecordSurfaceReaders<TFilters, TRow>;
+export function mapRecordSurface<TFilters, TRow>(
+	definition: MapRecordDefinition<TFilters, TRow>,
 ): MapRecordSurfaceReaders<TFilters, TRow> {
 	const { display } = definition;
 	const joins = display.joins ?? sql``;
 	const columns = mapDisplaySelectList(display.columns);
+	const exportDeclaration = definition.export;
 
 	return {
 		...mapSurface(definition),
+		...(exportDeclaration === undefined
+			? {}
+			: {
+					exportByBounds: (db: DbExecutor, input: MapExportInput<TFilters>) =>
+						readMapExport(db, definition, exportDeclaration, input),
+				}),
 
 		// `total` is the page's, not the row's, so it is not a display column: it
 		// is declared here, on the cast of the read that appends it, and the
@@ -439,6 +545,87 @@ export function mapRecordSurface<TFilters, TRow>(
 
 			return result.rows[0];
 		},
+	};
+}
+
+/** What {@link mapRecordSurface} is declared from. */
+type MapRecordDefinition<TFilters, TRow> = MapSummaryDefinition<TFilters> & {
+	readonly display: MapSurfaceDisplay<TRow, TFilters>;
+	/**
+	 * The columns an export of the surface holds. A surface without one answers
+	 * no export, and the explorer draws no control for it.
+	 */
+	readonly export?: MapSurfaceExport;
+};
+
+/**
+ * The export read: the box's matches counted, then read whole as the export's
+ * columns when the count is within the ceiling.
+ *
+ * Counted first so a refusal costs a count rather than 50,000 rows read and
+ * thrown away. Both statements narrow with `surfaceWhere` and `envelopeWhere`,
+ * the predicate the page and the summary narrow with, so the count is the
+ * page's `total`. The rows read in the rail's order, under the display joins
+ * that order may name, and the columns go out under positional aliases, `c0`,
+ * `c1`, so a header never reaches the SQL as an identifier.
+ */
+async function readMapExport<TFilters, TRow>(
+	db: DbExecutor,
+	definition: MapRecordDefinition<TFilters, TRow>,
+	exportDeclaration: MapSurfaceExport,
+	input: MapExportInput<TFilters>,
+): Promise<MapExportResult> {
+	const where = sql.join(
+		[...surfaceWhere(definition, input, input.filters), ...envelopeWhere(definition.geom)],
+		sql` and `,
+	);
+	const bounds = sql`bounds as (
+		select st_makeenvelope(
+			${input.bounds.west},
+			${input.bounds.south},
+			${input.bounds.east},
+			${input.bounds.north},
+			4326
+		) as geom_4326
+	)`;
+
+	const counted = await sql<{ readonly total: number }>`
+		with ${bounds}
+		select count(*)::int as "total"
+		from ${definition.from}
+		cross join bounds
+		where ${where}
+	`.execute(db);
+	const total = counted.rows[0]?.total ?? 0;
+	if (total > MAP_EXPORT_CEILING) {
+		return { kind: 'overCeiling', total, ceiling: MAP_EXPORT_CEILING };
+	}
+
+	const { display } = definition;
+	const columns = exportDeclaration.columns(input);
+	const aliases = columns.map((_column, index) => `c${index}`);
+	const orderBy =
+		typeof display.orderBy === 'function' ? display.orderBy(input.filters) : display.orderBy;
+	const result = await sql<Record<string, unknown>>`
+		with ${bounds}
+		select ${sql.join(
+			columns.map(
+				(exportColumn, index) => sql`${exportColumn.value} as ${sql.raw(`"${aliases[index]}"`)}`,
+			),
+			sql`, `,
+		)}
+		from ${definition.from}
+		${display.joins ?? sql``}
+		${exportDeclaration.joins ?? sql``}
+		cross join bounds
+		where ${where}
+		order by ${orderBy}
+	`.execute(db);
+
+	return {
+		kind: 'rows',
+		headers: columns.map((exportColumn) => exportColumn.header),
+		rows: result.rows.map((row) => aliases.map((alias) => row[alias] ?? null)),
 	};
 }
 

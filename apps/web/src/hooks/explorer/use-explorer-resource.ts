@@ -8,6 +8,7 @@ import type {
 import {
 	type RecordSet,
 	type RecordSetTiles,
+	recordSetExportRequest,
 	recordSetFilterParams,
 } from '../../components/explorer/record-set';
 import { type MapTileLayer, tileLayerExtentUrl } from '../../components/map/tile-layers';
@@ -17,6 +18,7 @@ import { type ExplorerSummaryState, useExplorerSummary } from './use-explorer-su
 import { useFlyToSelection } from './use-fly-to-selection';
 import { useMapBoundsParam } from './use-map-bounds-param';
 import { type PagedMapResource, usePagedMapResource } from './use-paged-map-resource';
+import type { RecordSetExportRequest } from './use-record-set-export';
 import type { RecordSetFilterBinding } from './use-record-set-filters';
 import { useSelectedMapRecord } from './use-selected-map-record';
 /**
@@ -46,6 +48,12 @@ export interface ExplorerResource<TRow> extends PagedMapResource<TRow>, Explorer
 	readonly summary: ExplorerSummaryState;
 	/** What the surface hands `ExplorerCanvas`. */
 	readonly canvas: ExplorerCanvasBinding;
+	/**
+	 * What the Export control reads: the page's request for the viewport and
+	 * filters, unpaged. Null before the map has a viewport, and undefined for a
+	 * set whose endpoint declares no export.
+	 */
+	readonly exportRequest: RecordSetExportRequest | null | undefined;
 }
 
 /**
@@ -202,6 +210,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape, TFilters, TTi
 		summary,
 		selectedId,
 		setSelectedId,
+		exportRequest: recordSetExportRequest(set, bbox === null ? null : query, binding.context.today),
 		canvas: {
 			layers,
 			onMapReady: setMap,

@@ -439,6 +439,19 @@ GL instance reads as none. The effect used to clear it when the map went
 away, which is a `set-state-in-effect` finding (#1185) and one render drawing
 the old box against no map; `useMapReadout` holds its reading the same way.
 
+#### useRecordSetExport
+
+The export is read and written once per click rather than through
+`useQuery`, because a cached answer is the wrong one: an export is a snapshot
+of the records at the moment someone asked, and a file built from rows read a
+minute earlier would be a stale file under today's name. The request is the
+page's own request without the paging, so the file holds the set the page
+counts in its `total`.
+
+A refusal over the ceiling is a toast with the server's reason, and nothing is
+saved. The server counts before it reads, so the refusal costs a count rather
+than 50,000 rows.
+
 ### map
 
 #### useMapExtentFit

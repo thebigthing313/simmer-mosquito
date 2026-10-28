@@ -10,12 +10,14 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { type CSSProperties, type ReactNode, type RefObject, useRef } from 'react';
 import type { ExplorerPanel } from '../../hooks/explorer/use-explorer-panel';
+import type { RecordSetExportRequest } from '../../hooks/explorer/use-record-set-export';
 import type { CountNoun } from '../../lib/format-count';
 import type { RecordType } from '../../lib/record-nouns';
 import { OutletFullPageMap } from '../app-shell/outlet/full-page-map';
 import { MAP_CHROME_SURFACE } from '../map/chrome';
 import { type EmptyRailCopy, type ExplorerEmptiness, emptyRailCopy } from './explorer-empty-state';
 import { countNoun, type ExplorerCreateAction, ExplorerHeader } from './explorer-header';
+import { RecordSetExport } from './record-set-export';
 import { ResultBody, ResultList, ResultRows } from './result-list';
 import { ResultMeta } from './result-meta';
 
@@ -139,6 +141,7 @@ export type ExplorerResults<TRow> = (ExplorerRowResults<TRow> | ExplorerBodyResu
  */
 export function ExplorerMapPage<TRow>({
 	actions,
+	exportRequest,
 	panel,
 	heading,
 	filters,
@@ -155,6 +158,12 @@ export function ExplorerMapPage<TRow>({
 	 * filter toggle. The Inspections explorer puts its Map/Table switch here.
 	 */
 	readonly actions?: ReactNode | undefined;
+	/**
+	 * `ExplorerResource.exportRequest`, for a record set's Map: the Export
+	 * control is drawn beside `actions` over the viewport and filters. Left
+	 * out, or undefined, by a surface with nothing to export.
+	 */
+	readonly exportRequest?: RecordSetExportRequest | null | undefined;
 	readonly panel: ExplorerPanel;
 	readonly heading: ExplorerHeading;
 	/**
@@ -190,6 +199,15 @@ export function ExplorerMapPage<TRow>({
 	readonly map: ReactNode;
 }) {
 	const { isCollapsed, setCollapsed, stageRef } = panel;
+	const panelActions =
+		exportRequest === undefined ? (
+			actions
+		) : (
+			<>
+				<RecordSetExport compact request={exportRequest} />
+				{actions}
+			</>
+		);
 
 	return (
 		<OutletFullPageMap ref={stageRef}>
@@ -209,7 +227,7 @@ export function ExplorerMapPage<TRow>({
 				</div>
 			) : (
 				<OpenPanels
-					actions={actions}
+					actions={panelActions}
 					activeFilterCount={activeFilterCount}
 					filters={filters}
 					footer={footer}

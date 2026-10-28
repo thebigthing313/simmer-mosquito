@@ -458,6 +458,19 @@ link suite builds each search with `validatedOn`, the surface's own
 validator, and the generic switch needs one element per set in its `it.each`,
 because a union of sets infers no filters.
 
+#### RecordSetExport
+
+The Export control on a record set's Map and Table. The file is built in the
+browser by SheetJS, which `apps/web` already carries for the weather import,
+through a dynamic `import()` in `lib/record-export.ts`, so the chunk is
+fetched the first time someone exports and the boot bundle does not carry it.
+The server answers rows of values rather than a file, which keeps one read
+behind both formats.
+
+On the Map it is an icon in the panel header beside the Map/Table switch, and
+is disabled until the map has a viewport, since the export is the viewport's.
+On the Table it is a labelled button in the page header.
+
 #### ExplorerSummary
 
 What an explorer rail draws in place of its rows over 100 in view (#1244).

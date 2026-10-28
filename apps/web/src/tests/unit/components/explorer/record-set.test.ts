@@ -13,6 +13,7 @@ import {
 	type RecordSetLinks,
 	type RecordSetSurface,
 	recordSetCounting,
+	recordSetExportRequest,
 	recordSetInert,
 	recordSetListParams,
 	surfaceCodecs,
@@ -592,5 +593,26 @@ describe.each(
 			expect(map.paramsWithout(key), key).not.toEqual(map.params);
 			expect(table.paramsWithout(key), key).toEqual(table.params);
 		}
+	});
+});
+
+describe('the export request', () => {
+	const params = { bbox: '-180,-90,180,90', density: 'heavy' };
+
+	it('reads the page request unpaged where the set declares an export', () => {
+		expect(recordSetExportRequest(inspectionRecordSet, params, '2026-10-28')).toEqual({
+			path: '/map/inspections',
+			params,
+			recordType: 'inspection',
+			today: '2026-10-28',
+		});
+	});
+
+	it('waits on a Map with no viewport yet', () => {
+		expect(recordSetExportRequest(inspectionRecordSet, null, '2026-10-28')).toBeNull();
+	});
+
+	it('is absent for a set whose endpoint declares no export', () => {
+		expect(recordSetExportRequest(biocontrolRecordSet, params, '2026-10-28')).toBeUndefined();
 	});
 });

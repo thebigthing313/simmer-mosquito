@@ -80,6 +80,7 @@ function InspectionsExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
+		exportRequest,
 	}: ExplorerResource<InspectionListing> = useExplorerResource({
 		set: inspectionRecordSet,
 		binding,
@@ -94,6 +95,7 @@ function InspectionsExplorerRoute() {
 				<RecordSetSwitch compact current="map" search={routeSearch} set={inspectionRecordSet} />
 			}
 			activeFilterCount={activeFilterCount}
+			exportRequest={exportRequest}
 			filters={<InspectionFilterCard binding={binding} />}
 			onResetFilters={clearAll}
 			heading={inspectionsHeading(total, isLoading)}

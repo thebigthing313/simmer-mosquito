@@ -5,8 +5,13 @@ import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
 import type { MapTilesetLayer } from './map-layers.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import {
+	exportTimestamp,
+	exportVocabularyLabel,
+	exportYesNo,
 	type MapDisplayColumns,
+	type MapExportingSurfaceReaders,
 	type MapRecordSurfaceReaders,
+	type MapSurfaceExport,
 	mapRecordSurface,
 } from './map-surface.js';
 
@@ -235,12 +240,42 @@ export const positiveInspectionSql = sql<boolean>`coalesce(
 )`;
 
 /**
+ * An inspection as a spreadsheet row, over the display joins' habitat (`h`),
+ * address (`a`) and inspector (`p`), with the habitat type by name.
+ */
+const inspectionExport: MapSurfaceExport = {
+	joins: sql`left join habitat_types ht on ht.id = i.habitat_type_id`,
+	columns: (context) => [
+		{ header: 'Inspection date', value: sql`i.inspection_date::text` },
+		{ header: 'Habitat', value: sql`h.habitat_name` },
+		{ header: 'Habitat type', value: sql`ht.name` },
+		{ header: 'Address', value: sql`a.display_name` },
+		{ header: 'Inspected by', value: sql`p.display_name` },
+		{ header: 'Wet', value: exportYesNo(sql`i.is_wet`) },
+		{ header: 'Dips', value: sql`i.dip_count` },
+		{ header: 'Density', value: exportVocabularyLabel(sql`i.density`) },
+		{ header: 'Larvae', value: sql`i.larvae_count` },
+		{ header: 'Eggs', value: exportYesNo(sql`i.has_eggs`) },
+		{ header: '1st instar', value: exportYesNo(sql`i.has_first_instar`) },
+		{ header: '2nd instar', value: exportYesNo(sql`i.has_second_instar`) },
+		{ header: '3rd instar', value: exportYesNo(sql`i.has_third_instar`) },
+		{ header: '4th instar', value: exportYesNo(sql`i.has_fourth_instar`) },
+		{ header: 'Pupae', value: exportYesNo(sql`i.has_pupae`) },
+		{ header: 'Positive', value: exportYesNo(positiveInspectionSql) },
+		{ header: 'Latitude', value: sql`i.lat` },
+		{ header: 'Longitude', value: sql`i.lng` },
+		{ header: 'Recorded', value: exportTimestamp(sql`i.created_at`, context) },
+		{ header: 'Updated', value: exportTimestamp(sql`i.updated_at`, context) },
+	],
+};
+
+/**
  * The inspections map surface, with the layer it stamps into its tiles handed in
  * by the register it is declared in.
  */
 export function inspectionSurface(
 	layer: MapTilesetLayer,
-): MapRecordSurfaceReaders<InspectionMvtTileFilters, SafeInspectionDisplayRow> {
+): MapExportingSurfaceReaders<InspectionMvtTileFilters, SafeInspectionDisplayRow> {
 	return mapRecordSurface<InspectionMvtTileFilters, SafeInspectionDisplayRow>({
 		layer,
 		from: sql`inspections i`,
@@ -268,6 +303,7 @@ export function inspectionSurface(
 			joins: inspectionDisplayJoins,
 			orderBy: sql`i.inspection_date desc, i.created_at desc, i.id`,
 		},
+		export: inspectionExport,
 	});
 }
 
