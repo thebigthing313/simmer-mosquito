@@ -9,7 +9,7 @@ import {
 	exportVocabularyLabel,
 	exportYesNo,
 	type MapDisplayColumns,
-	type MapExportingSurfaceReaders,
+	type MapRecordSurfaceReaders,
 	type MapSurfaceExport,
 	mapRecordSurface,
 } from './map-surface.js';
@@ -274,7 +274,7 @@ const inspectionExport: MapSurfaceExport = {
  */
 export function inspectionSurface(
 	layer: MapTilesetLayer,
-): MapExportingSurfaceReaders<InspectionMvtTileFilters, SafeInspectionDisplayRow> {
+): MapRecordSurfaceReaders<InspectionMvtTileFilters, SafeInspectionDisplayRow> {
 	return mapRecordSurface<InspectionMvtTileFilters, SafeInspectionDisplayRow>({
 		layer,
 		from: sql`inspections i`,
@@ -555,7 +555,7 @@ const sampleExport: MapSurfaceExport = {
  */
 export function sampleSurface(
 	layer: MapTilesetLayer,
-): MapExportingSurfaceReaders<SampleListFilters, SafeSampleDisplayRow> {
+): MapRecordSurfaceReaders<SampleListFilters, SafeSampleDisplayRow> {
 	return mapRecordSurface<SampleListFilters, SafeSampleDisplayRow>({
 		layer,
 		from: sql`samples s join inspections i on i.id = s.inspection_id`,

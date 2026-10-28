@@ -48,7 +48,7 @@ export const trapRecordSet = defineRecordSet({
 	recordType: 'trap',
 	paths: { map: '/adult-surveillance/traps', table: '/adult-surveillance/traps/table' },
 	codecs: trapFilterCodecs,
-	endpoint: { path: '/map/traps', rowsKey: 'traps', rowKey: 'trap', exports: true },
+	endpoint: { path: '/map/traps', rowsKey: 'traps', rowKey: 'trap' },
 	tileset: 'traps',
 	tileFilters: trapTileFilters,
 	filterSpec: TRAP_MAP_FILTERS,

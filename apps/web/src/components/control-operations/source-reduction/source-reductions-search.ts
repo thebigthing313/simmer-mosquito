@@ -80,7 +80,6 @@ export const sourceReductionRecordSet = defineRecordSet({
 		path: '/map/source-reduction',
 		rowsKey: 'sourceReductions',
 		rowKey: 'sourceReduction',
-		exports: true,
 	},
 	tileset: 'source-reduction',
 	tileFilters: sourceReductionTileFilters,

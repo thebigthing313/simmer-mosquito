@@ -2,7 +2,7 @@
  * A record set's Table: the header with the switch to the Map, the filter
  * controls, the load-failure strip, the empty state, and a page of rows with
  * the pager, over the set's list endpoint under a box around the whole world,
- * and the Export control over every match where the set declares an export.
+ * and the Export control over every match.
  * Takes the set, the Table's filter binding and validated search, the filter
  * controls and the rows as the kind draws them.
  */
@@ -88,7 +88,7 @@ export function RecordSetTablePage<TFilters, TTile, TRow>({
 			<PageHeader
 				actions={
 					<>
-						{exportRequest === undefined ? null : <RecordSetExport request={exportRequest} />}
+						<RecordSetExport request={exportRequest} />
 						<RecordSetSwitch current="table" search={search} set={set} />
 					</>
 				}

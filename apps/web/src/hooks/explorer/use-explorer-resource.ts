@@ -50,10 +50,9 @@ export interface ExplorerResource<TRow> extends PagedMapResource<TRow>, Explorer
 	readonly canvas: ExplorerCanvasBinding;
 	/**
 	 * What the Export control reads: the page's request for the viewport and
-	 * filters, unpaged. Null before the map has a viewport, and undefined for a
-	 * set whose endpoint declares no export.
+	 * filters, unpaged. Null before the map has a viewport.
 	 */
-	readonly exportRequest: RecordSetExportRequest | null | undefined;
+	readonly exportRequest: RecordSetExportRequest | null;
 }
 
 /**

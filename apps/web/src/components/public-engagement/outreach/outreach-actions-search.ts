@@ -73,7 +73,6 @@ export const outreachRecordSet = defineRecordSet({
 		path: '/map/outreach',
 		rowsKey: 'outreachActions',
 		rowKey: 'outreachAction',
-		exports: true,
 	},
 	tileset: 'outreach',
 	tileFilters: outreachTileFilters,

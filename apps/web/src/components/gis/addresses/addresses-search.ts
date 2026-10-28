@@ -37,7 +37,7 @@ export const addressRecordSet = defineRecordSet({
 	recordType: 'address',
 	paths: { map: '/gis/addresses', table: '/gis/addresses/table' },
 	codecs: addressFilterCodecs,
-	endpoint: { path: '/map/addresses', rowsKey: 'addresses', rowKey: 'address', exports: true },
+	endpoint: { path: '/map/addresses', rowsKey: 'addresses', rowKey: 'address' },
 	tileset: 'addresses',
 	tileFilters: addressTileFilters,
 	filterSpec: ADDRESS_MAP_FILTERS,

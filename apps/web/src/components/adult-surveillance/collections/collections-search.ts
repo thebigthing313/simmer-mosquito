@@ -78,7 +78,6 @@ export const collectionRecordSet = defineRecordSet({
 		path: '/map/collections',
 		rowsKey: 'collections',
 		rowKey: 'collection',
-		exports: true,
 	},
 	tileset: 'collections',
 	tileFilters: collectionTileFilters,

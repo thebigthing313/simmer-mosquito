@@ -119,7 +119,6 @@ export const inspectionRecordSet = defineRecordSet({
 		path: '/map/inspections',
 		rowsKey: 'inspections',
 		rowKey: 'inspection',
-		exports: true,
 	},
 	tileset: 'inspections',
 	tileFilters: inspectionTileFilters,

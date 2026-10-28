@@ -396,8 +396,11 @@ export interface MapRecordSurfaceReaders<TFilters, TRow> extends MapSurfaceReade
 	): Promise<MapSummaryResult>;
 	/** One row, or nothing when it is another organization's, deleted, or absent. */
 	getById(db: DbExecutor, input: MapByIdInput): Promise<TRow | undefined>;
-	/** {@link MapExportingSurfaceReaders.exportByBounds}, on a surface that declares an export. */
-	readonly exportByBounds?: MapExportReader<TFilters>;
+	/**
+	 * Every match in the box as the surface's export columns, or a refusal over
+	 * {@link MAP_EXPORT_CEILING}. See {@link MapExportReader}.
+	 */
+	readonly exportByBounds: MapExportReader<TFilters>;
 }
 
 /**
@@ -413,12 +416,6 @@ export type MapExportReader<TFilters> = (
 	db: DbExecutor,
 	input: MapExportInput<TFilters>,
 ) => Promise<MapExportResult>;
-
-/** The readers of a surface that declares an export. */
-export interface MapExportingSurfaceReaders<TFilters, TRow>
-	extends MapRecordSurfaceReaders<TFilters, TRow> {
-	readonly exportByBounds: MapExportReader<TFilters>;
-}
 
 /**
  * The geometry half of a map surface: the tile and the framed extent.
@@ -466,27 +463,18 @@ export function mapSurface<TFilters>(
  * and a record the list shows are the same set by construction.
  */
 export function mapRecordSurface<TFilters, TRow>(
-	definition: MapRecordDefinition<TFilters, TRow> & { readonly export: MapSurfaceExport },
-): MapExportingSurfaceReaders<TFilters, TRow>;
-export function mapRecordSurface<TFilters, TRow>(
-	definition: MapRecordDefinition<TFilters, TRow>,
-): MapRecordSurfaceReaders<TFilters, TRow>;
-export function mapRecordSurface<TFilters, TRow>(
 	definition: MapRecordDefinition<TFilters, TRow>,
 ): MapRecordSurfaceReaders<TFilters, TRow> {
 	const { display } = definition;
 	const joins = display.joins ?? sql``;
 	const columns = mapDisplaySelectList(display.columns);
-	const exportDeclaration = definition.export;
 
 	return {
 		...mapSurface(definition),
-		...(exportDeclaration === undefined
-			? {}
-			: {
-					exportByBounds: (db: DbExecutor, input: MapExportInput<TFilters>) =>
-						readMapExport(db, definition, exportDeclaration, input),
-				}),
+
+		async exportByBounds(db, input) {
+			return readMapExport(db, definition, input);
+		},
 
 		// `total` is the page's, not the row's, so it is not a display column: it
 		// is declared here, on the cast of the read that appends it, and the
@@ -552,10 +540,12 @@ export function mapRecordSurface<TFilters, TRow>(
 type MapRecordDefinition<TFilters, TRow> = MapSummaryDefinition<TFilters> & {
 	readonly display: MapSurfaceDisplay<TRow, TFilters>;
 	/**
-	 * The columns an export of the surface holds. A surface without one answers
-	 * no export, and the explorer draws no control for it.
+	 * The columns an export of the surface holds. Required, so a record set
+	 * cannot ship a Map and a Table that offer no file: every explorer frame
+	 * draws the Export control, and the control has no branch for a set
+	 * without one.
 	 */
-	readonly export?: MapSurfaceExport;
+	readonly export: MapSurfaceExport;
 };
 
 /**
@@ -577,9 +567,9 @@ type MapRecordDefinition<TFilters, TRow> = MapSummaryDefinition<TFilters> & {
 async function readMapExport<TFilters, TRow>(
 	db: DbExecutor,
 	definition: MapRecordDefinition<TFilters, TRow>,
-	exportDeclaration: MapSurfaceExport,
 	input: MapExportInput<TFilters>,
 ): Promise<MapExportResult> {
+	const exportDeclaration = definition.export;
 	const where = sql.join(
 		[...surfaceWhere(definition, input, input.filters), ...envelopeWhere(definition.geom)],
 		sql` and `,

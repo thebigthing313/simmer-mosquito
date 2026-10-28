@@ -13,7 +13,7 @@ import {
 	exportVocabularyLabel,
 	exportYesNo,
 	type MapDisplayColumns,
-	type MapExportingSurfaceReaders,
+	type MapRecordSurfaceReaders,
 	type MapSurfaceExport,
 	mapRecordSurface,
 } from './map-surface.js';
@@ -554,7 +554,7 @@ const trapExport: MapSurfaceExport = {
  */
 export function trapSurface(
 	layer: MapTilesetLayer,
-): MapExportingSurfaceReaders<TrapMapFilters, SafeTrapDisplayRow> {
+): MapRecordSurfaceReaders<TrapMapFilters, SafeTrapDisplayRow> {
 	return mapRecordSurface<TrapMapFilters, SafeTrapDisplayRow>({
 		layer,
 		from: sql`traps t`,
@@ -866,15 +866,15 @@ function collectionExport(effectiveDate: RawBuilder<unknown>): MapSurfaceExport 
  */
 export function collectionSurface(
 	layer: MapTilesetLayer,
-): MapExportingSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow> {
+): MapRecordSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow> {
 	const byZone = new Map<
 		string,
-		MapExportingSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow>
+		MapRecordSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow>
 	>();
 
 	const forZone = (
 		timeZone: string,
-	): MapExportingSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow> => {
+	): MapRecordSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow> => {
 		const zone = assertIanaTimeZone(timeZone);
 		const cached = byZone.get(zone);
 		if (cached !== undefined) {
