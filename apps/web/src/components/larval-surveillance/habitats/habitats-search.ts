@@ -73,7 +73,7 @@ export const habitatRecordSet = defineRecordSet({
 	recordType: 'habitat',
 	paths: { map: '/larval-surveillance/habitats', table: '/larval-surveillance/habitats/table' },
 	codecs: habitatFilterCodecs,
-	endpoint: { path: '/map/habitats', rowsKey: 'habitats', rowKey: 'habitat' },
+	endpoint: { path: '/map/habitats', rowsKey: 'habitats', rowKey: 'habitat', exports: true },
 	tileset: 'habitats',
 	tileFilters: habitatTileFilters,
 	filterSpec: HABITAT_MAP_FILTERS,

@@ -18,7 +18,11 @@ import {
 	sampleStatusValues,
 } from '../../../domains/larval-surveillance.js';
 import type { MapExtent } from '../../../domains/map-extent.js';
-import { MAP_EXPORT_CEILING, type MapRecordSurfaceReaders } from '../../../domains/map-surface.js';
+import {
+	MAP_EXPORT_CEILING,
+	type MapExportingSurfaceReaders,
+	type MapRecordSurfaceReaders,
+} from '../../../domains/map-surface.js';
 import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import { MAP_TILE_ENCODING } from '../../../domains/map-tile.js';
 import {
@@ -1337,6 +1341,175 @@ describeDbIntegration('inspection export against Postgres', () => {
 		});
 	});
 });
+
+// The other ten record sets export through the same read. Each is run against
+// the seeded world under no filter and under one of its own, so every export's
+// SQL executes, and its row count is held to its page's `total` both times.
+describeDbIntegration('record set exports against Postgres', () => {
+	it('exports the records each page counts, a value under every header', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			await seedStatusCollections(db);
+
+			const cases = [
+				['habitats', MAP_SURFACES.habitats, { isActive: true }],
+				['samples', MAP_SURFACES.samples, { dateFrom: '2000-01-01' }],
+				['traps', MAP_SURFACES.traps, { isActive: true }],
+				['collections', MAP_SURFACES.collections, { problemOnly: true }],
+				['chemical', MAP_SURFACES.chemical, { dateFrom: '2000-01-01' }],
+				['source-reduction', MAP_SURFACES['source-reduction'], { dateFrom: '2000-01-01' }],
+				['biocontrol', MAP_SURFACES.biocontrol, { dateFrom: '2000-01-01' }],
+				['outreach', MAP_SURFACES.outreach, { dateFrom: '2000-01-01' }],
+				['addresses', MAP_SURFACES.addresses, { search: 'no such street' }],
+				['service-requests', MAP_SURFACES['service-requests'], { isOpen: true }],
+			] as const;
+
+			const answers: Record<string, unknown> = {};
+			for (const [name, surface, filter] of cases) {
+				for (const filters of [{}, filter]) {
+					const { exported, pageTotal } = await surfaceExportAndPage(
+						db,
+						surface as ExportingSurface<unknown>,
+						filters,
+					);
+					if (exported.kind !== 'rows') {
+						throw new Error(`${name} refused its export`);
+					}
+					for (const row of exported.rows) {
+						expect(row).toHaveLength(exported.headers.length);
+					}
+					answers[`${name} ${JSON.stringify(filters)}`] = {
+						exported: exported.rows.length,
+						page: pageTotal,
+					};
+				}
+			}
+
+			for (const [name, { exported, page: pageTotal }] of Object.entries(
+				answers as Record<string, { exported: number; page: number }>,
+			)) {
+				expect({ name, exported }).toEqual({ name, exported: pageTotal });
+			}
+			// Every set has its seeded record in the box, so no case passes by being empty.
+			for (const [name] of cases) {
+				expect((answers[`${name} {}`] as { exported: number }).exported).toBeGreaterThan(0);
+			}
+		});
+	});
+
+	it('dates a collection the way its timing mode does, on the Organization’s clock', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			await seedStampedCollections(db);
+			await seedStatusCollections(db);
+
+			const exported = await MAP_SURFACES.collections.exportByBounds(db, {
+				organizationId: mapSurfaceOrganizationIds.own,
+				timeZone: mapSurfaceStampedTimeZone,
+				bounds: mapSurfacePlace.bounds,
+				filters: { dateFrom: mapSurfaceStampedTypedDay, dateTo: mapSurfaceStampedTypedDay },
+			});
+			if (exported.kind !== 'rows') {
+				throw new Error('expected rows');
+			}
+			const column = (header: string) => exported.headers.indexOf(header);
+			// Midnight UTC is midday in Auckland on the typed day; midday UTC is the
+			// next day there and outside the window, as it is on the page.
+			expect(
+				exported.rows.map((row) => [row[column('Collection date')], row[column('Collected at')]]),
+			).toEqual([[mapSurfaceStampedTypedDay, `${mapSurfaceStampedTypedDay} 12:00`]]);
+
+			const all = await MAP_SURFACES.collections.exportByBounds(db, {
+				organizationId: mapSurfaceOrganizationIds.own,
+				timeZone: mapSurfaceTimeZone,
+				bounds: mapSurfacePlace.bounds,
+				filters: {},
+			});
+			if (all.kind !== 'rows') {
+				throw new Error('expected rows');
+			}
+			const byDuration = all.rows.filter((row) => row[all.headers.indexOf('Duration')] !== null);
+			// Statuses read the way the page's rail and key name them.
+			const statuses = new Set(all.rows.map((row) => row[all.headers.indexOf('Status')]));
+			expect(statuses).toEqual(
+				new Set(['Trap out', 'Problem reported', 'Zero result', 'Collected']),
+			);
+
+			// A date-and-duration collection carries its duration and no clock time.
+			expect(byDuration.length).toBeGreaterThan(0);
+			for (const row of byDuration) {
+				expect([
+					row[all.headers.indexOf('Collected at')],
+					row[all.headers.indexOf('Duration')],
+					row[all.headers.indexOf('Duration unit')],
+				]).toEqual([null, 12, 'Hour']);
+			}
+		});
+	});
+
+	it('names a sample awaiting identification as the page does, with no larvae counted yet', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+
+			const { exported } = await surfaceExportAndPage(
+				db,
+				MAP_SURFACES.samples as ExportingSurface<unknown>,
+				{ status: 'awaiting' },
+			);
+			if (exported.kind !== 'rows') {
+				throw new Error('expected rows');
+			}
+			expect(exported.rows.length).toBeGreaterThan(0);
+			for (const row of exported.rows) {
+				expect(row[exported.headers.indexOf('Status')]).toBe('Awaiting ID');
+				expect(row[exported.headers.indexOf('Larvae')]).toBeNull();
+			}
+		});
+	});
+
+	it('writes each chemical amount in its own unit', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+
+			const { exported } = await surfaceExportAndPage(
+				db,
+				MAP_SURFACES.chemical as ExportingSurface<unknown>,
+				{},
+			);
+			if (exported.kind !== 'rows') {
+				throw new Error('expected rows');
+			}
+			const amount = exported.headers.indexOf('Amount');
+			const unit = exported.headers.indexOf('Unit');
+			for (const row of exported.rows) {
+				expect(typeof row[amount]).toBe('number');
+				expect(row[unit]).toBe('Gallon');
+			}
+		});
+	});
+});
+
+type ExportingSurface<TFilters> = Pick<
+	MapExportingSurfaceReaders<TFilters, unknown>,
+	'exportByBounds' | 'listByBounds'
+>;
+
+/** Any surface's export and its page's total for the seeded box under one filter set. */
+async function surfaceExportAndPage<TFilters>(
+	db: Kysely<SimmerDatabase>,
+	surface: ExportingSurface<TFilters>,
+	filters: TFilters,
+) {
+	const input = {
+		organizationId: mapSurfaceOrganizationIds.own,
+		timeZone: mapSurfaceTimeZone,
+		bounds: mapSurfacePlace.bounds,
+		filters,
+	};
+	const exported = await surface.exportByBounds(db, input);
+	const listed = await surface.listByBounds(db, { ...input, ...page });
+	return { exported, pageTotal: listed.total };
+}
 
 /** The export and the page's total for the seeded box under one filter set. */
 async function exportAndPage(db: Kysely<SimmerDatabase>, filters: InspectionMvtTileFilters) {

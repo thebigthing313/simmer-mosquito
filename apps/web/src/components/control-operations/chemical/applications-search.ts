@@ -73,7 +73,12 @@ export const applicationRecordSet = defineRecordSet({
 	recordType: 'application',
 	paths: { map: '/control-operations/chemical', table: '/control-operations/chemical/table' },
 	codecs: applicationFilterCodecs,
-	endpoint: { path: '/map/chemical', rowsKey: 'applications', rowKey: 'application' },
+	endpoint: {
+		path: '/map/chemical',
+		rowsKey: 'applications',
+		rowKey: 'application',
+		exports: true,
+	},
 	tileset: 'chemical',
 	tileFilters: applicationTileFilters,
 	filterSpec: CHEMICAL_MAP_FILTERS,

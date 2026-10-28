@@ -10,7 +10,6 @@ import {
 	exportYesNo,
 	type MapDisplayColumns,
 	type MapExportingSurfaceReaders,
-	type MapRecordSurfaceReaders,
 	type MapSurfaceExport,
 	mapRecordSurface,
 } from './map-surface.js';
@@ -502,13 +501,61 @@ const sampleDisplayColumns: MapDisplayColumns<SafeSampleDisplayRow> = {
 	updatedAt: sql`s.updated_at`,
 };
 
+/** A sample's status as the page's chips, rail and key name it. */
+const sampleStatusLabelSql = sql`case (${sampleStatusExpression})
+	when 'identified' then 'Identified'
+	when 'awaiting' then 'Awaiting ID'
+	when 'zero_larvae' then 'No larvae'
+	when 'unidentifiable' then 'Unidentifiable'
+end`;
+
+/**
+ * A sample as a spreadsheet row, over the display joins' habitat (`h`),
+ * address (`a`) and species roll-up (`agg`), with each identified species
+ * named and counted, most larvae first.
+ */
+const sampleExport: MapSurfaceExport = {
+	joins: sql`
+		left join profiles sp_by on sp_by.id = s.created_by_profile_id
+		left join lateral (
+			select string_agg(
+				sp.display_name || ' (' || ss.larvae_count || ')',
+				'; '
+				order by ss.larvae_count desc, sp.display_name
+			) as species
+			from sample_species ss
+			join species sp on sp.id = ss.species_id
+			where ss.sample_id = s.id and ss.deleted_at is null
+		) named on true
+	`,
+	columns: (context) => [
+		{ header: 'Sample', value: sql`s.display_name` },
+		{ header: 'Inspection date', value: sql`i.inspection_date::text` },
+		{ header: 'Habitat', value: sql`h.habitat_name` },
+		{ header: 'Address', value: sql`a.display_name` },
+		{ header: 'Status', value: sampleStatusLabelSql },
+		{ header: 'Species', value: sql`named.species` },
+		// Null until a species is keyed out, so an unread sample does not read as zero.
+		{ header: 'Larvae', value: sql`agg.larvae_total` },
+		{ header: 'Identified', value: sql`agg.identified_at` },
+		{ header: 'Zero larvae', value: exportYesNo(sql`s.is_zero_larvae`) },
+		{ header: 'Non-mosquito', value: exportYesNo(sql`s.has_non_mosquito`) },
+		{ header: 'Unidentifiable reason', value: sql`s.unidentifiable_reason` },
+		{ header: 'Recorded by', value: sql`sp_by.display_name` },
+		{ header: 'Latitude', value: sql`i.lat` },
+		{ header: 'Longitude', value: sql`i.lng` },
+		{ header: 'Recorded', value: exportTimestamp(sql`s.created_at`, context) },
+		{ header: 'Updated', value: exportTimestamp(sql`s.updated_at`, context) },
+	],
+};
+
 /**
  * The samples map surface, with the layer it stamps into its tiles handed in by
  * the register it is declared in.
  */
 export function sampleSurface(
 	layer: MapTilesetLayer,
-): MapRecordSurfaceReaders<SampleListFilters, SafeSampleDisplayRow> {
+): MapExportingSurfaceReaders<SampleListFilters, SafeSampleDisplayRow> {
 	return mapRecordSurface<SampleListFilters, SafeSampleDisplayRow>({
 		layer,
 		from: sql`samples s join inspections i on i.id = s.inspection_id`,
@@ -534,6 +581,7 @@ export function sampleSurface(
 			joins: sampleDisplayJoins,
 			orderBy: sql`i.inspection_date desc, s.created_at desc, s.id`,
 		},
+		export: sampleExport,
 	});
 }
 

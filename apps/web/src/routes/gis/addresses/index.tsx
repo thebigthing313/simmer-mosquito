@@ -60,6 +60,7 @@ function AddressesExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
+		exportRequest,
 	}: ExplorerResource<AddressListing> = useExplorerResource({
 		set: addressRecordSet,
 		binding,
@@ -68,6 +69,7 @@ function AddressesExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
+			exportRequest={exportRequest}
 			actions={
 				<RecordSetSwitch compact current="map" search={routeSearch} set={addressRecordSet} />
 			}

@@ -82,6 +82,7 @@ function HabitatsExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
+		exportRequest,
 	}: ExplorerResource<HabitatListRow> = useExplorerResource({
 		set: habitatRecordSet,
 		binding,
@@ -94,6 +95,7 @@ function HabitatsExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
+			exportRequest={exportRequest}
 			actions={
 				<RecordSetSwitch compact current="map" search={routeSearch} set={habitatRecordSet} />
 			}

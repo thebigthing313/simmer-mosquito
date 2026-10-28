@@ -172,7 +172,12 @@ export const serviceRequestRecordSet = defineRecordSet({
 		table: '/public-engagement/service-requests/table',
 	},
 	codecs: serviceRequestFilterCodecs,
-	endpoint: { path: '/map/service-requests', rowsKey: 'serviceRequests', rowKey: 'serviceRequest' },
+	endpoint: {
+		path: '/map/service-requests',
+		rowsKey: 'serviceRequests',
+		rowKey: 'serviceRequest',
+		exports: true,
+	},
 	tileset: 'service-requests',
 	tileFilters: (filters: ServiceRequestFilters, context: RecordSetContext) =>
 		serviceRequestTileFilters(filters, serviceRequestOverdueCutoffFor(context)),

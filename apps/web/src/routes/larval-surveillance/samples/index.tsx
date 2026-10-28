@@ -68,6 +68,7 @@ function SamplesExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
+		exportRequest,
 	}: ExplorerResource<SampleListRow> = useExplorerResource({
 		set: sampleRecordSet,
 		binding,
@@ -79,6 +80,7 @@ function SamplesExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
+			exportRequest={exportRequest}
 			actions={<RecordSetSwitch compact current="map" search={routeSearch} set={sampleRecordSet} />}
 			activeFilterCount={activeFilterCount}
 			filters={<SampleFilterFields binding={binding} />}

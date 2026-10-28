@@ -74,7 +74,12 @@ export const collectionRecordSet = defineRecordSet({
 	recordType: 'collection',
 	paths: { map: '/adult-surveillance/collections', table: '/adult-surveillance/collections/table' },
 	codecs: collectionFilterCodecs,
-	endpoint: { path: '/map/collections', rowsKey: 'collections', rowKey: 'collection' },
+	endpoint: {
+		path: '/map/collections',
+		rowsKey: 'collections',
+		rowKey: 'collection',
+		exports: true,
+	},
 	tileset: 'collections',
 	tileFilters: collectionTileFilters,
 	filterSpec: COLLECTION_MAP_FILTERS,

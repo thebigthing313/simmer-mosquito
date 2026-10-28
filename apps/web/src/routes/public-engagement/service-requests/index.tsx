@@ -88,6 +88,7 @@ function ServiceRequestsExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
+		exportRequest,
 	}: ExplorerResource<ServiceRequestListing> = useExplorerResource({
 		set: serviceRequestRecordSet,
 		binding: { filters: query, context },
@@ -106,6 +107,7 @@ function ServiceRequestsExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
+			exportRequest={exportRequest}
 			actions={
 				<RecordSetSwitch compact current="map" search={routeSearch} set={serviceRequestRecordSet} />
 			}

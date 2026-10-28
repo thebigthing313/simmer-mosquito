@@ -4,8 +4,10 @@ import type { DbExecutor, GeoJsonGeometry, OwnedGeometryInfo } from '../index.js
 import type { MapTilesetLayer } from './map-layers.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import {
+	exportTimestamp,
 	type MapDisplayColumns,
-	type MapRecordSurfaceReaders,
+	type MapExportingSurfaceReaders,
+	type MapSurfaceExport,
 	type MapSurfaceReaders,
 	mapRecordSurface,
 	mapSurface,
@@ -328,6 +330,27 @@ const addressDisplayColumns: MapDisplayColumns<SafeAddressDisplayRow> = {
 };
 
 /**
+ * An Address as a spreadsheet row, one column per postal field, headed the way
+ * the address form labels them. The `region` column is the State, and is not
+ * headed Region, which names a drawn boundary everywhere else.
+ */
+const addressExport: MapSurfaceExport = {
+	columns: (context) => [
+		{ header: 'Address', value: sql`a.display_name` },
+		{ header: 'Street address', value: sql`a.address_line_1` },
+		{ header: 'Unit', value: sql`a.address_line_2` },
+		{ header: 'City', value: sql`a.locality` },
+		{ header: 'State', value: sql`a.region` },
+		{ header: 'Postal code', value: sql`a.postal_code` },
+		{ header: 'Country', value: sql`a.country` },
+		{ header: 'Latitude', value: sql`a.lat` },
+		{ header: 'Longitude', value: sql`a.lng` },
+		{ header: 'Recorded', value: exportTimestamp(sql`a.created_at`, context) },
+		{ header: 'Updated', value: exportTimestamp(sql`a.updated_at`, context) },
+	],
+};
+
+/**
  * The addresses map surface: address points as a vector tile for the address-book
  * explorer map, the extent that map frames on load and after a filter change,
  * the page of addresses inside the viewport its rail lists, and the one address
@@ -344,7 +367,7 @@ const addressDisplayColumns: MapDisplayColumns<SafeAddressDisplayRow> = {
  */
 export function addressSurface(
 	layer: MapTilesetLayer,
-): MapRecordSurfaceReaders<AddressMvtTileFilters, SafeAddressDisplayRow> {
+): MapExportingSurfaceReaders<AddressMvtTileFilters, SafeAddressDisplayRow> {
 	return mapRecordSurface<AddressMvtTileFilters, SafeAddressDisplayRow>({
 		layer,
 		from: sql`addresses a`,
@@ -369,6 +392,7 @@ export function addressSurface(
 			// house number read as a number.
 			orderBy: sql`a.display_name collate natural_sort asc, a.id`,
 		},
+		export: addressExport,
 	});
 }
 

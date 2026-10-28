@@ -9,8 +9,12 @@ import type {
 import type { MapTilesetLayer } from './map-layers.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import {
+	exportTimestamp,
+	exportVocabularyLabel,
+	exportYesNo,
 	type MapDisplayColumns,
-	type MapRecordSurfaceReaders,
+	type MapExportingSurfaceReaders,
+	type MapSurfaceExport,
 	mapRecordSurface,
 } from './map-surface.js';
 import { geojsonToGeom } from './org-owned-writes.js';
@@ -522,13 +526,35 @@ const trapDisplayColumns: MapDisplayColumns<SafeTrapDisplayRow> = {
 	updatedAt: sql`t.updated_at`,
 };
 
+/** A trap as a spreadsheet row, with its method, lure and Address by name. */
+const trapExport: MapSurfaceExport = {
+	joins: sql`
+		left join collection_methods cm on cm.id = t.collection_method_id
+		left join collection_lures cl on cl.id = t.collection_lure_id
+		left join addresses ad on ad.id = t.address_id
+	`,
+	columns: (context) => [
+		{ header: 'Trap code', value: sql`t.trap_code` },
+		{ header: 'Trap name', value: sql`t.trap_name` },
+		{ header: 'Collection method', value: sql`cm.name` },
+		{ header: 'Lure', value: sql`cl.name` },
+		{ header: 'Address', value: sql`ad.display_name` },
+		{ header: 'Description', value: sql`t.description` },
+		{ header: 'Active', value: exportYesNo(sql`t.is_active`) },
+		{ header: 'Latitude', value: sql`t.lat` },
+		{ header: 'Longitude', value: sql`t.lng` },
+		{ header: 'Recorded', value: exportTimestamp(sql`t.created_at`, context) },
+		{ header: 'Updated', value: exportTimestamp(sql`t.updated_at`, context) },
+	],
+};
+
 /**
  * The traps map surface, with the layer it stamps into its tiles handed in by the
  * register it is declared in.
  */
 export function trapSurface(
 	layer: MapTilesetLayer,
-): MapRecordSurfaceReaders<TrapMapFilters, SafeTrapDisplayRow> {
+): MapExportingSurfaceReaders<TrapMapFilters, SafeTrapDisplayRow> {
 	return mapRecordSurface<TrapMapFilters, SafeTrapDisplayRow>({
 		layer,
 		from: sql`traps t`,
@@ -548,6 +574,7 @@ export function trapSurface(
 			// in the order it is drawn, with `natural_sort` reading a number as one.
 			orderBy: sql`coalesce(t.trap_code, t.trap_name) collate natural_sort asc nulls last, t.created_at desc, t.id`,
 		},
+		export: trapExport,
 	});
 }
 
@@ -733,6 +760,91 @@ const collectionDisplayColumns: MapDisplayColumns<SafeCollectionDisplayRow> = {
 	updatedAt: sql`c.updated_at`,
 };
 
+/** A collection's status as the page's rail and key name it. */
+const collectionStatusLabelSql = sql`case (${collectionStatusExpression})
+	when 'pending' then 'Trap out'
+	when 'collected' then 'Collected'
+	when 'zero_result' then 'Zero result'
+	when 'problem' then 'Problem reported'
+end`;
+
+/**
+ * A collection as a spreadsheet row, over the display join's address (`a`).
+ *
+ * The collection date is the effective date the page windows and orders by,
+ * so the export dates a collection the way the Organization's timing setting
+ * does: the day of `collected_at` on its clock under exact timestamps, the
+ * stored `collection_date` under date and duration. Each mode's own columns
+ * are filled for its rows and left empty for the other's. The species are
+ * named with their sex, physiological status and count, most first, and the
+ * labels are the ones the page draws: `Trap out` for a pending collection,
+ * `Unsexed` for a specimen with no sex recorded.
+ */
+function collectionExport(effectiveDate: RawBuilder<unknown>): MapSurfaceExport {
+	return {
+		joins: sql`
+			left join traps t on t.id = c.trap_id
+			left join collection_methods cm on cm.id = c.collection_method_id
+			left join collection_lures cl on cl.id = c.collection_lure_id
+			left join units du on du.id = c.duration_unit_id
+			left join profiles set_by on set_by.id = c.set_by_profile_id
+			left join profiles collected_by on collected_by.id = c.collected_by_profile_id
+			left join lateral (
+				select
+					string_agg(per.entry, '; ' order by per.total desc, per.entry) as species,
+					sum(per.total)::int as mosquitoes
+				from (
+					select
+						sp.display_name
+							|| ', ' || case cs.sex when 'female' then 'Female' when 'male' then 'Male' else 'Unsexed' end
+							|| coalesce(', ' || ${exportVocabularyLabel(sql`cs.status`)}, '')
+							|| ' (' || sum(cs.count) || ')' as entry,
+						sum(cs.count) as total
+					from collection_species cs
+					join species sp on sp.id = cs.species_id
+					where cs.collection_id = c.id and cs.deleted_at is null
+					group by sp.display_name, cs.sex, cs.status
+				) per
+			) caught on true
+		`,
+		columns: (context) => [
+			{ header: 'Collection date', value: sql`(${effectiveDate})::text` },
+			{
+				header: 'Collected at',
+				value: sql`case when c.collection_timing_mode = 'exact_timestamps' then ${exportTimestamp(sql`c.collected_at`, context)} end`,
+			},
+			{
+				header: 'Set at',
+				value: sql`case when c.collection_timing_mode = 'exact_timestamps' then ${exportTimestamp(sql`c.started_at`, context)} end`,
+			},
+			{
+				header: 'Duration',
+				value: sql`case when c.collection_timing_mode = 'collection_date_duration' then c.duration_amount end`,
+			},
+			{
+				header: 'Duration unit',
+				value: sql`case when c.collection_timing_mode = 'collection_date_duration' then du.unit_name end`,
+			},
+			{ header: 'Trap', value: sql`nullif(concat_ws(' - ', t.trap_code, t.trap_name), '')` },
+			{ header: 'Address', value: sql`a.display_name` },
+			{ header: 'Collection method', value: sql`cm.name` },
+			{ header: 'Lure', value: sql`cl.name` },
+			{ header: 'Set by', value: sql`set_by.display_name` },
+			{ header: 'Collected by', value: sql`collected_by.display_name` },
+			{ header: 'Status', value: collectionStatusLabelSql },
+			{ header: 'Problem', value: exportYesNo(sql`c.has_problem`) },
+			{ header: 'Zero result', value: exportYesNo(sql`c.is_zero_result`) },
+			{ header: 'Bycatch', value: exportYesNo(sql`c.has_bycatch`) },
+			{ header: 'Species', value: sql`caught.species` },
+			{ header: 'Mosquitoes', value: sql`caught.mosquitoes` },
+			{ header: 'Latitude', value: sql`c.lat` },
+			{ header: 'Longitude', value: sql`c.lng` },
+			{ header: 'Recorded', value: exportTimestamp(sql`c.created_at`, context) },
+			{ header: 'Updated', value: exportTimestamp(sql`c.updated_at`, context) },
+		],
+	};
+}
+
 /**
  * The collections map surface, one reader object over a definition per timezone.
  *
@@ -754,15 +866,15 @@ const collectionDisplayColumns: MapDisplayColumns<SafeCollectionDisplayRow> = {
  */
 export function collectionSurface(
 	layer: MapTilesetLayer,
-): MapRecordSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow> {
+): MapExportingSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow> {
 	const byZone = new Map<
 		string,
-		MapRecordSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow>
+		MapExportingSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow>
 	>();
 
 	const forZone = (
 		timeZone: string,
-	): MapRecordSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow> => {
+	): MapExportingSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow> => {
 		const zone = assertIanaTimeZone(timeZone);
 		const cached = byZone.get(zone);
 		if (cached !== undefined) {
@@ -795,6 +907,7 @@ export function collectionSurface(
 				joins: collectionDisplayJoins,
 				orderBy: sql`${effectiveDate} desc nulls last, c.created_at desc, c.id`,
 			},
+			export: collectionExport(effectiveDate),
 		});
 		byZone.set(zone, surface);
 		return surface;
@@ -819,6 +932,9 @@ export function collectionSurface(
 		},
 		async getById(db, input) {
 			return forZone(input.timeZone).getById(db, input);
+		},
+		async exportByBounds(db, input) {
+			return forZone(input.timeZone).exportByBounds(db, input);
 		},
 	};
 }

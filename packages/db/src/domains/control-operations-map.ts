@@ -4,9 +4,13 @@ import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
 import type { MapTilesetLayer } from './map-layers.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import {
+	exportTimestamp,
 	type MapByIdInput,
 	type MapDisplayColumns,
-	type MapRecordSurfaceReaders,
+	type MapExportColumn,
+	type MapExportingSurfaceReaders,
+	type MapReadContext,
+	type MapSurfaceExport,
 	mapDisplaySelectList,
 	mapRecordSurface,
 } from './map-surface.js';
@@ -24,6 +28,19 @@ import {
 // The four surfaces differ only in their table, their projection, and their
 // filters; the organization scope and the four read shapes come from
 // `mapSurface`.
+
+/**
+ * The columns every control action's export ends on: where it is and when it
+ * was written, for the record under `alias`.
+ */
+function controlExportTail(alias: string, context: MapReadContext): MapExportColumn[] {
+	return [
+		{ header: 'Latitude', value: sql.raw(`${alias}.lat`) },
+		{ header: 'Longitude', value: sql.raw(`${alias}.lng`) },
+		{ header: 'Recorded', value: exportTimestamp(sql.raw(`${alias}.created_at`), context) },
+		{ header: 'Updated', value: exportTimestamp(sql.raw(`${alias}.updated_at`), context) },
+	];
+}
 
 // --- chemical applications --------------------------------------------------
 
@@ -102,12 +119,49 @@ const applicationDisplayColumns: MapDisplayColumns<SafeApplicationDisplayRow> = 
 };
 
 /**
+ * An application as a spreadsheet row, over the display join's applicator
+ * (`ap`), with its batches by name. The amount is the row's own, in the row's own unit, and
+ * never summed: gallons and ounces of one product are two rows.
+ */
+const applicationExport: MapSurfaceExport = {
+	joins: sql`
+		left join insecticides ins on ins.id = a.insecticide_id
+		left join application_methods am on am.id = a.application_method_id
+		left join units au on au.id = a.application_unit_id
+		left join habitats hb on hb.id = a.habitat_id
+		left join addresses ad on ad.id = a.address_id
+		left join lateral (
+			select string_agg(ib.batch_name, ', ' order by ib.batch_name) as names
+			from application_batches abx
+			join insecticide_batches ib on ib.id = abx.insecticide_batch_id
+			where abx.application_id = a.id
+				and abx.deleted_at is null
+				and ib.deleted_at is null
+		) batch_list on true
+	`,
+	columns: (context) => [
+		{ header: 'Application date', value: sql`a.application_date::text` },
+		{ header: 'Insecticide', value: sql`ins.trade_name` },
+		{ header: 'Active ingredient', value: sql`ins.active_ingredient` },
+		{ header: 'EPA registration', value: sql`ins.registration_number` },
+		{ header: 'Method', value: sql`am.name` },
+		{ header: 'Amount', value: sql`a.amount_applied` },
+		{ header: 'Unit', value: sql`au.unit_name` },
+		{ header: 'Batches', value: sql`batch_list.names` },
+		{ header: 'Applicator', value: sql`ap.display_name` },
+		{ header: 'Habitat', value: sql`hb.habitat_name` },
+		{ header: 'Address', value: sql`ad.display_name` },
+		...controlExportTail('a', context),
+	],
+};
+
+/**
  * The applications map surface, with the layer it stamps into its tiles handed in by
  * the register it is declared in.
  */
 export function applicationSurface(
 	layer: MapTilesetLayer,
-): MapRecordSurfaceReaders<ApplicationMapFilters, SafeApplicationDisplayRow> {
+): MapExportingSurfaceReaders<ApplicationMapFilters, SafeApplicationDisplayRow> {
 	return mapRecordSurface<ApplicationMapFilters, SafeApplicationDisplayRow>({
 		layer,
 		from: sql`applications a`,
@@ -136,6 +190,7 @@ export function applicationSurface(
 			joins: applicationDisplayJoins,
 			orderBy: sql`a.application_date desc, a.created_at desc, a.id`,
 		},
+		export: applicationExport,
 	});
 }
 
@@ -222,13 +277,34 @@ const sourceReductionDisplayColumns: MapDisplayColumns<SafeSourceReductionDispla
 	updatedAt: sql`sr.updated_at`,
 };
 
+/** A source reduction as a spreadsheet row, its amount in its own unit. */
+const sourceReductionExport: MapSurfaceExport = {
+	joins: sql`
+		left join source_reduction_methods srm on srm.id = sr.source_reduction_method_id
+		left join units su on su.id = sr.sources_eliminated_unit_id
+		left join profiles tp on tp.id = sr.technician_profile_id
+		left join habitats hb on hb.id = sr.habitat_id
+		left join addresses ad on ad.id = sr.address_id
+	`,
+	columns: (context) => [
+		{ header: 'Source reduction date', value: sql`sr.source_reduction_date::text` },
+		{ header: 'Method', value: sql`srm.name` },
+		{ header: 'Sources eliminated', value: sql`sr.sources_eliminated_amount` },
+		{ header: 'Unit', value: sql`su.unit_name` },
+		{ header: 'Technician', value: sql`tp.display_name` },
+		{ header: 'Habitat', value: sql`hb.habitat_name` },
+		{ header: 'Address', value: sql`ad.display_name` },
+		...controlExportTail('sr', context),
+	],
+};
+
 /**
  * The source reductions map surface, with the layer it stamps into its tiles handed in by
  * the register it is declared in.
  */
 export function sourceReductionSurface(
 	layer: MapTilesetLayer,
-): MapRecordSurfaceReaders<SourceReductionMapFilters, SafeSourceReductionDisplayRow> {
+): MapExportingSurfaceReaders<SourceReductionMapFilters, SafeSourceReductionDisplayRow> {
 	return mapRecordSurface<SourceReductionMapFilters, SafeSourceReductionDisplayRow>({
 		layer,
 		from: sql`source_reductions sr`,
@@ -255,6 +331,7 @@ export function sourceReductionSurface(
 			columns: sourceReductionDisplayColumns,
 			orderBy: sql`sr.source_reduction_date desc, sr.created_at desc, sr.id`,
 		},
+		export: sourceReductionExport,
 	});
 }
 
@@ -345,13 +422,34 @@ const biocontrolDisplayColumns: MapDisplayColumns<SafeBiocontrolDisplayRow> = {
 	updatedAt: sql`ba.updated_at`,
 };
 
+/** A biocontrol action as a spreadsheet row, its amount in its own unit. */
+const biocontrolExport: MapSurfaceExport = {
+	joins: sql`
+		left join biocontrol_methods bm on bm.id = ba.biocontrol_method_id
+		left join units bu on bu.id = ba.release_unit_id
+		left join profiles tp on tp.id = ba.technician_profile_id
+		left join habitats hb on hb.id = ba.habitat_id
+		left join addresses ad on ad.id = ba.address_id
+	`,
+	columns: (context) => [
+		{ header: 'Biocontrol date', value: sql`ba.biocontrol_date::text` },
+		{ header: 'Method', value: sql`bm.name` },
+		{ header: 'Amount released', value: sql`ba.amount_released` },
+		{ header: 'Unit', value: sql`bu.unit_name` },
+		{ header: 'Technician', value: sql`tp.display_name` },
+		{ header: 'Habitat', value: sql`hb.habitat_name` },
+		{ header: 'Address', value: sql`ad.display_name` },
+		...controlExportTail('ba', context),
+	],
+};
+
 /**
  * The biocontrol actions map surface, with the layer it stamps into its tiles handed in by
  * the register it is declared in.
  */
 export function biocontrolSurface(
 	layer: MapTilesetLayer,
-): MapRecordSurfaceReaders<BiocontrolMapFilters, SafeBiocontrolDisplayRow> {
+): MapExportingSurfaceReaders<BiocontrolMapFilters, SafeBiocontrolDisplayRow> {
 	return mapRecordSurface<BiocontrolMapFilters, SafeBiocontrolDisplayRow>({
 		layer,
 		from: sql`biocontrol_actions ba`,
@@ -379,6 +477,7 @@ export function biocontrolSurface(
 			columns: biocontrolDisplayColumns,
 			orderBy: sql`ba.biocontrol_date desc, ba.created_at desc, ba.id`,
 		},
+		export: biocontrolExport,
 	});
 }
 
@@ -470,13 +569,31 @@ const outreachDisplayColumns: MapDisplayColumns<SafeOutreachDisplayRow> = {
 	updatedAt: sql`oa.updated_at`,
 };
 
+/** An outreach action as a spreadsheet row. */
+const outreachExport: MapSurfaceExport = {
+	joins: sql`
+		left join outreach_methods om on om.id = oa.outreach_method_id
+		left join profiles tp on tp.id = oa.technician_profile_id
+		left join addresses ad on ad.id = oa.address_id
+	`,
+	columns: (context) => [
+		{ header: 'Outreach date', value: sql`oa.outreach_date::text` },
+		{ header: 'Method', value: sql`om.name` },
+		{ header: 'Reach', value: sql`oa.reach` },
+		{ header: 'Reach description', value: sql`oa.reach_description` },
+		{ header: 'Technician', value: sql`tp.display_name` },
+		{ header: 'Address', value: sql`ad.display_name` },
+		...controlExportTail('oa', context),
+	],
+};
+
 /**
  * The outreach actions map surface, with the layer it stamps into its tiles handed in by
  * the register it is declared in.
  */
 export function outreachSurface(
 	layer: MapTilesetLayer,
-): MapRecordSurfaceReaders<OutreachMapFilters, SafeOutreachDisplayRow> {
+): MapExportingSurfaceReaders<OutreachMapFilters, SafeOutreachDisplayRow> {
 	return mapRecordSurface<OutreachMapFilters, SafeOutreachDisplayRow>({
 		layer,
 		from: sql`outreach_actions oa`,
@@ -497,6 +614,7 @@ export function outreachSurface(
 			columns: outreachDisplayColumns,
 			orderBy: sql`oa.outreach_date desc, oa.created_at desc, oa.id`,
 		},
+		export: outreachExport,
 	});
 }
 

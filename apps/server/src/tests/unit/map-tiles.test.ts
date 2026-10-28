@@ -1030,6 +1030,99 @@ describe('registerMapTileRoutes — inspections', () => {
 	});
 });
 
+// The ten other record sets export through the route the Inspections one
+// built: the box and the surface's own filters, no paging, and `/export` read
+// as a literal segment rather than an id.
+describe('registerMapTileRoutes — record set exports', () => {
+	const exports = [
+		['habitats', 'exportHabitats', 'isActive=true', { isActive: true }, 'getHabitatDisplayRow'],
+		[
+			'samples',
+			'exportSamples',
+			'dateFrom=2026-07-01',
+			{ dateFrom: '2026-07-01' },
+			'getSampleDisplayRow',
+		],
+		['traps', 'exportTraps', 'status=inactive', { isActive: false }, 'getTrapDisplayRow'],
+		[
+			'collections',
+			'exportCollections',
+			'problem=true',
+			{ problemOnly: true },
+			'getCollectionDisplayRow',
+		],
+		[
+			'chemical',
+			'exportApplications',
+			'dateTo=2026-09-28',
+			{ dateTo: '2026-09-28' },
+			'getApplicationDisplayRow',
+		],
+		[
+			'source-reduction',
+			'exportSourceReductions',
+			'dateFrom=2026-07-01',
+			{ dateFrom: '2026-07-01' },
+			'getSourceReductionDisplayRow',
+		],
+		[
+			'biocontrol',
+			'exportBiocontrolActions',
+			'habitatLinked=true',
+			{ habitatLinkedOnly: true },
+			'getBiocontrolDisplayRow',
+		],
+		[
+			'outreach',
+			'exportOutreachActions',
+			'dateFrom=2026-07-01',
+			{ dateFrom: '2026-07-01' },
+			'getOutreachDisplayRow',
+		],
+		['addresses', 'exportAddresses', 'search=Main', { search: 'Main' }, 'getAddressDisplayRow'],
+		[
+			'service-requests',
+			'exportServiceRequests',
+			'status=open&oldest=true',
+			{ isOpen: true, oldestFirst: true },
+			'getServiceRequestDisplayRow',
+		],
+	] as const;
+
+	it.each(
+		exports,
+	)('exports %s under the box and its filters', async (segment, reader, query, filters, byIdReader) => {
+		const calls: unknown[] = [];
+		const getById = vi.fn();
+		const app = createApp({
+			[reader]: async (_db: unknown, input: unknown) => {
+				calls.push(input);
+				return { kind: 'rows', headers: ['Name'], rows: [['One']] };
+			},
+			[byIdReader]: getById,
+		});
+
+		const response = await app.request(`/map/${segment}/export?bbox=-180,-90,180,90&${query}`);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ headers: ['Name'], rows: [['One']] });
+		expect(calls).toEqual([
+			{ organizationId, bounds: { west: -180, south: -90, east: 180, north: 90 }, filters },
+		]);
+		expect(getById).not.toHaveBeenCalled();
+	});
+
+	it.each(exports)('refuses a paged %s export', async (segment, reader) => {
+		const exportRows = vi.fn();
+		const app = createApp({ [reader]: exportRows });
+
+		const response = await app.request(`/map/${segment}/export?bbox=-180,-90,180,90&limit=100`);
+
+		expect(response.status).toBe(400);
+		expect(exportRows).not.toHaveBeenCalled();
+	});
+});
+
 // The Samples rail's summary over 100 in view (#1370), which answers a figure
 // beside the groups.
 describe('registerMapTileRoutes — sample summary', () => {

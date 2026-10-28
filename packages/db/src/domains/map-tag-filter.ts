@@ -62,3 +62,23 @@ export function tagIdsSql(input: {
 			and ti.deleted_at is null
 	)`;
 }
+
+/**
+ * The record's live Tags by name, comma-separated in name order, or null when
+ * it carries none: what an export writes where the summary counts tag ids.
+ */
+export function tagNamesSql(input: {
+	/** The record's id column, e.g. ``sql`sr.id` ``. */
+	readonly id: RawBuilder<unknown>;
+	readonly entityType: string;
+}): RawBuilder<string | null> {
+	return sql<string | null>`(
+		select string_agg(tg.tag_name, ', ' order by tg.tag_name)
+		from tag_items ti
+		join tags tg on tg.id = ti.tag_id
+		where ti.entity_type = ${sql.lit(input.entityType)}
+			and ti.entity_id = ${input.id}
+			and ti.deleted_at is null
+			and tg.deleted_at is null
+	)`;
+}
