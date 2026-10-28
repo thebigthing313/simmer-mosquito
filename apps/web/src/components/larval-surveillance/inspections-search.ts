@@ -115,7 +115,12 @@ export const inspectionRecordSet = defineRecordSet({
 		table: '/larval-surveillance/inspections/table',
 	},
 	codecs: inspectionFilterCodecs,
-	endpoint: { path: '/map/inspections', rowsKey: 'inspections', rowKey: 'inspection' },
+	endpoint: {
+		path: '/map/inspections',
+		rowsKey: 'inspections',
+		rowKey: 'inspection',
+		exports: true,
+	},
 	tileset: 'inspections',
 	tileFilters: inspectionTileFilters,
 	filterSpec: INSPECTION_MAP_FILTERS,

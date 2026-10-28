@@ -7,6 +7,7 @@ import {
 } from 'kysely';
 import { describe, expect, it } from 'vitest';
 import { getRequestedControlActionDisplayRowById } from '../../../domains/control-operations-map.js';
+import { MAP_EXPORT_CEILING } from '../../../domains/map-surface.js';
 import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import type { SimmerDatabase } from '../../../index.js';
 
@@ -827,6 +828,87 @@ describe('map surface scope', () => {
 			.join('\n\n');
 
 		await expect(dump).toMatchFileSnapshot('./__snapshots__/map-surface-sql.snap.sql');
+	});
+});
+
+/**
+ * Every export read, each with every filter its surface accepts set. An export
+ * is two statements, the count and the rows, and both have to hold the scope
+ * and the box, or the count that decides the ceiling and the rows in the file
+ * would be two different sets.
+ */
+const exportReads: ReadonlyArray<{
+	readonly name: string;
+	readonly organizationAlias: string;
+	readonly geomAlias: string;
+	readonly read: (db: Kysely<SimmerDatabase>) => Promise<unknown>;
+}> = [
+	{
+		name: 'inspection export',
+		organizationAlias: 'i',
+		geomAlias: 'i',
+		read: (db) =>
+			MAP_SURFACES.inspections.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: {
+					isWet: true,
+					densities: ['light'],
+					positiveOnly: true,
+					habitatTypeIds: ids,
+					inspectedByProfileIds: ids,
+					regionIds,
+					...dates,
+				},
+			}),
+	},
+];
+
+describe('map surface export', () => {
+	it.each(
+		exportReads.map((read) => [read.name, read] as const),
+	)('the %s counts and reads one scoped box', async (_name, exportRead) => {
+		const { db, queries } = compilingDatabase();
+
+		await exportRead.read(db);
+
+		expect(queries).toHaveLength(2);
+		for (const query of queries) {
+			const compiled = normalize(query.sql);
+			expect(query.parameters).toContain(organizationId);
+			expect(compiled).toContain(`${exportRead.organizationAlias}.organization_id = $`);
+			expect(compiled).toContain(`${exportRead.organizationAlias}.deleted_at is null`);
+			const overlap = compiled.indexOf(`${exportRead.geomAlias}.geom && bounds.geom_4326`);
+			expect(overlap).toBeGreaterThan(-1);
+			expect(
+				compiled.indexOf(`st_intersects(${exportRead.geomAlias}.geom, bounds.geom_4326)`),
+			).toBeGreaterThan(overlap);
+		}
+		// The rows are not paged. The one limit is a row past the ceiling, which
+		// refuses a box that grew over it between the count and the read.
+		expect(normalize(queries[1]?.sql ?? '')).not.toMatch(/\boffset\b/);
+		expect(queries[1]?.parameters.at(-1)).toBe(MAP_EXPORT_CEILING + 1);
+	});
+
+	it('emits the same SQL for every export read', async () => {
+		const { db, queries } = compilingDatabase();
+
+		for (const exportRead of exportReads) {
+			await exportRead.read(db);
+		}
+
+		const dump = exportReads
+			.map((exportRead, index) =>
+				[
+					`-- ${exportRead.name}`,
+					normalize(queries[index * 2]?.sql ?? ''),
+					normalize(queries[index * 2 + 1]?.sql ?? ''),
+				].join('\n'),
+			)
+			.join('\n\n');
+
+		await expect(dump).toMatchFileSnapshot('./__snapshots__/map-surface-export-sql.snap.sql');
 	});
 });
 

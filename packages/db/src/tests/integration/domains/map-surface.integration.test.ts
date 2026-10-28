@@ -18,7 +18,7 @@ import {
 	sampleStatusValues,
 } from '../../../domains/larval-surveillance.js';
 import type { MapExtent } from '../../../domains/map-extent.js';
-import type { MapRecordSurfaceReaders } from '../../../domains/map-surface.js';
+import { MAP_EXPORT_CEILING, type MapRecordSurfaceReaders } from '../../../domains/map-surface.js';
 import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import { MAP_TILE_ENCODING } from '../../../domains/map-tile.js';
 import {
@@ -1259,6 +1259,97 @@ describeDbIntegration('inspection summary against Postgres', () => {
 		});
 	});
 });
+
+// An export is every match in the box rather than a page of them, so its row
+// count is the page's `total` for the same filters, and nothing the page leaves
+// out (another Organization's inspection, a deleted one) is in the file.
+describeDbIntegration('inspection export against Postgres', () => {
+	it('exports the inspections the page counts, under each filter', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const { typeId, inspectorId } = await seedInspectionVariety(db);
+
+			const filterSets: readonly InspectionMvtTileFilters[] = [
+				{},
+				{ isWet: false },
+				{ densities: ['heavy'] },
+				{ positiveOnly: true },
+				{ habitatTypeIds: [typeId] },
+				{ inspectedByProfileIds: [inspectorId] },
+				{ dateFrom: '2026-03-16' },
+			];
+			for (const filters of filterSets) {
+				const { exported, pageTotal } = await exportAndPage(db, filters);
+				expect(exported.kind).toBe('rows');
+				expect(exported.kind === 'rows' ? exported.rows.length : -1).toBe(pageTotal);
+			}
+
+			const whole = await exportAndPage(db, {});
+			expect(whole.pageTotal).toBe(6);
+		});
+	});
+
+	it('writes labels, flags and times a spreadsheet can read', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			await seedInspectionVariety(db);
+
+			const { exported } = await exportAndPage(db, { densities: ['heavy'] });
+			if (exported.kind !== 'rows') {
+				throw new Error('expected rows');
+			}
+			const column = (header: string) => exported.headers.indexOf(header);
+			expect(exported.headers).toEqual(
+				expect.arrayContaining(['Inspection date', 'Density', 'Latitude', 'Longitude']),
+			);
+			for (const row of exported.rows) {
+				expect(row[column('Density')]).toBe('Heavy');
+				expect(row[column('Wet')]).toBe('Yes');
+				expect(row[column('Positive')]).toBe('Yes');
+				expect(row[column('Inspection date')]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+				expect(row[column('Latitude')]).toBeCloseTo(mapSurfacePlace.inside.lat);
+				expect(row[column('Longitude')]).toBeCloseTo(mapSurfacePlace.inside.lng);
+				expect(row[column('Recorded')]).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+			}
+			expect(exported.rows.map((row) => row[column('Pupae')]).sort()).toEqual(['No', 'Yes']);
+		});
+	});
+
+	it('refuses an export over the ceiling rather than writing part of it', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			await sql`
+				insert into inspections (organization_id, geom, inspection_date)
+				select
+					${mapSurfaceOrganizationIds.own}::uuid,
+					st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326),
+					date '2026-03-15'
+				from generate_series(1, ${MAP_EXPORT_CEILING})
+			`.execute(db);
+
+			const { exported, pageTotal } = await exportAndPage(db, {});
+			expect(pageTotal).toBeGreaterThan(MAP_EXPORT_CEILING);
+			expect(exported).toEqual({
+				kind: 'overCeiling',
+				total: pageTotal,
+				ceiling: MAP_EXPORT_CEILING,
+			});
+		});
+	});
+});
+
+/** The export and the page's total for the seeded box under one filter set. */
+async function exportAndPage(db: Kysely<SimmerDatabase>, filters: InspectionMvtTileFilters) {
+	const input = {
+		organizationId: mapSurfaceOrganizationIds.own,
+		timeZone: mapSurfaceTimeZone,
+		bounds: mapSurfacePlace.bounds,
+		filters,
+	};
+	const exported = await MAP_SURFACES.inspections.exportByBounds(db, input);
+	const listed = await MAP_SURFACES.inspections.listByBounds(db, { ...input, ...page });
+	return { exported, pageTotal: listed.total };
+}
 
 /**
  * Five more live inspections beside the seeded `inside` one, each differing on

@@ -13,6 +13,7 @@ import {
 	listMissionItemGeometry,
 	MAP_SURFACES,
 	type MapBoundsSummaryInput,
+	type MapExportReader,
 	type MapExtent,
 	type MapSummaryResult,
 	type MapTilesetLayer,
@@ -99,6 +100,7 @@ const defaultMapReaders = {
 	listInspectionDisplayRows: MAP_SURFACES.inspections.listByBounds,
 	summarizeInspections: MAP_SURFACES.inspections.summarizeByBounds,
 	getInspectionDisplayRow: MAP_SURFACES.inspections.getById,
+	exportInspections: MAP_SURFACES.inspections.exportByBounds,
 
 	getSampleTile: MAP_SURFACES.samples.getTile,
 	getSampleExtent: MAP_SURFACES.samples.getExtent,
@@ -368,6 +370,14 @@ export function registerMapTileRoutes(
 		path: '/map/inspections/summary',
 		parseFilters: parseInspectionTileFilters,
 		summarize: readers.summarizeInspections,
+	});
+
+	// Every Inspection in the box that matches the filters, for a file.
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/inspections/export',
+		parseFilters: parseInspectionTileFilters,
+		export: readers.exportInspections,
 	});
 
 	registerByIdRoute(app, options, {
@@ -774,6 +784,58 @@ function registerSummaryRoute<TFilters>(
 		}
 
 		return context.json(await route.summarize(options.db, queryResult.input));
+	});
+}
+
+/**
+ * An export read: the box and the filters of a page, without the paging,
+ * answered with every matching row as the surface's export columns.
+ *
+ * The rail's 100-row page cap does not apply. The reader's ceiling does, and
+ * a request over it is refused with a 422 carrying the count and the ceiling,
+ * rather than answered with the first 50,000 rows as though they were all of
+ * them. The page writes its own sentence from the two numbers, in the noun
+ * its register spells the records with.
+ */
+function registerExportRoute<TFilters>(
+	app: Hono<{ Variables: AuthVariables }>,
+	options: {
+		readonly db: TileDb;
+		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+	},
+	route: {
+		readonly path: string;
+		readonly parseFilters: (params: URLSearchParams) => FilterResult<TFilters>;
+		readonly export: MapExportReader<TFilters>;
+	},
+): void {
+	app.get(route.path, options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const queryResult = parseBboxSummaryQuery(
+			new URL(context.req.url).searchParams,
+			authContext.organization.id,
+			authContext.timeZone,
+			route.parseFilters,
+		);
+
+		if (!queryResult.ok) {
+			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
+		}
+
+		const result = await route.export(options.db, queryResult.input);
+		if (result.kind === 'overCeiling') {
+			return context.json(
+				{
+					error: 'export_too_large',
+					reason: `${result.total} records match, over the export ceiling of ${result.ceiling}.`,
+					total: result.total,
+					ceiling: result.ceiling,
+				},
+				422,
+			);
+		}
+
+		return context.json({ headers: result.headers, rows: result.rows });
 	});
 }
 
