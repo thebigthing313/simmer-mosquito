@@ -1,3 +1,5 @@
+export type { ParsedLatLng } from './coordinates.js';
+export { formatLatLng, parseLatLng } from './coordinates.js';
 export type { DrawVertexRef } from './draw-vertex-edit.js';
 export {
 	closeRing,
