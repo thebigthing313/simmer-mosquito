@@ -1067,6 +1067,25 @@ which none of these surfaces does.
 `Zoom to trap` (#1523). A rename in the register narrows the alias rather than
 failing on it, so the error lands on the call site passing the old name.
 
+#### GoToCoordinatesDialog
+
+The right-click menu opens it, and `MapContextMenu` renders it beside the menu
+rather than inside `ContextMenuContent`, because that content unmounts as the
+menu closes and would take the dialog with it (#1721). The form is a child of
+`DialogContent` for the same reason in reverse: closing the dialog unmounts it,
+so it always opens empty with no error left over.
+
+`parseLatLng` and `formatLatLng` sit together in `@simmer-mosquito/mapping`.
+**Copy coordinates** writes with the second and this dialog reads with the
+first, and the unit test that round-trips them can only be written where both
+live. The flight is `focusOnMap` with the `place` purpose, the same move the
+place search and the geolocate control make, so the dialog adds no camera rule.
+
+The two refusals, text that is not two numbers and numbers off the globe, get
+separate messages. Longitude pasted first is the common mistake, and it reads
+as out of range whenever the longitude is past 90, which is everywhere in the
+continental US.
+
 #### MapSearch
 
 Two resets that were effects are read off the state they key on (#1183). The
