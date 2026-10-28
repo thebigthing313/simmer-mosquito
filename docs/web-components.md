@@ -1082,9 +1082,10 @@ live. The flight is `focusOnMap` with the `place` purpose, the same move the
 place search and the geolocate control make, so the dialog adds no camera rule.
 
 The two refusals, text that is not two numbers and numbers off the globe, get
-separate messages. Longitude pasted first is the common mistake, and it reads
-as out of range whenever the longitude is past 90, which is everywhere in the
-continental US.
+separate messages. Longitude pasted first reads as out of range only when the
+longitude is past 90, which in the continental US is west of the Mississippi.
+East of it, `-74.3, 40.5` is a real point in Antarctica, and the dialog flies
+there; the pin and the empty map are what tell the operator.
 
 #### MapSearch
 

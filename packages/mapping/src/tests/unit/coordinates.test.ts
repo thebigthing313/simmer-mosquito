@@ -56,8 +56,8 @@ describe('parseLatLng', () => {
 		expect(parseLatLng('-91, 0')).toEqual(outOfRange);
 		expect(parseLatLng('0, 180.000001')).toEqual(outOfRange);
 		expect(parseLatLng('0, -181')).toEqual(outOfRange);
-		// Longitude first is the usual paste mistake, and it reads as out of range
-		// whenever the longitude is past 90.
+		// Longitude first reads as out of range when the longitude is past 90.
+		// East of that, the swapped pair is a real point and nothing can refuse it.
 		expect(parseLatLng('-118.2437, 34.0522')).toEqual(outOfRange);
 	});
 
