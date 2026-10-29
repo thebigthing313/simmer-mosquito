@@ -1,5 +1,11 @@
 # @simmer-mosquito/admin
 
+## 0.7.5 — 2026-10-29
+
+### Patch Changes
+
+- Fixed: What's New no longer highlights the first domain in the rail or shows its sidebar.
+
 ## 0.7.4 — 2026-10-11
 
 ### Patch Changes
