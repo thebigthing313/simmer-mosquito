@@ -134,33 +134,3 @@ function CatalogCountBadges({
 		</div>
 	);
 }
-
-/**
- * The heading over a catalog whose rows expand into a second tier — it names the
- * group, says what expanding a row gets you, and carries the lifecycle counts.
- */
-export function CatalogGroupHeader({
-	title,
-	description,
-	active,
-	inactive,
-}: {
-	readonly title: string;
-	readonly description?: string | undefined;
-	readonly active: number;
-	readonly inactive: number;
-}) {
-	return (
-		<div className="flex flex-wrap items-center justify-between gap-2">
-			<div className="grid gap-1">
-				<h2 className={CATALOG_GROUP_HEADING}>{title}</h2>
-				{description === undefined ? null : (
-					<p className="m-0 max-w-[60ch] text-muted-foreground text-sm leading-snug">
-						{description}
-					</p>
-				)}
-			</div>
-			<CatalogCountBadges active={active} inactive={inactive} />
-		</div>
-	);
-}

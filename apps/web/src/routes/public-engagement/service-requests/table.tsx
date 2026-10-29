@@ -20,19 +20,20 @@ const ORDER_DEFAULTS: ServiceRequestRailSearch = { order: 'newest' };
 
 export const Route = createFileRoute('/public-engagement/service-requests/table')({
 	component: ServiceRequestsTableRoute,
-	validateSearch: searchValidator({
-		...surfaceCodecs(serviceRequestRecordSet, 'table'),
-		...serviceRequestRailOrderCodecs,
-	}),
+	validateSearch: searchValidator(
+		surfaceCodecs(serviceRequestRecordSet, 'table'),
+		serviceRequestRailOrderCodecs,
+	),
 });
 
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 
 /**
- * Every service request as a table, a hundred to a page. It opens on the same
- * window the Map does, every request received this year, open or closed, and
- * newest first. The order is the rail's too, newest or oldest request date
- * first, under the same `order` param, which stays on the surface that set it.
+ * Every service request as a table, a hundred to a page, open or closed and
+ * newest first. It opens on all time where the Map opens on this year, which
+ * the set's `windows` state. The order is the rail's too, newest or oldest
+ * request date first, under the same `order` param, which stays on the surface
+ * that set it.
  */
 function ServiceRequestsTableRoute() {
 	const binding = useRecordSetFilters(serviceRequestRecordSet, 'table');
@@ -46,9 +47,8 @@ function ServiceRequestsTableRoute() {
 		<RecordSetTablePage
 			binding={binding}
 			empty={{
-				emptyDescription: 'Service requests received this year show here.',
+				emptyDescription: 'Service requests show here as they are received.',
 				filteredDescription: 'Nothing received matches what is set above.',
-				scope: { kind: 'thisYear' },
 			}}
 			filters={
 				<ServiceRequestsFilterBar

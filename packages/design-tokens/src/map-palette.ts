@@ -1,4 +1,4 @@
-import { brand, yellow } from './colors.js';
+import { brand, green, yellow } from './colors.js';
 
 /**
  * Map paint palette.
@@ -93,6 +93,19 @@ export const mapInteraction = {
 	measure: '#7c3aed',
 	/** The casing that keeps a measurement legible over a dark basemap. */
 	measureStroke: '#5b21b6',
+
+	/**
+	 * The pin where a place search or Go to coordinates landed.
+	 *
+	 * The darkest step of the brand green, close to black, because every hue on
+	 * the map already means something: amber is selection, violet a measurement,
+	 * red a refusal, and the family colours are records. The pin is none of
+	 * those, so it takes no hue at all, and its teardrop shape keeps it apart
+	 * from the round geolocate dot drawn in the primary green.
+	 */
+	landing: green[900],
+	/** The casing that lifts the landing pin off a dark basemap. */
+	landingStroke: casing,
 
 	/**
 	 * A shape being drawn that the control will not accept.

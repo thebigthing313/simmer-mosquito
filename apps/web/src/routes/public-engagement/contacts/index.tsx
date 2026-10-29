@@ -1,6 +1,5 @@
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Empty,
 	EmptyDescription,
@@ -9,16 +8,18 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { ChevronRightIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
+import { createLabel } from '../../../components/app-shell/navigation';
+import { CreateControl } from '../../../components/explorer/explorer-header';
+import { ResultMeta } from '../../../components/explorer/result-meta';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
 	contactDisplayName,
 	contactSecondaryLine,
 } from '../../../components/public-engagement/public-engagement-display';
-import { WriteOnly } from '../../../components/write-only';
 import {
 	type ContactListing,
 	useContactDirectory,
@@ -105,15 +106,23 @@ function ContactsExplorerRoute() {
 			<div className="grid gap-4">
 				<PageHeader
 					actions={
-						<WriteOnly minimum="manager">
-							<Button asChild size="sm">
-								<Link to="/public-engagement/contacts/create">
-									<PlusIcon aria-hidden="true" />
-									Create
-								</Link>
-							</Button>
-						</WriteOnly>
+						<>
+							<ResultMeta
+								isLoading={!isReady}
+								noun={recordNoun('contact')}
+								total={filtered.length}
+							/>
+							<CreateControl
+								create={{
+									to: '/public-engagement/contacts/create',
+									label: createLabel('contact'),
+									minimum: 'manager',
+								}}
+							/>
+						</>
 					}
+					description="Every contact on file, by name."
+					icon={ContactIcon}
 					title={recordNoun('contact').titleMany}
 				/>
 

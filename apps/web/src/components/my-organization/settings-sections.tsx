@@ -19,6 +19,7 @@ export const collectionTimingSection: SettingsSection<
 	AdultCollectionTimingMode
 > = {
 	title: 'Edit Adult Surveillance',
+	triggerLabel: 'Edit Collection Timing',
 	read: (settings) => ({
 		collectionTimingMode: settings.adultSurveillance.collectionTimingMode,
 	}),
@@ -44,16 +45,22 @@ export const collectionTimingSection: SettingsSection<
 	preview: ({ collectionTimingMode }) => <CollectionTimingGuide mode={collectionTimingMode} />,
 };
 
+/** The batch tracking switch's label, which the Insecticides card shows its value under. */
+export const BATCH_TRACKING_LABEL = 'Track insecticide batches';
+
 /** Whether chemical applications record the insecticide batch they drew from. */
 export const batchTrackingSection: SettingsSection<
 	{ readonly trackInsecticideBatches: boolean },
 	boolean
 > = {
 	title: 'Edit Batch Tracking',
+	// The card holds a pointer to Control Operations too, so a bare Edit could
+	// read as editing the insecticides (#1668).
+	triggerLabel: 'Edit Batch Tracking',
 	read: (settings) => ({
 		trackInsecticideBatches: settings.controlOperations.trackInsecticideBatches,
 	}),
-	fields: [{ kind: 'switch', key: 'trackInsecticideBatches', label: 'Track insecticide batches' }],
+	fields: [{ kind: 'switch', key: 'trackInsecticideBatches', label: BATCH_TRACKING_LABEL }],
 	convert: ({ trackInsecticideBatches }) => trackInsecticideBatches,
 	save: (mutations, track) => mutations.setInsecticideBatchTracking(track),
 	failureMessage: 'Unable to save batch tracking.',
@@ -76,6 +83,7 @@ export const serviceRequestContextSection: SettingsSection<
 	PublicEngagementSettingsWrite
 > = {
 	title: 'Edit Public Engagement',
+	triggerLabel: 'Edit Service Request Settings',
 	read: (settings) => {
 		const { radius, timeWindow } = settings.publicEngagement.serviceRequestContext;
 		const overdue = settings.publicEngagement.serviceRequestOverdueDays;

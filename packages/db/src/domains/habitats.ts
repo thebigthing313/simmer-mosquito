@@ -5,12 +5,15 @@ import type { MapTilesetLayer } from './map-layers.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import { searchClauses } from './map-search-filter.js';
 import {
+	exportTimestamp,
+	exportYesNo,
 	type MapDisplayColumns,
 	type MapReadContext,
 	type MapRecordSurfaceReaders,
+	type MapSurfaceExport,
 	mapRecordSurface,
 } from './map-surface.js';
-import { tagMembershipClauses } from './map-tag-filter.js';
+import { tagMembershipClauses, tagNamesSql } from './map-tag-filter.js';
 import { assertIanaTimeZone, localDateSql } from './record-display-sql.js';
 
 export interface HabitatMvtTileFilters {
@@ -172,6 +175,27 @@ const habitatDisplayColumns: MapDisplayColumns<SafeHabitatDisplayRow> = {
 	updatedAt: sql`h.updated_at`,
 };
 
+/** A habitat as a spreadsheet row, with its type, Address and Tags by name. */
+const habitatExport: MapSurfaceExport = {
+	joins: sql`
+		left join habitat_types ht on ht.id = h.habitat_type_id
+		left join addresses ad on ad.id = h.address_id
+	`,
+	columns: (context) => [
+		{ header: 'Habitat', value: sql`h.habitat_name` },
+		{ header: 'Habitat type', value: sql`ht.name` },
+		{ header: 'Address', value: sql`ad.display_name` },
+		{ header: 'Description', value: sql`h.description` },
+		{ header: 'Active', value: exportYesNo(sql`h.is_active`) },
+		{ header: 'Inaccessible', value: exportYesNo(sql`h.is_inaccessible`) },
+		{ header: 'Tags', value: tagNamesSql({ id: sql`h.id`, entityType: 'habitat' }) },
+		{ header: 'Latitude', value: sql`h.lat` },
+		{ header: 'Longitude', value: sql`h.lng` },
+		{ header: 'Recorded', value: exportTimestamp(sql`h.created_at`, context) },
+		{ header: 'Updated', value: exportTimestamp(sql`h.updated_at`, context) },
+	],
+};
+
 /**
  * The habitats map surface: the tile the explorer draws, the extent it frames,
  * the viewport-bounded page its rail reads, the summary it draws in place of
@@ -210,6 +234,7 @@ export function habitatSurface(
 			// `natural_sort` puts `Habitat 9` ahead of `Habitat 10`.
 			orderBy: sql`coalesce(h.habitat_name, h.id::text) collate natural_sort, h.id`,
 		},
+		export: habitatExport,
 	});
 }
 

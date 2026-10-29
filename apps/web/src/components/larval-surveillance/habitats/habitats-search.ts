@@ -78,6 +78,7 @@ export const habitatRecordSet = defineRecordSet({
 	tileFilters: habitatTileFilters,
 	filterSpec: HABITAT_MAP_FILTERS,
 	defaults: () => HABITAT_FILTER_DEFAULTS,
+	emptyScope: () => ({ kind: 'active' }),
 	textSearch: { key: 'search' },
 	applies: {
 		search: 'both',

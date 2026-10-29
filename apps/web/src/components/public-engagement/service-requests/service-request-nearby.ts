@@ -15,12 +15,15 @@ import type { LinkProps } from '@tanstack/react-router';
 import { getServerUrl } from '../../../auth';
 import { NEARBY_FAMILY_COLORS } from '../../../hooks/map/use-nearby-layer';
 import type { Tag } from '../../../hooks/queries/tag-view';
-import { formatCount } from '../../../lib/format-count';
+import { countPhrase, formatCount } from '../../../lib/format-count';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import {
+	type ActivityDescribeOptions,
 	type ActivityLookups,
 	type ActivityRecord,
+	type ActivityRowRecord,
+	activityRecordTitle,
 	activityRow,
 } from '../../activity/activity-data';
 import type { RecordBadgeFacts } from '../../record/record-badges';
@@ -188,6 +191,38 @@ export interface NearbyRow {
 	readonly link: LinkProps;
 }
 
+/** The parts of a row in a list that mixes record kinds, before what the list adds. */
+export interface MixedListRowParts {
+	readonly title: string;
+	readonly subtitle: string | null;
+	readonly link: LinkProps;
+	readonly facts: RecordBadgeFacts;
+	readonly tags: readonly Tag[];
+}
+
+/**
+ * One activity record as a list mixing several kinds draws it: the shared
+ * row's title, link, badges and Tags, with the category ahead of the
+ * subtitle, because there is no verb in such a list to say an inspection is a
+ * visit rather than a place. The nearby list and the Address page's linked
+ * records both draw through this; `options` is the describer's, which the
+ * linked records pass to drop their Address.
+ */
+export function mixedListRowParts(
+	item: ActivityRowRecord,
+	lookups: ActivityLookups,
+	options: ActivityDescribeOptions = {},
+): MixedListRowParts {
+	const { title, subtitle, categoryLabel, link, facts, tags } = activityRow(item, lookups, options);
+	// A record with nothing to name it is titled by its category already, and a
+	// subtitle repeating the word under it says nothing twice.
+	const titledByKind = title === categoryLabel || title === activityRecordTitle(item.category);
+	const parts = [titledByKind ? null : categoryLabel, subtitle].filter(
+		(part): part is string => part !== null,
+	);
+	return { title, subtitle: parts.length === 0 ? null : parts.join(' · '), link, facts, tags };
+}
+
 /**
  * One nearby record, as its explorer's rail would draw it, plus the distance.
  * The title, the subtitle, the link, the badges and the Tags are the shared
@@ -197,17 +232,12 @@ export interface NearbyRow {
  * through one function.
  */
 export function nearbyRow(item: NearbyItem, lookups: ActivityLookups, unitCode: string): NearbyRow {
-	const { title, subtitle, categoryLabel, link, facts, tags } = activityRow(item, lookups);
+	const { title, subtitle, link, facts, tags } = mixedListRowParts(item, lookups);
 	const family = NEARBY_FAMILY_OF[item.category];
 	const date = nearbyItemDate(item);
-	// A record with nothing to name it is titled by its category already, and a
-	// subtitle repeating the word under it says nothing twice.
-	const parts = [title === categoryLabel ? null : categoryLabel, subtitle].filter(
-		(part): part is string => part !== null,
-	);
 	return {
 		title,
-		subtitle: parts.length === 0 ? null : parts.join(' · '),
+		subtitle,
 		date: date === null ? null : formatListDate(date),
 		distance: formatNearbyDistance(item.distanceMeters, unitCode),
 		facts,
@@ -282,26 +312,42 @@ export function nearbyWindowLabel(
 }
 
 /**
- * What the panel says it is showing, before and after the fetch lands. The
- * count is every record in the response, since each is listed on one tab. The
- * window runs on to the close, or to today while
- * the request is open, so the sentence says which end won. A second sentence
- * says when the endpoint's nearest-first cap cut the read.
+ * What a tab says it is showing, before and after the fetch lands. The count
+ * is the records in the tab's own families, so it agrees with the rows under
+ * it and reads No on a tab whose list is empty. The window runs on to the
+ * close, or to today while the request is open, so the sentence says which end
+ * won. A second sentence says when the endpoint's nearest-first cap cut the
+ * read; the cap is over the whole response, so every tab says it.
  */
-export function nearbySummary(response: NearbyResponse | undefined): string {
+export function nearbySummary(
+	response: NearbyResponse | undefined,
+	families: ReadonlySet<NearbyFamily>,
+): string {
 	if (response === undefined) {
 		return 'Records around this request, from your public-engagement settings.';
 	}
 	const counts = countNearbyByFamily(response.items);
-	const count =
-		counts.infrastructure + counts.surveillance + counts.control + counts.publicEngagement;
+	let count = 0;
+	for (const family of families) {
+		count += counts[family];
+	}
 	const radius = formatRadiusLabel(response.radius.amount, response.radius.unitCode);
 	const window = nearbyWindowLabel(response);
-	const summary = `${count === 0 ? 'No' : count} record${count === 1 ? '' : 's'} within ${radius}, ${window}.`;
+	const summary = `${recordCountWords(count)} within ${radius}, ${window}.`;
 	if (!response.truncated) {
 		return summary;
 	}
 	return `${summary} Showing the nearest ${formatCount(response.limit)} records only. Narrow the radius or time window in your public-engagement settings to see every record inside them.`;
+}
+
+/**
+ * How many records a caption counts, as the opening of its sentence: `No
+ * records`, `1 record`, `1,240 records`. The nearby summary and the Address
+ * page's linked-records caption both start this way, so a tab with nothing in
+ * it reads No on either page.
+ */
+export function recordCountWords(count: number): string {
+	return count === 0 ? 'No records' : countPhrase(count, { one: 'record', many: 'records' });
 }
 
 /** Distance shown in the family of the org's radius unit (feet/miles for imperial, m/km otherwise). */

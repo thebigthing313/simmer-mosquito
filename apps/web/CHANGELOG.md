@@ -1,5 +1,55 @@
 # @simmer-mosquito/web
 
+## 0.13.0 — 2026-10-29
+
+### Minor Changes
+
+- Added: An address's page lists every record that names it under Linked Records, below its habitats and traps. Service requests, registrations, inspections, collections, control actions, outreach, requests for control and mission stops each get a tab with the newest 25 and a total. A mission stop names its mission and whether it is open, done or skipped. A record at a habitat or trap reads that habitat or trap, and one linked only to the address is titled by its kind, such as "Collection" or "Chemical Application", so the address is not repeated in every row.
+
+- Added: Go to coordinates… in the map's right-click menu. Paste a latitude and longitude, such as one copied with Copy coordinates, and the map flies there. A pin marks where the map lands after Go to coordinates… or a place search result. The next search or coordinate moves it, and clearing the search box or leaving the page removes it.
+
+- Added: Export Inspections, Habitats, Samples, Traps, Collections, Chemical Applications, Source Reductions, Biocontrol Actions, Outreach Actions, Service Requests and Addresses as a CSV or Excel file. A Table exports every record that matches its filters, and a Map exports the records in view that match its filters. An export holds up to 50,000 records; over that, the page asks you to narrow the filters. Collections are dated the way your Organization records them, and chemical amounts are written in the unit they were applied in.
+
+### Patch Changes
+
+- Fixed: A record's breadcrumb names its record set, such as Inspections, instead of Map, unless you opened it from a Table, and a Table row opened in a new tab keeps the Table in the trail. Regions no longer reads Regions twice. The browser tab title follows the trail.
+
+- Fixed: The Contacts directory opens with the same header as the other record lists: its icon, a line under the title, how many contacts it holds, and a Create Contact button where it used to say only Create.
+
+- Fixed: The Control Operations overview no longer says "Last 14 days" under its title. Source Reductions and Biocontrol Releases name their 14-day window in their own titles, and their dates stay on one line.
+
+- Fixed: The date preset buttons on the Service Requests table, Last 7 Days through All Time, draw at their normal size instead of as tall ovals.
+
+- Fixed: Trap, habitat and region detail show a description with the line breaks it was written with, instead of running every line together.
+
+- Fixed: The create items in a record's More actions menu and the record button on a mission stop use the same record names as the rest of the app, such as Record chemical application instead of Record application, and Record biocontrol action instead of Record biocontrol release or Record biocontrol.
+
+- Fixed: A Route, Mission or Assignment map with no stops, and the Requests for Control, Daily Work and Weather maps with nothing in range, open on your Organization's area instead of the whole country.
+
+- Fixed: Picking a row on an explorer's map list flies the map to the record and leaves the list as it was, so the row you picked stays where you clicked it. Panning or zooming the map still refreshes the list. Service Requests already worked this way; now every explorer does.
+
+- Fixed: A Map whose list is empty at its defaults names the window or status it opened on, such as No Biocontrol Actions in the Last 90 Days, instead of saying no records match these filters. With a filter set it says No Biocontrol Actions Match and offers Reset Filters. The Map and the Table now title an empty list the same way.
+
+- Fixed: A mission that was never started reads "Past due" once its scheduled day has gone by, on the Operations overview, the missions map list and card, the mission page and a request's linked missions. It used to read "Scheduled" everywhere but the Dashboard. The rain date does not change it.
+
+- Fixed: On a service request, the line above each nearby tab's list counts only that tab's records. It used to count all four tabs together, so Service Requests could say 27 records above an empty list. In those lists and in a person's activity, a record with nothing else to name it is titled by its coordinates instead of "Inspection", a collection taken away from a trap reads its address before its coordinates, and an inspection at a habitat that has not loaded yet reads "Habitat" and the start of its id.
+
+- Fixed: Insecticides, Formulations, Vehicles, Equipment and Outreach methods work like the other catalogs under Organization. Rows sit under Active and Inactive headings, and an empty group says so in a line instead of drawing a bare header row. On Insecticides and Formulations, Edit, Deactivate and Reactivate are in each row's "..." menu instead of separate buttons, a search box appears once the list is long, and the Status and Metadata columns are gone. The edit column on Vehicles, Equipment and Outreach methods reads Actions, as the Lures list does.
+
+- Fixed: Public Engagement settings have their own heading in the Organization sidebar instead of sitting under Control, and the breadcrumb reads Organization > Public Engagement.
+
+- Changed: The Samples, Collections, Chemical Applications, Source Reductions, Biocontrol Actions, Outreach Actions and Service Requests tables open on every record, newest first, where they opened on the last 30 days, the last 90 days or this year. Their maps keep those windows. Dates set on a map still carry to its table.
+
+- Fixed: An area no longer counts as inside a region it overlaps only by a sliver along a shared boundary. The overlap has to cover at least 0.1% of the smaller of the two areas, so neighbouring municipalities stop listing each other in the Regions panel and on the Region filter. Regions that crossed themselves are repaired when saved, and their membership no longer fails to load.
+
+- Fixed: Each settings Edit button under My Organization names what it opens, such as "Edit Unit Defaults", "Edit Collection Timing" or "Edit Batch Tracking", instead of a bare "Edit". My Organization > Insecticides now shows whether insecticide batches are tracked.
+
+- Fixed: Profile, Search and What's New no longer highlight Overview in the rail or show the Overview sidebar, since they belong to no domain.
+
+- Fixed: A trap's Collections tab and the trap directory count a collection's species and mosquitoes the same way, from its females. Males are no longer counted, a species with a female and a male row counts once, and unidentified mosquitoes add to the mosquito count but not to species. In the directory the line reads "N species · M mosquitoes", and a collection of males alone reads "Not identified".
+
+- Fixed: Weather station detail no longer shows a "Provider" row on your Organization's own stations. A provider station labels the row Provider station ID.
+
 ## 0.12.0 — 2026-10-11
 
 ### Minor Changes

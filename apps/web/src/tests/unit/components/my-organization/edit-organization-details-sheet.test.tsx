@@ -65,7 +65,7 @@ describe('EditOrganizationDetailsSheet', () => {
 
 function openSheet(): void {
 	render(<EditOrganizationDetailsSheet defaultValues={DETAILS} title="Edit Organization" />);
-	fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+	fireEvent.click(screen.getByRole('button', { name: 'Edit Organization Details' }));
 }
 
 function save(): void {

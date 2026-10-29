@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import type { TrapListing } from '../../hooks/queries/use-active-traps';
+import { useSpeciesCatalog } from '../../hooks/queries/use-species-catalog';
 import { useSpeciesNames } from '../../hooks/queries/use-species-names';
 import { useTrapCollections } from '../../hooks/queries/use-trap-collections';
 import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { CollectionYears } from './collection-years';
+import { unidentifiedSpeciesIdsOf } from './trap-collection-tallies';
 import { type DirectoryCollection, groupByYear } from './trap-directory-data';
 import { TrapHeader } from './trap-header';
 
@@ -29,6 +31,7 @@ export function TrapCollectionHistory({ trap }: { readonly trap: TrapListing }) 
 	// Resolved once for the pane rather than inside each row: reading the catalog
 	// per expanded collection would put a query behind every disclosure on the page.
 	const speciesNameById = useSpeciesNames();
+	const unidentifiedSpeciesIds = unidentifiedSpeciesIdsOf(useSpeciesCatalog());
 
 	return (
 		<CollectionYears
@@ -37,6 +40,7 @@ export function TrapCollectionHistory({ trap }: { readonly trap: TrapListing }) 
 			isReady={isReady}
 			onLoadEarlier={allSeasons ? undefined : () => setAllSeasons(true)}
 			speciesNameById={speciesNameById}
+			unidentifiedSpeciesIds={unidentifiedSpeciesIds}
 			years={years}
 		/>
 	);

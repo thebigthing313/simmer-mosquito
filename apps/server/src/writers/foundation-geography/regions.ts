@@ -3,8 +3,8 @@ import type { FoundationCommand } from '@simmer-mosquito/domain';
 import { returnColumns } from '../../return-columns.js';
 import {
 	type FoundationTransaction,
-	geojsonToGeom,
 	type RegionRow,
+	regionGeojsonToGeom,
 	softDelete,
 	updateRow,
 } from './shared.js';
@@ -31,7 +31,7 @@ export async function writeRegionCommand(
 						id: command.payload.regionId,
 						organization_id: command.payload.organizationId,
 						region_folder_id: command.payload.regionFolderId,
-						geom: geojsonToGeom(command.payload.geometry),
+						geom: regionGeojsonToGeom(command.payload.geometry),
 						name: command.payload.name,
 						description: command.payload.description,
 						metadata: command.payload.metadata,
@@ -61,7 +61,7 @@ export async function writeRegionCommand(
 			});
 		case 'foundation.updateRegionGeometry':
 			return updateRegion(trx, command.payload.regionId, command.payload.organizationId, {
-				geom: geojsonToGeom(command.payload.geometry),
+				geom: regionGeojsonToGeom(command.payload.geometry),
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'foundation.deleteRegion':

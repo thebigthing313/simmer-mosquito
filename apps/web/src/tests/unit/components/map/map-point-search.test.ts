@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	formatLatLng,
-	mapPointSearchSchema,
-	pointFromSearch,
-} from '../../../../components/map/map-point-search';
+import { mapPointSearchSchema, pointFromSearch } from '../../../../components/map/map-point-search';
 
 /** What the router actually hands `validateSearch`: strings, or nothing. */
 const parse = (raw: Record<string, unknown>) => mapPointSearchSchema.parse(raw);
@@ -61,15 +57,5 @@ describe('pointFromSearch', () => {
 			type: 'Point',
 			coordinates: [-71.0589, 0],
 		});
-	});
-});
-
-describe('formatLatLng', () => {
-	it('reads latitude first, at six places', () => {
-		expect(formatLatLng(42.3601, -71.0589)).toBe('42.360100, -71.058900');
-	});
-
-	it('pads rather than rounding away a whole coordinate', () => {
-		expect(formatLatLng(0, 0)).toBe('0.000000, 0.000000');
 	});
 });

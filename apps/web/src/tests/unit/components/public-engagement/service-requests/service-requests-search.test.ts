@@ -16,8 +16,8 @@ import {
 import { resolveFilters, searchValidator } from '../../../../../lib/search-filters';
 
 describe('the service requests filter contract', () => {
-	it('opens on every status, this year to date', () => {
-		const defaults = serviceRequestFilterDefaults('2026-09-15');
+	it('opens on every status inside the window it is given', () => {
+		const defaults = serviceRequestFilterDefaults({ from: '2026-01-01', to: '2026-09-15' });
 
 		expect(resolveFilters(defaults, serviceRequestFilterCodecs, {})).toMatchObject({
 			status: 'all',
@@ -27,7 +27,7 @@ describe('the service requests filter contract', () => {
 	});
 
 	it('reads All time as no bound at either end', () => {
-		const defaults = serviceRequestFilterDefaults('2026-09-15');
+		const defaults = serviceRequestFilterDefaults({ from: '2026-01-01', to: '2026-09-15' });
 
 		expect(
 			resolveFilters(defaults, serviceRequestFilterCodecs, { from: 'any', to: 'any' }),
@@ -42,7 +42,7 @@ describe('the service requests filter contract', () => {
 	});
 
 	it('opens with Overdue off and keeps it off the address bar until it is on', () => {
-		const defaults = serviceRequestFilterDefaults('2026-09-15');
+		const defaults = serviceRequestFilterDefaults({ from: '2026-01-01', to: '2026-09-15' });
 		const validate = searchValidator(serviceRequestFilterCodecs);
 
 		expect(defaults.overdue).toBe(false);

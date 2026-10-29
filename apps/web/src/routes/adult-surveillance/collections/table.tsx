@@ -2,10 +2,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { CollectionFilterFields } from '../../../components/adult-surveillance/collections/collection-filters';
 import type { CollectionListRow } from '../../../components/adult-surveillance/collections/collection-row-parts';
-import {
-	COLLECTION_WINDOW_DAYS,
-	collectionRecordSet,
-} from '../../../components/adult-surveillance/collections/collections-search';
+import { collectionRecordSet } from '../../../components/adult-surveillance/collections/collections-search';
 import { CollectionsTable } from '../../../components/adult-surveillance/collections/collections-table';
 import { surfaceCodecs } from '../../../components/explorer/record-set';
 import { RecordSetTablePage } from '../../../components/explorer/record-set-table-page';
@@ -20,8 +17,9 @@ export const Route = createFileRoute('/adult-surveillance/collections/table')({
 const CollectionIcon = iconRegistry.entities.collection.icon;
 
 /**
- * The Collections in the date window as a table, newest first, narrowed by
- * the same filters as the Collections Map.
+ * Every Collection as a table, newest first, narrowed by the same filters as
+ * the Collections Map. It opens on all time where the Map opens on a window,
+ * which the set's `windows` state.
  */
 function CollectionsTableRoute() {
 	const binding = useRecordSetFilters(collectionRecordSet, 'table');
@@ -29,11 +27,10 @@ function CollectionsTableRoute() {
 	return (
 		<RecordSetTablePage
 			binding={binding}
-			description="Collections in the date window, newest first."
+			description="Every collection, newest first."
 			empty={{
-				emptyDescription: `Collections made in the last ${COLLECTION_WINDOW_DAYS} days show here.`,
+				emptyDescription: 'Collections show here as crews record them.',
 				filteredDescription: 'No collection matches what is set above.',
-				scope: { kind: 'lastDays', days: COLLECTION_WINDOW_DAYS },
 			}}
 			filters={<CollectionFilterFields binding={binding} wide />}
 			icon={CollectionIcon}

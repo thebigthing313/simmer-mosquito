@@ -2,10 +2,8 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-	RecordTableEmpty,
-	type RecordTableScope,
-} from '../../../../components/record/record-table-empty';
+import type { RecordEmptyScope } from '../../../../components/record/record-empty-title';
+import { RecordTableEmpty } from '../../../../components/record/record-table-empty';
 import { RecordTableUnavailable } from '../../../../components/record/record-table-unavailable';
 
 const HabitatIcon = iconRegistry.entities.habitat.icon;
@@ -21,7 +19,7 @@ function renderEmpty({
 	readonly isFiltered?: boolean;
 	readonly isLoading?: boolean;
 	readonly onClearFilters?: () => void;
-	readonly scope?: RecordTableScope;
+	readonly scope?: RecordEmptyScope;
 } = {}) {
 	return render(
 		<RecordTableEmpty

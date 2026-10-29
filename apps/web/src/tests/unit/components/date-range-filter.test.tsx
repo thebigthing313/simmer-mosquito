@@ -74,4 +74,17 @@ describe('DateRangeFilter', () => {
 		]);
 		expect(octoberReachableFromEnd()).toBe(true);
 	});
+
+	/*
+	 * #1658: the Service Requests and Inspections bars drop this filter straight
+	 * into a two-column grid. A taller right column stretched the grid row, the
+	 * filter's own rows stretched with it, and the presets drew 79px tall. jsdom
+	 * lays nothing out, so this reads the class that packs the rows to the top.
+	 */
+	it('packs its rows to the top so a taller container cannot stretch the presets', () => {
+		renderFilter();
+		const presetRow = screen.getByRole('button', { name: 'Last 7 Days' }).parentElement;
+		const root = presetRow?.parentElement;
+		expect(root?.classList.contains('content-start')).toBe(true);
+	});
 });

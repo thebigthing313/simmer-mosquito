@@ -176,6 +176,22 @@ export function createLabel(recordType: RecordType): string {
 	return `${CREATE_VERBS[recordType]} ${recordNoun(recordType).title}`;
 }
 
+/**
+ * {@link createLabel} in sentence case: the same verb, then the register's
+ * lowercase singular. `Record chemical application`, `Create trap`.
+ *
+ * For the items in a detail page's `...` menu, which sit under the record's
+ * own heading. They used to spell their own labels, and the nouns had drifted
+ * from the register: `Record biocontrol release` in the menu and `Record
+ * biocontrol` on a mission stop, for a form the register calls a biocontrol
+ * action (#1702). The stop's button reads {@link createLabel} now, because a
+ * button with visible text takes Title Case, so the two places read the same
+ * words in different case.
+ */
+export function createSentenceLabel(recordType: RecordType): string {
+	return `${CREATE_VERBS[recordType]} ${recordNoun(recordType).one}`;
+}
+
 /** The same label over a record type's title-cased plural: `Import Regions`. */
 function createPluralLabel(verb: string, recordType: RecordType): string {
 	return `${verb} ${recordNoun(recordType).titleMany}`;
@@ -960,6 +976,8 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 				],
 			},
+			// Key Bindings belongs here: the keys it assigns are species keys, read
+			// only by sample and collection key entry (#1656).
 			{
 				id: 'organization-surveillance',
 				label: 'Surveillance',
@@ -1000,6 +1018,15 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/my-organization/insecticides',
 						icon: iconRegistry.entities.insecticide.icon,
 					},
+				],
+			},
+			// Its own heading, as Regions has, rather than a row under Control: the
+			// page holds service request context, outreach methods and notification
+			// types, none of which is control work. The breadcrumb drops the repeat.
+			{
+				id: 'organization-public-engagement',
+				label: 'Public Engagement',
+				items: [
 					{
 						id: 'org-public',
 						label: 'Public Engagement',

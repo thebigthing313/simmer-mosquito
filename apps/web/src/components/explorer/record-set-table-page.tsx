@@ -1,7 +1,8 @@
 /**
  * A record set's Table: the header with the switch to the Map, the filter
  * controls, the load-failure strip, the empty state, and a page of rows with
- * the pager, over the set's list endpoint under a box around the whole world.
+ * the pager, over the set's list endpoint under a box around the whole world,
+ * and the Export control over every match.
  * Takes the set, the Table's filter binding and validated search, the filter
  * controls and the rows as the kind draws them.
  */
@@ -13,18 +14,22 @@ import { usePagedMapResource, WHOLE_WORLD_BBOX } from '../../hooks/explorer/use-
 import type { RecordSetFilterBinding } from '../../hooks/explorer/use-record-set-filters';
 import { type MapQueryValue, mapQueryParams } from '../../lib/map-query-params';
 import { recordNoun } from '../../lib/record-nouns';
+import type { ValidatedSearch } from '../../lib/search-filters';
 import { OutletSimpleLayout } from '../app-shell';
 import { ExplorerPagination } from '../explorer-pagination';
-import { RecordTableEmpty, type RecordTableScope } from '../record/record-table-empty';
+import { RecordTableEmpty } from '../record/record-table-empty';
 import { RecordTableUnavailable } from '../record/record-table-unavailable';
-import { type RecordSet, recordSetListParams } from './record-set';
+import { type RecordSet, recordSetExportRequest, recordSetListParams } from './record-set';
+import { RecordSetExport } from './record-set-export';
 import { RecordSetSwitch } from './record-set-switch';
 
-/** What the empty state says, with nothing set and with filters set. */
+/**
+ * What the empty state says under its title, with nothing set and with filters
+ * set. The titles are the set's: its `emptyScope` for the Table names the first.
+ */
 export interface RecordSetTableEmptyCopy {
 	readonly emptyDescription: string;
 	readonly filteredDescription: string;
-	readonly scope: RecordTableScope;
 }
 
 export function RecordSetTablePage<TFilters, TTile, TRow>({
@@ -44,7 +49,7 @@ export function RecordSetTablePage<TFilters, TTile, TRow>({
 	/** The Table's binding, from `useRecordSetFilters(set, 'table')`. */
 	readonly binding: RecordSetFilterBinding<TFilters>;
 	/** The route's validated search, which the switch carries from. */
-	readonly search: Record<string, unknown>;
+	readonly search: ValidatedSearch<NoInfer<TFilters>>;
 	readonly icon: RegistryIcon;
 	/** The heading, where the surface is named for more than its records. Left out, the register's plural. */
 	readonly title?: string;
@@ -60,25 +65,33 @@ export function RecordSetTablePage<TFilters, TTile, TRow>({
 	readonly normalizeRow?: (row: TRow) => TRow;
 }) {
 	const noun = recordNoun(set.recordType);
+	const query = mapQueryParams({
+		bbox: WHOLE_WORLD_BBOX,
+		...recordSetListParams(set, binding.filters, binding.context),
+		...params,
+	});
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
 		usePagedMapResource<TRow>({
 			path: set.endpoint.path,
 			rowsKey: set.endpoint.rowsKey,
 			recordType: set.recordType,
-			params: mapQueryParams({
-				bbox: WHOLE_WORLD_BBOX,
-				...recordSetListParams(set, binding.filters, binding.context),
-				...params,
-			}),
+			params: query,
 			...(normalizeRow === undefined ? {} : { normalizeRow }),
 		});
+	// Every match for the filters: the page's request under the same box, unpaged.
+	const exportRequest = recordSetExportRequest(set, query, binding.context.today);
 
 	// `record` is the measure the route-loading skeleton reserves, so the table
 	// arrives at the width it stood in for (#1043, #1047).
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
-				actions={<RecordSetSwitch current="table" search={search} set={set} />}
+				actions={
+					<>
+						<RecordSetExport request={exportRequest} />
+						<RecordSetSwitch current="table" search={search} set={set} />
+					</>
+				}
 				description={description}
 				icon={icon}
 				title={title ?? noun.titleMany}
@@ -94,6 +107,7 @@ export function RecordSetTablePage<TFilters, TTile, TRow>({
 					isLoading={isLoading}
 					onClearFilters={binding.clearAll}
 					recordType={set.recordType}
+					scope={set.emptyScope('table')}
 				/>
 			) : (
 				<div className="grid gap-3">

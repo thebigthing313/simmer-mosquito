@@ -4,9 +4,11 @@ import {
 	PostgresAdapter,
 	PostgresIntrospector,
 	PostgresQueryCompiler,
+	sql,
 } from 'kysely';
 import { describe, expect, it } from 'vitest';
 import { getRequestedControlActionDisplayRowById } from '../../../domains/control-operations-map.js';
+import { MAP_EXPORT_CEILING, mapRecordSurface } from '../../../domains/map-surface.js';
 import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import type { SimmerDatabase } from '../../../index.js';
 
@@ -827,6 +829,266 @@ describe('map surface scope', () => {
 			.join('\n\n');
 
 		await expect(dump).toMatchFileSnapshot('./__snapshots__/map-surface-sql.snap.sql');
+	});
+});
+
+/**
+ * Every export read, each with every filter its surface accepts set. An export
+ * is two statements, the count and the rows, and both have to hold the scope
+ * and the box, or the count that decides the ceiling and the rows in the file
+ * would be two different sets.
+ */
+const exportReads: ReadonlyArray<{
+	readonly name: string;
+	readonly organizationAlias: string;
+	readonly geomAlias: string;
+	readonly read: (db: Kysely<SimmerDatabase>) => Promise<unknown>;
+}> = [
+	{
+		name: 'inspection export',
+		organizationAlias: 'i',
+		geomAlias: 'i',
+		read: (db) =>
+			MAP_SURFACES.inspections.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: {
+					isWet: true,
+					densities: ['light'],
+					positiveOnly: true,
+					habitatTypeIds: ids,
+					inspectedByProfileIds: ids,
+					regionIds,
+					...dates,
+				},
+			}),
+	},
+	{
+		name: 'habitat export',
+		organizationAlias: 'h',
+		geomAlias: 'h',
+		read: (db) =>
+			MAP_SURFACES.habitats.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: {
+					isActive: true,
+					habitatTypeIds: ids,
+					tagIds: ids,
+					regionIds,
+					search: 'ditch',
+					untreatedOnly: true,
+				},
+			}),
+	},
+	{
+		name: 'sample export',
+		organizationAlias: 's',
+		geomAlias: 'i',
+		read: (db) =>
+			MAP_SURFACES.samples.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: {
+					speciesIds: ids,
+					status: 'awaiting',
+					nonMosquitoOnly: true,
+					regionIds,
+					...dates,
+				},
+			}),
+	},
+	{
+		name: 'trap export',
+		organizationAlias: 't',
+		geomAlias: 't',
+		read: (db) =>
+			MAP_SURFACES.traps.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: { collectionMethodIds: ids, isActive: true, search: 'gravid', regionIds },
+			}),
+	},
+	{
+		name: 'collection export',
+		organizationAlias: 'c',
+		geomAlias: 'c',
+		read: (db) =>
+			MAP_SURFACES.collections.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: {
+					collectionMethodIds: ids,
+					problemOnly: true,
+					awaitingOnly: true,
+					regionIds,
+					...dates,
+				},
+			}),
+	},
+	{
+		name: 'application export',
+		organizationAlias: 'a',
+		geomAlias: 'a',
+		read: (db) =>
+			MAP_SURFACES.chemical.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: {
+					insecticideIds: ids,
+					applicationMethodIds: ids,
+					applicatorProfileIds: ids,
+					regionIds,
+					...dates,
+				},
+			}),
+	},
+	{
+		name: 'source reduction export',
+		organizationAlias: 'sr',
+		geomAlias: 'sr',
+		read: (db) =>
+			MAP_SURFACES['source-reduction'].exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: {
+					sourceReductionMethodIds: ids,
+					technicianProfileIds: ids,
+					regionIds,
+					...dates,
+				},
+			}),
+	},
+	{
+		name: 'biocontrol export',
+		organizationAlias: 'ba',
+		geomAlias: 'ba',
+		read: (db) =>
+			MAP_SURFACES.biocontrol.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: {
+					biocontrolMethodIds: ids,
+					technicianProfileIds: ids,
+					habitatLinkedOnly: true,
+					regionIds,
+					...dates,
+				},
+			}),
+	},
+	{
+		name: 'outreach export',
+		organizationAlias: 'oa',
+		geomAlias: 'oa',
+		read: (db) =>
+			MAP_SURFACES.outreach.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: { outreachMethodIds: ids, technicianProfileIds: ids, regionIds, ...dates },
+			}),
+	},
+	{
+		name: 'address export',
+		organizationAlias: 'a',
+		geomAlias: 'a',
+		read: (db) =>
+			MAP_SURFACES.addresses.exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: { search: 'main st', regionIds },
+			}),
+	},
+	{
+		name: 'service request export',
+		organizationAlias: 'sr',
+		geomAlias: 'sr',
+		read: (db) =>
+			MAP_SURFACES['service-requests'].exportByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				filters: { isOpen: false, search: '#12', tagIds: ids, regionIds, oldestFirst: true },
+			}),
+	},
+];
+
+describe('map surface export', () => {
+	it('is part of declaring a record surface', () => {
+		const declaration = {
+			layer: 'habitats',
+			from: sql`habitats h`,
+			alias: 'h',
+			geom: sql`h.geom`,
+			properties: [],
+			display: { columns: { id: sql`h.id` }, orderBy: sql`h.id` },
+		} as const;
+
+		// A record set with no export cannot be declared, so no Map or Table
+		// ships without the file its frame offers.
+		// @ts-expect-error `export` is required.
+		const withoutExport = () => mapRecordSurface<unknown, { id: string }>(declaration);
+		const withExport = mapRecordSurface<unknown, { id: string }>({
+			...declaration,
+			export: { columns: () => [{ header: 'Id', value: sql`h.id` }] },
+		});
+
+		expect(typeof withoutExport).toBe('function');
+		expect(typeof withExport.exportByBounds).toBe('function');
+	});
+
+	it.each(
+		exportReads.map((read) => [read.name, read] as const),
+	)('the %s counts and reads one scoped box', async (_name, exportRead) => {
+		const { db, queries } = compilingDatabase();
+
+		await exportRead.read(db);
+
+		expect(queries).toHaveLength(2);
+		for (const query of queries) {
+			const compiled = normalize(query.sql);
+			expect(query.parameters).toContain(organizationId);
+			expect(compiled).toContain(`${exportRead.organizationAlias}.organization_id = $`);
+			expect(compiled).toContain(`${exportRead.organizationAlias}.deleted_at is null`);
+			const overlap = compiled.indexOf(`${exportRead.geomAlias}.geom && bounds.geom_4326`);
+			expect(overlap).toBeGreaterThan(-1);
+			expect(
+				compiled.indexOf(`st_intersects(${exportRead.geomAlias}.geom, bounds.geom_4326)`),
+			).toBeGreaterThan(overlap);
+		}
+		// The rows are not paged. The one limit is a row past the ceiling, which
+		// refuses a box that grew over it between the count and the read.
+		expect(normalize(queries[1]?.sql ?? '')).not.toMatch(/\boffset\b/);
+		expect(queries[1]?.parameters.at(-1)).toBe(MAP_EXPORT_CEILING + 1);
+	});
+
+	it('emits the same SQL for every export read', async () => {
+		const { db, queries } = compilingDatabase();
+
+		for (const exportRead of exportReads) {
+			await exportRead.read(db);
+		}
+
+		const dump = exportReads
+			.map((exportRead, index) =>
+				[
+					`-- ${exportRead.name}`,
+					normalize(queries[index * 2]?.sql ?? ''),
+					normalize(queries[index * 2 + 1]?.sql ?? ''),
+				].join('\n'),
+			)
+			.join('\n\n');
+
+		await expect(dump).toMatchFileSnapshot('./__snapshots__/map-surface-export-sql.snap.sql');
 	});
 });
 

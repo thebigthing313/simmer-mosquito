@@ -60,6 +60,7 @@ function renderYears(
 			isReady={true}
 			onLoadEarlier={onLoadEarlier}
 			speciesNameById={new Map()}
+			unidentifiedSpeciesIds={new Set()}
 			years={years}
 		/>,
 	);

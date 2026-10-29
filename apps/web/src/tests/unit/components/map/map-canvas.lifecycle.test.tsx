@@ -98,7 +98,11 @@ class FakeMap {
 	rotateTo() {}
 	flyTo() {}
 	easeTo() {}
-	fitBounds() {}
+	/** Every box the map was asked to fit, in order. */
+	readonly fitted: unknown[] = [];
+	fitBounds(bounds: unknown) {
+		this.fitted.push(bounds);
+	}
 	resize() {}
 	setStyle() {}
 	addControl() {}
@@ -156,6 +160,11 @@ vi.mock('../../../../components/map/mapbox-gl-loader', () => ({
 
 vi.stubEnv('VITE_MAPBOX_ACCESS_TOKEN', 'pk.test');
 
+// Signed out unless a case signs in: the stored explorer camera is kept per
+// Organization, so only a signed-in map can read one.
+const auth = vi.hoisted(() => ({ snapshot: null as unknown }));
+vi.mock('../../../../hooks/use-auth-snapshot', () => ({ useAuthSnapshot: () => auth.snapshot }));
+
 const { StopSequenceMap } = await import('../../../../components/map/stop-sequence-map');
 const { MapCanvas } = await import('../../../../components/map/map-canvas');
 const { mapClustering } = await import('../../../../lib/map-clustering');
@@ -166,6 +175,10 @@ const { organizations } = await import('../../../../lib/collections/organization
 const { DEFAULT_MAP_CAMERA, ORGANIZATION_MAP_ZOOM } = await import(
 	'../../../../components/map/map-styles'
 );
+const { allRegionsExtentUrl } = await import('../../../../components/map/tile-layers');
+const { getServerUrl } = await import('../../../../auth');
+const { explorerCameraKey, writeExplorerCamera } = await import('../../../../lib/explorer-camera');
+const { signedInSnapshotAs } = await import('../../routes/route-mock-stand-ins');
 
 const roots: Array<{ container: HTMLElement; unmount: () => void }> = [];
 
@@ -246,6 +259,9 @@ afterEach(() => {
 	created.length = 0;
 	pendingLoader = null;
 	releaseRuntime = null;
+	auth.snapshot = null;
+	localStorage.clear();
+	vi.unstubAllGlobals();
 });
 
 const STOPS = [
@@ -529,6 +545,116 @@ describe('MapCanvas opening camera (issue #1413)', () => {
 			center: DEFAULT_MAP_CAMERA.center,
 			zoom: DEFAULT_MAP_CAMERA.zoom,
 		});
+	});
+});
+
+/*
+ * A map that fits only to its own rows used to have nothing to fit when it had
+ * no rows, and fell through to the map centre, which is null on every
+ * Organization whose address was saved before the column existed (#1650). An
+ * empty map now opens where the explorers do.
+ */
+describe('MapCanvas with no rows of its own (issue #1650)', () => {
+	const REGIONS = { west: -74.6, south: 40.2, east: -74.1, north: 40.6 };
+	const STORED = { center: [-74.3, 40.4] as [number, number], zoom: 12.5, bearing: 0, pitch: 0 };
+
+	function answerExtent(extent: typeof REGIONS | null) {
+		const fetchMock = vi.fn<typeof fetch>(
+			async () => new Response(JSON.stringify({ extent }), { status: 200 }),
+		);
+		vi.stubGlobal('fetch', fetchMock);
+		return fetchMock;
+	}
+
+	function requested(fetchMock: ReturnType<typeof answerExtent>): string[] {
+		return fetchMock.mock.calls.map(([input]) => String(input));
+	}
+
+	async function open(empty: boolean) {
+		const handle = mount(
+			<MapCanvas
+				controls={{ search: false, basemap: false, geolocate: false, zoom: false }}
+				empty={empty}
+			/>,
+		);
+		await loadRuntime();
+		await act(async () => {
+			latest().fire('load');
+		});
+		for (let turn = 0; turn < 5; turn += 1) {
+			await flush();
+		}
+		return handle;
+	}
+
+	beforeEach(() => {
+		auth.snapshot = signedInSnapshotAs('admin', 'org-1');
+		seedRows(organizations, [
+			{ id: 'org-1', name: 'Coastal MAD', map_center_lat: null, map_center_lng: null },
+		]);
+	});
+
+	it('opens on the camera the explorers stored for the Organization', async () => {
+		writeExplorerCamera(explorerCameraKey('org-1'), STORED);
+		const fetchMock = answerExtent(REGIONS);
+
+		await open(true);
+
+		expect(latest().options).toMatchObject({ center: STORED.center, zoom: STORED.zoom });
+		expect(requested(fetchMock)).not.toContain(allRegionsExtentUrl(getServerUrl()));
+		expect(latest().fitted).toEqual([]);
+	});
+
+	it("frames the Organization's Regions when no camera is stored", async () => {
+		const fetchMock = answerExtent(REGIONS);
+
+		await open(true);
+
+		expect(requested(fetchMock)).toContain(allRegionsExtentUrl(getServerUrl()));
+		expect(latest().fitted).toEqual([
+			[
+				[REGIONS.west, REGIONS.south],
+				[REGIONS.east, REGIONS.north],
+			],
+		]);
+	});
+
+	it('stays on the continental US with no Regions, no centre and no stored camera', async () => {
+		answerExtent(null);
+
+		await open(true);
+
+		expect(latest().options).toMatchObject({
+			center: DEFAULT_MAP_CAMERA.center,
+			zoom: DEFAULT_MAP_CAMERA.zoom,
+		});
+		expect(latest().fitted).toEqual([]);
+	});
+
+	it('leaves the Regions alone on a map that has rows', async () => {
+		const fetchMock = answerExtent(REGIONS);
+
+		await open(false);
+
+		expect(requested(fetchMock)).not.toContain(allRegionsExtentUrl(getServerUrl()));
+	});
+
+	it('does not frame the Regions when a filter empties a map that had rows', async () => {
+		const fetchMock = answerExtent(REGIONS);
+		const handle = await open(false);
+
+		handle.rerender(
+			<MapCanvas
+				controls={{ search: false, basemap: false, geolocate: false, zoom: false }}
+				empty
+			/>,
+		);
+		for (let turn = 0; turn < 5; turn += 1) {
+			await flush();
+		}
+
+		expect(requested(fetchMock)).not.toContain(allRegionsExtentUrl(getServerUrl()));
+		expect(latest().fitted).toEqual([]);
 	});
 });
 

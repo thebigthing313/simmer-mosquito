@@ -19,6 +19,7 @@
  * different href and fails here.
  */
 
+import { LINKED_RECORD_FAMILIES } from '@simmer-mosquito/domain';
 import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
@@ -33,9 +34,16 @@ import { applicationRecordSet } from '../../components/control-operations/chemic
 import { sourceReductionRecordSet } from '../../components/control-operations/source-reduction/source-reductions-search';
 import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
 import { DashboardPage } from '../../components/dashboard/dashboard-page';
-import { surfaceCodecs } from '../../components/explorer/record-set';
+import {
+	type RecordSetLinks,
+	type RecordSetSurface,
+	surfaceCodecs,
+} from '../../components/explorer/record-set';
 import { RecordSetSwitch } from '../../components/explorer/record-set-switch';
+import type { LinkedRecordItem } from '../../components/gis/addresses/address-linked-records';
+import { LinkedRecordsBody } from '../../components/gis/addresses/address-linked-records-card';
 import { addressRecordSet } from '../../components/gis/addresses/addresses-search';
+import { AddressesTable } from '../../components/gis/addresses/addresses-table';
 import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
 import { habitatRecordSet } from '../../components/larval-surveillance/habitats/habitats-search';
 import { inspectionRecordSet } from '../../components/larval-surveillance/inspections-search';
@@ -62,12 +70,25 @@ import { requested_control_actions } from '../../lib/collections/requested_contr
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 import { source_reductions } from '../../lib/collections/source_reductions';
+import { createOrganizationClock } from '../../lib/organization-clock';
 import { searchValidator } from '../../lib/search-filters';
 import { dayOverview, monthOverview, yearOverview } from './components/overview/overview-fixtures';
 import { installMemoryCollections, seedRows } from './lib/collections/memory-collections';
 import { STUB_ROW_HEIGHT, stubRailViewportHeight } from './rail-viewport-stub';
 import { linkHref, linkHrefs, renderWithRouter } from './router-harness';
 import { stubPanelLayout } from './routes/explorer-route-harness';
+
+/**
+ * `raw` as the `surface` route of `set` validates it: the search that route
+ * hands its switch. A param the surface has no codec for is gone from it.
+ */
+function validatedOn<TFilters extends object>(
+	set: RecordSetLinks<TFilters>,
+	surface: RecordSetSurface,
+	raw: Record<string, unknown>,
+) {
+	return searchValidator(surfaceCodecs(set, surface))(raw);
+}
 
 const HABITAT = 'habitat-1';
 
@@ -320,10 +341,11 @@ describe('the People roster', () => {
  *
  * The two surfaces read the same filter params and the sidebar links between
  * them carry none, so a reader who narrowed one arrived at the other unfiltered
- * (#521). The control that fixes it is a `Link` naming its `search`, and `tsc`
- * checks neither half of that: the search type both routes validate to is a
- * plain record, so a switch carrying nothing, or carrying the table's sort to a
- * map with no sort, compiles either way. Only the resolved href says which.
+ * (#521). The control that fixes it is a `Link` naming its `search`. `tsc`
+ * holds the switch to a search validated for its set (#1589), but not which
+ * keys it carries to which surface, so a switch carrying nothing, or carrying
+ * the table's sort to a map with no sort, compiles either way. Only the
+ * resolved href says which.
  *
  * The fixture sets five of the eight filters and both of the table's sort
  * params, so a link that carried everything and a link that carried only the
@@ -353,9 +375,7 @@ describe('the Inspections Map/Table switch', () => {
 	it('carries the filters from the Table to the Map, and leaves the sort and Region behind', () => {
 		// The Table's own validated search: Region has no codec the Table reads,
 		// so a hand-typed one is gone before the switch sees the address.
-		const tableAddress = searchValidator(surfaceCodecs(inspectionRecordSet, 'table'))(
-			HAND_TYPED_TABLE_ADDRESS,
-		);
+		const tableAddress = validatedOn(inspectionRecordSet, 'table', HAND_TYPED_TABLE_ADDRESS);
 
 		renderWithRouter(
 			<RecordSetSwitch current="table" search={tableAddress} set={inspectionRecordSet} />,
@@ -376,14 +396,24 @@ describe('the Inspections Map/Table switch', () => {
 		};
 
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={mapAddress} set={inspectionRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(inspectionRecordSet, 'map', mapAddress)}
+				set={inspectionRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/larval-surveillance/inspections/table?${SHARED}`);
 	});
 
 	it('offers the two surfaces and nothing else', () => {
-		renderWithRouter(<RecordSetSwitch current="map" search={{}} set={inspectionRecordSet} />);
+		renderWithRouter(
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(inspectionRecordSet, 'map', {})}
+				set={inspectionRecordSet}
+			/>,
+		);
 
 		expect(linkHrefs()).toEqual([
 			'/larval-surveillance/inspections',
@@ -397,22 +427,74 @@ describe('the Inspections Map/Table switch', () => {
  * register, so it is spelled out here rather than built the same way.
  */
 describe('the name of each Map/Table switch', () => {
+	/**
+	 * A switch over `set` on an empty Map address. Built per set, because the
+	 * switch is generic over the set's filters and a union of sets infers none.
+	 */
+	function emptyMapSwitch<TFilters extends object>(set: RecordSetLinks<TFilters>) {
+		return <RecordSetSwitch current="map" search={validatedOn(set, 'map', {})} set={set} />;
+	}
+
 	it.each([
-		['Habitats view', habitatRecordSet],
-		['Inspections view', inspectionRecordSet],
-		['Samples view', sampleRecordSet],
-		['Traps view', trapRecordSet],
-		['Collections view', collectionRecordSet],
-		['Chemical applications view', applicationRecordSet],
-		['Biocontrol actions view', biocontrolRecordSet],
-		['Source reductions view', sourceReductionRecordSet],
-		['Outreach actions view', outreachRecordSet],
-		['Service requests view', serviceRequestRecordSet],
-		['Addresses view', addressRecordSet],
-	] as const)('is %s', async (name, set) => {
-		renderWithRouter(<RecordSetSwitch current="map" search={{}} set={set} />);
+		['Habitats view', emptyMapSwitch(habitatRecordSet)],
+		['Inspections view', emptyMapSwitch(inspectionRecordSet)],
+		['Samples view', emptyMapSwitch(sampleRecordSet)],
+		['Traps view', emptyMapSwitch(trapRecordSet)],
+		['Collections view', emptyMapSwitch(collectionRecordSet)],
+		['Chemical applications view', emptyMapSwitch(applicationRecordSet)],
+		['Biocontrol actions view', emptyMapSwitch(biocontrolRecordSet)],
+		['Source reductions view', emptyMapSwitch(sourceReductionRecordSet)],
+		['Outreach actions view', emptyMapSwitch(outreachRecordSet)],
+		['Service requests view', emptyMapSwitch(serviceRequestRecordSet)],
+		['Addresses view', emptyMapSwitch(addressRecordSet)],
+	] as const)('is %s', async (name, element) => {
+		renderWithRouter(element);
 
 		expect(await screen.findByRole('navigation', { name })).toBeTruthy();
+	});
+});
+
+/**
+ * The search a switch takes. Every route hands its switch `Route.useSearch()`,
+ * and `tsc` holds that to the set beside it, so a route passing another set's
+ * search, or none, fails to compile rather than drawing a switch that carries
+ * nothing (#1589). Each element is built and never drawn: the cases are the
+ * `@ts-expect-error` lines, which fail the typecheck once the switch takes the
+ * search they mark.
+ */
+describe('the search a Map/Table switch takes', () => {
+	it('is a search validated for its own set', () => {
+		const switches = [
+			<RecordSetSwitch
+				current="map"
+				key="plain"
+				// @ts-expect-error: no route validated a literal.
+				search={{}}
+				set={habitatRecordSet}
+			/>,
+			<RecordSetSwitch
+				current="map"
+				key="other-set"
+				// @ts-expect-error: a Traps search beside the Habitats set.
+				search={validatedOn(trapRecordSet, 'map', {})}
+				set={habitatRecordSet}
+			/>,
+			<RecordSetSwitch
+				current="map"
+				key="more-filters"
+				// @ts-expect-error: Traps' filters hold every Address filter and more.
+				search={validatedOn(trapRecordSet, 'map', {})}
+				set={addressRecordSet}
+			/>,
+			<RecordSetSwitch
+				current="map"
+				key="own-set"
+				search={validatedOn(addressRecordSet, 'map', {})}
+				set={addressRecordSet}
+			/>,
+		];
+
+		expect(switches).toHaveLength(4);
 	});
 });
 
@@ -435,7 +517,11 @@ describe('the Service Requests Map/Table switch', () => {
 		};
 
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={mapAddress} set={serviceRequestRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(serviceRequestRecordSet, 'map', mapAddress)}
+				set={serviceRequestRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/public-engagement/service-requests/table?${CARRIED}`);
@@ -451,7 +537,11 @@ describe('the Service Requests Map/Table switch', () => {
 		};
 
 		renderWithRouter(
-			<RecordSetSwitch current="table" search={tableAddress} set={serviceRequestRecordSet} />,
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(serviceRequestRecordSet, 'table', tableAddress)}
+				set={serviceRequestRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Map')).toBe(`/public-engagement/service-requests?${CARRIED}`);
@@ -476,14 +566,24 @@ describe('the Habitats Map/Table switch', () => {
 
 	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={habitatRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(habitatRecordSet, 'map', { ...ADDRESS, page: 3 })}
+				set={habitatRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/larval-surveillance/habitats/table?${CARRIED}`);
 	});
 
 	it('carries every filter from the Table to the Map', () => {
-		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={habitatRecordSet} />);
+		renderWithRouter(
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(habitatRecordSet, 'table', ADDRESS)}
+				set={habitatRecordSet}
+			/>,
+		);
 
 		expect(linkHref('Map')).toBe(`/larval-surveillance/habitats?${CARRIED}`);
 	});
@@ -505,13 +605,25 @@ describe('the Samples Map/Table switch', () => {
 		'from=2026-08-01&to=2026-08-31&status=identified&species=%5B%22species-1%22%5D&regions=%5B%22region-1%22%5D';
 
 	it('carries every filter from the Map to the Table', () => {
-		renderWithRouter(<RecordSetSwitch current="map" search={ADDRESS} set={sampleRecordSet} />);
+		renderWithRouter(
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(sampleRecordSet, 'map', ADDRESS)}
+				set={sampleRecordSet}
+			/>,
+		);
 
 		expect(linkHref('Table')).toBe(`/larval-surveillance/samples/table?${CARRIED}`);
 	});
 
 	it('carries every filter from the Table to the Map', () => {
-		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={sampleRecordSet} />);
+		renderWithRouter(
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(sampleRecordSet, 'table', ADDRESS)}
+				set={sampleRecordSet}
+			/>,
+		);
 
 		expect(linkHref('Map')).toBe(`/larval-surveillance/samples?${CARRIED}`);
 	});
@@ -533,14 +645,24 @@ describe('the Traps Map/Table switch', () => {
 
 	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={trapRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(trapRecordSet, 'map', { ...ADDRESS, page: 3 })}
+				set={trapRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/adult-surveillance/traps/table?${CARRIED}`);
 	});
 
 	it('carries every filter from the Table to the Map', () => {
-		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={trapRecordSet} />);
+		renderWithRouter(
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(trapRecordSet, 'table', ADDRESS)}
+				set={trapRecordSet}
+			/>,
+		);
 
 		expect(linkHref('Map')).toBe(`/adult-surveillance/traps?${CARRIED}`);
 	});
@@ -564,7 +686,11 @@ describe('the Collections Map/Table switch', () => {
 
 	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={collectionRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(collectionRecordSet, 'map', { ...ADDRESS, page: 3 })}
+				set={collectionRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/adult-surveillance/collections/table?${CARRIED}`);
@@ -572,7 +698,11 @@ describe('the Collections Map/Table switch', () => {
 
 	it('carries every filter from the Table to the Map', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="table" search={ADDRESS} set={collectionRecordSet} />,
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(collectionRecordSet, 'table', ADDRESS)}
+				set={collectionRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Map')).toBe(`/adult-surveillance/collections?${CARRIED}`);
@@ -597,7 +727,11 @@ describe('the Chemical Applications Map/Table switch', () => {
 
 	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={applicationRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(applicationRecordSet, 'map', { ...ADDRESS, page: 3 })}
+				set={applicationRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/control-operations/chemical/table?${CARRIED}`);
@@ -605,7 +739,11 @@ describe('the Chemical Applications Map/Table switch', () => {
 
 	it('carries every filter from the Table to the Map', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="table" search={ADDRESS} set={applicationRecordSet} />,
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(applicationRecordSet, 'table', ADDRESS)}
+				set={applicationRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Map')).toBe(`/control-operations/chemical?${CARRIED}`);
@@ -632,7 +770,7 @@ describe('the Source Reductions Map/Table switch', () => {
 		renderWithRouter(
 			<RecordSetSwitch
 				current="map"
-				search={{ ...ADDRESS, page: 3 }}
+				search={validatedOn(sourceReductionRecordSet, 'map', { ...ADDRESS, page: 3 })}
 				set={sourceReductionRecordSet}
 			/>,
 		);
@@ -642,7 +780,11 @@ describe('the Source Reductions Map/Table switch', () => {
 
 	it('carries every filter from the Table to the Map', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="table" search={ADDRESS} set={sourceReductionRecordSet} />,
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(sourceReductionRecordSet, 'table', ADDRESS)}
+				set={sourceReductionRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Map')).toBe(`/control-operations/source-reduction?${CARRIED}`);
@@ -668,7 +810,11 @@ describe('the Biocontrol Actions Map/Table switch', () => {
 
 	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={biocontrolRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(biocontrolRecordSet, 'map', { ...ADDRESS, page: 3 })}
+				set={biocontrolRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/control-operations/biocontrol/table?${CARRIED}`);
@@ -676,7 +822,11 @@ describe('the Biocontrol Actions Map/Table switch', () => {
 
 	it('carries every filter from the Table to the Map', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="table" search={ADDRESS} set={biocontrolRecordSet} />,
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(biocontrolRecordSet, 'table', ADDRESS)}
+				set={biocontrolRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Map')).toBe(`/control-operations/biocontrol?${CARRIED}`);
@@ -700,14 +850,24 @@ describe('the Outreach Actions Map/Table switch', () => {
 
 	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={outreachRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(outreachRecordSet, 'map', { ...ADDRESS, page: 3 })}
+				set={outreachRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/public-engagement/outreach/table?${CARRIED}`);
 	});
 
 	it('carries every filter from the Table to the Map', () => {
-		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={outreachRecordSet} />);
+		renderWithRouter(
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(outreachRecordSet, 'table', ADDRESS)}
+				set={outreachRecordSet}
+			/>,
+		);
 
 		expect(linkHref('Map')).toBe(`/public-engagement/outreach?${CARRIED}`);
 	});
@@ -723,16 +883,56 @@ describe('the Addresses Map/Table switch', () => {
 
 	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
 		renderWithRouter(
-			<RecordSetSwitch current="map" search={{ ...ADDRESS, page: 3 }} set={addressRecordSet} />,
+			<RecordSetSwitch
+				current="map"
+				search={validatedOn(addressRecordSet, 'map', { ...ADDRESS, page: 3 })}
+				set={addressRecordSet}
+			/>,
 		);
 
 		expect(linkHref('Table')).toBe(`/gis/addresses/table?${CARRIED}`);
 	});
 
 	it('carries every filter from the Table to the Map', () => {
-		renderWithRouter(<RecordSetSwitch current="table" search={ADDRESS} set={addressRecordSet} />);
+		renderWithRouter(
+			<RecordSetSwitch
+				current="table"
+				search={validatedOn(addressRecordSet, 'table', ADDRESS)}
+				set={addressRecordSet}
+			/>,
+		);
 
 		expect(linkHref('Map')).toBe(`/gis/addresses?${CARRIED}`);
+	});
+});
+
+/**
+ * A Table row's link, which names the Table in its URL so the record's trail
+ * keeps the Table even when the row is opened in a new tab (#1654). History
+ * state, which this used to ride on, does not reach a new tab.
+ */
+describe('a Table row', () => {
+	it('opens the record with the Table named in the URL', () => {
+		renderWithRouter(
+			<AddressesTable
+				rows={[
+					{
+						id: 'address-1',
+						lat: 0,
+						lng: 0,
+						displayName: 'Elm Yard',
+						country: 'US',
+						addressLine1: null,
+						addressLine2: null,
+						locality: null,
+						region: null,
+						postalCode: null,
+					},
+				]}
+			/>,
+		);
+
+		expect(linkHref('View Elm Yard')).toBe('/gis/addresses/address-1?via=table');
 	});
 });
 
@@ -773,6 +973,7 @@ describe('the Dashboard', () => {
 				id: 'inspection-today',
 				lat: 40,
 				lng: -74,
+				habitat_id: null,
 				inspection_date: '2026-09-15',
 				inspected_by_profile_id: 'profile-1',
 				is_wet: false,
@@ -1161,6 +1362,131 @@ describe('the nearby list', () => {
 		const index = CATEGORIES.indexOf('serviceRequest');
 		const href = `/public-engagement/service-requests/serviceRequest-${index}`;
 		expect(linkHrefs()).toEqual([href, href]);
+	});
+});
+
+/**
+ * The Address page's Linked Records, one tab per family.
+ *
+ * Ten kinds under seven tabs. Three of them link somewhere other than their own
+ * id: a registration opens its contact's registrations, and a Mission stop
+ * opens its Mission. Every fixture's foreign id differs from its own, so a
+ * row that read the wrong one resolves somewhere else and fails here.
+ */
+describe('the linked records on an address', () => {
+	const ITEMS: readonly LinkedRecordItem[] = [
+		linkedItem('serviceRequest', 'requests', 'request-1'),
+		linkedItem('notificationRegistration', 'requests', 'registration-1', {
+			contactId: 'contact-1',
+		}),
+		linkedItem('inspection', 'inspections', 'inspection-1'),
+		linkedItem('collection', 'collections', 'collection-1'),
+		linkedItem('application', 'controlActions', 'application-1'),
+		linkedItem('sourceReduction', 'controlActions', 'source-reduction-1'),
+		linkedItem('biocontrol', 'controlActions', 'biocontrol-1'),
+		linkedItem('outreach', 'outreach', 'outreach-1'),
+		linkedItem('requestedControlAction', 'requestedControlActions', 'rca-1', {
+			controlType: 'application',
+		}),
+		linkedItem('missionItem', 'missionStops', 'stop-1', {
+			detail: 'done',
+			controlType: 'application',
+			missionId: 'mission-1',
+			missionScheduledStartAt: '2026-08-05T10:00:00Z',
+			closedByCategory: 'application',
+			closedById: 'application-1',
+		}),
+	];
+
+	function linkedItem(
+		category: LinkedRecordItem['category'],
+		family: LinkedRecordItem['family'],
+		id: string,
+		overrides: Partial<LinkedRecordItem> = {},
+	): LinkedRecordItem {
+		return {
+			category,
+			family,
+			id,
+			lat: 30,
+			lng: -90,
+			date: '2026-08-01',
+			occurredAt: null,
+			label: `Record ${id}`,
+			placeName: null,
+			placeSource: null,
+			refId: null,
+			methodRefId: null,
+			amount: null,
+			unitId: null,
+			detail: null,
+			stages: null,
+			context: null,
+			hasBycatch: null,
+			tagIds: null,
+			controlType: null,
+			contactId: null,
+			contactName: null,
+			missionId: null,
+			missionName: null,
+			missionScheduledStartAt: null,
+			closedByCategory: null,
+			closedById: null,
+			closedByRefId: null,
+			...overrides,
+		};
+	}
+
+	const EXPECTED: readonly (readonly [RegExp, readonly string[]])[] = [
+		[
+			/^Requests\d+$/,
+			[
+				'/public-engagement/service-requests/request-1',
+				'/public-engagement/contacts/contact-1/registrations',
+			],
+		],
+		[/^Inspections/, ['/larval-surveillance/inspections/inspection-1']],
+		[/^Collections/, ['/adult-surveillance/collections/collection-1']],
+		[
+			/^Control Actions/,
+			[
+				'/control-operations/chemical/application-1',
+				'/control-operations/source-reduction/source-reduction-1',
+				'/control-operations/biocontrol/biocontrol-1',
+			],
+		],
+		[/^Outreach/, ['/public-engagement/outreach/outreach-1']],
+		[/^Requests for Control/, ['/operations/requests-for-control/rca-1']],
+		[/^Mission Stops/, ['/operations/missions/mission-1']],
+	];
+
+	it('sends each row to its own page, and a mission stop to its mission', () => {
+		renderWithRouter(
+			<LinkedRecordsBody
+				clock={createOrganizationClock('America/New_York')}
+				lookups={{ nameById: new Map(), formatQuantity: String, tagById: new Map() }}
+				read={{
+					data: {
+						addressId: 'address-1',
+						families: LINKED_RECORD_FAMILIES.map((family) => {
+							const items = ITEMS.filter((item) => item.family === family);
+							return { family, total: items.length, items };
+						}),
+						limit: 25,
+					},
+					isLoading: false,
+					isError: false,
+					refetch: () => Promise.resolve(),
+				}}
+			/>,
+		);
+
+		for (const [tab, hrefs] of EXPECTED) {
+			// `mouseDown`, for the reason the History card's cases give.
+			fireEvent.mouseDown(screen.getByRole('tab', { name: tab }));
+			// The title and the chevron are the row's two links.
+			expect(linkHrefs(), String(tab)).toEqual(hrefs.flatMap((href) => [href, href]));
+		}
 	});
 });
 

@@ -5,8 +5,12 @@ import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
 import type { MapTilesetLayer } from './map-layers.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import {
+	exportTimestamp,
+	exportVocabularyLabel,
+	exportYesNo,
 	type MapDisplayColumns,
 	type MapRecordSurfaceReaders,
+	type MapSurfaceExport,
 	mapRecordSurface,
 } from './map-surface.js';
 
@@ -235,6 +239,36 @@ export const positiveInspectionSql = sql<boolean>`coalesce(
 )`;
 
 /**
+ * An inspection as a spreadsheet row, over the display joins' habitat (`h`),
+ * address (`a`) and inspector (`p`), with the habitat type by name.
+ */
+const inspectionExport: MapSurfaceExport = {
+	joins: sql`left join habitat_types ht on ht.id = i.habitat_type_id`,
+	columns: (context) => [
+		{ header: 'Inspection date', value: sql`i.inspection_date::text` },
+		{ header: 'Habitat', value: sql`h.habitat_name` },
+		{ header: 'Habitat type', value: sql`ht.name` },
+		{ header: 'Address', value: sql`a.display_name` },
+		{ header: 'Inspected by', value: sql`p.display_name` },
+		{ header: 'Wet', value: exportYesNo(sql`i.is_wet`) },
+		{ header: 'Dips', value: sql`i.dip_count` },
+		{ header: 'Density', value: exportVocabularyLabel(sql`i.density`) },
+		{ header: 'Larvae', value: sql`i.larvae_count` },
+		{ header: 'Eggs', value: exportYesNo(sql`i.has_eggs`) },
+		{ header: '1st instar', value: exportYesNo(sql`i.has_first_instar`) },
+		{ header: '2nd instar', value: exportYesNo(sql`i.has_second_instar`) },
+		{ header: '3rd instar', value: exportYesNo(sql`i.has_third_instar`) },
+		{ header: '4th instar', value: exportYesNo(sql`i.has_fourth_instar`) },
+		{ header: 'Pupae', value: exportYesNo(sql`i.has_pupae`) },
+		{ header: 'Positive', value: exportYesNo(positiveInspectionSql) },
+		{ header: 'Latitude', value: sql`i.lat` },
+		{ header: 'Longitude', value: sql`i.lng` },
+		{ header: 'Recorded', value: exportTimestamp(sql`i.created_at`, context) },
+		{ header: 'Updated', value: exportTimestamp(sql`i.updated_at`, context) },
+	],
+};
+
+/**
  * The inspections map surface, with the layer it stamps into its tiles handed in
  * by the register it is declared in.
  */
@@ -268,6 +302,7 @@ export function inspectionSurface(
 			joins: inspectionDisplayJoins,
 			orderBy: sql`i.inspection_date desc, i.created_at desc, i.id`,
 		},
+		export: inspectionExport,
 	});
 }
 
@@ -466,6 +501,54 @@ const sampleDisplayColumns: MapDisplayColumns<SafeSampleDisplayRow> = {
 	updatedAt: sql`s.updated_at`,
 };
 
+/** A sample's status as the page's chips, rail and key name it. */
+const sampleStatusLabelSql = sql`case (${sampleStatusExpression})
+	when 'identified' then 'Identified'
+	when 'awaiting' then 'Awaiting ID'
+	when 'zero_larvae' then 'No larvae'
+	when 'unidentifiable' then 'Unidentifiable'
+end`;
+
+/**
+ * A sample as a spreadsheet row, over the display joins' habitat (`h`),
+ * address (`a`) and species roll-up (`agg`), with each identified species
+ * named and counted, most larvae first.
+ */
+const sampleExport: MapSurfaceExport = {
+	joins: sql`
+		left join profiles sp_by on sp_by.id = s.created_by_profile_id
+		left join lateral (
+			select string_agg(
+				sp.display_name || ' (' || ss.larvae_count || ')',
+				'; '
+				order by ss.larvae_count desc, sp.display_name
+			) as species
+			from sample_species ss
+			join species sp on sp.id = ss.species_id
+			where ss.sample_id = s.id and ss.deleted_at is null
+		) named on true
+	`,
+	columns: (context) => [
+		{ header: 'Sample', value: sql`s.display_name` },
+		{ header: 'Inspection date', value: sql`i.inspection_date::text` },
+		{ header: 'Habitat', value: sql`h.habitat_name` },
+		{ header: 'Address', value: sql`a.display_name` },
+		{ header: 'Status', value: sampleStatusLabelSql },
+		{ header: 'Species', value: sql`named.species` },
+		// Null until a species is keyed out, so an unread sample does not read as zero.
+		{ header: 'Larvae', value: sql`agg.larvae_total` },
+		{ header: 'Identified', value: sql`agg.identified_at` },
+		{ header: 'Zero larvae', value: exportYesNo(sql`s.is_zero_larvae`) },
+		{ header: 'Non-mosquito', value: exportYesNo(sql`s.has_non_mosquito`) },
+		{ header: 'Unidentifiable reason', value: sql`s.unidentifiable_reason` },
+		{ header: 'Recorded by', value: sql`sp_by.display_name` },
+		{ header: 'Latitude', value: sql`i.lat` },
+		{ header: 'Longitude', value: sql`i.lng` },
+		{ header: 'Recorded', value: exportTimestamp(sql`s.created_at`, context) },
+		{ header: 'Updated', value: exportTimestamp(sql`s.updated_at`, context) },
+	],
+};
+
 /**
  * The samples map surface, with the layer it stamps into its tiles handed in by
  * the register it is declared in.
@@ -498,6 +581,7 @@ export function sampleSurface(
 			joins: sampleDisplayJoins,
 			orderBy: sql`i.inspection_date desc, s.created_at desc, s.id`,
 		},
+		export: sampleExport,
 	});
 }
 

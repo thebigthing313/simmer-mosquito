@@ -32,6 +32,7 @@ export function EditLarvalSettingsSheet({ settings }: { readonly settings: Organ
 			description="Adjust inspection entry rules and optional density inference ranges."
 			failureMessage="Unable to save larval settings."
 			title="Edit Larval Surveillance"
+			triggerLabel="Edit Inspection Entry"
 			values={larvalSettingsFormValues(settings.larvalSurveillance.inspectionEntryPolicy)}
 			width="wide"
 			write={setLarvalInspectionEntryPolicy}

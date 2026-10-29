@@ -5,10 +5,7 @@ import {
 	type ApplicationListRow,
 	normalizeApplication,
 } from '../../../components/control-operations/chemical/application-row-parts';
-import {
-	APPLICATION_WINDOW_DAYS,
-	applicationRecordSet,
-} from '../../../components/control-operations/chemical/applications-search';
+import { applicationRecordSet } from '../../../components/control-operations/chemical/applications-search';
 import { ApplicationsTable } from '../../../components/control-operations/chemical/applications-table';
 import { surfaceCodecs } from '../../../components/explorer/record-set';
 import { RecordSetTablePage } from '../../../components/explorer/record-set-table-page';
@@ -23,8 +20,9 @@ export const Route = createFileRoute('/control-operations/chemical/table')({
 const ApplicationIcon = iconRegistry.entities.application.icon;
 
 /**
- * The Chemical Applications in the date window as a table, newest first,
- * narrowed by the same filters as the Chemical Applications Map.
+ * Every Chemical Application as a table, newest first, narrowed by the same
+ * filters as the Chemical Applications Map. It opens on all time where the Map
+ * opens on a window, which the set's `windows` state.
  */
 function ApplicationsTableRoute() {
 	const binding = useRecordSetFilters(applicationRecordSet, 'table');
@@ -32,11 +30,10 @@ function ApplicationsTableRoute() {
 	return (
 		<RecordSetTablePage
 			binding={binding}
-			description="Chemical applications in the date window, newest first."
+			description="Every chemical application, newest first."
 			empty={{
-				emptyDescription: `Chemical applications made in the last ${APPLICATION_WINDOW_DAYS} days show here.`,
+				emptyDescription: 'Chemical applications show here as crews record them.',
 				filteredDescription: 'No chemical application matches what is set above.',
-				scope: { kind: 'lastDays', days: APPLICATION_WINDOW_DAYS },
 			}}
 			filters={<ApplicationFilterFields binding={binding} wide />}
 			icon={ApplicationIcon}

@@ -218,12 +218,12 @@ taking arguments. The defaults come from `defaults(context, surface)`, and the
 context is the Organization's today and its settings. The window ends on the
 Organization's today rather than the browser's, because the server cuts a
 record's day in that zone too, and a window ending on the browser's day would
-drop the evening's records for a reader west of the Organization. Inspections
-is the one set whose two surfaces open on different windows, which its
-definition states: the Map draws every matching record at once, so a season of
-inspections is a solid block of dots and it opens on the last 30 days, while
-the Table says it holds every inspection and opens on all time. The window is
-a fixed number of days back rather than a calendar month, so the Map opens on
+drop the evening's records for a reader west of the Organization. Every dated
+set opens its two surfaces on different windows, which its `windows` state:
+the Map draws every matching record at once and opens on 30 days, 90 days or
+this year, while the Table pages and opens on all time (#1669). "The record
+tables" in `docs/web-components.md` has the list and the reasons. A window of
+days is a fixed number back rather than a calendar month, so the Map opens on
 the same amount of work whenever it is opened.
 
 A surface reads the set's codecs through `surfaceCodecs`, so a key it does not
@@ -284,13 +284,16 @@ hook says where on the canvas the record lands, because a page with chrome
 floating over its map declares that once as the canvas's viewport padding.
 
 A caller passing `holdRail` marks the flight with `RAIL_HOLDS_MOVE` in its
-event data, and `useMapBoundsParam` skips a move carrying it. The Service
-Requests explorer is the one caller: a reader working down the queue picks a
-request and the rail used to re-page for the viewport the map landed on, which
-dropped the rows around the pick and usually the pick's own place in the list.
-A flag on the event rather than a pause on the listener, because a pan the
-reader makes during or after the flight is a real change of viewport and must
-still re-page.
+event data, and `useMapBoundsParam` skips a move carrying it. Every explorer
+holds its rail on selection, because `useExplorerResource` always passes it.
+Without the mark the rail re-paged for the viewport the map landed on, which
+took in records the old box had not, dropped the rows around the pick, and
+slid the picked row from first to fifth under the cursor on Inspections. Only
+Service Requests held its rail until #1652; the other explorers were left off
+it and kept re-paging. A flag on the event rather than a pause on the
+listener, because a pan the reader makes during or after the flight is a real
+change of viewport and must still re-page. The activity pages and Requests for
+Control call the hook without it, since neither pages its list by viewport.
 
 This is the only flight an explorer selection makes, and a map card moves no
 camera. The Address card used to fly as well, once its geometry request
@@ -320,7 +323,7 @@ draws, `tileset`, and its endpoint names the key one record arrives under from
 record that is not on the page. Both were route options, written as literals
 beside the set in all eleven routes, and `rowKey` was a free `string` that
 could name another record type's key. What a route still passes is what the
-set does not decide: `normalizeRow`, `holdRailOnSelect` and `summarize`, and
+set does not decide: `normalizeRow` and `summarize`, and
 `params`, what the page request sends beside the filters, which only Service
 Requests uses, for its rail order. Those go on after the filters and never on
 the tile or extent URL, and `bbox` still goes first.
@@ -355,8 +358,9 @@ nothing else, no `bbox`, no paging, so an empty query is a request for
 everything the Organization has. A failed request reads as the viewport, which
 is the copy the rail gave before it could tell.
 
-`holdRailOnSelect` is the switch for `useFlyToSelection`'s `holdRail`, off by
-default so the other explorers keep re-paging for the record they fly to.
+The flight to a selection always carries `useFlyToSelection`'s `holdRail`, so
+picking a row leaves the rail and the row where they were. It used to be a
+`holdRailOnSelect` option that only Service Requests turned on (#1652).
 
 The hook holds the map instance, the selection and the tile layer, since
 #1423. All eleven routes used to keep a `MapboxMap` in state whose only reader
@@ -435,6 +439,22 @@ GL instance reads as none. The effect used to clear it when the map went
 away, which is a `set-state-in-effect` finding (#1185) and one render drawing
 the old box against no map; `useMapReadout` holds its reading the same way.
 
+#### useRecordSetExport
+
+The export is read and written once per click rather than through
+`useQuery`, because a cached answer is the wrong one: an export is a snapshot
+of the records at the moment someone asked, and a file built from rows read a
+minute earlier would be a stale file under today's name. The request is the
+page's own request without the paging, so the file holds the set the page
+counts in its `total`.
+
+A refusal over the ceiling is a toast, and nothing is saved. The server
+answers the count and the ceiling, and the toast writes the sentence through
+`recordCount`, so the noun is the register's. The server counts before it
+reads, so the refusal costs a count rather than 50,000 rows. A 200 whose body
+lacks either array is treated as a failure, because saving it would write an
+empty file under a name that says it is complete.
+
 ### map
 
 #### useMapExtentFit
@@ -500,6 +520,30 @@ An Organization with no Regions gets a null extent, nothing fits, and the
 default stands. Detail pages and forms pass no `rememberCamera` and frame
 their own record as before. No projection is set here: the Mapbox Studio style
 carries it.
+
+#### useOrganizationAreaOpening
+
+The maps that fit only to their own rows had nothing to fit when they had no
+rows: the stop-sequence map, Requests for Control, Daily Work and Weather.
+They opened on the Organization map centre, and that column is null on every
+Organization whose address was saved before it existed, so in production they
+opened on the continental US (#1650).
+
+A page tells `MapCanvas` it has no rows with `empty`. While it does, the map
+opens on the camera the explorers stored for the Organization, and with none
+stored it frames the Regions extent, the same request `useExplorerCamera`
+makes on a first visit. It only reads the stored camera. A page that is not an
+explorer writing one back would move where every explorer opens next.
+
+Loading counts as empty, because the page cannot tell the two apart, so a map
+whose rows are on their way may ask for the Regions extent. Once the page
+reports rows the hook stops for the life of the map. Without that latch a
+filter that empties Requests for Control would pull the camera out to the
+Regions the first time, after the reader had been looking at their rows.
+
+No Organization's map centre was backfilled. The Regions extent covers an
+Organization with Regions better than a geocoded mailing address would, and
+the centre fills in the next time somebody saves the address.
 
 #### useMapExtent
 
@@ -1191,6 +1235,25 @@ It listens on `move`, not `rotate`. Every camera change fires `move`, while
 that arrives through a fit or a jump can land without one and leave the
 arrow describing a camera the map no longer has.
 
+#### useLandingPin
+
+`MapCanvas` calls it once and hands the result to both `MapSearch` and the
+right-click menu's Go to coordinates dialog, so a map holds one pin whichever
+feature put it down, and the next search result or coordinate replaces it
+(#1722). Each feature owning its own pin would have left two on the map.
+
+It is a `mapboxgl.Marker` around a DOM element rather than a GeoJSON layer,
+the way `GeolocateControl` draws its dot. A layer would have to be re-added
+after every basemap switch wipes the style, and a marker survives that. The
+element carries `role="img"` and the name the caller passes, which a canvas
+symbol cannot. Its colours come from `mapInteraction.landing` and
+`landingStroke` in the map palette.
+
+Every `drop` and `clear` bumps a generation counter, and a drop adds its
+marker only if no later call has moved the counter while the runtime loaded.
+Without it, clearing the search box in the turn between choosing a result and
+the loader resolving would leave a pin nothing can clear.
+
 #### usePlaceSuggestions
 
 The debounced suggest request and the four states it drives, results,
@@ -1533,9 +1596,15 @@ is on no queue, because someone is doing it, and the `started_at` predicate is
 what says so.
 
 The upper bound is the start of tomorrow, so a mission due at any hour of
-today is inside it. It is an instant from `localDayStartAsInstant` rather than
-a `YYYY-MM-DD`, because `scheduled_start_at` is a `timestamptz`, and
-`useMissions` widens its window to the start of the next day the same way.
+today is inside it. It is an instant from `missionDueCutoff` in
+`operations-view.ts` rather than a `YYYY-MM-DD`, because `scheduled_start_at`
+is a `timestamptz`, and `useMissions` widens its window to the start of the
+next day the same way.
+
+The mission surfaces read the same cut-off through `isMissionPastDue`, which
+passes yesterday where the queue passes today. A mission is past due when the
+queue would have counted it yesterday, so the badge and the queue cannot
+disagree about which day a mission belongs to (#1665).
 
 #### useInProgressAssignmentsQueue
 

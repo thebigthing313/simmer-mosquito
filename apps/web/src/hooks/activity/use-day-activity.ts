@@ -114,6 +114,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 					lat: r.lat,
 					lng: r.lng,
 					inspection_date: r.inspection_date,
+					habitat_id: r.habitat_id,
 					habitat_type_id: r.habitat_type_id,
 					inspected_by_profile_id: r.inspected_by_profile_id,
 					is_wet: r.is_wet,

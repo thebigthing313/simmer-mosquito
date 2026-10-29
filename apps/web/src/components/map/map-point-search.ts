@@ -42,8 +42,3 @@ export function pointFromSearch(search: MapPointSearch): DrawPoint | null {
 	// because that is the order operators read and speak coordinates in.
 	return { type: 'Point', coordinates: [lng, lat] };
 }
-
-/** How a coordinate reads in the UI and on the clipboard: `lat, lng`, six places. */
-export function formatLatLng(lat: number, lng: number): string {
-	return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-}

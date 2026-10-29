@@ -82,7 +82,7 @@ describe('EditLarvalSettingsSheet', () => {
 
 function openSheet(): void {
 	render(<EditLarvalSettingsSheet settings={SETTINGS} />);
-	fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+	fireEvent.click(screen.getByRole('button', { name: 'Edit Inspection Entry' }));
 }
 
 function save(): void {

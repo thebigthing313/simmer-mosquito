@@ -80,6 +80,7 @@ export function StopSequenceMap({
 		<>
 			<MapCanvas
 				controls={{ search: false }}
+				empty={features.length === 0}
 				onMapReady={setMap}
 				routeLayer={{
 					stops: features,

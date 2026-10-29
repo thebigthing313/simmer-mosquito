@@ -32,7 +32,6 @@ function TrapsTableRoute() {
 			empty={{
 				emptyDescription: 'Active traps show here as crews place them.',
 				filteredDescription: 'No trap matches what is set above.',
-				scope: { kind: 'active' },
 			}}
 			filters={<TrapFilterFields binding={binding} wide />}
 			icon={TrapIcon}

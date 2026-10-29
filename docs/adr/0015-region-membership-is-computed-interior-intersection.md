@@ -6,7 +6,8 @@ Date: 2026-08-24
 
 Accepted. Amends the plain-intersection rule the Region multiselect shipped
 under, documented in `packages/db/src/domains/map-region-filter.ts`. Amended for
-multipart geometry by ADR 0018, see the amendment below.
+multipart geometry by ADR 0018, and by #1671 for an overlap threshold and
+valid Regions; see the two amendments below.
 
 ## Context
 
@@ -117,7 +118,9 @@ until a count in a report is wrong.
   `packages/db/src/tests/integration/domains/region-membership.integration.test.ts`
   seeds that pair and pins both answers, so the next person reads the measurement
   instead of taking it again. Validity is unpoliced. The neighbouring rule, that
-  a stored geometry must cover ground, is #434's and is enforced.
+  a stored geometry must cover ground, is #434's and is enforced. The 2026-10-13
+  amendment below supersedes this bullet for Regions, which are now held valid;
+  for record areas it stands.
 - The empty answer is a real answer. A trap in no spray zone is an operational
   fact, not a gap.
 
@@ -176,7 +179,8 @@ tile read or answer wrongly. ADR 0018 leaves validity unpoliced, because 15 of
 345 production Regions already fail `ST_IsValid` and a gate would refuse them on
 their next save. #437 measured what those 15 answer and left them where they are.
 The Consequences bullet above on validity carries the numbers and names the
-guard.
+guard. The 2026-10-13 amendment below lifts the assumption for Regions, which are
+now repaired on write and held by a CHECK, and not for record areas.
 
 ### Consequences of the amendment
 
@@ -186,3 +190,88 @@ guard.
 - The corpus grows from 22 cases to 32 to cover the multipart arms before mobile
   implements them. The gate rises ahead of the implementation, which is
   deliberate.
+
+## Amendment, 2026-10-13: an overlap threshold, and valid Regions
+
+Amended by #1671.
+
+### The threshold
+
+Area against area now needs more than meeting interiors. Two areas are members
+of each other only when their intersection covers at least 0.1% of the smaller
+of the two. That applies to every area-versus-area answer the shared predicate
+gives, a Region against a Region and a record area against a Region alike.
+Point and line records are unchanged, and a border shared exactly still does not
+count, because its intersection has no area.
+
+The interior rule could not tell a digitizing sliver from real overlap. Two
+municipal boundaries drawn from different sources overlap along their shared
+edge by a few square metres, and under `'T********'` that made neighbouring
+municipalities members of each other. Measured on the production clone of
+2026-08-24, Plainsboro and its sections against every region whose interior they
+meet:
+
+| Kind | Pairs | Overlap | Share of the smaller area |
+| --- | --- | --- | --- |
+| Digitizing slivers (South Brunswick and its sections, Cranbury - Section 1, Cranbury) | 16 | 0 to 3,239 m² | at most 0.034% |
+| Real overlaps (5-13, 5-18, 5-20A, 5-5, 5-63, 5-14, Audubon's Plainsboro Preserve) | 13 | 34,028 m² and up | at least 0.48% |
+
+0.1% sits between the two groups, with a factor of three to the slivers and five
+to the smallest real overlap. A ratio rather than a fixed area, because a fixed
+area that excludes a municipal sliver also excludes a whole small habitat.
+
+The predicate checks the interior cell first and measures only the pairs that
+pass it, so a boundary-only or disjoint pair never pays for an overlay. The
+areas are planar, in square degrees. For a ratio between two shapes in the same
+place the unit cancels to well under the gap between 0.034% and 0.48%.
+
+On the clone, the six Plainsboro neighbours that were slivers drop out and the
+nine real overlaps stay. Across every ordered pair of Regions, 2,066 memberships
+become 1,342. Record areas move less, because few are drawn along a boundary: of the
+71 Application-against-Region pairs whose interiors meet, 63 remain.
+
+### Valid Regions, and only Regions
+
+Measuring overlap needs `ST_Intersection`, and `ST_Intersection` throws a
+TopologyException on a ring that crosses itself. The paragraph above that called
+validity unpoliced, and #437's measurement that repair changed no answer, both
+held only while the predicate stopped at `ST_Relate`. Three of the Regions
+Plainsboro overlaps were invalid, so the read threw rather than answering.
+
+So the Region side is held valid. The server stores Region geometry through
+`valid_region_geom`, which runs `ST_MakeValid` on an invalid ring and keeps the
+polygonal part, demoting a one-part MultiPolygon. A migration repaired the
+fifteen live Regions already stored, and `regions_geom_valid_check` refuses an
+invalid one. The default MakeValid method is the one used, because the compose
+image runs GEOS 3.9 and ignores `method=structure`.
+
+Three of the fifteen came back from `ST_MakeValid` as a GeometryCollection
+carrying stray lines, and keeping the polygonal part made each a MultiPolygon.
+The repair moved no outline. The area of every row but one moved by a few square
+metres. `5-21: Millstone River - East` went from 112,765 m² to 414,171 m²: its
+ring was a bow-tie whose lobes are 263,468 m² and 150,703 m², and the shoelace
+formula counted the reversed lobe as negative, so the stored figure was their
+difference.
+
+Record areas are not repaired and get no CHECK. The draw control's Split gesture
+writes two pieces that share the line they were cut along (#497), which OGC calls
+invalid and which #518 kept on purpose; `ST_MakeValid` would dissolve the two
+pieces back into one. The predicate instead reads a record area through
+`ST_MakeValid`, polygonal part only, where `ST_IsValid` is false, so an invalid
+record cannot make a membership read throw. Valid records, which are nearly all
+of them, pay one `ST_IsValid` call and nothing else.
+
+This supersedes the validity Consequences bullet above for Regions, and the line
+in ADR 0018 that left validity unpoliced. For record areas that line still holds.
+
+### Consequences of the amendment
+
+- District filters and the regions panel can change answer for any area record
+  or Region whose overlap with a district is a sliver. That is a fix, filed as
+  `Fixed:`, because the sliver memberships were never the rule anyone wanted.
+- The corpus grows from 34 cases to 36, a sliver under the line and a small real
+  overlap over it, and both halves carry the threshold: `AREA_OVERLAP_SHARE` in
+  the corpus and `REGION_AREA_OVERLAP_SHARE` in `packages/db`, held equal by the
+  integration suite. Mobile's predicate inherits the measurement.
+- A Region write that `ST_MakeValid` reduces to nothing polygonal is refused
+  with an error rather than stored empty.

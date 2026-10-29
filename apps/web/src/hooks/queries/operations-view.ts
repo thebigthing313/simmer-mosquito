@@ -21,6 +21,7 @@
  */
 
 import { CONTROL_TYPES, type ControlType } from '@simmer-mosquito/domain';
+import { addCalendarDays, localDayStartAsInstant } from '../../lib/local-date';
 import type { OrganizationClock } from '../../lib/organization-clock';
 import type { LinkedAddress } from './address-view';
 
@@ -199,6 +200,40 @@ export function missionStatus(row: {
 		return 'cancelled';
 	}
 	return row.startedAt === null ? 'scheduled' : 'inProgress';
+}
+
+/**
+ * The instant a scheduled mission is due by the end of `day`: the start of the
+ * next day in the Organization's zone. A mission still scheduled whose start
+ * falls before it is due on or before `day`.
+ *
+ * The one cut-off both overdue readings take. The Dashboard queue "due today or
+ * overdue" passes today; {@link isMissionPastDue} passes yesterday.
+ */
+export function missionDueCutoff(day: string, timeZone: string): Date {
+	return localDayStartAsInstant(addCalendarDays(day, 1), timeZone);
+}
+
+/**
+ * Whether a mission is past due: still scheduled, with its start on a day
+ * before today in the Organization's zone. A mission due later today is not,
+ * and neither is one somebody has started or ended. The rain date does not
+ * move it.
+ */
+export function isMissionPastDue(
+	row: {
+		readonly scheduledStartAt: Date | string;
+		readonly startedAt: Date | string | null;
+		readonly completedAt: Date | string | null;
+		readonly cancelledAt: Date | string | null;
+	},
+	clock: Pick<OrganizationClock, 'today' | 'zone'>,
+): boolean {
+	if (missionStatus(row) !== 'scheduled') {
+		return false;
+	}
+	const cutoff = missionDueCutoff(addCalendarDays(clock.today(), -1), clock.zone);
+	return new Date(row.scheduledStartAt) < cutoff;
 }
 
 /** A mission's name, falling back to what the mission is and when it runs. */

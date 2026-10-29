@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import { resolveActive } from './resolve-nav';
+import { findStandalonePage, resolveActive } from './resolve-nav';
 import type {
 	ShellAccountLink,
 	ShellDomain,
@@ -139,11 +139,26 @@ export function useActiveShellLocation(): ReturnType<typeof resolveActive> {
 	return resolveActive(domains, activePath);
 }
 
+/**
+ * The domain the rail and the secondary sidebar mark as active, or null on a
+ * standalone page.
+ *
+ * {@link useActiveShellLocation} falls back to the first domain for a path no
+ * item matches, which is right for a page inside a domain and wrong for Profile,
+ * Search or the changelog: those belong to no domain, and lighting Overview
+ * there claimed they did (#1655).
+ */
+export function useActiveDomain(): ShellDomain | null {
+	const { activePath, standalonePages } = useShell();
+	const { domain } = useActiveShellLocation();
+	return findStandalonePage(standalonePages, activePath) === null ? domain : null;
+}
+
 /** Convenience accessor used by the primary rail's active indicator. */
 export function useActiveDomainIndex(): number {
 	const { domains } = useShell();
-	const { domain } = useActiveShellLocation();
-	return domains.findIndex((candidate) => candidate.id === domain.id);
+	const domain = useActiveDomain();
+	return domain === null ? -1 : domains.findIndex((candidate) => candidate.id === domain.id);
 }
 
 export type { ShellDomain } from './types';

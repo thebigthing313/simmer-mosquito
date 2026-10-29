@@ -330,9 +330,17 @@ describe('a refused lifecycle write on the mission page', () => {
 });
 
 describe('the mission page header', () => {
+	it('reads a scheduled mission a day past its start as past due', async () => {
+		await renderPage(mission({ scheduledStartAt: new Date(Date.now() - 86_400_000 * 1.5) }));
+
+		expect(screen.getByText('Past due')).toBeTruthy();
+		expect(screen.queryByText('Scheduled')).toBeNull();
+	});
+
 	it('draws the shared bar and none of the controls it replaced', async () => {
 		page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
-		await renderPage(mission());
+		// A week out, so the badge reads Scheduled rather than Past due.
+		await renderPage(mission({ scheduledStartAt: new Date(Date.now() + 7 * 86_400_000) }));
 
 		expect(screen.getByRole('banner').getAttribute('data-frame')).toBe('panel');
 		expect(screen.getByText(recordNoun('mission').title)).toBeTruthy();

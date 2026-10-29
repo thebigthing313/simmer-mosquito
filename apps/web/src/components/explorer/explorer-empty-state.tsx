@@ -1,6 +1,7 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import type { ReactNode } from 'react';
 import { type RecordType, recordNoun } from '../../lib/record-nouns';
+import { type RecordEmptyScope, recordEmptyTitle } from '../record/record-empty-title';
 import { WriteOnly } from '../write-only';
 import type { ExplorerCreateAction } from './explorer-header';
 
@@ -15,7 +16,8 @@ import type { ExplorerCreateAction } from './explorer-header';
  * - `viewport`: the filtered set has an extent, so there are matches somewhere
  *   and the bounded page happens to hold none. Pan or zoom.
  * - `filters`: the extent is null and the request narrowed by something, a
- *   default window or status included. Nothing matches anywhere.
+ *   default window or status included. Nothing matches anywhere. Which of the
+ *   two it was is the filter count's to say, so the copy reads both.
  * - `none`: the extent is null and the request carried no filter at all. The
  *   Organization has none of this record kind.
  *
@@ -28,7 +30,7 @@ import type { ExplorerCreateAction } from './explorer-header';
  * opens narrowed, seven on a date window and two on active status, so a null
  * extent at the defaults says nothing about what sits outside them. `none`
  * is reached by choosing All time or All status, which is when the sentence
- * "No habitats yet" is true.
+ * "No Habitats Yet" is true.
  */
 export type ExplorerEmptyReason = 'loading' | 'viewport' | 'filters' | 'none';
 
@@ -36,6 +38,8 @@ export type ExplorerEmptyReason = 'loading' | 'viewport' | 'filters' | 'none';
 export interface ExplorerEmptiness {
 	readonly recordType: RecordType;
 	readonly reason: ExplorerEmptyReason;
+	/** What the Map's defaults narrow to, which the title names when nothing is set. */
+	readonly scope: RecordEmptyScope;
 }
 
 /** The empty state, in the three pieces `ResultList` draws. */
@@ -46,11 +50,16 @@ export interface EmptyRailCopy {
 }
 
 /**
- * The three sentences a paged rail can say when it holds nothing, written once
- * for nine surfaces. The noun is the register's, so the rail and the surface's
- * heading agree, and none of the nine can spell a record its own way again:
- * `releases`, `source reduction` and `outreach` were three of the titles before
- * this (#894).
+ * What a paged rail says when it holds nothing, written once for every paged
+ * explorer. The title comes from `recordEmptyTitle`, the builder the Table's
+ * empty state reads, so the two surfaces over one set say the same sentence
+ * in the same casing (#1653). The noun is the register's, so none of the
+ * surfaces can spell a record its own way again: `releases`, `source
+ * reduction` and `outreach` were three of the titles before this (#894).
+ *
+ * A request narrowed by the defaults alone is the set's opening scope and not
+ * a filter anybody set, so its title names that scope, `No Biocontrol Actions
+ * in the Last 90 Days`, rather than saying the filters excluded everything.
  *
  * The create pointer reads the label the panel menu draws, so the sentence and
  * the control agree by construction, and it sits behind the same role floor the
@@ -75,25 +84,29 @@ export function emptyRailCopy({
 	readonly onResetFilters: (() => void) | undefined;
 	readonly onShowFilters: (() => void) | undefined;
 }): EmptyRailCopy {
-	const { many } = recordNoun(empty.recordType);
+	const { recordType } = empty;
+	const { many } = recordNoun(recordType);
 	switch (empty.reason) {
 		// Drawn as placeholders by the frame, so this copy is only what a caller
 		// that ignores the reason would show.
 		case 'loading':
-			return { emptyTitle: `Loading ${many}` };
+			return { emptyTitle: recordEmptyTitle(recordType, { kind: 'loading' }) };
 		case 'filters':
 			return {
-				emptyTitle: `No ${many} match these filters`,
+				emptyTitle: recordEmptyTitle(
+					recordType,
+					activeFilterCount > 0 ? { kind: 'match' } : empty.scope,
+				),
 				emptyAction: filterAction(activeFilterCount, onResetFilters, onShowFilters),
 			};
 		case 'none':
 			return {
-				emptyTitle: `No ${many} yet`,
+				emptyTitle: recordEmptyTitle(recordType, { kind: 'yet' }),
 				emptyAction: create === undefined ? undefined : <CreatePointer create={create} />,
 			};
 		default:
 			return {
-				emptyTitle: `No ${many} in view`,
+				emptyTitle: recordEmptyTitle(recordType, { kind: 'inView' }),
 				emptyDescription: `Pan or zoom the map, or loosen the filters to bring ${many} into range.`,
 			};
 	}

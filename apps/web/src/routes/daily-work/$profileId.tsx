@@ -121,6 +121,7 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 					<MapCanvas
 						activityLayer={selection.activityLayer}
 						controls={{ measure: true, readout: true }}
+						empty={view.bounds === null}
 						fitToData={view.bounds}
 						inset={panel.inset}
 						legend={legend}

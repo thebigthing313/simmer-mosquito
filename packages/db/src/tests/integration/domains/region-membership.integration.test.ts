@@ -1,7 +1,7 @@
 import {
+	AREA_OVERLAP_SHARE,
 	CORPUS_REGION,
 	type CorpusCase,
-	type CorpusGeomType,
 	corpusRegionFor,
 	REGION_MEMBERSHIP_CORPUS,
 	REGION_MEMBERSHIP_CORPUS_SIZE,
@@ -9,9 +9,11 @@ import {
 import { type RawBuilder, sql } from 'kysely';
 import { expect, it } from 'vitest';
 import {
+	REGION_AREA_OVERLAP_SHARE,
 	regionMembershipClauses,
 	regionMembershipMatch,
 } from '../../../domains/map-region-filter.js';
+import { regionGeojsonToGeom } from '../../../domains/org-owned-writes.js';
 import { readRecordRegions } from '../../../domains/region-membership.js';
 import type { DbExecutor } from '../../../index.js';
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
@@ -31,7 +33,7 @@ import { createOrganization } from '../../../test-support/row-fixtures.js';
 //
 // One `it()` and one `withTestDb`. The harness applies the whole migration set
 // per call, about a second against a local container and nine against a remote
-// one, so thirty-four blocks would be thirty-four migration runs. Seed once,
+// one, so thirty-six blocks would be thirty-six migration runs. Seed once,
 // assert once, and name the failing case in the diff rather than in the block
 // title.
 //
@@ -150,6 +152,7 @@ interface BranchRow {
 	readonly id: string;
 	readonly geom_type: string;
 	readonly matched: boolean;
+	readonly interiors_meet: boolean;
 	readonly touches_cross_check: boolean;
 }
 
@@ -174,6 +177,7 @@ describeDbIntegration('region membership corpus, SQL half', () => {
 						geomType: sql`h.geom_type`,
 						regionGeom: sql`rf.geom`,
 					})} as matched,
+					st_relate(rf.geom, h.geom, 'T********') as interiors_meet,
 					(st_intersects(rf.geom, h.geom) and not st_touches(rf.geom, h.geom))
 						as touches_cross_check
 				from habitats h
@@ -206,15 +210,28 @@ describeDbIntegration('region membership corpus, SQL half', () => {
 				(corpusCase) => corpusCase.inside,
 			);
 
-			// `ST_Intersects and not ST_Touches` is algebraically the areal branch
-			// at two GEOS calls instead of one, so it is the cross-check rather than
-			// the shipped expression. A disagreement is a bug in the DE-9IM pattern.
-			for (const corpusCase of REGION_MEMBERSHIP_CORPUS) {
-				if (corpusCase.branch !== 'interior-intersection') {
-					continue;
-				}
-				expect(seen.get(corpusCase.id)?.touches_cross_check, corpusCase.id).toBe(corpusCase.inside);
-			}
+			// `ST_Intersects and not ST_Touches` is algebraically the DE-9IM interior
+			// cell at two GEOS calls instead of one, so it is the cross-check on the
+			// pattern. A disagreement is a bug in the pattern.
+			const interiorCases = REGION_MEMBERSHIP_CORPUS.filter(
+				(corpusCase) => corpusCase.branch === 'interior-intersection',
+			);
+			expectPerCase(
+				interiorCases,
+				(id) => seen.get(id)?.touches_cross_check,
+				(corpusCase) => seen.get(corpusCase.id)?.interiors_meet,
+			);
+
+			// The overlap threshold is what answers false where the interiors meet,
+			// and on the corpus it does that for the sliver and nothing else.
+			expect(
+				new Set(
+					interiorCases
+						.filter((corpusCase) => seen.get(corpusCase.id)?.interiors_meet === true)
+						.filter((corpusCase) => !corpusCase.inside)
+						.map((corpusCase) => corpusCase.id),
+				),
+			).toEqual(new Set(['polygon-sliver-overlap']));
 
 			// --- the Region multiselect ------------------------------------------
 			// Both region ids go in. The clause scopes the region set to the
@@ -278,30 +295,27 @@ describeDbIntegration('region membership corpus, SQL half', () => {
 	});
 });
 
-// --- an invalid stored region -------------------------------------------------
+// --- validity, and the threshold at its line ---------------------------------
 //
-// Fifteen production Regions hold a self-intersecting ring, GEOS leaves a relate
-// on one undefined, and #437 measured the answers and left the rows alone. ADR
-// 0015's Consequences bullet on validity has the numbers and the reasoning.
+// #1671 made the area arm measure the overlap, and `st_intersection` throws on a
+// ring that crosses itself. So a Region is repaired on write and a CHECK holds
+// it valid, while a record area keeps the shape Split writes and the predicate
+// reads it through `st_makevalid` where it is invalid. ADR 0015's 2026-10-13
+// amendment has the reasoning.
 //
-// This is PostGIS pinned in place, not a rule, which is why it is beside the
-// corpus rather than in it: mobile cannot be asked to reproduce an undefined
-// answer. A case that starts failing means GEOS changed its mind about invalid
-// input, and the fifteen rows need measuring again.
-//
-// "Invalid" covers two shapes here and only this one is undefined. A
-// MultiPolygon whose parts share the line they were cut along is invalid too,
-// and it is in the corpus proper, because both engines define a relate on it and
-// both return the same matrix. The two kinds live apart on purpose.
+// None of this is in the corpus. The corpus is shapes both halves can answer by
+// hand, and a self-intersecting ring is not one of them. The threshold pair in
+// the corpus sits an order of magnitude either side of the line; the boundary
+// pair here sits at 0.0997% and 0.1002%, which is a statement about this
+// implementation's arithmetic rather than a rule for mobile.
 //
 // A second `withTestDb` is a second migration run. The corpus block argues
-// against that for thirty-four blocks; this is one, and it buys an invalid Region
-// that no corpus case can be answered against by accident.
+// against that for thirty-six blocks; this is one.
 
-const invalidRingOrgId = '00000000-0000-4000-8000-000000000700';
-const invalidRingFolderId = '00000000-0000-4000-8000-000000000701';
-const invalidRingRegionId = '00000000-0000-4000-8000-000000000702';
-const invalidRingHabitatId = (index: number) =>
+const validityOrgId = '00000000-0000-4000-8000-000000000700';
+const validityRegionId = '00000000-0000-4000-8000-000000000702';
+const bowTieRegionId = '00000000-0000-4000-8000-000000000703';
+const validityHabitatId = (index: number) =>
 	`00000000-0000-4000-8000-${String(720 + index).padStart(12, '0')}`;
 
 /**
@@ -309,16 +323,21 @@ const invalidRingHabitatId = (index: number) =>
  *
  * The ring runs from the south-west corner diagonally to the north-east, down the
  * east side, then back across itself to a point halfway up the west side. The two
- * edges cross, which is the fault all fifteen production rows have.
+ * edges cross at (-89.96667, 30.03333), which is the fault the fifteen production
+ * Regions #1671 repaired had.
  *
- * That leaves two lobes. The east one is large, reaching longitude -89.9 between
- * latitude 30.0 and 30.1; the west one is small, against longitude -90.0 between
- * latitude 30.0 and 30.05. They are wound in opposite directions, so the ring's
- * area is the difference between them and the repaired area is the sum.
- * `5-21: Millstone River - East` in production is this shape, and repairing it
- * turns 11.28 ha into 41.42 ha.
+ * That leaves two lobes wound in opposite directions: a triangle of 0.0033333
+ * square degrees against longitude -89.9, and one of 0.00083333 against -90.0.
+ * The shoelace area of the ring is their difference, 0.0025, and the repaired
+ * area is their sum. `5-21: Millstone River - East` is this shape, and repair
+ * took its stored area from 112,765 m² to its lobes' 414,171 m² without moving
+ * its outline.
  */
-const INVALID_RING = 'POLYGON((-90.0 30.0, -89.9 30.1, -89.9 30.0, -90.0 30.05, -90.0 30.0))';
+const BOW_TIE = 'POLYGON((-90.0 30.0, -89.9 30.1, -89.9 30.0, -90.0 30.05, -90.0 30.0))';
+const BOW_TIE_LOBES_AREA = 0.0033333333 + 0.0008333333;
+
+/** A plain valid Region, the corpus's outer square without its hole. */
+const SQUARE = 'POLYGON((-90.0 30.0, -89.9 30.0, -89.9 30.1, -90.0 30.1, -90.0 30.0))';
 
 /**
  * WKT, where the corpus above uses GeoJSON. A ring that crosses itself has to be
@@ -329,263 +348,236 @@ function wkt(value: string): RawBuilder<string> {
 	return sql<string>`st_setsrid(st_geomfromtext(${value}), 4326)`;
 }
 
-interface InvalidRingCase {
+interface ValidityCase {
 	readonly id: string;
-	readonly geomType: CorpusGeomType;
+	/** Which Region the case is asked against. */
+	readonly region: 'square' | 'repaired-bow-tie';
 	readonly record: string;
-	/** What the stored, invalid ring answers. */
 	readonly inside: boolean;
-	/** What the same call answers against `ST_MakeValid` of that ring. */
-	readonly insideRepaired: boolean;
 	/** Why the answer is what it is. Read this before changing an expectation. */
 	readonly because: string;
 }
 
-const INVALID_RING_CASES: readonly InvalidRingCase[] = [
+const VALIDITY_CASES: readonly ValidityCase[] = [
 	{
-		id: 'point-in-a-lobe',
-		geomType: 'st_point',
-		record: 'POINT(-89.92 30.05)',
-		inside: true,
-		insideRepaired: true,
-		because: 'Well inside the east lobe, which is covered ground under either reading.',
-	},
-	{
-		id: 'point-in-the-notch',
-		geomType: 'st_point',
-		record: 'POINT(-89.95 30.075)',
+		id: 'just-under-the-threshold',
+		region: 'square',
+		record:
+			'POLYGON((-90.1 30.02, -89.9999002 30.02, -89.9999002 30.04, -90.1 30.04, -90.1 30.02))',
 		inside: false,
-		insideRepaired: false,
-		because: 'West of the east lobe and north of the west one, so it is in neither.',
+		because:
+			'The overlap is 0.0000998 by 0.02 against a record of 0.1000998 by 0.02, about 0.0997% ' +
+			'of the record, the smaller area.',
 	},
 	{
-		id: 'line-crossing-a-lobe',
-		geomType: 'st_linestring',
-		record: 'LINESTRING(-89.925 30.05, -89.85 30.05)',
+		id: 'just-over-the-threshold',
+		region: 'square',
+		record:
+			'POLYGON((-90.1 30.02, -89.9998997 30.02, -89.9998997 30.04, -90.1 30.04, -90.1 30.02))',
 		inside: true,
-		insideRepaired: true,
-		because: 'Starts in the east lobe and runs out of it, on the plain-intersection arm.',
+		because: 'The same record reaching 0.0001003 past the edge, about 0.1002% of the record.',
 	},
 	{
-		id: 'polygon-interior-meeting-a-lobe',
-		geomType: 'st_polygon',
+		id: 'bow-tie-record-inside',
+		region: 'square',
+		record: BOW_TIE,
+		inside: true,
+		because:
+			'A record area may still cross itself, because Split writes an invalid shape on ' +
+			'purpose. Read through `st_makevalid` it is both lobes, wholly inside the square, and ' +
+			'the read answers rather than throwing.',
+	},
+	{
+		id: 'abutting-the-repaired-region',
+		region: 'repaired-bow-tie',
+		record: 'POLYGON((-90.05 30.0, -90.0 30.0, -90.0 30.1, -90.05 30.1, -90.05 30.0))',
+		inside: false,
+		because:
+			"Shares the repaired Region's west edge and overlaps nowhere. Against the unrepaired " +
+			'ring this answered true, which was the one case #437 found that validity decided.',
+	},
+	{
+		id: 'overlapping-the-repaired-east-lobe',
+		region: 'repaired-bow-tie',
 		record:
 			'POLYGON((-89.925 30.025, -89.875 30.025, -89.875 30.075, -89.925 30.075, -89.925 30.025))',
 		inside: true,
-		insideRepaired: true,
-		because: 'Overlaps the east lobe, so the interiors meet.',
-	},
-	{
-		id: 'polygon-in-the-notch',
-		geomType: 'st_polygon',
-		record: 'POLYGON((-89.96 30.08, -89.94 30.08, -89.94 30.095, -89.96 30.095, -89.96 30.08))',
-		inside: false,
-		insideRepaired: false,
-		because: 'Sits in the notch, meeting neither lobe.',
-	},
-	{
-		// The one case where validity decides. Its east side lies on longitude
-		// -90.0, a literal in the ring, so the contact is exact rather than a
-		// rounding accident, and the repaired answer is the one the rule wants:
-		// work sharing an edge with a Region is next to it, not in it.
-		id: 'polygon-abutting-the-ring',
-		geomType: 'st_polygon',
-		record: 'POLYGON((-90.05 30.0, -90.0 30.0, -90.0 30.1, -90.05 30.1, -90.05 30.0))',
-		inside: true,
-		insideRepaired: false,
-		because:
-			'Shares the west edge and overlaps nowhere. Repaired, the interiors miss and the answer is false.',
+		because: 'Covers a quarter of its own area inside the east lobe.',
 	},
 ];
 
-interface InvalidRingRow {
-	readonly id: string;
-	readonly geom_type: string;
-	readonly stored: boolean;
-	readonly repaired: boolean;
-}
-
-interface RingShapeRow {
+interface StoredRegionRow {
 	readonly valid: boolean;
-	readonly reason: string;
-	readonly stored_type: string;
-	readonly repaired_type: string;
-	readonly grows: boolean;
+	readonly type: string;
+	readonly parts: number;
+	readonly area: number;
 }
 
-async function seedInvalidRing(db: DbExecutor): Promise<void> {
-	await createOrganization(db, { id: invalidRingOrgId });
+interface ValidityRow {
+	readonly id: string;
+	readonly matched: boolean;
+}
 
-	await db
-		.insertInto('region_folders')
-		.values({
-			id: invalidRingFolderId,
-			organization_id: invalidRingOrgId,
-			name: 'Invalid ring folder',
-		})
-		.execute();
+async function seedValidity(db: DbExecutor): Promise<void> {
+	await createOrganization(db, { id: validityOrgId });
 
-	// This insert is also the #417 assertion: a self-intersecting ring stores.
 	await db
 		.insertInto('regions')
-		.values({
-			id: invalidRingRegionId,
-			organization_id: invalidRingOrgId,
-			region_folder_id: invalidRingFolderId,
-			name: 'Invalid ring region',
-			geom: wkt(INVALID_RING),
-		})
+		.values([
+			{
+				id: validityRegionId,
+				organization_id: validityOrgId,
+				name: 'Square',
+				geom: wkt(SQUARE),
+			},
+			{
+				id: bowTieRegionId,
+				organization_id: validityOrgId,
+				name: 'Repaired bow-tie',
+				// The writer's own path: GeoJSON in, `valid_region_geom` around it.
+				geom: regionGeojsonToGeom({
+					type: 'Polygon',
+					coordinates: [
+						[
+							[-90.0, 30.0],
+							[-89.9, 30.1],
+							[-89.9, 30.0],
+							[-90.0, 30.05],
+							[-90.0, 30.0],
+						],
+					],
+				}),
+			},
+		])
 		.execute();
 
+	// Habitats take an invalid area without complaint. That is the shape Split
+	// writes, kept on purpose by #518, and this insert is what says it still stores.
 	await db
 		.insertInto('habitats')
 		.values(
-			INVALID_RING_CASES.map((ringCase, index) => ({
-				id: invalidRingHabitatId(index),
-				organization_id: invalidRingOrgId,
-				geom: wkt(ringCase.record),
-				description: ringCase.id,
+			VALIDITY_CASES.map((validityCase, index) => ({
+				id: validityHabitatId(index),
+				organization_id: validityOrgId,
+				geom: wkt(validityCase.record),
+				description: validityCase.id,
 			})),
 		)
 		.execute();
 }
 
-describeDbIntegration('region membership against a self-intersecting region', () => {
-	it('answers the repaired way on every case but the one abutting the ring', async () => {
+describeDbIntegration('region membership, validity and the threshold at its line', () => {
+	it('repairs Regions, reads invalid record areas, and holds the 0.1% line', async () => {
 		await withTestDb(async ({ db }) => {
-			await seedInvalidRing(db);
+			// The two halves of the rule carry one number. A change to either that
+			// leaves the other behind fails here first.
+			expect(REGION_AREA_OVERLAP_SHARE).toBe(AREA_OVERLAP_SHARE);
 
-			// A ring that turned out valid would make every assertion below vacuous,
-			// so the fault is proved before anything is asked about it.
-			const shape = await sql<RingShapeRow>`
+			await seedValidity(db);
+
+			// --- the Region side ----------------------------------------------
+			// A raw self-intersecting ring is refused by the CHECK. The writer's
+			// path is what repairs; a write that skips it does not get to store.
+			await expect(
+				db
+					.insertInto('regions')
+					.values({
+						organization_id: validityOrgId,
+						name: 'Unrepaired bow-tie',
+						geom: wkt(BOW_TIE),
+					})
+					.execute(),
+			).rejects.toMatchObject({ code: '23514', constraint: 'regions_geom_valid_check' });
+
+			const stored = await sql<StoredRegionRow>`
 				select
 					st_isvalid(geom) as valid,
-					st_isvalidreason(geom) as reason,
-					geometrytype(geom) as stored_type,
-					geometrytype(st_makevalid(geom)) as repaired_type,
-					st_area(st_makevalid(geom)) > st_area(geom) as grows
+					geometrytype(geom) as type,
+					st_numgeometries(geom) as parts,
+					st_area(geom) as area
 				from regions
-				where id = ${invalidRingRegionId}
+				where id = ${bowTieRegionId}
 			`.execute(db);
 
-			expect(shape.rows[0]?.valid).toBe(false);
-			// Unanchored. GEOS says `Ring Self-intersection` for a ring that touches
-			// itself rather than crossing, and either fault is the one being pinned.
-			expect(shape.rows[0]?.reason).toMatch(/Self-intersection/);
-			expect(shape.rows[0]?.stored_type).toBe('POLYGON');
-			// The repair splits the bow-tie in two. `regions.geom` has taken a
-			// MultiPolygon only since ADR 0018, and this one is never stored anyway:
-			// it is computed inside the comparison below and thrown away.
-			expect(shape.rows[0]?.repaired_type).toBe('MULTIPOLYGON');
-			// Repair is not cosmetic on this shape, which is the second reason #437
-			// left the fifteen alone: it would redraw a boundary somebody drew.
-			expect(shape.rows[0]?.grows).toBe(true);
+			// Both lobes, as a MultiPolygon, with their summed area. A repair that kept
+			// one lobe, or stored the shoelace difference, fails on the area.
+			expect(stored.rows[0]?.valid).toBe(true);
+			expect(stored.rows[0]?.type).toBe('MULTIPOLYGON');
+			expect(Number(stored.rows[0]?.parts)).toBe(2);
+			expect(Number(stored.rows[0]?.area)).toBeCloseTo(BOW_TIE_LOBES_AREA, 8);
 
+			// A valid ring goes through `valid_region_geom` untouched, so a Polygon
+			// stays a Polygon and nothing about an ordinary save changes.
+			const untouched = await sql<{ readonly same: boolean }>`
+				select st_equals(valid_region_geom(${wkt(SQUARE)}), ${wkt(SQUARE)})
+					and geometrytype(valid_region_geom(${wkt(SQUARE)})) = 'POLYGON' as same
+			`.execute(db);
+			expect(untouched.rows[0]?.same).toBe(true);
+
+			// --- the predicate --------------------------------------------------
 			const idOfRecord = new Map(
-				INVALID_RING_CASES.map((ringCase, index) => [invalidRingHabitatId(index), ringCase.id]),
+				VALIDITY_CASES.map((validityCase, index) => [validityHabitatId(index), validityCase.id]),
 			);
+			const regionOf = (validityCase: ValidityCase) =>
+				validityCase.region === 'square' ? validityRegionId : bowTieRegionId;
 
-			const answers = await sql<InvalidRingRow>`
-				select
-					h.id,
-					h.geom_type,
-					${regionMembershipMatch({
-						geom: sql`h.geom`,
-						geomType: sql`h.geom_type`,
-						regionGeom: sql`rf.geom`,
-					})} as stored,
-					${regionMembershipMatch({
-						geom: sql`h.geom`,
-						geomType: sql`h.geom_type`,
-						regionGeom: sql`st_makevalid(rf.geom)`,
-					})} as repaired
-				from habitats h
-				join regions rf on rf.id = ${invalidRingRegionId}
-				where h.organization_id = ${invalidRingOrgId}
-			`.execute(db);
-
-			// A loop that silently iterates nothing passes. Every case has to be here.
-			expect(new Set(answers.rows.map((row) => idOfRecord.get(row.id)))).toEqual(
-				new Set(INVALID_RING_CASES.map((ringCase) => ringCase.id)),
-			);
-
-			const answerOf = new Map(answers.rows.map((row) => [idOfRecord.get(row.id) ?? row.id, row]));
-
-			// The branch a case takes, asserted as well as the answer it gets, for the
-			// reason the corpus block gives: a misroute is right on most cases.
-			expectPerCase(
-				INVALID_RING_CASES,
-				(id) => answerOf.get(id)?.geom_type,
-				(ringCase) => ringCase.geomType,
-			);
-			expectPerCase(
-				INVALID_RING_CASES,
-				(id) => answerOf.get(id)?.stored,
-				(ringCase) => ringCase.inside,
-			);
-			expectPerCase(
-				INVALID_RING_CASES,
-				(id) => answerOf.get(id)?.repaired,
-				(ringCase) => ringCase.insideRepaired,
-			);
-
-			// Stated as a set rather than left to the two maps above, so the claim the
-			// ADR carries is one assertion: validity decides this case and no other.
-			expect(
-				new Set(
-					answers.rows
-						.filter((row) => row.stored !== row.repaired)
-						.map((row) => idOfRecord.get(row.id)),
-				),
-			).toEqual(new Set(['polygon-abutting-the-ring']));
-
-			// --- the Region multiselect ------------------------------------------
-			// Through the whole clause this time, `&&` prefilter included, which is
-			// the only place the abutting case could be dropped before the branch runs.
-			const filtered = await sql<{ readonly id: string }>`
-				select h.id
-				from habitats h
-				where h.organization_id = ${invalidRingOrgId}
-					and ${
-						regionMembershipClauses({
-							geom: sql`h.geom`,
-							geomType: sql`h.geom_type`,
-							organizationId: sql`h.organization_id`,
-							regionIds: [invalidRingRegionId],
-						})[0]
-					}
-			`.execute(db);
-
-			expect(new Set(filtered.rows.map((row) => idOfRecord.get(row.id)))).toEqual(
-				new Set(
-					INVALID_RING_CASES.filter((ringCase) => ringCase.inside).map((ringCase) => ringCase.id),
-				),
-			);
-
-			// --- the detail-page read --------------------------------------------
-			// An invalid geometry is exactly where two call paths could drift, so both
-			// run, the way the corpus block runs both.
-			const read = await Promise.all(
-				INVALID_RING_CASES.map(async (ringCase, index) => {
-					const answer = await readRecordRegions(db, {
-						recordType: 'habitats',
-						recordId: invalidRingHabitatId(index),
-						organizationId: invalidRingOrgId,
-					});
-					return [ringCase.id, answer] as const;
+			const answers = await Promise.all(
+				VALIDITY_CASES.map(async (validityCase, index) => {
+					const row = await sql<ValidityRow>`
+						select
+							h.id,
+							${regionMembershipMatch({
+								geom: sql`h.geom`,
+								geomType: sql`h.geom_type`,
+								regionGeom: sql`rf.geom`,
+							})} as matched
+						from habitats h
+						join regions rf on rf.id = ${regionOf(validityCase)}
+						where h.id = ${validityHabitatId(index)}
+					`.execute(db);
+					return row.rows[0];
 				}),
 			);
 
-			for (const [id, answer] of read) {
-				expect(answer.found, id).toBe(true);
-			}
-
-			const groupsOf = new Map(read.map(([id, answer]) => [id, answer.groups.length > 0]));
-			expectPerCase(
-				INVALID_RING_CASES,
-				(id) => groupsOf.get(id),
-				(ringCase) => ringCase.inside,
+			// A loop that silently iterates nothing passes. Every case has to be here.
+			expect(new Set(answers.map((row) => idOfRecord.get(row?.id ?? '')))).toEqual(
+				new Set(VALIDITY_CASES.map((validityCase) => validityCase.id)),
 			);
+
+			const answerOf = new Map(answers.map((row) => [idOfRecord.get(row?.id ?? ''), row]));
+			expectPerCase(
+				VALIDITY_CASES,
+				(id) => answerOf.get(id)?.matched,
+				(validityCase) => validityCase.inside,
+			);
+
+			// --- the Region multiselect -----------------------------------------
+			// Through the whole clause, `&&` prefilter included, one Region at a
+			// time so each case meets only the Region it names.
+			for (const region of ['square', 'repaired-bow-tie'] as const) {
+				const cases = VALIDITY_CASES.filter((validityCase) => validityCase.region === region);
+				const filtered = await sql<{ readonly id: string }>`
+					select h.id
+					from habitats h
+					where h.id = any(${cases.map((validityCase) => validityHabitatId(VALIDITY_CASES.indexOf(validityCase)))}::uuid[])
+						and ${
+							regionMembershipClauses({
+								geom: sql`h.geom`,
+								geomType: sql`h.geom_type`,
+								organizationId: sql`h.organization_id`,
+								regionIds: [region === 'square' ? validityRegionId : bowTieRegionId],
+							})[0]
+						}
+				`.execute(db);
+
+				expect(new Set(filtered.rows.map((row) => idOfRecord.get(row.id))), region).toEqual(
+					new Set(
+						cases
+							.filter((validityCase) => validityCase.inside)
+							.map((validityCase) => validityCase.id),
+					),
+				);
+			}
 		});
 	});
 });

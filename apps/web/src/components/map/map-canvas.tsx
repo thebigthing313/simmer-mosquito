@@ -7,12 +7,14 @@ import { type ActivityLayerConfig, useActivityLayer } from '../../hooks/map/use-
 import { useContextGeoJsonLayer } from '../../hooks/map/use-context-geojson-layer';
 import { useExplorerCamera } from '../../hooks/map/use-explorer-camera';
 import { type GeoJsonLayerInteraction, useGeoJsonLayer } from '../../hooks/map/use-geojson-layer';
+import { useLandingPin } from '../../hooks/map/use-landing-pin';
 import { useMapClustering } from '../../hooks/map/use-map-clustering';
 import { type MapExtentFitSource, useMapExtentFit } from '../../hooks/map/use-map-extent-fit';
 import { useMapMeasure } from '../../hooks/map/use-map-measure';
 import { useMapPadding } from '../../hooks/map/use-map-padding';
 import { isMapLive, useMapboxMap } from '../../hooks/map/use-mapbox-map';
 import { type NearbyLayerConfig, useNearbyLayer } from '../../hooks/map/use-nearby-layer';
+import { useOrganizationAreaOpening } from '../../hooks/map/use-organization-area-opening';
 import { type RouteLayerConfig, useRouteLayer } from '../../hooks/map/use-route-layer';
 import { useSelectionOverlayLayer } from '../../hooks/map/use-selection-overlay-layer';
 import { useTileLayer } from '../../hooks/map/use-tile-layer';
@@ -84,6 +86,7 @@ export function MapCanvas({
 	contextGeoJson,
 	fitToData,
 	rememberCamera = false,
+	empty,
 	onMapReady,
 }: {
 	readonly className?: string;
@@ -150,6 +153,14 @@ export function MapCanvas({
 	 * and leaves the opening camera alone. `useExplorerCamera` has the rest.
 	 */
 	readonly rememberCamera?: boolean;
+	/**
+	 * Whether the page has no rows to put on this map. A page whose map fits
+	 * only to its own rows passes it, and while it is `true` the map opens on the
+	 * Organization's area: the stored explorer camera, or else the Regions
+	 * extent. Omitted means the map frames something of its own.
+	 * `useOrganizationAreaOpening` has the rest.
+	 */
+	readonly empty?: boolean;
 	/** Called once with the GL instance after it loads, for camera/bounds reads. */
 	readonly onMapReady?: (map: MapboxMap) => void;
 }) {
@@ -176,7 +187,8 @@ export function MapCanvas({
 	const showClustering = !show.minimal && (layers ?? []).some(tileLayerClusters);
 
 	const remembered = useExplorerCamera(rememberCamera);
-	const openingCamera = camera ?? remembered.initialCamera;
+	const organizationArea = useOrganizationAreaOpening(empty);
+	const openingCamera = camera ?? remembered.initialCamera ?? organizationArea.initialCamera;
 	const { map, isLoaded, hasToken, error } = useMapboxMap({
 		container,
 		basemapId,
@@ -185,6 +197,9 @@ export function MapCanvas({
 	});
 
 	const measure = useMapMeasure({ map, isLoaded: isLoaded && show.measure });
+	// One per map, shared by the place search and Go to coordinates, so either
+	// one's pin replaces the other's.
+	const landingPin = useLandingPin(map);
 
 	// The tile layers are mounted as children (see TileLayerMount). Everything
 	// here runs after them: Mapbox appends layers in add order and a child's
@@ -200,6 +215,7 @@ export function MapCanvas({
 	useMapPadding(map, isLoaded, clear);
 	useMapExtentFit(map, isLoaded, resolveExtentFitSource(fitToData, layers), clear, rememberCamera);
 	useMapExtentFit(map, isLoaded, remembered.firstVisitFit, clear);
+	useMapExtentFit(map, isLoaded, organizationArea.fit, clear);
 	const { storageKey } = remembered;
 	useEffect(() => {
 		if (storageKey === null || !isMapLive(map)) {
@@ -260,7 +276,7 @@ export function MapCanvas({
 			{contextMenu === undefined ? (
 				<div className="absolute inset-0 size-full" ref={setContainer} />
 			) : (
-				<MapContextMenu config={contextMenu} map={map}>
+				<MapContextMenu config={contextMenu} map={map} pin={landingPin}>
 					<div className="absolute inset-0 size-full" ref={setContainer} />
 				</MapContextMenu>
 			)}
@@ -291,7 +307,7 @@ export function MapCanvas({
 							// it, so a control that is reached for while typing a place name
 							// does not move when the panel opens.
 							<div className="pointer-events-auto absolute top-4 left-4">
-								<MapSearch map={map} width={searchWidth} />
+								<MapSearch map={map} pin={landingPin} width={searchWidth} />
 							</div>
 						) : null}
 						{show.basemap || legend !== undefined ? (

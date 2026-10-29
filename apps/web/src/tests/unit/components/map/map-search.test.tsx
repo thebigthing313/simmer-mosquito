@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MapboxSearchResult } from '../../../../components/map/mapbox-search-client';
 import { scrollBodyCap } from '../../scroll-body-cap';
+import { cleanupRenderedHooks, createFakeMap } from './fake-map';
 
 /**
  * The place search's two resets, which used to be effects and are now read off
@@ -15,10 +16,14 @@ import { scrollBodyCap } from '../../scroll-body-cap';
 /** What the next suggest call answers, so a case can hand the box its results. */
 let suggestions: readonly MapboxSearchResult[] = [];
 const suggestPlaces = vi.fn(() => Promise.resolve(suggestions));
+const retrievePlace = vi.fn(() =>
+	Promise.resolve({ center: [-74.25, 40.5] as [number, number], bbox: null }),
+);
 
 vi.mock('../../../../components/map/mapbox-search-client', async (importOriginal) => ({
 	...(await importOriginal<typeof import('../../../../components/map/mapbox-search-client')>()),
 	suggestPlaces: (...args: unknown[]) => suggestPlaces(...(args as [])),
+	retrievePlace: (...args: unknown[]) => retrievePlace(...(args as [])),
 }));
 
 vi.mock('../../../../components/map/map-styles', async (importOriginal) => ({
@@ -27,6 +32,9 @@ vi.mock('../../../../components/map/map-styles', async (importOriginal) => ({
 }));
 
 const { MapSearch } = await import('../../../../components/map/map-search');
+
+/** A pin for the cases that never choose a result. */
+const idlePin = { drop: () => {}, clear: () => {} };
 
 function place(id: string): MapboxSearchResult {
 	return { id, label: `Place ${id}`, description: 'Somewhere' };
@@ -37,7 +45,10 @@ beforeEach(() => {
 	suggestPlaces.mockClear();
 });
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	cleanupRenderedHooks();
+});
 
 function isSelected(option: HTMLElement): boolean {
 	return option.getAttribute('aria-selected') === 'true';
@@ -61,7 +72,7 @@ async function typeAndSettle(query: string, answer: readonly MapboxSearchResult[
 
 describe('the highlighted suggestion', () => {
 	it('is dropped when a new set of suggestions lands', async () => {
-		render(<MapSearch map={null} />);
+		render(<MapSearch map={null} pin={idlePin} />);
 		await typeAndSettle('north', [place('a'), place('b')]);
 
 		fireEvent.keyDown(input(), { key: 'ArrowDown' });
@@ -74,7 +85,7 @@ describe('the highlighted suggestion', () => {
 	});
 
 	it('follows the arrow keys through the set it was chosen from', async () => {
-		render(<MapSearch map={null} />);
+		render(<MapSearch map={null} pin={idlePin} />);
 		await typeAndSettle('north', [place('a'), place('b')]);
 
 		fireEvent.keyDown(input(), { key: 'ArrowDown' });
@@ -87,7 +98,7 @@ describe('the highlighted suggestion', () => {
 
 describe('the suggestions', () => {
 	it('are dropped when the query falls under the minimum, with nothing drawn in between', async () => {
-		render(<MapSearch map={null} />);
+		render(<MapSearch map={null} pin={idlePin} />);
 		await typeAndSettle('north', [place('a'), place('b')]);
 
 		act(() => {
@@ -108,7 +119,7 @@ describe('the suggestions', () => {
 	});
 
 	it('are dropped when Escape closes the panel', async () => {
-		render(<MapSearch map={null} />);
+		render(<MapSearch map={null} pin={idlePin} />);
 		await typeAndSettle('north', [place('a'), place('b')]);
 
 		act(() => {
@@ -121,7 +132,7 @@ describe('the suggestions', () => {
 
 describe('the results list', () => {
 	it('scrolls inside the styled viewport, capped there rather than on the root', async () => {
-		render(<MapSearch map={null} />);
+		render(<MapSearch map={null} pin={idlePin} />);
 		await typeAndSettle('north', [place('a'), place('b')]);
 
 		const listbox = screen.getByRole('listbox', { name: 'Search results' });
@@ -134,7 +145,7 @@ describe('the results list', () => {
 	it('brings the highlighted option into view as the arrow keys move', async () => {
 		const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
 		try {
-			render(<MapSearch map={null} />);
+			render(<MapSearch map={null} pin={idlePin} />);
 			await typeAndSettle('north', [place('a'), place('b')]);
 
 			fireEvent.keyDown(input(), { key: 'ArrowDown' });
@@ -147,5 +158,34 @@ describe('the results list', () => {
 		} finally {
 			scrolled.mockRestore();
 		}
+	});
+});
+
+describe('the landing pin', () => {
+	it('drops on the chosen result once the map has moved there', async () => {
+		const fake = createFakeMap();
+		const pin = { drop: vi.fn(), clear: vi.fn() };
+		render(<MapSearch map={fake.map} pin={pin} />);
+		await typeAndSettle('newark', [place('a')]);
+
+		fireEvent.click(screen.getByRole('option'));
+
+		await waitFor(() => {
+			expect(pin.drop).toHaveBeenCalledExactlyOnceWith(
+				{ lng: -74.25, lat: 40.5 },
+				'Search result Place a',
+			);
+		});
+		expect(fake.cameraCalls.map((call) => call.center)).toEqual([[-74.25, 40.5]]);
+	});
+
+	it('is cleared with the search box', async () => {
+		const pin = { drop: vi.fn(), clear: vi.fn() };
+		render(<MapSearch map={null} pin={pin} />);
+		fireEvent.change(input(), { target: { value: 'newark' } });
+
+		fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+
+		expect(pin.clear).toHaveBeenCalledOnce();
 	});
 });

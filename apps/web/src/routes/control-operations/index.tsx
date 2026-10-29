@@ -35,7 +35,11 @@ import { addDaysToDateString } from '../../lib/local-date';
 import { recordNoun } from '../../lib/record-nouns';
 import { groupRows, type RowGroup } from '../../lib/row-groups';
 
-/** How far back the recent-activity panels reach. */
+/**
+ * How far back the source reduction and biocontrol panels reach. The other two
+ * panels read their own windows, a picked day and the usage toggle, so each
+ * panel names its window in its title and the page header names none.
+ */
 const CONTROL_ACTIVITY_WINDOW_DAYS = 14;
 
 /** The windows the insecticide usage summary offers, shortest first. */
@@ -74,11 +78,7 @@ function ControlOperationsOverviewRoute() {
 				'@container',
 			)}
 		>
-			<PageHeader
-				description={`Last ${CONTROL_ACTIVITY_WINDOW_DAYS} days`}
-				icon={ControlIcon}
-				title="Control Operations"
-			/>
+			<PageHeader icon={ControlIcon} title="Control Operations" />
 
 			<div className="grid gap-5 @5xl:grid-cols-12">
 				<div className="grid content-start gap-5 @5xl:col-span-7">
@@ -152,7 +152,7 @@ function ActionRow({
 				<span className="truncate text-muted-foreground text-xs">{secondary}</span>
 			</div>
 			<span className="shrink-0 text-muted-foreground text-xs tabular-nums">{amount}</span>
-			<span className="w-16 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
+			<span className="shrink-0 whitespace-nowrap text-right text-muted-foreground text-xs tabular-nums">
 				{date}
 			</span>
 		</li>
@@ -450,7 +450,7 @@ function RecentSourceReductionsPanel({ since }: { readonly since: string }) {
 			count={isReady ? actions.length : undefined}
 			icon={<SourceReductionIcon className="size-4" />}
 			scrollBody
-			title={recordNoun('sourceReduction').titleMany}
+			title={`${recordNoun('sourceReduction').titleMany} · Last ${CONTROL_ACTIVITY_WINDOW_DAYS} Days`}
 		>
 			<PanelRows
 				empty={{
@@ -495,7 +495,7 @@ function RecentBiocontrolPanel({ since }: { readonly since: string }) {
 			count={isReady ? actions.length : undefined}
 			icon={<BiocontrolIcon className="size-4" />}
 			scrollBody
-			title="Biocontrol Releases"
+			title={`Biocontrol Releases · Last ${CONTROL_ACTIVITY_WINDOW_DAYS} Days`}
 		>
 			<PanelRows
 				empty={{

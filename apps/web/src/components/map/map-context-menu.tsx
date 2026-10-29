@@ -1,3 +1,4 @@
+import { formatLatLng } from '@simmer-mosquito/mapping';
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -11,12 +12,14 @@ import { useNavigate } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import type { LandingPin } from '../../hooks/map/use-landing-pin';
 import { useHasRole } from '../../hooks/use-can-write';
+import { GoToCoordinatesDialog } from './go-to-coordinates-dialog';
 import type { MapCreateTarget } from './map-create-targets';
-import { formatLatLng } from './map-point-search';
 
 const CopyIcon = iconRegistry.actions.copy.icon;
 const AddIcon = iconRegistry.actions.add.icon;
+const GoToIcon = iconRegistry.generic.compass.icon;
 
 export interface MapContextMenuConfig {
 	/**
@@ -42,14 +45,18 @@ export interface MapContextMenuConfig {
 export function MapContextMenu({
 	map,
 	config,
+	pin,
 	children,
 }: {
 	readonly map: MapboxMap | null;
 	readonly config: MapContextMenuConfig | undefined;
+	/** Where Go to coordinates marks the point it flew to. */
+	readonly pin: LandingPin;
 	readonly children: ReactNode;
 }) {
 	const [point, setPoint] = useState<{ readonly lat: number; readonly lng: number } | null>(null);
 	const [surface, setSurface] = useState<HTMLDivElement | null>(null);
+	const [goingTo, setGoingTo] = useState(false);
 
 	/**
 	 * Take the right-click before Mapbox does, then hand Radix a fresh one.
@@ -97,16 +104,25 @@ export function MapContextMenu({
 	}, [surface, map]);
 
 	return (
-		<ContextMenu>
-			<ContextMenuTrigger asChild disabled={map === null}>
-				<div className="absolute inset-0 size-full" ref={setSurface}>
-					{children}
-				</div>
-			</ContextMenuTrigger>
-			{point === null ? null : (
-				<MapContextMenuItems config={config} lat={point.lat} lng={point.lng} />
-			)}
-		</ContextMenu>
+		<>
+			<ContextMenu>
+				<ContextMenuTrigger asChild disabled={map === null}>
+					<div className="absolute inset-0 size-full" ref={setSurface}>
+						{children}
+					</div>
+				</ContextMenuTrigger>
+				{point === null ? null : (
+					<MapContextMenuItems
+						config={config}
+						lat={point.lat}
+						lng={point.lng}
+						onGoTo={() => setGoingTo(true)}
+					/>
+				)}
+			</ContextMenu>
+			{/* Beside the menu rather than in it, because the menu's content unmounts as it closes. */}
+			<GoToCoordinatesDialog map={map} onOpenChange={setGoingTo} open={goingTo} pin={pin} />
+		</>
 	);
 }
 
@@ -114,10 +130,12 @@ function MapContextMenuItems({
 	config,
 	lat,
 	lng,
+	onGoTo,
 }: {
 	readonly config: MapContextMenuConfig | undefined;
 	readonly lat: number;
 	readonly lng: number;
+	readonly onGoTo: () => void;
 }) {
 	const navigate = useNavigate();
 	const coordinates = formatLatLng(lat, lng);
@@ -140,6 +158,10 @@ function MapContextMenuItems({
 			<ContextMenuItem onSelect={onCopy}>
 				<CopyIcon aria-hidden="true" />
 				Copy coordinates
+			</ContextMenuItem>
+			<ContextMenuItem onSelect={onGoTo}>
+				<GoToIcon aria-hidden="true" />
+				Go to coordinates…
 			</ContextMenuItem>
 			<MapCreateItems
 				onSelect={(to) => {

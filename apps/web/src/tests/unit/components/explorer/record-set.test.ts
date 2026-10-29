@@ -13,6 +13,7 @@ import {
 	type RecordSetLinks,
 	type RecordSetSurface,
 	recordSetCounting,
+	recordSetExportRequest,
 	recordSetInert,
 	recordSetListParams,
 	surfaceCodecs,
@@ -26,7 +27,10 @@ import { inspectionRecordSet } from '../../../../components/larval-surveillance/
 import { sampleRecordSet } from '../../../../components/larval-surveillance/samples-search';
 import { outreachRecordSet } from '../../../../components/public-engagement/outreach/outreach-actions-search';
 import { serviceRequestRecordSet } from '../../../../components/public-engagement/service-requests/service-requests-search';
+import { recordEmptyTitle } from '../../../../components/record/record-empty-title';
+import { addDaysToDateString } from '../../../../lib/local-date';
 import { mapQueryParams } from '../../../../lib/map-query-params';
+import { recordNoun } from '../../../../lib/record-nouns';
 import {
 	countActiveFilters,
 	resolveFilters,
@@ -155,18 +159,124 @@ function contextOn(today: string, serviceRequestOverdueDays: number | 'off'): Re
 	return { today, settings };
 }
 
-describe('the Inspections opening window', () => {
+/**
+ * The window each dated set opens on, written out here rather than read off
+ * the register, so a register that moves a window fails this suite (#1669).
+ * Every Table opens on all time; the Maps keep a window because a Map draws
+ * every matching record at once.
+ */
+const DATED: readonly (readonly [string, RecordSet<Record<string, unknown>>, string, string])[] = [
+	['inspections', inspectionRecordSet as never, '2026-09-10', 'No Inspections in the Last 30 Days'],
+	['samples', sampleRecordSet as never, '2026-09-10', 'No Samples in the Last 30 Days'],
+	['collections', collectionRecordSet as never, '2026-07-12', 'No Collections in the Last 90 Days'],
+	[
+		'chemical applications',
+		applicationRecordSet as never,
+		'2026-07-12',
+		'No Chemical Applications in the Last 90 Days',
+	],
+	[
+		'biocontrol actions',
+		biocontrolRecordSet as never,
+		'2026-07-12',
+		'No Biocontrol Actions in the Last 90 Days',
+	],
+	[
+		'source reductions',
+		sourceReductionRecordSet as never,
+		'2026-07-12',
+		'No Source Reductions in the Last 90 Days',
+	],
+	[
+		'outreach actions',
+		outreachRecordSet as never,
+		'2026-07-12',
+		'No Outreach Actions in the Last 90 Days',
+	],
+	[
+		'service requests',
+		serviceRequestRecordSet as never,
+		'2026-01-01',
+		'No Service Requests This Year',
+	],
+];
+
+describe.each(DATED)('the %s opening windows', (_name, set, mapFrom, mapTitle) => {
 	const context = contextOn('2026-10-09', 'off');
 
-	it('opens the Map on the last 30 days, today included', () => {
-		expect(inspectionRecordSet.defaults(context, 'map')).toMatchObject({
-			from: '2026-09-10',
-			to: '2026-10-09',
-		});
+	it('opens the Table on all time, and sends no date bound for it', () => {
+		const defaults = set.defaults(context, 'table');
+
+		expect(defaults).toMatchObject({ from: '', to: '' });
+		const params = recordSetListParams(set, defaults, context);
+		expect(params).not.toHaveProperty('dateFrom');
+		expect(params).not.toHaveProperty('dateTo');
 	});
 
-	it('opens the Table on all time', () => {
-		expect(inspectionRecordSet.defaults(context, 'table')).toMatchObject({ from: '', to: '' });
+	it('opens the Map on its window, today included', () => {
+		expect(set.defaults(context, 'map')).toMatchObject({ from: mapFrom, to: context.today });
+	});
+
+	it('titles an empty Table and an empty Map with the window each opens on', () => {
+		expect(recordEmptyTitle(set.recordType, set.emptyScope('table'))).toBe(
+			`No ${recordNoun(set.recordType).titleMany} Yet`,
+		);
+		expect(recordEmptyTitle(set.recordType, set.emptyScope('map'))).toBe(mapTitle);
+	});
+
+	it('gives each window a reason of one sentence', () => {
+		for (const surface of ['map', 'table'] as const) {
+			expect(set.windows?.[surface].reason).toMatch(/^[A-Z][^.]*\.$/);
+		}
+	});
+
+	it('carries to the Table the dates a reader set on the Map, and not the Map window', () => {
+		const validate = searchValidator(surfaceCodecs(set, 'map'));
+
+		expect(carriedSearch(set, validate({}), 'table')).toEqual({});
+		expect(carriedSearch(set, validate({ from: '2026-08-01', to: '2026-08-31' }), 'table')).toEqual(
+			{ from: '2026-08-01', to: '2026-08-31' },
+		);
+	});
+});
+
+describe.each([
+	['habitats', habitatRecordSet],
+	['traps', trapRecordSet],
+	['addresses', addressRecordSet],
+] as const)('the undated %s set', (_name, set) => {
+	it('declares no date window', () => {
+		expect(set.windows).toBeUndefined();
+	});
+});
+
+/*
+ * Both surfaces' empty states name the set's scope when nothing is set, so a
+ * scope that drifts from the defaults would title an empty Map or Table with a
+ * window the request never used (#1653).
+ */
+describe.each(SETS)('the %s empty scope', (_name, links) => {
+	const set = links as RecordSet<Record<string, unknown>>;
+	const context = contextOn('2026-10-09', 'off');
+
+	it.each(['map', 'table'] as const)('names the window the %s opens on', (surface) => {
+		const scope = set.emptyScope(surface);
+		const defaults = set.defaults(context, surface);
+		switch (scope.kind) {
+			case 'lastDays':
+				expect(defaults).toMatchObject({
+					from: addDaysToDateString(context.today, -(scope.days - 1)),
+					to: context.today,
+				});
+				break;
+			case 'thisYear':
+				expect(defaults).toMatchObject({ from: '2026-01-01', to: context.today });
+				break;
+			default:
+				// A scope with no window opens on no dates.
+				expect(defaults.from ?? '').toBe('');
+				expect(defaults.to ?? '').toBe('');
+		}
 	});
 });
 
@@ -483,5 +593,38 @@ describe.each(
 			expect(map.paramsWithout(key), key).not.toEqual(map.params);
 			expect(table.paramsWithout(key), key).toEqual(table.params);
 		}
+	});
+});
+
+describe('the export request', () => {
+	const params = { bbox: '-180,-90,180,90', density: 'heavy' };
+
+	it('reads the page request unpaged where the set declares an export', () => {
+		expect(recordSetExportRequest(inspectionRecordSet, params, '2026-10-28')).toEqual({
+			path: '/map/inspections',
+			params,
+			recordType: 'inspection',
+			today: '2026-10-28',
+		});
+	});
+
+	it('waits on a Map with no viewport yet', () => {
+		expect(recordSetExportRequest(inspectionRecordSet, null, '2026-10-28')).toBeNull();
+	});
+
+	it.each([
+		habitatRecordSet,
+		inspectionRecordSet,
+		sampleRecordSet,
+		trapRecordSet,
+		collectionRecordSet,
+		applicationRecordSet,
+		biocontrolRecordSet,
+		sourceReductionRecordSet,
+		outreachRecordSet,
+		serviceRequestRecordSet,
+		addressRecordSet,
+	] as readonly RecordSet<unknown, unknown>[])('is read for $endpoint.path', (set) => {
+		expect(recordSetExportRequest(set, params, '2026-10-28')?.path).toBe(set.endpoint.path);
 	});
 });

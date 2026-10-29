@@ -1,12 +1,15 @@
 import { OUTREACH_MAP_FILTERS } from '@simmer-mosquito/domain';
-import { addDaysToDateString } from '../../../lib/local-date';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
 	idSetParam,
 } from '../../../lib/search-filters';
-import { defineRecordSet } from '../../explorer/record-set';
+import {
+	defineRecordSet,
+	type RecordSetWindowBounds,
+	TABLE_OPENS_ON_ALL_TIME,
+} from '../../explorer/record-set';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
 import type { OutreachTileFilters } from '../../map';
 
@@ -34,17 +37,14 @@ export const outreachFilterCodecs: FilterCodecs<OutreachFilters> = {
 	regions: idSetParam,
 };
 
-/** How many days the window opens on, ending on the Organization's today. */
-export const OUTREACH_WINDOW_DAYS = 90;
-
 /**
- * What an address with no filter params means: every outreach action over the
- * last ninety days, ending on the Organization's today.
+ * What an address with no filter params means: every outreach action inside `window`, the
+ * bounds the set's `windows` open the surface on.
  */
-export function outreachFilterDefaults(today: string): OutreachFilters {
+export function outreachFilterDefaults(window: RecordSetWindowBounds): OutreachFilters {
 	return {
-		from: addDaysToDateString(today, -(OUTREACH_WINDOW_DAYS - 1)),
-		to: today,
+		from: window.from,
+		to: window.to,
 		people: new Set(),
 		methods: new Set(),
 		regions: new Set(),
@@ -69,11 +69,19 @@ export const outreachRecordSet = defineRecordSet({
 	recordType: 'outreachAction',
 	paths: { map: '/public-engagement/outreach', table: '/public-engagement/outreach/table' },
 	codecs: outreachFilterCodecs,
-	endpoint: { path: '/map/outreach', rowsKey: 'outreachActions', rowKey: 'outreachAction' },
+	endpoint: {
+		path: '/map/outreach',
+		rowsKey: 'outreachActions',
+		rowKey: 'outreachAction',
+	},
 	tileset: 'outreach',
 	tileFilters: outreachTileFilters,
 	filterSpec: OUTREACH_MAP_FILTERS,
-	defaults: ({ today }) => outreachFilterDefaults(today),
+	defaults: ({ window }) => outreachFilterDefaults(window),
+	windows: {
+		map: { kind: 'lastDays', days: 90, reason: 'Ninety days is one season of outreach.' },
+		table: TABLE_OPENS_ON_ALL_TIME,
+	},
 	counting: DATE_RANGE_COUNTING,
 	applies: { from: 'both', to: 'both', people: 'both', methods: 'both', regions: 'both' },
 });

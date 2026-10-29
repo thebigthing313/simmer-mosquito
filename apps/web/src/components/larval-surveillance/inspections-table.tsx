@@ -93,7 +93,7 @@ function InspectionRow({
 				>
 					<Link
 						params={{ id: row.id }}
-						state={{ breadcrumbVia: '/larval-surveillance/inspections/table' }}
+						search={{ via: 'table' }}
 						to="/larval-surveillance/inspections/$id"
 					>
 						<ChevronRightIcon aria-hidden="true" />

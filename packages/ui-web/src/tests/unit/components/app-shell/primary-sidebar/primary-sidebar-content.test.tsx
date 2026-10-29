@@ -40,16 +40,19 @@ const DOMAINS = [
 	domain('adult', 'Adult Surveillance'),
 ];
 
-function renderContent(collapsed: boolean) {
+const STANDALONE_PAGES = [{ path: '/profile', crumbs: [{ label: 'Profile' }] }];
+
+function renderContent(collapsed: boolean, activePath = '/adult') {
 	return render(
 		<TooltipProvider>
 			<ShellProvider
-				activePath="/adult"
+				activePath={activePath}
 				currentOrganization={ORGANIZATION}
 				domains={DOMAINS}
 				onNavigate={() => {}}
 				onSelectOrganization={() => {}}
 				organizations={[ORGANIZATION]}
+				standalonePages={STANDALONE_PAGES}
 				user={{ name: 'Ada', email: 'ada@example.test' }}
 			>
 				<PrimarySidebarContent collapsed={collapsed} />
@@ -99,5 +102,16 @@ describe.each([
 
 		expect(width?.[1]).toBeDefined();
 		expect(inset?.[1]).toBe(width?.[1]);
+	});
+
+	it('marks no domain on a page that belongs to none', () => {
+		// Profile is reached from the account menu and sits in no domain, so the
+		// rail lighting Overview there claimed a place the page is not in (#1655).
+		const { container } = renderContent(collapsed, '/profile');
+
+		for (const button of screen.getAllByRole('button')) {
+			expect(button.getAttribute('aria-current')).toBeNull();
+		}
+		expect(container.querySelector('span[aria-hidden="true"].absolute')).toBeNull();
 	});
 });

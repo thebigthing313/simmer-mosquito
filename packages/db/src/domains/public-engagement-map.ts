@@ -6,13 +6,16 @@ import type { MapTilesetLayer } from './map-layers.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import { searchClauses } from './map-search-filter.js';
 import {
+	exportTimestamp,
+	exportVocabularyLabel,
 	type MapByIdInput,
 	type MapDisplayColumns,
 	type MapReadContext,
 	type MapRecordSurfaceReaders,
+	type MapSurfaceExport,
 	mapRecordSurface,
 } from './map-surface.js';
-import { tagIdsSql, tagMembershipClauses } from './map-tag-filter.js';
+import { tagIdsSql, tagMembershipClauses, tagNamesSql } from './map-tag-filter.js';
 import { assertIanaTimeZone, localDateSql } from './record-display-sql.js';
 
 /**
@@ -155,6 +158,39 @@ const serviceRequestDisplayColumns: MapDisplayColumns<SafeServiceRequestDisplayR
 };
 
 /**
+ * A service request as a spreadsheet row, with its contact, Address, Tags and
+ * the people who received and closed it by name. The contact is named and
+ * not reached: a phone number and an email address are read one request at a
+ * time on the page, and a file of up to 50,000 of them is a different
+ * exposure from that, so they are left out.
+ */
+const serviceRequestExport: MapSurfaceExport = {
+	joins: sql`
+		left join contacts ct on ct.id = sr.contact_id
+		left join addresses ad on ad.id = sr.address_id
+		left join profiles received_by on received_by.id = sr.received_by_profile_id
+		left join profiles closed_by on closed_by.id = sr.closed_by_profile_id
+	`,
+	columns: (context) => [
+		{ header: 'Request', value: sql`sr.display_name` },
+		{ header: 'Request date', value: sql`sr.request_date::text` },
+		{ header: 'Status', value: sql`case when sr.closed_at is null then 'Open' else 'Closed' end` },
+		{ header: 'Intake', value: exportVocabularyLabel(sql`sr.intake_type`) },
+		{ header: 'Contact', value: sql`ct.contact_name` },
+		{ header: 'Address', value: sql`ad.display_name` },
+		{ header: 'Details', value: sql`sr.details` },
+		{ header: 'Tags', value: tagNamesSql({ id: sql`sr.id`, entityType: 'service_request' }) },
+		{ header: 'Received by', value: sql`received_by.display_name` },
+		{ header: 'Closed', value: exportTimestamp(sql`sr.closed_at`, context) },
+		{ header: 'Closed by', value: sql`closed_by.display_name` },
+		{ header: 'Latitude', value: sql`sr.lat` },
+		{ header: 'Longitude', value: sql`sr.lng` },
+		{ header: 'Recorded', value: exportTimestamp(sql`sr.created_at`, context) },
+		{ header: 'Updated', value: exportTimestamp(sql`sr.updated_at`, context) },
+	],
+};
+
+/**
  * The service requests map surface: request points as a vector tile for the
  * explorer map, the extent that map frames on load and after a filter change,
  * the page of requests inside the viewport its rail lists, and the one request
@@ -200,6 +236,7 @@ export function serviceRequestSurface(
 					? sql`sr.request_date asc, sr.created_at asc, sr.id`
 					: sql`sr.request_date desc, sr.created_at desc, sr.id`,
 		},
+		export: serviceRequestExport,
 	});
 }
 

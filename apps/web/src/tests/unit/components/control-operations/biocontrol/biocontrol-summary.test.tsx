@@ -86,7 +86,7 @@ const SUMMARY: MapSummary = {
 	},
 };
 
-const DEFAULTS = biocontrolFilterDefaults('2026-09-28');
+const DEFAULTS = biocontrolFilterDefaults({ from: '2026-07-01', to: '2026-09-28' });
 
 function renderSummary(filters: Partial<BiocontrolFilters> = {}, summary = SUMMARY) {
 	const setFilters = vi.fn<(patch: Partial<BiocontrolFilters>) => void>();

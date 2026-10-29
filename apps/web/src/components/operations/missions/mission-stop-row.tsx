@@ -3,6 +3,8 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import { Link } from '@tanstack/react-router';
 import { controlTypeLabel, requestDisplayName } from '../../../hooks/queries/operations-view';
+import type { RecordType } from '../../../lib/record-nouns';
+import { createLabel } from '../../app-shell/navigation';
 import {
 	type MoveAction,
 	OrdinalBadge,
@@ -26,17 +28,24 @@ const ACTION_LABELS: Readonly<Record<MissionItemAction, string>> = {
 	reopen: 'Reopen',
 };
 
-/** Where each kind of mission sends the crew to record what they did. */
-const RECORD_ROUTE: Readonly<Record<ControlType, { readonly to: string; readonly label: string }>> =
-	{
-		application: { to: '/control-operations/chemical/create', label: 'Record application' },
-		source_reduction: {
-			to: '/control-operations/source-reduction/create',
-			label: 'Record source reduction',
-		},
-		biocontrol: { to: '/control-operations/biocontrol/create', label: 'Record biocontrol' },
-		outreach: { to: '/public-engagement/outreach/create', label: 'Record outreach' },
-	};
+/**
+ * Where each kind of mission sends the crew to record what they did, and the
+ * record type that form writes. The button's label is `createLabel` over the
+ * record type: Title Case, because a button with visible text takes it, and
+ * the same words a detail page's menu reads in sentence case for the same
+ * form (#1702).
+ */
+const RECORD_ROUTE: Readonly<
+	Record<ControlType, { readonly to: string; readonly recordType: RecordType }>
+> = {
+	application: { to: '/control-operations/chemical/create', recordType: 'application' },
+	source_reduction: {
+		to: '/control-operations/source-reduction/create',
+		recordType: 'sourceReduction',
+	},
+	biocontrol: { to: '/control-operations/biocontrol/create', recordType: 'biocontrolAction' },
+	outreach: { to: '/public-engagement/outreach/create', recordType: 'outreachAction' },
+};
 
 /**
  * The control action a mission stop exists to produce. The mission is typed
@@ -61,15 +70,16 @@ function RecordMissionWorkButton({
 	}
 	const route = RECORD_ROUTE[controlType];
 	const search = { missionItemId: stop.missionItemId, missionId };
+	const label = createLabel(route.recordType);
 
 	return (
 		<Button asChild={enabled} disabled={!enabled} size="sm" variant="default">
 			{enabled ? (
 				<Link search={search} to={route.to}>
-					{route.label}
+					{label}
 				</Link>
 			) : (
-				<span>{route.label}</span>
+				<span>{label}</span>
 			)}
 		</Button>
 	);

@@ -210,9 +210,32 @@ fluid ounces is 12.999999999999998 in doubles.
 
 #### InsecticideDrawer
 
-Deletion lives inside the edit drawer rather than as a per-row control, because
-it is rare and destructive; reversible lifecycle changes are the row's
-`CatalogLifecycleButton`.
+Deletion lives inside the edit drawer rather than in the row menu, because it
+is rare and destructive; the reversible retire is the row menu's. The same
+holds for `FormulationDrawer`.
+
+#### InsecticideSection and FormulationSection
+
+These two catalogs expand each row into a second tier, the batches of a product
+or the products in a mix, and that used to buy them a body of their own: inline
+pencil and X buttons per row, the counts on the right of a group heading, a
+"Show N inactive" disclosure, a Status column repeating the split, a Metadata
+column reading "Configured" on every row, and no search. The X deactivated a
+product and read as delete.
+
+Decided on 2026-10-12 (#1666): row expansion is not a reason for a different
+action or lifecycle pattern. Each section is a `CatalogSection`, the Active
+and Inactive sides sit under `CatalogFilteredList`'s counts and filter, the
+name carries the Inactive badge through `CatalogNameCell`, and the row has the
+`CatalogRowActions` menu. Edit opens the drawer from the menu and delete stays
+inside the drawer. The expand chevron is the only column the other catalogs do
+not have.
+
+A formulation with no products still cannot be activated, so its menu item is
+disabled with "Add a product first" under it, through `toggleDisabled` and
+`toggleHint`, and it reads "Activate" rather than "Reactivate" through
+`activateLabel`. The second tier keeps its inline controls: a product's
+batches and a mix's products are short lists inside an already open row.
 
 #### ControlMethodsPage
 
@@ -371,6 +394,16 @@ The definition also holds what the filter state reads: `defaults(context,
 surface)`, the counting rule, and the `textSearch` key for a set with a search
 box. `useRecordSetFilters` in `docs/web-hooks.md` says what each is for.
 
+A dated set names its `windows` too, the date window each surface opens on
+with a one-sentence reason, and that is the one register of them (#1669).
+`defineRecordSet` hands `defaults` the window's bounds on the context, so a
+set's defaults never compute a date, and derives `emptyScope` from the same
+windows, so an empty surface cannot name a window its request did not use.
+Six `*_WINDOW_DAYS` constants and an Inspections `MAP_WINDOW_DAYS` used to say
+this, each in its own module, none with a reason, and the Table routes
+imported them for their empty copy. An undated set (Habitats, Traps,
+Addresses) has no `windows` and names its `emptyScope` itself.
+
 And it holds the request. `endpoint` names the `/map/*` list endpoint and the
 key its rows arrive under, `tileFilters` turns the filters into what the tile
 layer reads, and `filterSpec` names the spec in `@simmer-mosquito/domain` that
@@ -405,6 +438,116 @@ paths. The label is the register's `many` with its first letter raised, plus
 `carriedSearch` takes the source surface's validated search, so a filter at its
 default is already off it, and an order or a page is not a filter key and is
 never carried.
+
+The switch and `RecordSetTablePage` take that search as a `ValidatedSearch` of
+the set's filters, which is what `searchValidator` returns, so a route handing
+its switch another set's search, or a plain object, fails `tsc` (#1589). Both
+props used to be typed `Record<string, unknown>` and a set over `unknown`,
+and a wrong search drew a switch that carried nothing. The mark is a type
+alone and invariant in the filters, because a plain property would let Traps'
+search, which holds every Address filter, pass for the Addresses set's.
+Outreach's filters and Source Reduction's are one type, so those two still
+take each other's. The Service Requests routes validate the rail's order as
+well, and pass its codecs to `searchValidator` as `beside`, which validates
+them and leaves them out of the mark. The router reads a function validator's
+parameter as what a `Link` to the route may pass, and when it is unmarked it
+uses the return type, so every `Link` would owe a marked search.
+`SearchValidator`'s last signature marks the parameter `SearchSchemaInput` for
+the router, and its first is the one a suite's direct call resolves to. The
+link suite builds each search with `validatedOn`, the surface's own
+validator, and the generic switch needs one element per set in its `it.each`,
+because a union of sets infers no filters.
+
+#### RecordSetExport
+
+The Export control on every record set's Map and Table, offering the set's
+matches as a CSV or an Excel workbook. Every role that can read the page can
+export, so the control has no role floor.
+
+**What a file holds.** Each surface exports its own page request without the
+paging, read from `GET /map/<set>/export`:
+
+- The Table exports every record that matches its filters. Its page request
+  carries the box around the whole world (`WHOLE_WORLD_BBOX`), so its export
+  does too.
+- The Map exports the records in the current viewport that match its
+  filters, which is what its rail lists and its tiles draw.
+- A filter applied on one surface only (`AppliedOn`) narrows only that
+  surface's export, because the other surface's request never carries it.
+
+The server reads the export with the predicate the page and the summary
+narrow with, `surfaceWhere` and `envelopeWhere` in
+`packages/db/src/domains/map-surface.ts`, so the file's row count is the
+page's `total` for the same request. The integration suite holds every set
+to that.
+
+**Why the Map export follows the viewport.** #920 made the rail and the map
+one set: the rail is a page of what is in view, not of the Organization. An
+export that ignored the viewport would be a third set, one nobody on the Map
+was looking at, and a reader who panned to a district and exported it would
+get the whole Organization. The Table is where the whole filtered set lives,
+and it is one click away on the Map/Table switch, carrying the filters both
+surfaces apply.
+
+**Why the ceiling is 50,000.** Over 50,000 matches the read refuses with a
+422, and the toast gives the count and asks for narrower filters. Two costs
+set the number. The server answers the rows as one JSON body, and the browser
+builds the file on the main thread: measured in Node, 50,000 rows of 20
+columns took about 6 seconds as XLSX and about 1.2 seconds as CSV, and the
+tab does not repaint in that time. Both grow with the row count, so the
+ceiling bounds the worst wait to a few seconds. The refusal writes nothing,
+because a file cut off at a limit reads as complete. The read counts first so
+a refusal costs a count, and limits the row read to one past the ceiling so
+rows committed between the two statements cannot take the file over it.
+
+**What the columns are.** Each surface declares its export columns on its map
+surface (`export` on `mapRecordSurface`), apart from the display
+projection, which carries ids the rail resolves through its catalogs. A
+spreadsheet has no catalog, so a column is a label: a habitat type, method or
+unit by name, a person by display name, a flag as `Yes` or `No`, a status by
+the label the page draws. Dates are `YYYY-MM-DD` and times
+`YYYY-MM-DD HH:MM` on the Organization's clock, and every set carries
+latitude and longitude. A few sets carry a rule of their own:
+
+- Collections are dated by the effective date the page windows and orders by:
+  the day of `collected_at` on the Organization's clock under exact
+  timestamps, the stored `collection_date` under date and duration. Each
+  timing mode's own columns are filled for its rows and left empty for the
+  other's.
+- Chemical, Source Reduction and Biocontrol write each amount in its row's
+  unit and never sum it, since gallons and ounces of one product do not add.
+- Samples and Collections name their species with counts, and Habitats and
+  Service Requests list their Tags.
+- Service Requests name the contact and leave out its phone and email. The
+  page shows them one request at a time, and a file of up to 50,000 of them is
+  a different exposure.
+- Samples leave Larvae empty until a species is keyed out, so an unread sample
+  does not read as zero.
+
+The declaration is required, so `tsc` refuses a record set's surface without
+one, and the control has no branch for a set that cannot export.
+
+**How the file is built.** The server answers rows of values rather than a
+file, which keeps one read behind both formats. SheetJS, which `apps/web`
+already carries for the weather import, writes the file through a dynamic
+`import()` in `lib/record-export.ts`, so the chunk is fetched the first
+time someone exports and the boot bundle does not carry it. The file is named
+for the records and the Organization's today, `Inspections 2026-10-28.csv`.
+
+The CSV writes a text value that starts with `=`, `+`, `-`, `@`, a tab or a
+carriage return behind an apostrophe. A CSV cell is text, and Excel runs one
+that starts with those as a formula when the file is opened, so a habitat
+named `=HYPERLINK(...)` would otherwise be a link in somebody's spreadsheet.
+The workbook needs no guard: SheetJS writes a string as a string cell. It does
+write the server's dates and times as date cells, so a column sorts and
+filters as dates. SheetJS reads a `Date` by its UTC fields, so the cell is
+built from the value's own fields as UTC and holds the Organization's
+wall-clock time in any browser zone. A worker for the build is the change to
+make if the full-ceiling wait turns out to matter.
+
+On the Map the control is an icon in the panel header beside the Map/Table
+switch, disabled until the map has a viewport, since the export is the
+viewport's. On the Table it is a labelled button in the page header.
 
 #### ExplorerSummary
 
@@ -534,6 +677,18 @@ a third results shape. The caller still hands over its rows, because the page
 request that counted them is the one that fetched them, and swapping the
 summary out for the rows on a zoom is then one prop going undefined.
 
+#### DateRangeFilter
+
+It lives at the top of `components` because the trap detail page draws it as
+well as the declared filter bars. Its rows pack to the top with
+`content-start`, so a container taller than it leaves space underneath rather
+than stretching the rows. The Service Requests and Inspections bars put it
+straight into a two-column grid instead of going through
+`FilterFieldsLayout`, and on Service Requests the Status, Overdue and Order
+column was the taller one, so the grid row stretched the filter and the preset
+buttons drew 79px tall as ovals (#1658). Fixing it in the component rather than
+in the two bars means a third bar written the same way cannot bring it back.
+
 #### The record tables
 
 Every `/table` route pages through the `/map/*` list endpoint its map surface
@@ -542,6 +697,38 @@ reads, over `WHOLE_WORLD_BBOX`, with `usePagedMapResource` and
 holds one page of 100. Each table has one fixed order, the endpoint's, and no
 column sorts. Service Requests is the one table with a control over it,
 newest or oldest first, under the `order` param the Map's rail already sent.
+
+Every dated Table opens on all time, and every Map keeps a window (#1669):
+
+| Set | Map opens on | Table opens on | Order, both surfaces |
+| --- | --- | --- | --- |
+| Inspections | last 30 days | all time | inspection date, newest first |
+| Samples | last 30 days | all time | parent inspection's date, newest first |
+| Collections | last 90 days | all time | the effective collection date the Organization's timing mode picks, newest first |
+| Chemical Applications | last 90 days | all time | application date, newest first |
+| Source Reductions | last 90 days | all time | source reduction date, newest first |
+| Biocontrol Actions | last 90 days | all time | biocontrol date, newest first |
+| Outreach Actions | last 90 days | all time | outreach date, newest first |
+| Service Requests | this year | all time | request date, newest first, or oldest under `order` |
+| Habitats | no window | no window | name, natural sort |
+| Traps | no window | no window | code, or name where there is none, natural sort |
+| Addresses | no window | no window | display name, natural sort |
+
+Ties on the date break on `created_at` the same way and then on `id`, so a
+page boundary never moves under a reader. The order is the endpoint's
+`orderBy` in `packages/db/src/domains`, and this table is the place it is
+written down for the web.
+
+A Map draws every matching record at once, so a season of inspections or
+samples is a solid block of dots and the Map opens on 30 days; the rest of the
+field work opens on 90 days, one season of it; and requests open on this
+year. A Table pays for none of that. It pages 100 rows newest first, and on
+the local clone of production an unfiltered first page with its count took
+82 ms over 106,307 inspections and 40 ms over 55,203 chemical applications. A
+window on the Table only hid older records from a reader who had come to the
+Table to look through them. An empty Table with nothing set titles itself
+`No ... Yet`. A switch from the Map carries the dates a reader set and not the
+Map's window, because the window is a default and never on the address.
 
 `RecordSetTablePage` draws all eleven (#1419). They were eleven copies of one
 page, the header with the switch, the filter panel, `RecordTableUnavailable`,
@@ -669,6 +856,48 @@ the Map's, `Address Book`, rather than the register's `Addresses`: CONTEXT.md
 glosses an Address as an address book entry, so both views are the book, and
 the two switch segments name one page in two forms (#985).
 
+#### AddressLinkedRecordsCard and address-linked-records
+
+The Address page listed only what is **Sited** there, and said nothing was
+there when service requests and landing-rate collections named the Address
+(#1670). The card lists every record whose `address_id` names it, its
+**Linked Address**, matched on the column rather than on distance, since a
+Linked Address is what the record named and not where the work happened.
+
+The read is the nearby read's address-scoped sibling,
+`GET /records/address/:id/linked-records` over `listAddressLinkedRecords` in
+`packages/db`. Seven of its ten kinds select through the activity register's
+`recordColumns`, so a linked row and a nearby row for one record carry one set
+of columns, and draw through `mixedListRowParts`, the nearby list's row. A
+registration, a request for control and a Mission stop are not activity, so
+`linkedRecordRow` describes those three itself. The families are the domain's
+`LINKED_RECORD_FAMILIES` rather than the nearby page's four, because a
+Requested Control Action is a record of its own and a Mission stop belongs with
+neither control actions nor requests.
+
+Each family is its newest 25 and its total, ranked in one query. There is no
+link to the rest until an explorer can filter by address. A Mission stop has no
+page, so it links to its Mission, and a done stop names the newest action
+recorded against it (ADR 0012). A family with no records gets no tab, and the
+rows select nothing because the page has no map.
+
+The nearby row names a record by its place, and on this card that place is
+usually the Address the page heading already shows, so every service request
+repeated it under its summary and an inspection or collection with no habitat
+or trap was titled by it (#1708). The card passes `omitAddressPlace`, an
+option on `activityRow` and `mixedListRowParts` that leaves both unchanged when
+it is absent: a place that came from the Address is dropped, and a record that
+would have been titled by it is titled by the record-noun register's name for
+its kind.
+
+The read sends `placeName` already resolved, habitat or trap first, then the
+Address, so it sends `placeSource` beside it, the rung the name came from. The
+first cut matched on the name, and a habitat or trap named exactly like its
+Address lost its title to the kind (#1711). The rung is read off the same list
+as the name in `packages/db`'s `placeLadder`, and only the linked read selects
+it: `recordColumns` leaves it out, so the nearby read answers what it did, and
+an entry with no rung keeps its place.
+
 #### RegionBoundary (import-parse)
 
 Read from the geometry register rather than a hand-written pair. The pair
@@ -716,6 +945,15 @@ The end date follows the start until the user separates them, because most
 entry is daily and the domain never emits an open end. Every metric is on
 screen at once because an empty box on an edit clears the reading, and clearing
 is the commoner correction.
+
+#### StationDetailsCard
+
+The provider station ID row is drawn only on a provider station. An
+Organization station has no provider, and both write paths store a null id on
+one, but legacy rows came in with ids such as `1` that read as a provider's
+name under the old "Provider" label (#1660). Those ids are left in the
+database: this row was their only reader, so hiding it settles what anyone
+sees without a data migration.
 
 #### WeatherStationForm
 
@@ -920,6 +1158,26 @@ which none of these surfaces does.
 `Zoom to trap` (#1523). A rename in the register narrows the alias rather than
 failing on it, so the error lands on the call site passing the old name.
 
+#### GoToCoordinatesDialog
+
+The right-click menu opens it, and `MapContextMenu` renders it beside the menu
+rather than inside `ContextMenuContent`, because that content unmounts as the
+menu closes and would take the dialog with it (#1721). The form is a child of
+`DialogContent` for the same reason in reverse: closing the dialog unmounts it,
+so it always opens empty with no error left over.
+
+`parseLatLng` and `formatLatLng` sit together in `@simmer-mosquito/mapping`.
+**Copy coordinates** writes with the second and this dialog reads with the
+first, and the unit test that round-trips them can only be written where both
+live. The flight is `focusOnMap` with the `place` purpose, the same move the
+place search and the geolocate control make, so the dialog adds no camera rule.
+
+The two refusals, text that is not two numbers and numbers off the globe, get
+separate messages. Longitude pasted first reads as out of range only when the
+longitude is past 90, which in the continental US is west of the Mississippi.
+East of it, `-74.3, 40.5` is a real point in Antarctica, and the dialog flies
+there; the pin and the empty map are what tell the operator.
+
 #### MapSearch
 
 Two resets that were effects are read off the state they key on (#1183). The
@@ -939,6 +1197,17 @@ answer and the hook owns the answer.
 Add vehicle is hidden rather than disabled, per `components/write-only.tsx`. A
 collector on this page used to see a greyed-out control with nothing saying
 why.
+
+#### InsecticidesSection
+
+The card's Edit sheet holds one setting, batch tracking, and the card drew only
+the pointer to Control Operations, because `DomainSection` drew its
+`displayFields` only for a section with no body of its own (#1668). Control
+Operations' insecticides page sends people here to turn tracking on, so they
+arrived at a card that never said whether it was on. `DomainSection` now draws
+the fields above the body, and this card hands it the setting. The Edit button
+reads `Edit Batch Tracking` through the descriptor's `triggerLabel`, because a
+bare Edit beside a list of insecticides reads as editing the insecticides.
 
 #### SaveErrorNote
 
@@ -983,6 +1252,16 @@ anded with `canManage`. Who may open a sheet is `DomainSection`'s question,
 which draws the Edit control only at the Admin floor, so no sheet takes a role
 or disables its inputs on one. The server refuses the settings commands below
 that floor either way.
+
+The trigger's words are required, on the frame and on a `SettingsSection`
+descriptor alike. They used to fall back to a bare Edit, and after batch
+tracking named its own (#1668) every other sheet still did, so a screen reader
+listed a page of identical Edit buttons (#1697). Each label names what the
+sheet writes rather than the card it sits on: the Adult Surveillance card's
+sheet reads `Edit Collection Timing`, Public Engagement's reads
+`Edit Service Request Settings`, and Larval Surveillance's reads
+`Edit Inspection Entry`, because the entry mode and density bands are both
+fields of the inspection entry policy it saves.
 
 The body is the caller's, handed the form, rather than a field list the frame
 reads. Unit defaults draws one select per unit type read off its values and
@@ -1553,6 +1832,18 @@ gets no state pill because the log's verb already says it. Detail badges take
 a line of their own because an inspection's density plus its six-cell strip is
 175px, which in a 380px panel left the record no room for its name.
 
+#### RecordDescription
+
+Trap, habitat and region detail each drew the description in a plain `<p>`,
+which collapses newlines, so a trap description imported from VectorSurv as
+five lines read as one run-on line (#1661). Service request detail, the
+request for control summary and comments had `whitespace-pre-wrap` on theirs
+and did not have the bug. The three pages now share this component so the
+next detail page gets the class without having to remember it. `break-words`
+is there because a pasted URL has no break point and would otherwise push the
+card wider than its column. `emptyText` is optional because habitat detail
+says `No description recorded.` and the other two draw nothing.
+
 #### LinkedTableRow
 
 The four table views opened a record from a 16px chevron and nothing else.
@@ -1585,6 +1876,18 @@ register. The two descriptions stay props, since each is a sentence about that
 surface's list rather than a name for its records. It draws nothing on a
 failed read because `RecordTableUnavailable` already sits above it, and a
 second failure message under the first said the same thing twice.
+
+The scope moved off the table route and onto the record set as `emptyScope`,
+and the titles moved into `recordEmptyTitle` in `record-empty-title.ts`, which
+the Map's paged rail reads too (#1653). Before that the rail wrote its own
+sentence-case titles and said `No biocontrol actions match these filters` over
+a Map whose only narrowing was the default 90-day window, while the Table over
+the same set said `No Biocontrol Actions in the Last 90 Days`. The rail now
+names the scope when no filter is counted and says `No ... Match` only when one
+is. `emptyScope` takes the surface because every dated set opens its Map on a
+window and its Table on all time (#1669). A dated set's scope is derived from
+its `windows`, and a suite in `record-set.test.ts` holds every set's scope to
+the window its `defaults` open on and spells each title out.
 
 #### RecordTableUnavailable
 

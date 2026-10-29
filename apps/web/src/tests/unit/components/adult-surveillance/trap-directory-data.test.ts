@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { collectionTallies } from '../../../../components/adult-surveillance/trap-collection-tallies';
 import type {
 	CollectionYear,
 	DirectoryCollection,
@@ -6,7 +7,6 @@ import type {
 } from '../../../../components/adult-surveillance/trap-directory-data';
 import {
 	groupByYear,
-	specimenTotals,
 	splitSeasons,
 	summaryLabel,
 	UNDATED_GROUP_KEY,
@@ -175,27 +175,6 @@ describe('groupByYear', () => {
 	});
 });
 
-describe('specimenTotals', () => {
-	it('sums counts and counts distinct species once', () => {
-		const totals = specimenTotals([
-			species({ id: '1', speciesId: 'vexans', count: 12, sex: 'female' }),
-			species({ id: '2', speciesId: 'vexans', count: 3, sex: 'male' }),
-			species({ id: '3', speciesId: 'sollicitans', count: 5 }),
-		]);
-
-		expect(totals).toEqual({ specimens: 20, species: 2 });
-	});
-
-	it('ignores non-positive counts rather than claiming the species was present', () => {
-		const totals = specimenTotals([
-			species({ id: '1', speciesId: 'vexans', count: 0 }),
-			species({ id: '2', speciesId: 'sollicitans', count: 7 }),
-		]);
-
-		expect(totals).toEqual({ specimens: 7, species: 1 });
-	});
-});
-
 describe('splitSeasons', () => {
 	function seasons(keys: readonly string[]): readonly CollectionYear[] {
 		return keys.map((key) => ({ key, label: key, collections: [] }));
@@ -221,18 +200,19 @@ describe('splitSeasons', () => {
 });
 
 describe('summaryLabel', () => {
-	it('says a trap is still out before it says anything about specimens', () => {
-		const pending = collection({ collectedAt: null });
+	const NO_PLACEHOLDER: ReadonlySet<string> = new Set();
 
-		expect(summaryLabel(pending, specimenTotals(pending.species))).toBe('Not yet collected');
+	function label(row: DirectoryCollection, unidentified = NO_PLACEHOLDER): string {
+		return summaryLabel(row, collectionTallies(row.species, unidentified));
+	}
+
+	it('says a trap is still out before it says anything about mosquitoes', () => {
+		expect(label(collection({ collectedAt: null }))).toBe('Not yet collected');
 	});
 
 	it('distinguishes a declared zero result from an unidentified sample', () => {
-		const zero = collection({ isZeroResult: true });
-		const unkeyed = collection();
-
-		expect(summaryLabel(zero, specimenTotals(zero.species))).toBe('No specimens');
-		expect(summaryLabel(unkeyed, specimenTotals(unkeyed.species))).toBe('Not identified');
+		expect(label(collection({ isZeroResult: true }))).toBe('No specimens');
+		expect(label(collection())).toBe('Not identified');
 	});
 
 	it('reads the tally when there is one', () => {
@@ -243,8 +223,37 @@ describe('summaryLabel', () => {
 			],
 		});
 
-		expect(summaryLabel(counted, specimenTotals(counted.species))).toBe(
-			'2 species · 1,240 specimens',
-		);
+		expect(label(counted)).toBe('2 species · 1,240 mosquitoes');
+	});
+
+	it('reads one mosquito in the singular', () => {
+		expect(label(collection({ species: [species({ count: 1 })] }))).toBe('1 species · 1 mosquito');
+	});
+
+	// Males are recorded but not counted: the line is the Collections tab's two
+	// numbers, and both of those are read off the female rows.
+	it('counts a species with a female row and a male row once, from the females', () => {
+		const mixed = collection({
+			species: [
+				species({ id: '1', speciesId: 'vexans', count: 12, sex: 'female' }),
+				species({ id: '2', speciesId: 'vexans', count: 3, sex: 'male' }),
+			],
+		});
+
+		expect(label(mixed)).toBe('1 species · 12 mosquitoes');
+	});
+
+	it('reads a male-only collection the way it reads one with no rows', () => {
+		const males = collection({ species: [species({ count: 3, sex: 'male' })] });
+
+		expect(label(males)).toBe(label(collection()));
+	});
+
+	it('counts the unidentified placeholder as mosquitoes but never as a species', () => {
+		const unkeyed = collection({
+			species: [species({ id: '1', speciesId: 'placeholder', count: 9, sex: 'female' })],
+		});
+
+		expect(label(unkeyed, new Set(['placeholder']))).toBe('0 species · 9 mosquitoes');
 	});
 });

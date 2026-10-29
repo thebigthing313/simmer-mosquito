@@ -946,6 +946,181 @@ describe('registerMapTileRoutes — inspections', () => {
 		expect(response.status).toBe(401);
 		expect(summarizeInspections).not.toHaveBeenCalled();
 	});
+
+	it('exports the inspections in the box under the same filters the page reads', async () => {
+		const calls: unknown[] = [];
+		const getInspectionDisplayRow = vi.fn();
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			getInspectionDisplayRow,
+			exportInspections: async (_db, input) => {
+				calls.push(input);
+				return {
+					kind: 'rows',
+					headers: ['Inspection date', 'Density'],
+					rows: [['2026-09-02', 'Heavy']],
+				};
+			},
+		});
+
+		const response = await app.request(
+			`/map/inspections/export?bbox=-180,-90,180,90&density=heavy&habitatTypeId=${habitatTypeId}&dateFrom=2026-09-01`,
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({
+			headers: ['Inspection date', 'Density'],
+			rows: [['2026-09-02', 'Heavy']],
+		});
+		expect(calls).toEqual([
+			{
+				organizationId,
+				bounds: { west: -180, south: -90, east: 180, north: 90 },
+				filters: { densities: ['heavy'], habitatTypeIds: [habitatTypeId], dateFrom: '2026-09-01' },
+			},
+		]);
+		// The literal segment is not read as an id.
+		expect(getInspectionDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('refuses an export over the ceiling with the count and the ceiling', async () => {
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			exportInspections: async () => ({ kind: 'overCeiling', total: 61234, ceiling: 50000 }),
+		});
+
+		const response = await app.request('/map/inspections/export?bbox=-180,-90,180,90');
+
+		expect(response.status).toBe(422);
+		await expect(response.json()).resolves.toEqual({
+			error: 'export_too_large',
+			reason: '61234 records match, over the export ceiling of 50000.',
+			total: 61234,
+			ceiling: 50000,
+		});
+	});
+
+	it.each([
+		['a missing bbox', '/map/inspections/export?isWet=true'],
+		['a paging param', '/map/inspections/export?bbox=-91,35,-90,36&limit=100'],
+		['an unknown filter', '/map/inspections/export?bbox=-91,35,-90,36&notAFilter=1'],
+	])('refuses %s before exporting inspections', async (_case, path) => {
+		const exportInspections = vi.fn();
+		const app = createApp({ getHabitatTile: async () => new Uint8Array(), exportInspections });
+
+		const response = await app.request(path);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(exportInspections).not.toHaveBeenCalled();
+	});
+
+	it('requires auth before exporting inspections', async () => {
+		const exportInspections = vi.fn();
+		const app = createApp({
+			authenticated: false,
+			getHabitatTile: async () => new Uint8Array(),
+			exportInspections,
+		});
+
+		const response = await app.request('/map/inspections/export?bbox=-180,-90,180,90');
+
+		expect(response.status).toBe(401);
+		expect(exportInspections).not.toHaveBeenCalled();
+	});
+});
+
+// The ten other record sets export through the route the Inspections one
+// built: the box and the surface's own filters, no paging, and `/export` read
+// as a literal segment rather than an id.
+describe('registerMapTileRoutes — record set exports', () => {
+	const exports = [
+		['habitats', 'exportHabitats', 'isActive=true', { isActive: true }, 'getHabitatDisplayRow'],
+		[
+			'samples',
+			'exportSamples',
+			'dateFrom=2026-07-01',
+			{ dateFrom: '2026-07-01' },
+			'getSampleDisplayRow',
+		],
+		['traps', 'exportTraps', 'status=inactive', { isActive: false }, 'getTrapDisplayRow'],
+		[
+			'collections',
+			'exportCollections',
+			'problem=true',
+			{ problemOnly: true },
+			'getCollectionDisplayRow',
+		],
+		[
+			'chemical',
+			'exportApplications',
+			'dateTo=2026-09-28',
+			{ dateTo: '2026-09-28' },
+			'getApplicationDisplayRow',
+		],
+		[
+			'source-reduction',
+			'exportSourceReductions',
+			'dateFrom=2026-07-01',
+			{ dateFrom: '2026-07-01' },
+			'getSourceReductionDisplayRow',
+		],
+		[
+			'biocontrol',
+			'exportBiocontrolActions',
+			'habitatLinked=true',
+			{ habitatLinkedOnly: true },
+			'getBiocontrolDisplayRow',
+		],
+		[
+			'outreach',
+			'exportOutreachActions',
+			'dateFrom=2026-07-01',
+			{ dateFrom: '2026-07-01' },
+			'getOutreachDisplayRow',
+		],
+		['addresses', 'exportAddresses', 'search=Main', { search: 'Main' }, 'getAddressDisplayRow'],
+		[
+			'service-requests',
+			'exportServiceRequests',
+			'status=open&oldest=true',
+			{ isOpen: true, oldestFirst: true },
+			'getServiceRequestDisplayRow',
+		],
+	] as const;
+
+	it.each(
+		exports,
+	)('exports %s under the box and its filters', async (segment, reader, query, filters, byIdReader) => {
+		const calls: unknown[] = [];
+		const getById = vi.fn();
+		const app = createApp({
+			[reader]: async (_db: unknown, input: unknown) => {
+				calls.push(input);
+				return { kind: 'rows', headers: ['Name'], rows: [['One']] };
+			},
+			[byIdReader]: getById,
+		});
+
+		const response = await app.request(`/map/${segment}/export?bbox=-180,-90,180,90&${query}`);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ headers: ['Name'], rows: [['One']] });
+		expect(calls).toEqual([
+			{ organizationId, bounds: { west: -180, south: -90, east: 180, north: 90 }, filters },
+		]);
+		expect(getById).not.toHaveBeenCalled();
+	});
+
+	it.each(exports)('refuses a paged %s export', async (segment, reader) => {
+		const exportRows = vi.fn();
+		const app = createApp({ [reader]: exportRows });
+
+		const response = await app.request(`/map/${segment}/export?bbox=-180,-90,180,90&limit=100`);
+
+		expect(response.status).toBe(400);
+		expect(exportRows).not.toHaveBeenCalled();
+	});
 });
 
 // The Samples rail's summary over 100 in view (#1370), which answers a figure

@@ -544,9 +544,11 @@ export function validateGeometry(
  * rule in `validateGeometry`. A value it cannot read as one of the six shapes is
  * not its refusal to make: `st_geomfromgeojson` answers for that one.
  *
- * `ST_IsValid` is a different rule and stays unpoliced. 15 of 345 production
- * Regions hold self-intersecting rings, so a validity gate would refuse live
- * rows on their next save. That is #437.
+ * `ST_IsValid` is a different rule and is not this function's. The server
+ * repairs an invalid Region on write and `regions_geom_valid_check` holds Regions
+ * valid (#1671). Record areas stay unchecked, because Split stores two pieces
+ * sharing their cut line, which OGC calls invalid. ADR 0015's 2026-10-13
+ * amendment has the reasoning.
  */
 export function geometryCoversGround(geometry: unknown): boolean {
 	if (!isRecord(geometry)) {

@@ -72,7 +72,7 @@ function OutreachTableRow({
 				<Button aria-label={`View ${methodName}`} asChild size="icon-sm" variant="ghost">
 					<Link
 						params={{ id: row.id }}
-						state={{ breadcrumbVia: '/public-engagement/outreach/table' }}
+						search={{ via: 'table' }}
 						to="/public-engagement/outreach/$id"
 					>
 						<ChevronRightIcon aria-hidden="true" />

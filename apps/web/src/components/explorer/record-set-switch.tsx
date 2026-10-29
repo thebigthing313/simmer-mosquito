@@ -8,6 +8,7 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { type RecordType, recordNoun } from '../../lib/record-nouns';
+import type { ValidatedSearch } from '../../lib/search-filters';
 import { carriedSearch, type RecordSetLinks, type RecordSetSurface } from './record-set';
 import { SurfaceSwitch, surfaceSwitchItem } from './surface-switch';
 
@@ -20,7 +21,7 @@ function switchLabel(recordType: RecordType): string {
 	return `${many.charAt(0).toUpperCase()}${many.slice(1)} view`;
 }
 
-export function RecordSetSwitch({
+export function RecordSetSwitch<TFilters>({
 	compact = false,
 	current,
 	search,
@@ -29,9 +30,12 @@ export function RecordSetSwitch({
 	/** Draw the two segments as icons, for the map frame's panel header. */
 	readonly compact?: boolean;
 	readonly current: RecordSetSurface;
-	/** The current surface's validated search. */
-	readonly search: Record<string, unknown>;
-	readonly set: RecordSetLinks<unknown>;
+	/**
+	 * The current surface's validated search, decoded by `set`'s codecs. A
+	 * search validated for another set, or a plain object, does not type.
+	 */
+	readonly search: ValidatedSearch<NoInfer<TFilters>>;
+	readonly set: RecordSetLinks<TFilters>;
 }) {
 	const isMap = current === 'map';
 	return (

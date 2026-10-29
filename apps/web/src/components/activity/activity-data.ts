@@ -6,6 +6,8 @@ import {
 } from '@simmer-mosquito/domain';
 import type { LinkProps } from '@tanstack/react-router';
 import type { Tag } from '../../hooks/queries/tag-view';
+import { adhocLabel } from '../../lib/coordinate-label';
+import { type RecordType, recordNoun } from '../../lib/record-nouns';
 import {
 	type ControlContext,
 	formatAmount,
@@ -19,6 +21,9 @@ import type { InspectionResult, LifecycleStatus, RecordBadgeFacts } from '../rec
 // the grouping into families, and the wording the page states around it. The
 // entries come off `useDayActivity`, one day of the Organization's records
 // filtered to the person, so nothing below groups by date.
+
+/** The rung of the place ladder a `placeName` came from. `packages/db` declares the server half. */
+export type PlaceSource = 'habitat' | 'trap' | 'address';
 
 export interface ActivityEntry {
 	readonly category: ActivityCategory;
@@ -34,6 +39,11 @@ export interface ActivityEntry {
 	readonly label: string | null;
 	/** The place it hangs off (habitat, trap or address), resolved off the joined row. */
 	readonly placeName: string | null;
+	/**
+	 * Which rung `placeName` came from. Only the Address page's linked read
+	 * sends it; an entry without it is read as though no rung is known.
+	 */
+	readonly placeSource?: PlaceSource | null;
 	/** The lookup that names its kind (type/method/insecticide). */
 	readonly refId: string | null;
 	/** A second lookup where one exists, an application's method, beside its product. */
@@ -60,6 +70,13 @@ export interface ActivityEntry {
  * stay on the entry.
  */
 export type ActivityRecord = Omit<ActivityEntry, 'involvement' | 'role'>;
+
+/**
+ * What a row reads off a record: everything but its family. The Address
+ * page's linked records group the same kinds under families of their own, and
+ * nothing a row draws reads the family.
+ */
+export type ActivityRowRecord = Omit<ActivityRecord, 'family'>;
 
 export const ACTIVITY_FAMILY_LABELS: readonly {
 	readonly key: ActivityFamily;
@@ -101,6 +118,24 @@ export const ACTIVITY_ROLE_LABEL: Readonly<Record<string, string>> = {
 	closed: 'Closed',
 	assisted: 'Assisted',
 };
+
+/** Each record kind under the record-noun register's name for it. */
+const ACTIVITY_RECORD_TYPE = {
+	habitat: 'habitat',
+	inspection: 'inspection',
+	trap: 'trap',
+	collection: 'collection',
+	application: 'application',
+	sourceReduction: 'sourceReduction',
+	biocontrol: 'biocontrolAction',
+	outreach: 'outreachAction',
+	serviceRequest: 'serviceRequest',
+} as const satisfies Record<ActivityCategory, RecordType>;
+
+/** What the register titles a record of this kind: `Chemical Application`, `Collection`. */
+export function activityRecordTitle(category: ActivityCategory): string {
+	return recordNoun(ACTIVITY_RECORD_TYPE[category]).title;
+}
 
 /** Where each record kind's detail page lives. Every one takes an `$id`. */
 const ACTIVITY_DETAIL_ROUTE = {
@@ -295,7 +330,7 @@ export function activityPanelState(
  * rather than an assertion (a wet site whose density will not resolve says
  * "Wet").
  */
-export function activityBadgeFacts(entry: ActivityRecord): RecordBadgeFacts {
+export function activityBadgeFacts(entry: ActivityRowRecord): RecordBadgeFacts {
 	const detail = text(entry.detail);
 	switch (entry.category) {
 		case 'habitat':
@@ -354,7 +389,7 @@ function controlContextOf(context: string | null): ControlContext {
  * What an inspection found. `dry` and a density are the same field; the stages
  * ride separately, and an inspection that found none sends nothing.
  */
-function inspectionResult(entry: ActivityRecord): InspectionResult {
+function inspectionResult(entry: ActivityRowRecord): InspectionResult {
 	const detail = text(entry.detail);
 	if (detail === 'dry') {
 		return { isWet: false, density: null, stages: null };
@@ -402,7 +437,7 @@ function lifeStageFlags(codes: string | null): LifeStageFlags | null {
  * name as `useEntityTags` orders them. A tag id with no catalog row draws nothing.
  */
 export function activityTags(
-	entry: ActivityRecord,
+	entry: ActivityRowRecord,
 	tagById: ReadonlyMap<string, Tag>,
 ): readonly Tag[] {
 	if (entry.tagIds === null || entry.tagIds.length === 0) {
@@ -432,16 +467,33 @@ export interface ActivityRowParts {
 	readonly tags: readonly Tag[];
 }
 
+/** What a surface tells the describer about where it is drawn. */
+export interface ActivityDescribeOptions {
+	/**
+	 * The surface already shows the Linked Address every row names, the way the
+	 * Address page's heading does. A record whose place came from the Address
+	 * drops it, and one that would be titled by it is titled by the register's
+	 * name for its kind instead. A habitat or trap that only shares the
+	 * Address's name keeps it (#1711).
+	 */
+	readonly omitAddressPlace?: boolean;
+}
+
 /**
  * One activity record, resolved to what both of its rows draw: the describer,
  * the category label, the detail route, the badge register and the Tags. A pure
  * resolution so the nine categories can be asserted through one function.
  */
-export function activityRow(record: ActivityRecord, lookups: ActivityLookups): ActivityRowParts {
+export function activityRow(
+	record: ActivityRowRecord,
+	lookups: ActivityLookups,
+	options: ActivityDescribeOptions = {},
+): ActivityRowParts {
 	const { title, subtitle } = describeActivityEntry(
 		record,
 		lookups.nameById,
 		lookups.formatQuantity,
+		options,
 	);
 	return {
 		title,
@@ -465,10 +517,14 @@ export interface ActivityDescription {
  * already text, because habitats and addresses are not synced to the client.
  */
 export function describeActivityEntry(
-	entry: ActivityRecord,
+	entry: ActivityRowRecord,
 	nameById: ReadonlyMap<string, string>,
 	formatQuantity: (amount: number, unitId: string | null) => string,
+	options: ActivityDescribeOptions = {},
 ): ActivityDescription {
+	const place = text(entry.placeName);
+	const placeOmitted =
+		place !== null && options.omitAddressPlace === true && entry.placeSource === 'address';
 	return DESCRIBE_BY_CATEGORY[entry.category]({
 		/** The lookup that names the record's kind. */
 		kind: resolve(entry.refId, nameById),
@@ -477,7 +533,7 @@ export function describeActivityEntry(
 		/** The record's own name. */
 		own: text(entry.label),
 		/** The place it hangs off. */
-		place: text(entry.placeName),
+		place: placeOmitted ? null : place,
 		/** What it measured, already in its unit. */
 		// `typeof` rather than a null check: a server that predates these columns
 		// sends no field at all, and `undefined` reaching the formatter is a crash.
@@ -486,7 +542,16 @@ export function describeActivityEntry(
 		/** How many people an outreach action reached. */
 		reached: typeof entry.amount === 'number' ? `${formatReach(entry.amount)} reached` : null,
 		extra: text(entry.detail),
-		fallback: ACTIVITY_CATEGORY_LABEL[entry.category],
+		// The record's own spot, then the word. A category word names the family
+		// every row in it belongs to, so it tells one row from the next about as
+		// well as a blank (#1231); the coordinates do, and every entry carries them.
+		// An inspection at no habitat and no address read "Inspection" here because
+		// the ladder stopped at the place (#1664).
+		// Where the place was dropped, every row on the surface is at the place it
+		// names, so the coordinates tell the rows apart no better than the kind.
+		fallback: placeOmitted
+			? activityRecordTitle(entry.category)
+			: adhocLabel(entry.lat, entry.lng, ACTIVITY_CATEGORY_LABEL[entry.category]),
 	});
 }
 
@@ -499,6 +564,10 @@ interface DescriptionParts {
 	readonly measured: string | null;
 	readonly reached: string | null;
 	readonly extra: string | null;
+	/**
+	 * What a record with nothing else to name it is titled: its coordinates, else
+	 * its category, or its kind's register name where the place was omitted.
+	 */
 	readonly fallback: string;
 }
 
@@ -510,9 +579,10 @@ const DESCRIBE_BY_CATEGORY: Readonly<
 	trap: (parts) => ({ title: parts.own ?? parts.fallback, subtitle: parts.kind }),
 	inspection: (parts) => ({ title: parts.place ?? parts.fallback, subtitle: parts.kind }),
 	// A collection with no trap was recorded away from one, and `place` is the
-	// whole ladder for that: the trap, then the address, then the coordinates,
-	// then the word, resolved in `collectionEntries` where the columns are. The
-	// fallback below runs only for a row that carried no place at all (#1231).
+	// whole ladder for that in a Profile's log: the trap, then the address, then
+	// the coordinates, then the word, resolved in `collectionEntries` where the
+	// columns are (#1231). The nearby read sends the trap alone, so there the
+	// fallback's coordinates are the rung that names it.
 	collection: (parts) => ({ title: parts.place ?? parts.fallback, subtitle: parts.kind }),
 	application: (parts) => ({
 		title: parts.kind ?? parts.fallback,

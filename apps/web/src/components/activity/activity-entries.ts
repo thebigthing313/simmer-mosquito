@@ -40,6 +40,7 @@ import type {
 	Trap,
 } from '@simmer-mosquito/sync';
 import { collectionLabel } from '../../hooks/queries/trap-view';
+import { habitatLabel } from '../../lib/coordinate-label';
 import { localCalendarDay } from '../../lib/local-date';
 import type { ActivityEntry } from './activity-data';
 
@@ -301,6 +302,7 @@ export function inspectionEntries(
 		| 'lat'
 		| 'lng'
 		| 'inspection_date'
+		| 'habitat_id'
 		| 'habitat_type_id'
 		| 'inspected_by_profile_id'
 		| 'is_wet'
@@ -326,7 +328,20 @@ export function inspectionEntries(
 			id: inspection.id,
 			lat: inspection.lat,
 			lng: inspection.lng,
-			placeName: placeNameOf(inspection),
+			// The habitat, then the address, then the habitat's id, then the
+			// coordinates. `habitats` syncs on demand, so the left join is unmatched
+			// until the habitat's row lands, and without the id rung an inspection
+			// at a habitat read its coordinates as if it had none (#1688). The same
+			// ladder the inspection explorer reads.
+			placeName: habitatLabel(
+				{
+					habitatId: inspection.habitat_id,
+					habitatName: inspection.habitatName ?? null,
+					lat: inspection.lat,
+					lng: inspection.lng,
+				},
+				{ addressName: inspection.addressName ?? null, fallback: 'One-off inspection' },
+			),
 			refId: inspection.habitat_type_id,
 			detail: inspectionResult(inspection),
 			stages: lifeStageCodes(inspection),

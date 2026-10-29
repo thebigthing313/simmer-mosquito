@@ -18,6 +18,7 @@ export { createItems } from './detail-create-actions';
 export { DetailPageHeader } from './detail-page-header';
 export { DetailPageShell, detailBodyClass } from './detail-page-shell';
 export { EditFormSkeleton } from './edit-form-skeleton';
+export { RecordDescription } from './record-description';
 export type { RecordDetailLayout } from './record-detail-layout';
 export { RecordDetailPage, type RecordReading } from './record-detail-page';
 export { RecordDetailSkeleton } from './record-detail-skeleton';

@@ -143,3 +143,80 @@ describe('nearestAncestorItem', () => {
 		expect(nearestAncestorItem([overview()], '/larval-surveillance/habitat-types')).toBeNull();
 	});
 });
+
+const RECORD = '44444444-4444-4444-8444-444444444444';
+
+function larval(): ShellDomain {
+	return {
+		id: 'larval',
+		label: 'Larval Surveillance',
+		icon: iconRegistry.generic.component.icon,
+		groups: [
+			{
+				id: 'larval-inspections',
+				label: 'Inspections',
+				items: [
+					{ id: 'inspections-map', label: 'Map', to: '/larval/inspections' },
+					{ id: 'inspections-table', label: 'Table', to: '/larval/inspections/table' },
+					{ id: 'inspections-create', label: 'Create', to: '/larval/inspections/create' },
+				],
+			},
+			{
+				id: 'larval-regions',
+				label: 'Regions',
+				items: [
+					{ id: 'regions', label: 'Regions', to: '/larval/regions' },
+					{ id: 'regions-import', label: 'Import', to: '/larval/regions/import' },
+				],
+			},
+		],
+	};
+}
+
+function trailLabels(path: string): readonly string[] {
+	return buildBreadcrumbs([larval()], path, {
+		labels: new Map([[RECORD, 'Oct 7, 2026']]),
+	}).map((crumb) => crumb.label);
+}
+
+describe('buildBreadcrumbs list step', () => {
+	it('names the record set, not the Map, on a record reached under the Map', () => {
+		expect(trailLabels(`/larval/inspections/${RECORD}`)).toEqual([
+			'Larval Surveillance',
+			'Inspections',
+			'Oct 7, 2026',
+		]);
+	});
+
+	it('links the record set crumb to the list the record sits under', () => {
+		const crumbs = buildBreadcrumbs([larval()], `/larval/inspections/${RECORD}`);
+
+		expect(navDestination(crumbs[1] ?? {})).toBe('/larval/inspections');
+	});
+
+	it('keeps the Table on a record reached under the Table', () => {
+		expect(trailLabels(`/larval/inspections/table/${RECORD}`)).toEqual([
+			'Larval Surveillance',
+			'Inspections',
+			'Table',
+			'Oct 7, 2026',
+		]);
+	});
+
+	it('keeps the Map on the Map itself', () => {
+		expect(trailLabels('/larval/inspections')).toEqual([
+			'Larval Surveillance',
+			'Inspections',
+			'Map',
+		]);
+	});
+
+	it('does not repeat a group its item shares a name with', () => {
+		expect(trailLabels('/larval/regions')).toEqual(['Larval Surveillance', 'Regions']);
+		expect(trailLabels(`/larval/regions/${RECORD}`)).toEqual([
+			'Larval Surveillance',
+			'Regions',
+			'Oct 7, 2026',
+		]);
+	});
+});

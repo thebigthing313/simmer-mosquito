@@ -94,7 +94,7 @@ function HabitatRow({
 				<Button aria-label={`View ${name}`} asChild size="icon-sm" variant="ghost">
 					<Link
 						params={{ id: row.id }}
-						state={{ breadcrumbVia: '/larval-surveillance/habitats/table' }}
+						search={{ via: 'table' }}
 						to="/larval-surveillance/habitats/$id"
 					>
 						<ChevronRightIcon aria-hidden="true" />

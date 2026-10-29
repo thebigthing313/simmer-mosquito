@@ -3,7 +3,7 @@ import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { InsecticideCatalog } from '../../../../../components/control-operations/chemical/insecticide-catalog';
-import { InsecticideTable } from '../../../../../components/control-operations/chemical/insecticide-table';
+import { InsecticideSection } from '../../../../../components/control-operations/chemical/insecticide-section';
 import type { InsecticideRecord } from '../../../../../hooks/queries/use-insecticide-records';
 import { expectSidewaysScroller } from '../../../sideways-scroller';
 
@@ -61,22 +61,28 @@ const catalog: InsecticideCatalog = {
 	units: [],
 };
 
-/** The retired disclosure: the catalog holds both products, the table draws one. */
+/** The Inactive section: the catalog holds both products, the section draws one. */
 function renderRetiredGroup() {
 	const retired = allProducts[1] as InsecticideRecord;
 	return render(
 		<TooltipProvider>
-			<InsecticideTable catalog={catalog} shownProducts={[retired]} />
+			<InsecticideSection
+				catalog={catalog}
+				emptyLabel="unused"
+				rows={[retired]}
+				title="Inactive"
+				tone="inactive"
+			/>
 		</TooltipProvider>,
 	);
 }
 
 /**
- * The route draws this table twice, once per lifecycle group, and both times
+ * The route draws this section twice, once per lifecycle side, and both times
  * hands it the same catalog. Narrowing what reaches the batch drawer to the
- * group on screen is the regression these two cover.
+ * side on screen is the regression these two cover.
  */
-describe('InsecticideTable', () => {
+describe('InsecticideSection', () => {
 	it('draws only the products it was given as rows', () => {
 		renderRetiredGroup();
 
@@ -84,7 +90,7 @@ describe('InsecticideTable', () => {
 		expect(screen.queryByText('VectoBac 12AS')).toBeNull();
 	});
 
-	it('hands the batch drawer every product, on the retired group too', () => {
+	it('hands the batch drawer every product, on the Inactive section too', () => {
 		renderRetiredGroup();
 		fireEvent.click(screen.getByLabelText('Show batches for Altosid XR'));
 

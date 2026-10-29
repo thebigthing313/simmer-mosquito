@@ -31,6 +31,7 @@
 
 import type { Kysely, SimmerDatabase } from '@simmer-mosquito/db';
 import type { Hono, MiddlewareHandler } from 'hono';
+import { registerAddressLinkedRecordRoutes } from './address-linked-records.js';
 import { registerAdminFoundationRoutes } from './admin-foundations.js';
 import { type AdminInvitationAuth, registerAdminInvitationRoutes } from './admin-invitations.js';
 import type { AuthMailer } from './auth-email.js';
@@ -146,6 +147,7 @@ export function registerAllRoutes(app: Hono<{ Variables: AuthVariables }>, deps:
 	registerMapTileRoutes(app, { db, authContextMiddleware });
 	registerSearchRoutes(app, { db, authContextMiddleware });
 	registerServiceRequestNearbyRoutes(app, { db, authContextMiddleware });
+	registerAddressLinkedRecordRoutes(app, { db, authContextMiddleware });
 	registerRecordDeletionRoutes(app, { db, authContextMiddleware });
 	registerRecordMergeReadRoutes(app, { db, authContextMiddleware });
 	registerRegionMembershipRoutes(app, { db, authContextMiddleware });

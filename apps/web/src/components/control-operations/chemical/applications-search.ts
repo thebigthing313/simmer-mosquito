@@ -1,12 +1,15 @@
 import { CHEMICAL_MAP_FILTERS } from '@simmer-mosquito/domain';
-import { addDaysToDateString } from '../../../lib/local-date';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
 	idSetParam,
 } from '../../../lib/search-filters';
-import { defineRecordSet } from '../../explorer/record-set';
+import {
+	defineRecordSet,
+	type RecordSetWindowBounds,
+	TABLE_OPENS_ON_ALL_TIME,
+} from '../../explorer/record-set';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
 import type { ChemicalTileFilters } from '../../map';
 
@@ -36,17 +39,14 @@ export const applicationFilterCodecs: FilterCodecs<ApplicationFilters> = {
 	regions: idSetParam,
 };
 
-/** How many days the window opens on, ending on the Organization's today. */
-export const APPLICATION_WINDOW_DAYS = 90;
-
 /**
- * What an address with no filter params means: every chemical application over
- * the last ninety days, ending on the Organization's today.
+ * What an address with no filter params means: every chemical application inside `window`, the
+ * bounds the set's `windows` open the surface on.
  */
-export function applicationFilterDefaults(today: string): ApplicationFilters {
+export function applicationFilterDefaults(window: RecordSetWindowBounds): ApplicationFilters {
 	return {
-		from: addDaysToDateString(today, -(APPLICATION_WINDOW_DAYS - 1)),
-		to: today,
+		from: window.from,
+		to: window.to,
 		insecticides: new Set(),
 		people: new Set(),
 		methods: new Set(),
@@ -73,11 +73,23 @@ export const applicationRecordSet = defineRecordSet({
 	recordType: 'application',
 	paths: { map: '/control-operations/chemical', table: '/control-operations/chemical/table' },
 	codecs: applicationFilterCodecs,
-	endpoint: { path: '/map/chemical', rowsKey: 'applications', rowKey: 'application' },
+	endpoint: {
+		path: '/map/chemical',
+		rowsKey: 'applications',
+		rowKey: 'application',
+	},
 	tileset: 'chemical',
 	tileFilters: applicationTileFilters,
 	filterSpec: CHEMICAL_MAP_FILTERS,
-	defaults: ({ today }) => applicationFilterDefaults(today),
+	defaults: ({ window }) => applicationFilterDefaults(window),
+	windows: {
+		map: {
+			kind: 'lastDays',
+			days: 90,
+			reason: 'Ninety days is one season of chemical applications.',
+		},
+		table: TABLE_OPENS_ON_ALL_TIME,
+	},
 	counting: DATE_RANGE_COUNTING,
 	applies: {
 		from: 'both',

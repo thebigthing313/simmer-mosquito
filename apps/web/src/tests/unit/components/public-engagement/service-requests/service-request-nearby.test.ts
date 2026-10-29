@@ -11,6 +11,7 @@ import {
 	formatNearbyDistance,
 	formatRadiusLabel,
 	type NearbyCategory,
+	type NearbyFamily,
 	type NearbyItem,
 	type NearbyResponse,
 	nearbyItemDate,
@@ -336,9 +337,28 @@ describe('nearbyRow', () => {
 		});
 	});
 
+	// An inspection at no habitat and no address used to be titled "Inspection",
+	// which names the tab it sits on. The record's own spot is the rung #1231
+	// gave every other inspection surface, and the category moves back under it.
+	it('titles a record with no place by its coordinates (#1664)', () => {
+		const row = nearbyRow(
+			item('a', 'inspection', 10, { lat: 42.123456, lng: -71.5, refId: 'type-1' }),
+			LOOKUPS,
+			'meter',
+		);
+		expect({ title: row.title, subtitle: row.subtitle }).toEqual({
+			title: '42.12346, -71.50000',
+			subtitle: 'Inspection · Catch basin',
+		});
+	});
+
 	// The category is the title then, and a subtitle repeating it says nothing.
-	it('falls back to the category when a record has nothing to name it, once', () => {
-		const row = nearbyRow(item('a', 'habitat', 10), LOOKUPS, 'meter');
+	it('falls back to the category when a record has no coordinates either, once', () => {
+		const row = nearbyRow(
+			item('a', 'habitat', 10, { lat: null, lng: null } as unknown as Partial<NearbyItem>),
+			LOOKUPS,
+			'meter',
+		);
 		expect({ title: row.title, subtitle: row.subtitle }).toEqual({
 			title: 'Habitat',
 			subtitle: null,
@@ -451,9 +471,16 @@ describe('nearbyWindowLabel', () => {
 	});
 });
 
+const ALL_FAMILIES: ReadonlySet<NearbyFamily> = new Set<NearbyFamily>([
+	'infrastructure',
+	'surveillance',
+	'control',
+	'publicEngagement',
+]);
+
 describe('nearbySummary', () => {
 	it('names the settings while the fetch is out', () => {
-		expect(nearbySummary(undefined)).toBe(
+		expect(nearbySummary(undefined, ALL_FAMILIES)).toBe(
 			'Records around this request, from your public-engagement settings.',
 		);
 	});
@@ -463,34 +490,39 @@ describe('nearbySummary', () => {
 	// past the setting used to send a reader to the settings for a number that
 	// says 14, so the sentence names the end that won (#1085).
 	it('reads count, radius and range when the setting set the end', () => {
-		expect(nearbySummary(response())).toBe('5 records within 0.25 mi, Aug 1, 2026–Aug 29, 2026.');
+		expect(nearbySummary(response(), ALL_FAMILIES)).toBe(
+			'5 records within 0.25 mi, Aug 1, 2026–Aug 29, 2026.',
+		);
 	});
 
 	it('names the close when the request closed after the setting', () => {
-		expect(nearbySummary(response({ dateTo: '2026-10-02', dateToFrom: 'close' }))).toBe(
-			'5 records within 0.25 mi, Aug 1, 2026–Oct 2, 2026, extended to the day it was closed.',
-		);
+		expect(
+			nearbySummary(response({ dateTo: '2026-10-02', dateToFrom: 'close' }), ALL_FAMILIES),
+		).toBe('5 records within 0.25 mi, Aug 1, 2026–Oct 2, 2026, extended to the day it was closed.');
 	});
 
 	it('names today while an old request is still open', () => {
-		expect(nearbySummary(response({ dateTo: '2026-09-17', dateToFrom: 'today' }))).toBe(
-			'5 records within 0.25 mi, Aug 1, 2026–Sep 17, 2026, extended to today.',
-		);
+		expect(
+			nearbySummary(response({ dateTo: '2026-09-17', dateToFrom: 'today' }), ALL_FAMILIES),
+		).toBe('5 records within 0.25 mi, Aug 1, 2026–Sep 17, 2026, extended to today.');
 	});
 
-	// Every record in the response is listed by one tab since the other
-	// requests got theirs (#1264), so the count is all of them.
+	// The other requests are a family of their own since they got a tab
+	// (#1264), so over all four families the count is every record.
 	it('counts the other requests with the rest', () => {
 		expect(
-			nearbySummary(response({ items: [...ITEMS, item('request', 'serviceRequest', 60)] })),
+			nearbySummary(
+				response({ items: [...ITEMS, item('request', 'serviceRequest', 60)] }),
+				ALL_FAMILIES,
+			),
 		).toBe('6 records within 0.25 mi, Aug 1, 2026–Aug 29, 2026.');
 	});
 
 	it('counts one record in the singular and none as No', () => {
-		expect(nearbySummary(response({ items: [item('trap', 'trap', 300)] }))).toBe(
+		expect(nearbySummary(response({ items: [item('trap', 'trap', 300)] }), ALL_FAMILIES)).toBe(
 			'1 record within 0.25 mi, Aug 1, 2026–Aug 29, 2026.',
 		);
-		expect(nearbySummary(response({ items: [] }))).toBe(
+		expect(nearbySummary(response({ items: [] }), ALL_FAMILIES)).toBe(
 			'No records within 0.25 mi, Aug 1, 2026–Aug 29, 2026.',
 		);
 	});
@@ -500,14 +532,44 @@ describe('nearbySummary', () => {
 	// number is the answer's and not the page's, thousands separated the way
 	// every count here is.
 	it('says the map shows the nearest records only when the cap was hit', () => {
-		expect(nearbySummary(response({ truncated: true, limit: 2000 }))).toBe(
+		expect(nearbySummary(response({ truncated: true, limit: 2000 }), ALL_FAMILIES)).toBe(
 			'5 records within 0.25 mi, Aug 1, 2026–Aug 29, 2026. Showing the nearest 2,000 records only. Narrow the radius or time window in your public-engagement settings to see every record inside them.',
 		);
 	});
 
 	it('says nothing about the cap when it was not hit', () => {
-		expect(nearbySummary(response({ truncated: false, limit: 5 }))).toBe(
+		expect(nearbySummary(response({ truncated: false, limit: 5 }), ALL_FAMILIES)).toBe(
 			'5 records within 0.25 mi, Aug 1, 2026–Aug 29, 2026.',
+		);
+	});
+
+	// Each tab draws the caption over its own families, so a tab counts only
+	// what it lists rather than every family in the response (#1663).
+	it('counts only the families the tab lists', () => {
+		expect(nearbySummary(response(), new Set<NearbyFamily>(['infrastructure']))).toBe(
+			'2 records within 0.25 mi, Aug 1, 2026–Aug 29, 2026.',
+		);
+		expect(nearbySummary(response(), new Set<NearbyFamily>(['surveillance']))).toBe(
+			'1 record within 0.25 mi, Aug 1, 2026–Aug 29, 2026.',
+		);
+	});
+
+	it('says No on a tab whose families have nothing nearby', () => {
+		expect(nearbySummary(response(), new Set<NearbyFamily>(['publicEngagement']))).toBe(
+			'No records within 0.25 mi, Aug 1, 2026–Aug 29, 2026.',
+		);
+	});
+
+	// The cap is nearest-first over the whole response, so a tab can be cut by
+	// records it does not list. The sentence stays on every tab.
+	it('keeps the cap sentence on a tab the cut did not reach', () => {
+		expect(
+			nearbySummary(
+				response({ truncated: true, limit: 2000 }),
+				new Set<NearbyFamily>(['publicEngagement']),
+			),
+		).toBe(
+			'No records within 0.25 mi, Aug 1, 2026–Aug 29, 2026. Showing the nearest 2,000 records only. Narrow the radius or time window in your public-engagement settings to see every record inside them.',
 		);
 	});
 });

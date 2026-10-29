@@ -4,7 +4,6 @@ import {
 	SERVICE_REQUEST_ORDER_FILTERS,
 	serviceRequestOverdueCutoff,
 } from '@simmer-mosquito/domain';
-import { startOfYear } from '../../../lib/date-presets';
 import {
 	choiceParam,
 	DATE_RANGE_COUNTING,
@@ -14,7 +13,12 @@ import {
 	idSetParam,
 	textParam,
 } from '../../../lib/search-filters';
-import { defineRecordSet, type RecordSetContext } from '../../explorer/record-set';
+import {
+	defineRecordSet,
+	type RecordSetContext,
+	type RecordSetWindowBounds,
+	TABLE_OPENS_ON_ALL_TIME,
+} from '../../explorer/record-set';
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
 import type { ServiceRequestTileFilters } from '../../map';
 import type { ServiceRequestStatusFilter } from './legend';
@@ -43,9 +47,9 @@ export interface ServiceRequestFilters {
 }
 
 /**
- * The window opens on this year, so `from` and `to` take `dateParam`: an absent
- * param means this year, and All time has to be spelled `any` or a reload
- * would narrow it back.
+ * The Map opens on this year, so `from` and `to` take `dateParam`: an absent
+ * param means the surface's own window, and All time has to be spelled `any`
+ * or a reload of the Map would narrow it back.
  */
 export const serviceRequestFilterCodecs: FilterCodecs<ServiceRequestFilters> = {
 	status: choiceParam(STATUS_VALUES, 'all'),
@@ -139,17 +143,17 @@ export const SERVICE_REQUEST_ORDER_OPTIONS: readonly {
 ];
 
 /**
- * What an address with no filter params means: every status, from the first of
- * January through the Organization's today.
+ * What an address with no filter params means: every status inside `window`,
+ * the bounds the set's `windows` open the surface on.
  */
-export function serviceRequestFilterDefaults(today: string): ServiceRequestFilters {
+export function serviceRequestFilterDefaults(window: RecordSetWindowBounds): ServiceRequestFilters {
 	return {
 		status: 'all',
 		search: '',
 		tags: new Set<string>(),
 		regions: new Set<string>(),
-		from: startOfYear(today),
-		to: today,
+		from: window.from,
+		to: window.to,
 		overdue: false,
 	};
 }
@@ -168,12 +172,20 @@ export const serviceRequestRecordSet = defineRecordSet({
 		table: '/public-engagement/service-requests/table',
 	},
 	codecs: serviceRequestFilterCodecs,
-	endpoint: { path: '/map/service-requests', rowsKey: 'serviceRequests', rowKey: 'serviceRequest' },
+	endpoint: {
+		path: '/map/service-requests',
+		rowsKey: 'serviceRequests',
+		rowKey: 'serviceRequest',
+	},
 	tileset: 'service-requests',
 	tileFilters: (filters: ServiceRequestFilters, context: RecordSetContext) =>
 		serviceRequestTileFilters(filters, serviceRequestOverdueCutoffFor(context)),
 	filterSpec: SERVICE_REQUEST_MAP_FILTERS,
-	defaults: ({ today }) => serviceRequestFilterDefaults(today),
+	defaults: ({ window }) => serviceRequestFilterDefaults(window),
+	windows: {
+		map: { kind: 'thisYear', reason: 'Requests are reviewed by the calendar year.' },
+		table: TABLE_OPENS_ON_ALL_TIME,
+	},
 	counting: DATE_RANGE_COUNTING,
 	inert: serviceRequestInertFilters,
 	textSearch: { key: 'search' },

@@ -24,6 +24,7 @@ export function SettingsSectionSheet<Values, Payload>({
 			description={section.description}
 			failureMessage={section.failureMessage}
 			title={section.title}
+			triggerLabel={section.triggerLabel}
 			values={section.read(settings)}
 			write={(payload) => section.save(mutations, payload)}
 		>

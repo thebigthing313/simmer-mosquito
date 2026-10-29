@@ -199,6 +199,16 @@
         "count": 1
       }
     },
+    "apps/web/src/components/control-operations/chemical/formulation-component-panel.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/src/components/control-operations/chemical/formulation-drawer.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
     "apps/web/src/components/key-entry/key-entry-dialog.tsx": {
       "complexity_high": {
         "count": 1
@@ -350,14 +360,6 @@
     },
     "apps/web/src/routes/control-operations/chemical/create.tsx": {
       "complexity_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/control-operations/chemical/formulations.tsx": {
-      "crap_high": {
-        "count": 1
-      },
-      "crap_moderate": {
         "count": 1
       }
     },

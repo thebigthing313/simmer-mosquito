@@ -8,6 +8,7 @@ import type {
 import {
 	type RecordSet,
 	type RecordSetTiles,
+	recordSetExportRequest,
 	recordSetFilterParams,
 } from '../../components/explorer/record-set';
 import { type MapTileLayer, tileLayerExtentUrl } from '../../components/map/tile-layers';
@@ -17,6 +18,7 @@ import { type ExplorerSummaryState, useExplorerSummary } from './use-explorer-su
 import { useFlyToSelection } from './use-fly-to-selection';
 import { useMapBoundsParam } from './use-map-bounds-param';
 import { type PagedMapResource, usePagedMapResource } from './use-paged-map-resource';
+import type { RecordSetExportRequest } from './use-record-set-export';
 import type { RecordSetFilterBinding } from './use-record-set-filters';
 import { useSelectedMapRecord } from './use-selected-map-record';
 /**
@@ -46,6 +48,11 @@ export interface ExplorerResource<TRow> extends PagedMapResource<TRow>, Explorer
 	readonly summary: ExplorerSummaryState;
 	/** What the surface hands `ExplorerCanvas`. */
 	readonly canvas: ExplorerCanvasBinding;
+	/**
+	 * What the Export control reads: the page's request for the viewport and
+	 * filters, unpaged. Null before the map has a viewport.
+	 */
+	readonly exportRequest: RecordSetExportRequest | null;
 }
 
 /**
@@ -99,7 +106,6 @@ export function useExplorerResource<TRow extends ExplorerRowShape, TFilters, TTi
 	binding,
 	params = NO_PARAMS,
 	normalizeRow,
-	holdRailOnSelect = false,
 	summarize = false,
 }: {
 	/**
@@ -119,11 +125,6 @@ export function useExplorerResource<TRow extends ExplorerRowShape, TFilters, TTi
 	readonly params?: Readonly<Record<string, MapQueryValue>>;
 	/** Defaults a row's newer fields, where a deployed server may not send them. */
 	readonly normalizeRow?: (row: TRow) => TRow;
-	/**
-	 * Keep the rail's rows when a record is selected. The map still flies to
-	 * the record; the page is not re-read for the viewport it lands on.
-	 */
-	readonly holdRailOnSelect?: boolean;
 	/**
 	 * Read `{path}/summary` once the page counts more than fit on it. Only a
 	 * surface whose server declares a summary passes it.
@@ -174,7 +175,8 @@ export function useExplorerResource<TRow extends ExplorerRowShape, TFilters, TTi
 		...shaping,
 	});
 	// The one camera move a selection makes. A card does not fly as well (#1423).
-	useFlyToSelection(map, selected, holdRailOnSelect);
+	// The rail keeps its rows through it, so the picked row stays put (#1652).
+	useFlyToSelection(map, selected, true);
 	const summary = useExplorerSummary({
 		path,
 		recordType,
@@ -194,6 +196,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape, TFilters, TTi
 	const empty: ExplorerEmptiness = {
 		recordType,
 		reason: isLoading ? 'loading' : emptyReason(extentUrl, extent),
+		scope: set.emptyScope('map'),
 	};
 
 	return {
@@ -206,6 +209,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape, TFilters, TTi
 		summary,
 		selectedId,
 		setSelectedId,
+		exportRequest: recordSetExportRequest(set, bbox === null ? null : query, binding.context.today),
 		canvas: {
 			layers,
 			onMapReady: setMap,

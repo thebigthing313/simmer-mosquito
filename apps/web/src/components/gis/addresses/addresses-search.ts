@@ -42,6 +42,7 @@ export const addressRecordSet = defineRecordSet({
 	tileFilters: addressTileFilters,
 	filterSpec: ADDRESS_MAP_FILTERS,
 	defaults: () => ADDRESS_FILTER_DEFAULTS,
+	emptyScope: () => ({ kind: 'yet' }),
 	textSearch: { key: 'search' },
 	applies: { search: 'both', regions: 'both' },
 });

@@ -1,4 +1,4 @@
-import type { MeasurementSystem } from '@simmer-mosquito/mapping';
+import { formatLatLng, type MeasurementSystem } from '@simmer-mosquito/mapping';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Tooltip,
@@ -12,7 +12,6 @@ import { toast } from 'sonner';
 import { useMapReadout } from '../../hooks/map/use-map-readout';
 import { formatCount } from '../../lib/format-count';
 import { MAP_CHROME_SURFACE } from './chrome';
-import { formatLatLng } from './map-point-search';
 
 const CopyIcon = iconRegistry.actions.copy.icon;
 

@@ -270,7 +270,7 @@ describe('the addresses explorer with nothing on the page', () => {
 	it('says there are none yet, and where to add one, on first open', async () => {
 		renderAddresses();
 
-		expect(await screen.findByText('No addresses yet')).toBeTruthy();
+		expect(await screen.findByText('No Addresses Yet')).toBeTruthy();
 		expect(screen.getByText('Create Address is in the More actions menu.')).toBeTruthy();
 		// No default narrows this surface, so the extent it sends is unfiltered
 		// and a null answer is about the whole address book.
@@ -282,7 +282,7 @@ describe('the addresses explorer with nothing on the page', () => {
 		harness.role = 'viewer';
 		renderAddresses();
 
-		expect(await screen.findByText('No addresses yet')).toBeTruthy();
+		expect(await screen.findByText('No Addresses Yet')).toBeTruthy();
 		expect(screen.queryByText('Create Address is in the More actions menu.')).toBeNull();
 	});
 
@@ -290,9 +290,9 @@ describe('the addresses explorer with nothing on the page', () => {
 		harness.search = { search: 'nowhere' };
 		renderAddresses();
 
-		expect(await screen.findByText('No addresses match these filters')).toBeTruthy();
+		expect(await screen.findByText('No Addresses Match')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Reset Filters' })).toBeTruthy();
-		expect(screen.queryByText('No addresses yet')).toBeNull();
+		expect(screen.queryByText('No Addresses Yet')).toBeNull();
 	});
 
 	it('says to pan when the extent frames addresses the viewport does not hold', async () => {
@@ -300,7 +300,7 @@ describe('the addresses explorer with nothing on the page', () => {
 		harness.extent = { west: 1.9, south: -0.5, east: 2.1, north: -0.3 };
 		renderAddresses();
 
-		expect(await screen.findByText('No addresses in view')).toBeTruthy();
+		expect(await screen.findByText('No Addresses in View')).toBeTruthy();
 		expect(
 			screen.getByText('Pan or zoom the map, or loosen the filters to bring addresses into range.'),
 		).toBeTruthy();

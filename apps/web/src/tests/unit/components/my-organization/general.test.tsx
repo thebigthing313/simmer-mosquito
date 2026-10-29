@@ -103,6 +103,13 @@ describe('GeneralOrganizationSection', () => {
 
 		expect(screen.getByPlaceholderText('e.g. New tag')).toBeTruthy();
 	});
+
+	it('names what each settings sheet edits on its trigger (#1697)', () => {
+		renderSection();
+
+		expect(screen.getByRole('button', { name: 'Edit Organization Details' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Edit Unit Defaults' })).toBeTruthy();
+	});
 });
 
 function renderSection() {

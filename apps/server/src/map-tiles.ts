@@ -13,6 +13,7 @@ import {
 	listMissionItemGeometry,
 	MAP_SURFACES,
 	type MapBoundsSummaryInput,
+	type MapExportReader,
 	type MapExtent,
 	type MapSummaryResult,
 	type MapTilesetLayer,
@@ -93,66 +94,77 @@ const defaultMapReaders = {
 	listHabitatDisplayRows: MAP_SURFACES.habitats.listByBounds,
 	summarizeHabitats: MAP_SURFACES.habitats.summarizeByBounds,
 	getHabitatDisplayRow: MAP_SURFACES.habitats.getById,
+	exportHabitats: MAP_SURFACES.habitats.exportByBounds,
 
 	getInspectionTile: MAP_SURFACES.inspections.getTile,
 	getInspectionExtent: MAP_SURFACES.inspections.getExtent,
 	listInspectionDisplayRows: MAP_SURFACES.inspections.listByBounds,
 	summarizeInspections: MAP_SURFACES.inspections.summarizeByBounds,
 	getInspectionDisplayRow: MAP_SURFACES.inspections.getById,
+	exportInspections: MAP_SURFACES.inspections.exportByBounds,
 
 	getSampleTile: MAP_SURFACES.samples.getTile,
 	getSampleExtent: MAP_SURFACES.samples.getExtent,
 	listSampleDisplayRows: MAP_SURFACES.samples.listByBounds,
 	summarizeSamples: MAP_SURFACES.samples.summarizeByBounds,
 	getSampleDisplayRow: MAP_SURFACES.samples.getById,
+	exportSamples: MAP_SURFACES.samples.exportByBounds,
 
 	getTrapTile: MAP_SURFACES.traps.getTile,
 	getTrapExtent: MAP_SURFACES.traps.getExtent,
 	listTrapDisplayRows: MAP_SURFACES.traps.listByBounds,
 	summarizeTraps: MAP_SURFACES.traps.summarizeByBounds,
 	getTrapDisplayRow: MAP_SURFACES.traps.getById,
+	exportTraps: MAP_SURFACES.traps.exportByBounds,
 
 	getCollectionTile: MAP_SURFACES.collections.getTile,
 	getCollectionExtent: MAP_SURFACES.collections.getExtent,
 	listCollectionDisplayRows: MAP_SURFACES.collections.listByBounds,
 	summarizeCollections: MAP_SURFACES.collections.summarizeByBounds,
 	getCollectionDisplayRow: MAP_SURFACES.collections.getById,
+	exportCollections: MAP_SURFACES.collections.exportByBounds,
 
 	getApplicationTile: MAP_SURFACES.chemical.getTile,
 	getApplicationExtent: MAP_SURFACES.chemical.getExtent,
 	listApplicationDisplayRows: MAP_SURFACES.chemical.listByBounds,
 	summarizeApplications: MAP_SURFACES.chemical.summarizeByBounds,
 	getApplicationDisplayRow: MAP_SURFACES.chemical.getById,
+	exportApplications: MAP_SURFACES.chemical.exportByBounds,
 
 	getSourceReductionTile: MAP_SURFACES['source-reduction'].getTile,
 	getSourceReductionExtent: MAP_SURFACES['source-reduction'].getExtent,
 	listSourceReductionDisplayRows: MAP_SURFACES['source-reduction'].listByBounds,
 	summarizeSourceReductions: MAP_SURFACES['source-reduction'].summarizeByBounds,
 	getSourceReductionDisplayRow: MAP_SURFACES['source-reduction'].getById,
+	exportSourceReductions: MAP_SURFACES['source-reduction'].exportByBounds,
 
 	getBiocontrolTile: MAP_SURFACES.biocontrol.getTile,
 	getBiocontrolExtent: MAP_SURFACES.biocontrol.getExtent,
 	listBiocontrolDisplayRows: MAP_SURFACES.biocontrol.listByBounds,
 	summarizeBiocontrolActions: MAP_SURFACES.biocontrol.summarizeByBounds,
 	getBiocontrolDisplayRow: MAP_SURFACES.biocontrol.getById,
+	exportBiocontrolActions: MAP_SURFACES.biocontrol.exportByBounds,
 
 	getOutreachTile: MAP_SURFACES.outreach.getTile,
 	getOutreachExtent: MAP_SURFACES.outreach.getExtent,
 	listOutreachDisplayRows: MAP_SURFACES.outreach.listByBounds,
 	summarizeOutreachActions: MAP_SURFACES.outreach.summarizeByBounds,
 	getOutreachDisplayRow: MAP_SURFACES.outreach.getById,
+	exportOutreachActions: MAP_SURFACES.outreach.exportByBounds,
 
 	getAddressTile: MAP_SURFACES.addresses.getTile,
 	getAddressExtent: MAP_SURFACES.addresses.getExtent,
 	listAddressDisplayRows: MAP_SURFACES.addresses.listByBounds,
 	summarizeAddresses: MAP_SURFACES.addresses.summarizeByBounds,
 	getAddressDisplayRow: MAP_SURFACES.addresses.getById,
+	exportAddresses: MAP_SURFACES.addresses.exportByBounds,
 
 	getServiceRequestTile: MAP_SURFACES['service-requests'].getTile,
 	getServiceRequestExtent: MAP_SURFACES['service-requests'].getExtent,
 	listServiceRequestDisplayRows: MAP_SURFACES['service-requests'].listByBounds,
 	summarizeServiceRequests: MAP_SURFACES['service-requests'].summarizeByBounds,
 	getServiceRequestDisplayRow: MAP_SURFACES['service-requests'].getById,
+	exportServiceRequests: MAP_SURFACES['service-requests'].exportByBounds,
 
 	// Regions are drawn from their surface and read as rows through their own
 	// catalog, so the by-id reader is not a surface method.
@@ -310,6 +322,13 @@ export function registerMapTileRoutes(
 		return context.json({ habitats });
 	});
 
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/habitats/export',
+		parseFilters: parseHabitatTileFilters,
+		export: readers.exportHabitats,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/habitats/:id',
 		key: 'habitat',
@@ -348,6 +367,13 @@ export function registerMapTileRoutes(
 		summarize: readers.summarizeAddresses,
 	});
 
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/addresses/export',
+		parseFilters: parseAddressTileFilters,
+		export: readers.exportAddresses,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/addresses/:id',
 		key: 'address',
@@ -370,6 +396,14 @@ export function registerMapTileRoutes(
 		summarize: readers.summarizeInspections,
 	});
 
+	// Every Inspection in the box that matches the filters, for a file.
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/inspections/export',
+		parseFilters: parseInspectionTileFilters,
+		export: readers.exportInspections,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/inspections/:id',
 		key: 'inspection',
@@ -390,6 +424,13 @@ export function registerMapTileRoutes(
 		path: '/map/samples/summary',
 		parseFilters: parseSampleTileFilters,
 		summarize: readers.summarizeSamples,
+	});
+
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/samples/export',
+		parseFilters: parseSampleTileFilters,
+		export: readers.exportSamples,
 	});
 
 	registerByIdRoute(app, options, {
@@ -415,6 +456,13 @@ export function registerMapTileRoutes(
 		summarize: readers.summarizeApplications,
 	});
 
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/chemical/export',
+		parseFilters: parseApplicationMapFilters,
+		export: readers.exportApplications,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/chemical/:id',
 		key: 'application',
@@ -436,6 +484,13 @@ export function registerMapTileRoutes(
 		path: '/map/source-reduction/summary',
 		parseFilters: parseSourceReductionMapFilters,
 		summarize: readers.summarizeSourceReductions,
+	});
+
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/source-reduction/export',
+		parseFilters: parseSourceReductionMapFilters,
+		export: readers.exportSourceReductions,
 	});
 
 	registerByIdRoute(app, options, {
@@ -461,6 +516,13 @@ export function registerMapTileRoutes(
 		summarize: readers.summarizeBiocontrolActions,
 	});
 
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/biocontrol/export',
+		parseFilters: parseBiocontrolMapFilters,
+		export: readers.exportBiocontrolActions,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/biocontrol/:id',
 		key: 'biocontrolAction',
@@ -483,6 +545,13 @@ export function registerMapTileRoutes(
 		path: '/map/outreach/summary',
 		parseFilters: parseOutreachMapFilters,
 		summarize: readers.summarizeOutreachActions,
+	});
+
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/outreach/export',
+		parseFilters: parseOutreachMapFilters,
+		export: readers.exportOutreachActions,
 	});
 
 	registerByIdRoute(app, options, {
@@ -512,6 +581,13 @@ export function registerMapTileRoutes(
 		path: '/map/service-requests/summary',
 		parseFilters: parseServiceRequestMapFilters,
 		summarize: readers.summarizeServiceRequests,
+	});
+
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/service-requests/export',
+		parseFilters: parseServiceRequestMapFilters,
+		export: readers.exportServiceRequests,
 	});
 
 	registerByIdRoute(app, options, {
@@ -578,6 +654,13 @@ export function registerMapTileRoutes(
 		summarize: readers.summarizeTraps,
 	});
 
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/traps/export',
+		parseFilters: parseTrapMapFilters,
+		export: readers.exportTraps,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/traps/:id',
 		key: 'trap',
@@ -599,6 +682,13 @@ export function registerMapTileRoutes(
 		path: '/map/collections/summary',
 		parseFilters: parseCollectionMapFilters,
 		summarize: readers.summarizeCollections,
+	});
+
+	// Registered before `/:id` so the literal segment wins.
+	registerExportRoute(app, options, {
+		path: '/map/collections/export',
+		parseFilters: parseCollectionMapFilters,
+		export: readers.exportCollections,
 	});
 
 	registerByIdRoute(app, options, {
@@ -774,6 +864,58 @@ function registerSummaryRoute<TFilters>(
 		}
 
 		return context.json(await route.summarize(options.db, queryResult.input));
+	});
+}
+
+/**
+ * An export read: the box and the filters of a page, without the paging,
+ * answered with every matching row as the surface's export columns.
+ *
+ * The rail's 100-row page cap does not apply. The reader's ceiling does, and
+ * a request over it is refused with a 422 carrying the count and the ceiling,
+ * rather than answered with the first 50,000 rows as though they were all of
+ * them. The page writes its own sentence from the two numbers, in the noun
+ * its register spells the records with.
+ */
+function registerExportRoute<TFilters>(
+	app: Hono<{ Variables: AuthVariables }>,
+	options: {
+		readonly db: TileDb;
+		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+	},
+	route: {
+		readonly path: string;
+		readonly parseFilters: (params: URLSearchParams) => FilterResult<TFilters>;
+		readonly export: MapExportReader<TFilters>;
+	},
+): void {
+	app.get(route.path, options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const queryResult = parseBboxSummaryQuery(
+			new URL(context.req.url).searchParams,
+			authContext.organization.id,
+			authContext.timeZone,
+			route.parseFilters,
+		);
+
+		if (!queryResult.ok) {
+			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
+		}
+
+		const result = await route.export(options.db, queryResult.input);
+		if (result.kind === 'overCeiling') {
+			return context.json(
+				{
+					error: 'export_too_large',
+					reason: `${result.total} records match, over the export ceiling of ${result.ceiling}.`,
+					total: result.total,
+					ceiling: result.ceiling,
+				},
+				422,
+			);
+		}
+
+		return context.json({ headers: result.headers, rows: result.rows });
 	});
 }
 

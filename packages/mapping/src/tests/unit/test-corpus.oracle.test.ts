@@ -1,9 +1,13 @@
 import GeometryFactory from 'jsts/org/locationtech/jts/geom/GeometryFactory.js';
 import GeoJSONReader from 'jsts/org/locationtech/jts/io/GeoJSONReader.js';
+import BufferOp from 'jsts/org/locationtech/jts/operation/buffer/BufferOp.js';
+import OverlayOp from 'jsts/org/locationtech/jts/operation/overlay/OverlayOp.js';
 import RelateOp from 'jsts/org/locationtech/jts/operation/relate/RelateOp.js';
+import IsValidOp from 'jsts/org/locationtech/jts/operation/valid/IsValidOp.js';
 import { describe, expect, it } from 'vitest';
 
 import {
+	AREA_OVERLAP_SHARE,
 	type CorpusCase,
 	corpusRegionFor,
 	REGION_MEMBERSHIP_CORPUS,
@@ -21,7 +25,7 @@ import {
  * `jsts` is a **devDependency oracle** and never ships. It is the same JTS
  * lineage PostGIS reaches through GEOS, so agreement with it is not independent
  * evidence that the *rule* is right. What it is evidence of is that the
- * thirty-four hand-written booleans are the ones the rule produces, checked
+ * thirty-six hand-written booleans are the ones the rule produces, checked
  * without Postgres and without the implementation under test. When mobile's
  * hand-rolled predicate arrives, a hand-written expectation checked only by a
  * hand-rolled implementation would be one pair of eyes checking itself, and this
@@ -29,7 +33,10 @@ import {
  *
  * The rule, in JTS terms: `RelateOp.relate(region, record)` once, read as the
  * DE-9IM interior cell for a polygon record and as plain intersection for a point
- * or a line.
+ * or a line. A polygon record whose interior meets the region's then has to share
+ * `AREA_OVERLAP_SHARE` of the smaller area, measured by `OverlayOp`. An invalid
+ * record, which the Split pair is, goes through `buffer(0)` first, the JTS
+ * spelling of the `ST_MakeValid` the SQL half reads it through.
  */
 describe('region membership corpus, against the jsts oracle', () => {
 	it('agrees with every hand-written expectation', () => {
@@ -69,6 +76,20 @@ describe('region membership corpus, against the jsts oracle', () => {
 		expect(oracleAnswer(onePartInside)).toBe(true);
 	});
 
+	it('holds the overlap threshold an order of magnitude either side of the line', () => {
+		// The pair that carries #1671, asserted directly. Both interiors meet the
+		// region's, so the interior cell alone answers true for each and only the
+		// measured share separates them.
+		const sliver = caseById('polygon-sliver-overlap');
+		const smallOverlap = caseById('polygon-small-real-overlap');
+
+		expect(matrixFor(sliver).matches('T********')).toBe(true);
+		expect(overlapShare(sliver)).toBeLessThan(AREA_OVERLAP_SHARE / 2);
+		expect(oracleAnswer(sliver)).toBe(false);
+		expect(overlapShare(smallOverlap)).toBeGreaterThan(AREA_OVERLAP_SHARE * 2);
+		expect(oracleAnswer(smallOverlap)).toBe(true);
+	});
+
 	it('reads the shape Split writes, whose parts share the line they were cut along', () => {
 		// Asserted directly for the reason the two blocks above are, and as a pair
 		// because each half is a different tripwire. The corpus docblock has the
@@ -103,9 +124,19 @@ function matrixFor(corpusCase: CorpusCase) {
 
 function oracleAnswer(corpusCase: CorpusCase): boolean {
 	const matrix = matrixFor(corpusCase);
-	return corpusCase.branch === 'interior-intersection'
-		? (matrix.matches('T********') as boolean)
-		: (matrix.isIntersects() as boolean);
+	if (corpusCase.branch !== 'interior-intersection') {
+		return matrix.isIntersects() as boolean;
+	}
+	return (matrix.matches('T********') as boolean) && overlapShare(corpusCase) >= AREA_OVERLAP_SHARE;
+}
+
+/** The area two areas share, as a fraction of the smaller of them. */
+function overlapShare(corpusCase: CorpusCase): number {
+	const region = reader.read(corpusRegionFor(corpusCase));
+	const read = reader.read(corpusCase.record);
+	const record = IsValidOp.isValid(read) ? read : BufferOp.bufferOp(read, 0);
+	const shared = OverlayOp.intersection(region, record).getArea() as number;
+	return shared / Math.min(region.getArea() as number, record.getArea() as number);
 }
 
 function plainIntersection(corpusCase: CorpusCase): boolean {

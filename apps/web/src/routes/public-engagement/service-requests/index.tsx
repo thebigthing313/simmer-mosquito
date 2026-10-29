@@ -52,10 +52,10 @@ const EMPTY_TAGS: readonly Tag[] = [];
 
 export const Route = createFileRoute('/public-engagement/service-requests/')({
 	component: ServiceRequestsExplorerRoute,
-	validateSearch: searchValidator({
-		...surfaceCodecs(serviceRequestRecordSet, 'map'),
-		...serviceRequestRailOrderCodecs,
-	}),
+	validateSearch: searchValidator(
+		surfaceCodecs(serviceRequestRecordSet, 'map'),
+		serviceRequestRailOrderCodecs,
+	),
 });
 
 function ServiceRequestsExplorerRoute() {
@@ -88,13 +88,11 @@ function ServiceRequestsExplorerRoute() {
 		canvas,
 		selectedId,
 		setSelectedId,
+		exportRequest,
 	}: ExplorerResource<ServiceRequestListing> = useExplorerResource({
 		set: serviceRequestRecordSet,
 		binding: { filters: query, context },
 		params: serviceRequestOrderParams(railOrder.order),
-		// A pick moves the map to the record and leaves the list as it was, so
-		// the reader working down the queue does not lose their place.
-		holdRailOnSelect: true,
 		summarize: true,
 	});
 
@@ -109,6 +107,7 @@ function ServiceRequestsExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
+			exportRequest={exportRequest}
 			actions={
 				<RecordSetSwitch compact current="map" search={routeSearch} set={serviceRequestRecordSet} />
 			}
