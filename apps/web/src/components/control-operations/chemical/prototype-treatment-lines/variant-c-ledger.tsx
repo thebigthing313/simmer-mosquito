@@ -254,6 +254,12 @@ export function VariantCLedger({
 									<span className="text-muted-foreground text-xs">In the mix</span>
 								) : (
 									<Button
+										disabled={entryToggle && live === 1}
+										title={
+											entryToggle && live === 1
+												? 'A treatment keeps at least one product'
+												: undefined
+										}
 										onClick={() => ops.remove(line.id)}
 										size="xs"
 										type="button"
@@ -265,18 +271,28 @@ export function VariantCLedger({
 							</div>
 							<div className="grid grid-cols-[1.25rem_1fr_1fr] items-center gap-2 @md/fields:grid-cols-[1.25rem_7rem_9rem_1fr]">
 								<span />
-								<AmountInput
-									onChange={(amount) => ops.update(line.id, { amount })}
-									value={line.amount}
-								/>
-								<UnitSelect
-									catalog={catalog}
-									insecticideId={line.insecticideId}
-									onChange={(unitId) => ops.update(line.id, { unitId })}
-									value={line.unitId}
-								/>
+								{locked ? (
+									<span className="col-span-2 text-sm tabular-nums">
+										{line.amount === null
+											? 'Enter the mix total'
+											: `${line.amount} ${unitAbbr(line.unitId)}`}
+									</span>
+								) : (
+									<>
+										<AmountInput
+											onChange={(amount) => ops.update(line.id, { amount })}
+											value={line.amount}
+										/>
+										<UnitSelect
+											catalog={catalog}
+											insecticideId={line.insecticideId}
+											onChange={(unitId) => ops.update(line.id, { unitId })}
+											value={line.unitId}
+										/>
+									</>
+								)}
 								<span className="col-span-3 text-xs tabular-nums @md/fields:col-span-1">
-									{mix === null ? null : share === null ? (
+									{mix === null || locked ? null : share === null ? (
 										<span className="text-muted-foreground">Not in this mix</span>
 									) : delta === 0 ? (
 										<span className="text-muted-foreground">Matches the mix</span>
@@ -317,7 +333,7 @@ export function VariantCLedger({
 				<span className="text-muted-foreground text-xs">
 					{live} {live === 1 ? 'product' : 'products'}
 					{mix?.mixAmount != null
-						? ` from ${mix.mixAmount} ${unitAbbr(formulation?.batchUnitId ?? '')} of mix`
+						? ` from ${mix.mixAmount} ${unitAbbr(formulation?.batchUnitId ?? '')} of ${formulation?.formulationName ?? 'mix'}`
 						: ''}
 				</span>
 			</div>
