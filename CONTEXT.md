@@ -38,8 +38,8 @@ what the form makes; the submit button says **Save** on every create and edit
 form, because it names the act of committing, so an entry and its button are
 expected to differ. **New** is not used.
 
-- **Record** for work performed in the field: Inspection, Collection, Chemical
-  Application, Biocontrol Action, Source Reduction, Outreach Action.
+- **Record** for work performed in the field: Inspection, Collection,
+  Treatment, Biocontrol Action, Source Reduction, Outreach Action.
 - **Create** for a thing brought into existence, a root record with no parent
   its form cannot open without: Habitat, Trap, Address, Region, Contact,
   Mission, Assignment, Requested Control Action, Service Request, Weather
@@ -60,7 +60,7 @@ menu calls `createSentenceLabel` for the same words in sentence case.
 | Adult surveillance | **Trap**, **Collection**, **Species Count**, **Bycatch** | `docs/adult-surveillance-domain.md` |
 | Larval surveillance | **Habitat**, **Habitat Inspection**, **Ad Hoc Inspection**, **Positive Inspection**, **Inspection Sample**, **Unlabeled Sample**, **Sample Species Count**, **Larval Density** | `docs/larval-surveillance-domain.md` |
 | Field-work support | **Comment**, **Tag**, **Additional Personnel**, **Route**, **Assignment**, **Assignment Item** | `docs/field-work-support-domain.md` |
-| Control operations | **Control Method**, **Chemical Application**, **Source Reduction**, **Outreach Action**, **Biocontrol Action**, **Requested Control Action**, **Insecticide**, **Insecticide Batch**, **Formulation** | `docs/control-operations-domain.md` |
+| Control operations | **Control Method**, **Treatment**, **Chemical Application**, **Source Reduction**, **Outreach Action**, **Biocontrol Action**, **Requested Control Action**, **Insecticide**, **Insecticide Batch**, **Formulation** | `docs/control-operations-domain.md` |
 | Public engagement | **Contact**, **Service Request**, **Notification Type**, **Notification Registration**, **Mission Notification** | `docs/public-engagement-domain.md` |
 | Mission dispatch | **Mission**, **Mission Item**, **Mission Progress** | `docs/mission-dispatch-domain.md` |
 | Weather | **Weather Station**, **Weather Summary**, **Weather Summary Import** | `docs/weather-domain.md` |
@@ -91,19 +91,26 @@ menu calls `createSentenceLabel` for the same words in sentence case.
   period is cut like for like by calendar date, each earlier period through
   the same date within itself, clamped to that period's last day; a day is
   never cut.
+- A **Treatment** is one visit's insecticide work: when, by whom, how and
+  where. Each **Chemical Application** under it is one **Insecticide** and one
+  amount. Every Chemical Application belongs to a Treatment, and a job with one
+  product is a Treatment with one Chemical Application.
 - An active **Habitat** is **untreated** while its latest inspection came back
-  heavy or very heavy, no **Chemical Application**, **Source Reduction** or
-  **Biocontrol Action** dated on or after that inspection names the habitat or
-  the inspection, and no unresolved **Requested Control Action** names it. A
-  later inspection at a lower density clears it on its own; a request for
-  control takes it off the untreated list without treating it.
+  heavy or very heavy, no **Treatment** dated on or after that inspection names
+  the habitat or the inspection, and no unresolved **Requested Control Action**
+  names it. A **Source Reduction** or **Biocontrol Action** does not take a
+  habitat off the untreated list. A later inspection at a lower density clears
+  it on its own, and a request for control takes it off the list without
+  treating it.
 - A **Route** is reusable planning; an **Assignment** is dated field work; a
   **Mission** is scheduled control-work dispatch.
-- A **Requested Control Action** may later be linked to a performed **Chemical
-  Application**, **Source Reduction**, **Outreach Action**, or **Biocontrol
+- A **Requested Control Action** may later be linked to a performed
+  **Treatment**, **Source Reduction**, **Outreach Action** or **Biocontrol
   Action**.
-- A **Formulation** helps calculate one or more chemical applications, but
-  those applications do not store the formulation as historical source data.
+- A **Formulation** is an Organization's saved mix of Insecticides: what one
+  batch takes of each and how much finished mix it makes. A **Treatment** mixed
+  from one records the Formulation and the amount of finished mix applied, and
+  its Chemical Applications are that recipe scaled to the mix amount.
 - **Delete** and **Deactivate** are not degrees of the same act. Delete says the
   record was a mistake, so anything referring to it proves otherwise and refuses
   the delete. Deactivate says the record was real and its use has ended, so it
@@ -164,7 +171,10 @@ Common source terms:
 ## Ambiguities to preserve
 
 - "Application" can mean software or control work. Use **Chemical Application**
-  for performed insecticide work.
+  for one product's line within a **Treatment**, and **Treatment** for the
+  visit.
+- "Treatment" and "treated" mean insecticide work, as the industry uses them. A
+  **Source Reduction** or **Biocontrol Action** is control work, not treatment.
 - "Notification" can mean preference, generated worklist row, or delivery. Use
   **Notification Type**, **Notification Registration**, and **Mission
   Notification** for the v1 concepts.
