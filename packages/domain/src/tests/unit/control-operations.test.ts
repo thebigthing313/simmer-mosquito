@@ -9,15 +9,19 @@ import {
 	createApplicationMethodCommand,
 	createInsecticideCommand,
 	createVehicleCommand,
-	expandFormulationApplicationCommands,
+	deleteTreatmentCommand,
+	formulationTreatmentApplications,
 	isBiocontrolUnitType,
 	isSourceReductionUnitType,
-	recordChemicalApplicationCommand,
 	recordOutreachActionCommand,
 	recordSourceReductionCommand,
+	recordTreatmentCommand,
+	recordTreatmentFromFormulationCommand,
 	requestControlActionCommand,
-	updateChemicalApplicationFieldDetailsCommand,
+	reviseTreatmentLinesCommand,
 	updateRequestedControlActionDetailsCommand,
+	updateTreatmentFieldDetailsCommand,
+	updateTreatmentLocationAndContextCommand,
 } from '../../control-operations/index.js';
 
 const organizationId = '11111111-1111-4111-8111-111111111111';
@@ -146,62 +150,7 @@ describe('control operations catalog commands', () => {
 });
 
 describe('control operations action commands', () => {
-	it('records a chemical application with explicit units, context, and batch mappings', () => {
-		expect(
-			recordChemicalApplicationCommand({
-				organizationId,
-				actorProfileId,
-				applicationId,
-				insecticideId,
-				amountApplied: 1.25,
-				applicationUnitId: unitId,
-				applicationDate: '2026-05-11',
-				applicatorProfileId: otherProfileId,
-				locationSource: { kind: 'geometry', geometry: pointGeometry },
-				addressId,
-				context: { kind: 'larval', habitatId, inspectionId },
-				requestedControlActionId,
-				applicationMethodId,
-				vehicleId,
-				applicationBatches: [{ applicationBatchId, insecticideBatchId: batchId }],
-				metadata: { wind: 'calm' },
-			}).payload,
-		).toMatchObject({
-			applicationId,
-			insecticideId,
-			amountApplied: 1.25,
-			applicationUnitId: unitId,
-			applicationDate: '2026-05-11',
-			applicatorProfileId: otherProfileId,
-			locationSource: { kind: 'geometry', geometry: pointGeometry },
-			addressId,
-			context: { kind: 'larval', habitatId, inspectionId },
-			requestedControlActionId,
-			applicationMethodId,
-			vehicleId,
-			applicationBatches: [{ applicationBatchId, insecticideBatchId: batchId }],
-			metadata: { wind: 'calm' },
-		});
-	});
-
-	it('rejects duplicate application batch mappings and invalid context shapes', () => {
-		expect(() =>
-			recordChemicalApplicationCommand({
-				organizationId,
-				actorProfileId,
-				applicationId,
-				insecticideId,
-				amountApplied: 1,
-				applicationUnitId: unitId,
-				applicationDate: '2026-05-11',
-				locationSource: { kind: 'geometry', geometry: pointGeometry },
-				applicationBatches: [
-					{ applicationBatchId, insecticideBatchId: batchId },
-					{ applicationBatchId: applicationBatchId2, insecticideBatchId: batchId },
-				],
-			}),
-		).toThrow(DomainValidationError);
-
+	it('rejects a source reduction with an adult context', () => {
 		expect(() =>
 			recordSourceReductionCommand({
 				organizationId,
@@ -264,34 +213,6 @@ describe('control operations action commands', () => {
 				locationSource: { kind: 'geometry', geometry: pointGeometry },
 				context: { kind: 'larval', habitatId },
 				reach: 1,
-			}),
-		).toThrow(DomainValidationError);
-	});
-
-	it('builds guarded patch commands with acknowledgement flags', () => {
-		expect(
-			updateChemicalApplicationFieldDetailsCommand({
-				organizationId,
-				actorProfileId,
-				applicationId,
-				insecticideId: insecticideId2,
-				amountApplied: 2.5,
-				acknowledgedBatchClearance: true,
-			}).payload,
-		).toMatchObject({
-			applicationId,
-			changes: { insecticideId: insecticideId2, amountApplied: 2.5 },
-			acknowledgedBatchClearance: true,
-		});
-	});
-
-	it('rejects invalid optional ids in chemical application field patches', () => {
-		expect(() =>
-			updateChemicalApplicationFieldDetailsCommand({
-				organizationId,
-				actorProfileId,
-				applicationId,
-				vehicleId: 'not-a-uuid',
 			}),
 		).toThrow(DomainValidationError);
 	});
@@ -391,48 +312,6 @@ describe('formulation helpers', () => {
 		).toEqual([{ insecticideId, unitId, amount: 0.25 }]);
 	});
 
-	it('expands formulation input into ordinary single-insecticide application commands', () => {
-		const commands = expandFormulationApplicationCommands({
-			organizationId,
-			actorProfileId,
-			totalAmount: 12,
-			batchSize: 3,
-			components: [
-				{
-					insecticideId,
-					amount: 1,
-					unitId,
-					applicationId,
-					applicationBatches: [{ applicationBatchId, insecticideBatchId: batchId }],
-				},
-				{
-					insecticideId: insecticideId2,
-					amount: 2,
-					unitId: unitId2,
-					applicationId: applicationId2,
-					applicationBatches: [
-						{ applicationBatchId: applicationBatchId2, insecticideBatchId: batchId2 },
-					],
-				},
-			],
-			applicationDate: '2026-05-11',
-			locationSource: { kind: 'geometry', geometry: pointGeometry },
-			context: { kind: 'larval', habitatId },
-		});
-
-		expect(commands.map((command) => command.type)).toEqual([
-			'controlOperations.recordChemicalApplication',
-			'controlOperations.recordChemicalApplication',
-		]);
-		expect(commands.map((command) => command.payload.amountApplied)).toEqual([4, 8]);
-		expect(commands[0]?.payload).toMatchObject({
-			applicationId,
-			insecticideId,
-			context: { kind: 'larval', habitatId },
-			applicationBatches: [{ applicationBatchId, insecticideBatchId: batchId }],
-		});
-	});
-
 	it('exposes pure unit-type predicates for server-side validators', () => {
 		expect(isSourceReductionUnitType('distance')).toBe(true);
 		expect(isSourceReductionUnitType('weight')).toBe(false);
@@ -527,6 +406,437 @@ describe('location and context patch flow constraint', () => {
 		expect(issues).toContainEqual({
 			path: 'locationSource.kind',
 			message: 'locationSource.kind is not supported for this location source flow.',
+		});
+	});
+});
+
+describe('treatment commands', () => {
+	const treatmentId = '1a1a1a1a-1a1a-4a1a-8a1a-1a1a1a1a1a1a';
+	const formulationId = '1b1b1b1b-1b1b-4b1b-8b1b-1b1b1b1b1b1b';
+	const mixUnitId = '1c1c1c1c-1c1c-4c1c-8c1c-1c1c1c1c1c1c';
+	const org = { organizationId, actorProfileId };
+	const header = {
+		...org,
+		treatmentId,
+		applicationDate: '2026-05-11',
+		locationSource: { kind: 'geometry', geometry: pointGeometry },
+	} as const;
+	const line = {
+		id: applicationId,
+		insecticide_id: insecticideId,
+		amount_applied: 1.25,
+		application_unit_id: unitId,
+		application_batches: [{ id: applicationBatchId, insecticide_batch_id: batchId }],
+	};
+	const secondLine = {
+		id: applicationId2,
+		insecticide_id: insecticideId2,
+		amount_applied: 3,
+		application_unit_id: unitId2,
+		application_batches: [{ id: applicationBatchId2, insecticide_batch_id: batchId2 }],
+	};
+
+	/** The paths a refused build names, or a failure when the build passes. */
+	function refusedPaths(build: () => unknown): readonly string[] {
+		try {
+			build();
+		} catch (error) {
+			expect(error).toBeInstanceOf(DomainValidationError);
+			return (error as DomainValidationError).issues.map((issue) => issue.path);
+		}
+		throw new Error('Expected the build to be refused.');
+	}
+
+	describe('recordTreatment', () => {
+		it('carries the visit once and every line with its batches', () => {
+			expect(
+				recordTreatmentCommand({
+					...header,
+					applicatorProfileId: otherProfileId,
+					addressId,
+					context: { kind: 'larval', habitatId, inspectionId },
+					requestedControlActionId,
+					applicationMethodId,
+					vehicleId,
+					metadata: { basins: 12 },
+					applications: [
+						line,
+						{
+							id: applicationId2,
+							insecticide_id: insecticideId2,
+							amount_applied: 3,
+							application_unit_id: unitId2,
+						},
+					],
+				}),
+			).toEqual({
+				type: 'controlOperations.recordTreatment',
+				payload: {
+					...org,
+					treatmentId,
+					applicationDate: '2026-05-11',
+					applicatorProfileId: otherProfileId,
+					locationSource: { kind: 'geometry', geometry: pointGeometry },
+					addressId,
+					context: { kind: 'larval', habitatId, inspectionId },
+					requestedControlActionId,
+					applicationMethodId,
+					vehicleId,
+					equipmentId: null,
+					metadata: { basins: 12 },
+					formulationId: null,
+					mixAmount: null,
+					mixUnitId: null,
+					applications: [line, { ...secondLine, application_batches: [] }],
+				},
+			});
+		});
+
+		it('refuses an empty line set', () => {
+			expect(refusedPaths(() => recordTreatmentCommand({ ...header, applications: [] }))).toEqual([
+				'applications',
+			]);
+		});
+
+		it('refuses a payload with no line set at all', () => {
+			expect(
+				refusedPaths(() => recordTreatmentCommand({ ...header, applications: undefined as never })),
+			).toEqual(['applications']);
+		});
+
+		it('refuses a repeated insecticide, naming the later line', () => {
+			expect(
+				refusedPaths(() =>
+					recordTreatmentCommand({
+						...header,
+						applications: [
+							line,
+							secondLine,
+							{ ...secondLine, id: missionItemId, application_batches: [] },
+						],
+					}),
+				),
+			).toEqual(['applications.2.insecticide_id']);
+		});
+
+		it('refuses a repeated line id, a repeated batch link id and a batch linked twice', () => {
+			expect(
+				refusedPaths(() =>
+					recordTreatmentCommand({
+						...header,
+						applications: [
+							{
+								...line,
+								application_batches: [
+									{ id: applicationBatchId, insecticide_batch_id: batchId },
+									{ id: trapId, insecticide_batch_id: batchId },
+								],
+							},
+							{
+								...secondLine,
+								id: applicationId,
+								application_batches: [{ id: applicationBatchId, insecticide_batch_id: batchId2 }],
+							},
+						],
+					}),
+				),
+			).toEqual([
+				'applications.0.application_batches.1.insecticide_batch_id',
+				'applications.1.id',
+				'applications.1.application_batches.0.id',
+			]);
+		});
+
+		it('refuses a line with no insecticide, amount or unit', () => {
+			expect(
+				refusedPaths(() =>
+					recordTreatmentCommand({
+						...header,
+						applications: [
+							{ ...line, insecticide_id: '', amount_applied: 0, application_unit_id: 'nope' },
+						],
+					}),
+				),
+			).toEqual([
+				'applications.0.insecticide_id',
+				'applications.0.amount_applied',
+				'applications.0.application_unit_id',
+			]);
+		});
+
+		it('carries a whole Formulation set', () => {
+			expect(
+				recordTreatmentCommand({
+					...header,
+					formulationId,
+					mixAmount: 78,
+					mixUnitId,
+					applications: [line],
+				}).payload,
+			).toMatchObject({ formulationId, mixAmount: 78, mixUnitId });
+		});
+
+		it('refuses a Formulation set that is not whole, naming each missing field', () => {
+			expect(
+				refusedPaths(() =>
+					recordTreatmentCommand({ ...header, formulationId, applications: [line] }),
+				),
+			).toEqual(['mixAmount', 'mixUnitId']);
+			expect(
+				refusedPaths(() =>
+					recordTreatmentCommand({
+						...header,
+						formulationId: null,
+						mixAmount: 78,
+						mixUnitId,
+						applications: [line],
+					}),
+				),
+			).toEqual(['formulationId']);
+		});
+
+		it('refuses a mix amount that is not positive', () => {
+			for (const mixAmount of [0, -5, Number.NaN]) {
+				expect(
+					refusedPaths(() =>
+						recordTreatmentCommand({
+							...header,
+							formulationId,
+							mixAmount,
+							mixUnitId,
+							applications: [line],
+						}),
+					),
+				).toEqual(['mixAmount']);
+			}
+		});
+	});
+
+	describe('the Formulation path', () => {
+		const recipeComponent = {
+			insecticideId,
+			amount: 1,
+			unitId,
+			applicationId,
+			applicationBatches: [{ id: applicationBatchId, insecticide_batch_id: batchId }],
+		};
+		const components = [
+			recipeComponent,
+			{ insecticideId: insecticideId2, amount: 2, unitId: unitId2, applicationId: applicationId2 },
+		];
+
+		it('builds one recordTreatment with one line per component, scaled to the mix', () => {
+			const command = recordTreatmentFromFormulationCommand({
+				...header,
+				context: { kind: 'larval', habitatId },
+				formulationId,
+				mixAmount: 12,
+				mixUnitId,
+				batchSize: 3,
+				components,
+			});
+
+			expect(command.type).toBe('controlOperations.recordTreatment');
+			expect(command.payload).toMatchObject({
+				treatmentId,
+				context: { kind: 'larval', habitatId },
+				formulationId,
+				mixAmount: 12,
+				mixUnitId,
+			});
+			expect(command.payload.applications).toEqual([
+				{
+					id: applicationId,
+					insecticide_id: insecticideId,
+					amount_applied: 4,
+					application_unit_id: unitId,
+					application_batches: [{ id: applicationBatchId, insecticide_batch_id: batchId }],
+				},
+				{
+					id: applicationId2,
+					insecticide_id: insecticideId2,
+					amount_applied: 8,
+					application_unit_id: unitId2,
+					application_batches: [],
+				},
+			]);
+		});
+
+		it('computes the amounts calculateFormulationComponentAmounts gives', () => {
+			const lines = formulationTreatmentApplications({ mixAmount: 78, batchSize: 26, components });
+			const amounts = calculateFormulationComponentAmounts({
+				totalAmount: 78,
+				batchSize: 26,
+				components,
+			});
+
+			expect(lines.map((entry) => entry.amount_applied)).toEqual(
+				amounts.map((entry) => entry.amount),
+			);
+		});
+
+		it('refuses a mix amount that is not positive, naming mixAmount', () => {
+			expect(
+				refusedPaths(() =>
+					recordTreatmentFromFormulationCommand({
+						...header,
+						formulationId,
+						mixAmount: 0,
+						mixUnitId,
+						batchSize: 3,
+						components,
+					}),
+				),
+			).toEqual(['mixAmount']);
+		});
+
+		it('refuses a recipe that names one insecticide twice', () => {
+			expect(
+				refusedPaths(() =>
+					formulationTreatmentApplications({
+						mixAmount: 12,
+						batchSize: 3,
+						components: [recipeComponent, { ...recipeComponent, applicationId: applicationId2 }],
+					}),
+				),
+			).toEqual(['components.1.insecticideId']);
+		});
+	});
+
+	describe('updateTreatmentFieldDetails', () => {
+		const base = { ...org, treatmentId };
+
+		it('sets the Formulation set as one', () => {
+			expect(
+				updateTreatmentFieldDetailsCommand({
+					...base,
+					applicationDate: '2026-05-12',
+					formulationId,
+					mixAmount: 26,
+					mixUnitId,
+				}).payload,
+			).toEqual({
+				...base,
+				changes: { applicationDate: '2026-05-12', formulationId, mixAmount: 26, mixUnitId },
+			});
+		});
+
+		it('clears the Formulation set as one', () => {
+			expect(
+				updateTreatmentFieldDetailsCommand({
+					...base,
+					formulationId: null,
+					mixAmount: null,
+					mixUnitId: null,
+				}).payload.changes,
+			).toEqual({ formulationId: null, mixAmount: null, mixUnitId: null });
+		});
+
+		it('refuses a change naming part of the Formulation set', () => {
+			expect(
+				refusedPaths(() => updateTreatmentFieldDetailsCommand({ ...base, mixAmount: 30 })),
+			).toEqual(['formulationId', 'mixUnitId']);
+		});
+
+		it('refuses clearing part of the Formulation set', () => {
+			expect(
+				refusedPaths(() =>
+					updateTreatmentFieldDetailsCommand({
+						...base,
+						formulationId,
+						mixAmount: null,
+						mixUnitId,
+					}),
+				),
+			).toEqual(['mixAmount']);
+		});
+
+		it('refuses a mix amount that is not positive', () => {
+			expect(
+				refusedPaths(() =>
+					updateTreatmentFieldDetailsCommand({
+						...base,
+						formulationId,
+						mixAmount: -1,
+						mixUnitId,
+					}),
+				),
+			).toEqual(['mixAmount']);
+		});
+
+		it('refuses an edit that changes nothing', () => {
+			expect(refusedPaths(() => updateTreatmentFieldDetailsCommand(base))).toEqual(['changes']);
+		});
+
+		it('refuses an invalid optional id', () => {
+			expect(
+				refusedPaths(() =>
+					updateTreatmentFieldDetailsCommand({ ...base, vehicleId: 'not-a-uuid' }),
+				),
+			).toEqual(['vehicleId']);
+		});
+	});
+
+	describe('updateTreatmentLocationAndContext', () => {
+		it('carries the location and context it names', () => {
+			expect(
+				updateTreatmentLocationAndContextCommand({
+					...org,
+					treatmentId,
+					context: { kind: 'adult', collectionId },
+					addressId: null,
+				}).payload,
+			).toEqual({
+				...org,
+				treatmentId,
+				changes: { context: { kind: 'adult', collectionId }, addressId: null },
+			});
+		});
+	});
+
+	describe('reviseTreatmentLines', () => {
+		it('carries the whole line set', () => {
+			expect(
+				reviseTreatmentLinesCommand({ ...org, treatmentId, applications: [line, secondLine] }),
+			).toEqual({
+				type: 'controlOperations.reviseTreatmentLines',
+				payload: { ...org, treatmentId, applications: [line, secondLine] },
+			});
+		});
+
+		it('refuses a set with no lines', () => {
+			expect(
+				refusedPaths(() => reviseTreatmentLinesCommand({ ...org, treatmentId, applications: [] })),
+			).toEqual(['applications']);
+		});
+
+		it('refuses a repeated insecticide, naming the later line', () => {
+			expect(
+				refusedPaths(() =>
+					reviseTreatmentLinesCommand({
+						...org,
+						treatmentId,
+						applications: [line, { ...secondLine, insecticide_id: insecticideId }],
+					}),
+				),
+			).toEqual(['applications.1.insecticide_id']);
+		});
+	});
+
+	describe('deleteTreatment', () => {
+		it('defaults both acknowledgements to false', () => {
+			expect(deleteTreatmentCommand({ ...org, treatmentId }).payload).toEqual({
+				...org,
+				treatmentId,
+				acknowledgedSupportRecordDeletion: false,
+				acknowledgedBatchDeletion: false,
+			});
+		});
+
+		it('refuses a malformed id', () => {
+			expect(refusedPaths(() => deleteTreatmentCommand({ ...org, treatmentId: 'x' }))).toEqual([
+				'treatmentId',
+			]);
 		});
 	});
 });

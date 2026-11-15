@@ -15,7 +15,7 @@ describe('domain command vocabulary', () => {
 	it('admits a command name from every domain', () => {
 		const names: readonly DomainCommandType[] = [
 			'adultSurveillance.createTrap',
-			'controlOperations.recordChemicalApplication',
+			'controlOperations.recordTreatment',
 			'fieldWork.addComment',
 			'foundation.createGenus',
 			'larvalSurveillance.createHabitat',
@@ -100,8 +100,8 @@ describe('multi-row commands', () => {
 		// server may still refuse.
 		const excluded: AllExcluded<
 			| 'missionDispatch.createMission'
-			| 'controlOperations.recordChemicalApplication'
-			| 'missionDispatch.recordChemicalApplicationForMissionItem'
+			| 'controlOperations.recordTreatment'
+			| 'missionDispatch.recordTreatmentForMissionItem'
 			| 'publicEngagement.createNotificationRegistration'
 		> = true;
 
@@ -109,7 +109,7 @@ describe('multi-row commands', () => {
 	});
 
 	it('excludes the mission-stop create that carries children, and only that one', () => {
-		// The chemical one takes its batches in the payload, so it is the same shape as
+		// The Treatment one takes its lines and batches in the payload, so it is the same shape as
 		// the ordinary create and the rule applies unchanged. The other three write one
 		// row; the stop they close arrives over sync like any other server-side effect,
 		// which is what keeps them available to a single-row write.
@@ -120,6 +120,15 @@ describe('multi-row commands', () => {
 		];
 
 		expect(others).toHaveLength(3);
+	});
+
+	it('excludes a revise that carries a whole line set', () => {
+		type ReviseIsExcluded = 'controlOperations.reviseTreatmentLines' extends SingleRowCommandType
+			? false
+			: true;
+		const excluded: ReviseIsExcluded = true;
+
+		expect(excluded).toBe(true);
 	});
 
 	it('excludes a write whose second row the user is looking at', () => {

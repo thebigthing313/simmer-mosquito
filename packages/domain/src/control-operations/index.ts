@@ -1,8 +1,12 @@
 export type {
-	ApplicationBatchInput,
 	ControlActionContext,
 	ControlType,
 	PerformedControlActionKind,
+	TreatmentApplicationBatchRow,
+	TreatmentApplicationRow,
+	TreatmentApplicationRowInput,
+	TreatmentFormulation,
+	TreatmentFormulationInput,
 } from '../performed-control-actions.js';
 export * from './actions.js';
 export * from './assets.js';
@@ -14,22 +18,17 @@ export type {
 export * from './methods.js';
 export * from './products.js';
 export * from './requests.js';
+export * from './treatments.js';
 
 import type {
-	AddChemicalApplicationBatchCommand,
 	DeleteBiocontrolActionCommand,
-	DeleteChemicalApplicationCommand,
 	DeleteOutreachActionCommand,
 	DeleteSourceReductionCommand,
 	RecordBiocontrolActionCommand,
-	RecordChemicalApplicationCommand,
 	RecordOutreachActionCommand,
 	RecordSourceReductionCommand,
-	RemoveChemicalApplicationBatchCommand,
 	UpdateBiocontrolActionFieldDetailsCommand,
 	UpdateBiocontrolActionLocationAndContextCommand,
-	UpdateChemicalApplicationFieldDetailsCommand,
-	UpdateChemicalApplicationLocationAndContextCommand,
 	UpdateOutreachActionFieldDetailsCommand,
 	UpdateOutreachActionLocationAndContextCommand,
 	UpdateSourceReductionFieldDetailsCommand,
@@ -97,6 +96,13 @@ import type {
 	UpdateRequestedControlActionDetailsCommand,
 	UpdateRequestedControlActionLocationAndContextCommand,
 } from './requests.js';
+import type {
+	DeleteTreatmentCommand,
+	RecordTreatmentCommand,
+	ReviseTreatmentLinesCommand,
+	UpdateTreatmentFieldDetailsCommand,
+	UpdateTreatmentLocationAndContextCommand,
+} from './treatments.js';
 
 export type ControlOperationsCommand =
 	| CreateApplicationMethodCommand
@@ -147,12 +153,11 @@ export type ControlOperationsCommand =
 	| AddFormulationInsecticideCommand
 	| UpdateFormulationInsecticideCommand
 	| RemoveFormulationInsecticideCommand
-	| RecordChemicalApplicationCommand
-	| UpdateChemicalApplicationFieldDetailsCommand
-	| UpdateChemicalApplicationLocationAndContextCommand
-	| DeleteChemicalApplicationCommand
-	| AddChemicalApplicationBatchCommand
-	| RemoveChemicalApplicationBatchCommand
+	| RecordTreatmentCommand
+	| UpdateTreatmentFieldDetailsCommand
+	| UpdateTreatmentLocationAndContextCommand
+	| ReviseTreatmentLinesCommand
+	| DeleteTreatmentCommand
 	| RecordSourceReductionCommand
 	| UpdateSourceReductionFieldDetailsCommand
 	| UpdateSourceReductionLocationAndContextCommand

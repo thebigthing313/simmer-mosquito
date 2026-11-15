@@ -16,10 +16,8 @@ import {
 } from '../location-intent.js';
 import type { UnitType } from '../organization-settings/index.js';
 import {
-	type ApplicationBatchInput,
 	type ControlActionContext,
 	normalizeBiocontrolFields,
-	normalizeChemicalApplicationFields,
 	normalizeOutreachFields,
 	normalizeSourceReductionFields,
 	validateControlActionContext,
@@ -43,136 +41,12 @@ import type {
 } from './core.js';
 import {
 	BIOCONTROL_UNIT_TYPES,
-	idCommand,
 	locationContextChanges,
 	normalizePositiveFiniteNumber,
 	normalizePositiveInteger,
 	SOURCE_REDUCTION_UNIT_TYPES,
 	validateLocationContextPatchBase,
 } from './core.js';
-export interface RecordChemicalApplicationCommandInput extends ControlCommandInput {
-	readonly applicationId: DomainId;
-	readonly insecticideId: DomainId;
-	readonly amountApplied: number;
-	readonly applicationUnitId: DomainId;
-	readonly applicationDate: LocalDateString;
-	readonly applicatorProfileId?: DomainId | null;
-	readonly locationSource: ControlActionLocationSourceInput;
-	readonly addressId?: DomainId | null;
-	readonly context?: ControlActionContext;
-	readonly requestedControlActionId?: DomainId | null;
-	readonly applicationMethodId?: DomainId | null;
-	readonly vehicleId?: DomainId | null;
-	readonly equipmentId?: DomainId | null;
-	readonly applicationBatches?: readonly ApplicationBatchInput[];
-	readonly metadata?: unknown | null;
-}
-
-export type RecordChemicalApplicationCommand = ControlOperationsDomainCommand<
-	'controlOperations.recordChemicalApplication',
-	ControlCommandPayload & {
-		readonly applicationId: DomainId;
-		readonly insecticideId: DomainId;
-		readonly amountApplied: number;
-		readonly applicationUnitId: DomainId;
-		readonly applicationDate: LocalDateString;
-		readonly applicatorProfileId: DomainId;
-		readonly locationSource: ControlActionLocationSource;
-		readonly addressId: DomainId | null;
-		readonly context: ControlActionContext;
-		readonly requestedControlActionId: DomainId | null;
-		readonly applicationMethodId: DomainId | null;
-		readonly vehicleId: DomainId | null;
-		readonly equipmentId: DomainId | null;
-		readonly applicationBatches: readonly ApplicationBatchInput[];
-		readonly metadata: JsonObject | null;
-	}
->;
-
-export const CHEMICAL_APPLICATION_UPDATE_FIELDS = {
-	applicationDate: localDateField,
-	applicatorProfileId: nullableReferenceIdField,
-	applicationMethodId: nullableReferenceIdField,
-	insecticideId: referenceIdField,
-	amountApplied: normalizePositiveFiniteNumber,
-	applicationUnitId: referenceIdField,
-	vehicleId: nullableReferenceIdField,
-	equipmentId: nullableReferenceIdField,
-	metadata: jsonObjectField,
-} satisfies UpdateFieldSet;
-
-export type UpdateChemicalApplicationFieldDetailsCommandInput = ControlCommandInput &
-	UpdateFieldsInput<typeof CHEMICAL_APPLICATION_UPDATE_FIELDS> & {
-		readonly applicationId: DomainId;
-		readonly acknowledgedBatchClearance?: boolean;
-	};
-
-export type UpdateChemicalApplicationFieldDetailsCommand = ControlOperationsDomainCommand<
-	'controlOperations.updateChemicalApplicationFieldDetails',
-	ControlCommandPayload & {
-		readonly applicationId: DomainId;
-		readonly changes: UpdateFieldsChanges<typeof CHEMICAL_APPLICATION_UPDATE_FIELDS>;
-		readonly acknowledgedBatchClearance: boolean;
-	}
->;
-
-export interface UpdateChemicalApplicationLocationAndContextCommandInput
-	extends ControlCommandInput {
-	readonly applicationId: DomainId;
-	readonly locationSource?: ControlActionLocationSourceInput;
-	readonly addressId?: DomainId | null;
-	readonly context?: ControlActionContext;
-	readonly requestedControlActionId?: DomainId | null;
-}
-
-export type UpdateChemicalApplicationLocationAndContextCommand = ControlOperationsDomainCommand<
-	'controlOperations.updateChemicalApplicationLocationAndContext',
-	ControlCommandPayload & {
-		readonly applicationId: DomainId;
-		readonly changes: Readonly<{
-			readonly locationSource?: ControlActionLocationSource;
-			readonly addressId?: DomainId | null;
-			readonly context?: ControlActionContext;
-			readonly requestedControlActionId?: DomainId | null;
-		}>;
-	}
->;
-
-export interface DeleteChemicalApplicationCommandInput extends ControlCommandInput {
-	readonly applicationId: DomainId;
-	readonly acknowledgedSupportRecordDeletion?: boolean;
-	readonly acknowledgedBatchDeletion?: boolean;
-}
-
-export type DeleteChemicalApplicationCommand = ControlOperationsDomainCommand<
-	'controlOperations.deleteChemicalApplication',
-	ControlCommandPayload & {
-		readonly applicationId: DomainId;
-		readonly acknowledgedSupportRecordDeletion: boolean;
-		readonly acknowledgedBatchDeletion: boolean;
-	}
->;
-
-export interface AddChemicalApplicationBatchCommandInput extends ControlCommandInput {
-	readonly applicationBatchId: DomainId;
-	readonly applicationId: DomainId;
-	readonly insecticideBatchId: DomainId;
-}
-
-export type AddChemicalApplicationBatchCommand = ControlOperationsDomainCommand<
-	'controlOperations.addChemicalApplicationBatch',
-	ControlCommandPayload & ApplicationBatchInput & { readonly applicationId: DomainId }
->;
-
-export interface RemoveChemicalApplicationBatchCommandInput extends ControlCommandInput {
-	readonly applicationBatchId: DomainId;
-}
-
-export type RemoveChemicalApplicationBatchCommand = ControlOperationsDomainCommand<
-	'controlOperations.removeChemicalApplicationBatch',
-	ControlCommandPayload & { readonly applicationBatchId: DomainId }
->;
-
 export interface ActionBaseInput extends ControlCommandInput {
 	readonly locationSource: ControlActionLocationSourceInput;
 	readonly addressId?: DomainId | null;
@@ -423,130 +297,6 @@ export type DeleteBiocontrolActionCommand = ControlOperationsDomainCommand<
 		readonly acknowledgedSupportRecordDeletion: boolean;
 	}
 >;
-
-export function recordChemicalApplicationCommand(
-	input: RecordChemicalApplicationCommandInput,
-): RecordChemicalApplicationCommand {
-	const issues = createIssues();
-	validateBase(input, issues);
-	requireUuid(input.applicationId, 'applicationId', issues);
-	const locationSource = validateLocationSourceInput(input, 'controlAction', issues);
-	const metadata = normalizeMetadata(input.metadata, 'metadata', issues);
-	const context = validateControlActionContext(
-		input.context ?? { kind: 'none' },
-		'chemicalApplication',
-		issues,
-	);
-	const fields = normalizeChemicalApplicationFields(input, issues);
-	const addressId = normalizeOptionalUuid(input.addressId, 'addressId', issues);
-	const requestedControlActionId = normalizeOptionalUuid(
-		input.requestedControlActionId,
-		'requestedControlActionId',
-		issues,
-	);
-	throwIfIssues('Record chemical application command is invalid.', issues);
-	return {
-		type: 'controlOperations.recordChemicalApplication',
-		payload: {
-			...basePayload(input),
-			applicationId: normalizeRequiredId(input.applicationId),
-			insecticideId: fields.insecticideId,
-			amountApplied: fields.amountApplied,
-			applicationUnitId: fields.applicationUnitId,
-			applicationDate: fields.applicationDate,
-			applicatorProfileId: fields.applicatorProfileId,
-			locationSource,
-			addressId,
-			context,
-			requestedControlActionId,
-			applicationMethodId: fields.applicationMethodId,
-			vehicleId: fields.vehicleId,
-			equipmentId: fields.equipmentId,
-			applicationBatches: fields.applicationBatches,
-			metadata,
-		},
-	};
-}
-
-export function updateChemicalApplicationFieldDetailsCommand(
-	input: UpdateChemicalApplicationFieldDetailsCommandInput,
-): UpdateChemicalApplicationFieldDetailsCommand {
-	const command = updateFieldsCommand({
-		type: 'controlOperations.updateChemicalApplicationFieldDetails',
-		input,
-		idKey: 'applicationId',
-		fields: CHEMICAL_APPLICATION_UPDATE_FIELDS,
-		changeNoun: 'chemical application',
-		message: 'Update chemical application field details command is invalid.',
-	});
-	return {
-		type: command.type,
-		payload: {
-			...command.payload,
-			acknowledgedBatchClearance: input.acknowledgedBatchClearance ?? false,
-		},
-	};
-}
-
-export function updateChemicalApplicationLocationAndContextCommand(
-	input: UpdateChemicalApplicationLocationAndContextCommandInput,
-): UpdateChemicalApplicationLocationAndContextCommand {
-	const issues = validateLocationContextPatchBase(input, 'applicationId', 'controlAction');
-	const context = input.context
-		? validateControlActionContext(input.context, 'chemicalApplication', issues)
-		: undefined;
-	throwIfIssues('Update chemical application location and context command is invalid.', issues);
-	return {
-		type: 'controlOperations.updateChemicalApplicationLocationAndContext',
-		payload: {
-			...basePayload(input),
-			applicationId: normalizeRequiredId(input.applicationId),
-			changes: locationContextChanges(input, context, issues, 'controlAction'),
-		},
-	};
-}
-
-export function deleteChemicalApplicationCommand(
-	input: DeleteChemicalApplicationCommandInput,
-): DeleteChemicalApplicationCommand {
-	const issues = validateIdCommand(input, 'applicationId');
-	throwIfIssues('Delete chemical application command is invalid.', issues);
-	return {
-		type: 'controlOperations.deleteChemicalApplication',
-		payload: {
-			...basePayload(input),
-			applicationId: normalizeRequiredId(input.applicationId),
-			acknowledgedSupportRecordDeletion: input.acknowledgedSupportRecordDeletion ?? false,
-			acknowledgedBatchDeletion: input.acknowledgedBatchDeletion ?? false,
-		},
-	};
-}
-
-export function addChemicalApplicationBatchCommand(
-	input: AddChemicalApplicationBatchCommandInput,
-): AddChemicalApplicationBatchCommand {
-	const issues = createIssues();
-	validateBase(input, issues);
-	requireUuid(input.applicationBatchId, 'applicationBatchId', issues);
-	requireUuid(input.applicationId, 'applicationId', issues);
-	requireUuid(input.insecticideBatchId, 'insecticideBatchId', issues);
-	throwIfIssues('Add chemical application batch command is invalid.', issues);
-	return {
-		type: 'controlOperations.addChemicalApplicationBatch',
-		payload: {
-			...basePayload(input),
-			applicationBatchId: normalizeRequiredId(input.applicationBatchId),
-			applicationId: normalizeRequiredId(input.applicationId),
-			insecticideBatchId: normalizeRequiredId(input.insecticideBatchId),
-		},
-	};
-}
-
-export function removeChemicalApplicationBatchCommand(
-	input: RemoveChemicalApplicationBatchCommandInput,
-): RemoveChemicalApplicationBatchCommand {
-	return idCommand('controlOperations.removeChemicalApplicationBatch', input, 'applicationBatchId');
-}
 
 export function recordSourceReductionCommand(
 	input: RecordSourceReductionCommandInput,

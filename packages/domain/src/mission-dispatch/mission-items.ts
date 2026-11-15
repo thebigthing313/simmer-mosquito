@@ -11,11 +11,14 @@ import {
 	validateIdList,
 } from '../command-validation.js';
 import {
-	type ApplicationBatchInput,
 	normalizeMissionBiocontrolFields,
-	normalizeMissionChemicalApplicationFields,
 	normalizeMissionOutreachFields,
 	normalizeMissionSourceReductionFields,
+	normalizeTreatmentFields,
+	type TreatmentApplicationRow,
+	type TreatmentApplicationRowInput,
+	type TreatmentFormulation,
+	type TreatmentFormulationInput,
 	validateControlActionContext,
 } from '../performed-control-actions.js';
 import type { DomainId, LocalDateString, SupportedGeoJsonGeometry } from '../shared.js';
@@ -232,38 +235,39 @@ export type UnskipMissionItemCommand = MissionDispatchDomainCommand<
 	MissionDispatchCommandPayload & { readonly missionItemId: DomainId }
 >;
 
-export interface RecordChemicalApplicationForMissionItemCommandInput
+/**
+ * A Treatment recorded off a mission stop: the same lines as
+ * `controlOperations.recordTreatment`, under the mission rules. The stop is
+ * completed once for the Treatment, not once per line.
+ */
+export interface RecordTreatmentForMissionItemCommandInput
 	extends MissionDispatchCommandInput,
 		MissionExecutionOptions,
-		MissionExecutionOverrides {
+		MissionExecutionOverrides,
+		TreatmentFormulationInput {
 	readonly missionItemId: DomainId;
-	readonly applicationId: DomainId;
-	readonly insecticideId: DomainId;
-	readonly amountApplied: number;
-	readonly applicationUnitId: DomainId;
+	readonly treatmentId: DomainId;
 	readonly applicationDate: LocalDateString;
 	readonly applicatorProfileId?: DomainId | null;
 	readonly applicationMethodId?: DomainId | null;
 	readonly vehicleId?: DomainId | null;
 	readonly equipmentId?: DomainId | null;
-	readonly applicationBatches?: readonly ApplicationBatchInput[];
+	readonly applications: readonly TreatmentApplicationRowInput[];
 }
 
-export type RecordChemicalApplicationForMissionItemCommand = MissionDispatchDomainCommand<
-	'missionDispatch.recordChemicalApplicationForMissionItem',
+export type RecordTreatmentForMissionItemCommand = MissionDispatchDomainCommand<
+	'missionDispatch.recordTreatmentForMissionItem',
 	MissionDispatchCommandPayload &
-		MissionExecutionPayload & {
+		MissionExecutionPayload &
+		TreatmentFormulation & {
 			readonly missionItemId: DomainId;
-			readonly applicationId: DomainId;
-			readonly insecticideId: DomainId;
-			readonly amountApplied: number;
-			readonly applicationUnitId: DomainId;
+			readonly treatmentId: DomainId;
 			readonly applicationDate: LocalDateString;
 			readonly applicatorProfileId: DomainId;
 			readonly applicationMethodId: DomainId | null;
 			readonly vehicleId: DomainId | null;
 			readonly equipmentId: DomainId | null;
-			readonly applicationBatches: readonly ApplicationBatchInput[];
+			readonly applications: readonly TreatmentApplicationRow[];
 		}
 >;
 
@@ -592,19 +596,19 @@ export function unskipMissionItemCommand(
 	};
 }
 
-export function recordChemicalApplicationForMissionItemCommand(
-	input: RecordChemicalApplicationForMissionItemCommandInput,
-): RecordChemicalApplicationForMissionItemCommand {
+export function recordTreatmentForMissionItemCommand(
+	input: RecordTreatmentForMissionItemCommandInput,
+): RecordTreatmentForMissionItemCommand {
 	const issues = validateMissionExecutionBase(
 		input,
 		'chemicalApplication',
 		validateControlActionContext,
 	);
-	requireUuid(input.applicationId, 'applicationId', issues);
-	const fields = normalizeMissionChemicalApplicationFields(input, issues);
-	throwIfIssues('Record chemical application for mission item command is invalid.', issues);
+	requireUuid(input.treatmentId, 'treatmentId', issues);
+	const fields = normalizeTreatmentFields(input, issues);
+	throwIfIssues('Record treatment for mission item command is invalid.', issues);
 	return {
-		type: 'missionDispatch.recordChemicalApplicationForMissionItem',
+		type: 'missionDispatch.recordTreatmentForMissionItem',
 		payload: {
 			...basePayload(input),
 			...missionExecutionPayload(
@@ -614,16 +618,14 @@ export function recordChemicalApplicationForMissionItemCommand(
 				validateControlActionContext,
 			),
 			missionItemId: normalizeRequiredId(input.missionItemId),
-			applicationId: normalizeRequiredId(input.applicationId),
-			insecticideId: fields.insecticideId,
-			amountApplied: fields.amountApplied,
-			applicationUnitId: fields.applicationUnitId,
+			treatmentId: normalizeRequiredId(input.treatmentId),
 			applicationDate: fields.applicationDate,
 			applicatorProfileId: fields.applicatorProfileId,
 			applicationMethodId: fields.applicationMethodId,
 			vehicleId: fields.vehicleId,
 			equipmentId: fields.equipmentId,
-			applicationBatches: fields.applicationBatches,
+			...fields.formulation,
+			applications: fields.applications,
 		},
 	};
 }

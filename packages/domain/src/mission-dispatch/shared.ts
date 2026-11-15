@@ -57,7 +57,7 @@ export type MissionDispatchCommandType =
 	| 'missionDispatch.reopenMissionItem'
 	| 'missionDispatch.skipMissionItem'
 	| 'missionDispatch.unskipMissionItem'
-	| 'missionDispatch.recordChemicalApplicationForMissionItem'
+	| 'missionDispatch.recordTreatmentForMissionItem'
 	| 'missionDispatch.recordSourceReductionForMissionItem'
 	| 'missionDispatch.recordOutreachActionForMissionItem'
 	| 'missionDispatch.recordBiocontrolActionForMissionItem';

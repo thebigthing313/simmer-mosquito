@@ -8,8 +8,8 @@ import {
 	deriveMissionItemStatus,
 	deriveMissionLifecycleStatus,
 	moveMissionItemsCommand,
-	recordChemicalApplicationForMissionItemCommand,
 	recordOutreachActionForMissionItemCommand,
+	recordTreatmentForMissionItemCommand,
 	renameMissionItemCommand,
 	reopenMissionCommand,
 	skipMissionItemCommand,
@@ -39,6 +39,9 @@ const outreachActionId = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
 const inspectionId = '12121212-1212-4212-8212-121212121212';
 const cancellationCommentId = '13131313-1313-4313-8313-131313131313';
 const reopenCommentId = '14141414-1414-4414-8414-141414141414';
+const applicationId2 = '17171717-1717-4717-8717-171717171717';
+const treatmentId = '15151515-1515-4515-8515-151515151515';
+const insecticideId2 = '16161616-1616-4616-8616-161616161616';
 
 const pointGeometry = { type: 'Point' as const, coordinates: [-90, 35] as const };
 const lineGeometry = {
@@ -401,39 +404,82 @@ describe('mission dispatch item commands', () => {
 });
 
 describe('mission dispatch execution helpers', () => {
-	it('records chemical application intent for a mission item', () => {
+	const line = {
+		id: applicationId,
+		insecticide_id: insecticideId,
+		amount_applied: 1.5,
+		application_unit_id: unitId,
+		application_batches: [{ id: applicationBatchId, insecticide_batch_id: insecticideBatchId }],
+	};
+
+	it('records a treatment with its lines for a mission item', () => {
 		expect(
-			recordChemicalApplicationForMissionItemCommand({
+			recordTreatmentForMissionItemCommand({
 				organizationId,
 				actorProfileId,
 				missionItemId,
-				applicationId,
-				insecticideId,
-				amountApplied: 1.5,
-				applicationUnitId: unitId,
+				treatmentId,
 				applicationDate: '2026-05-12',
 				geometry: polygonGeometry,
 				addressId,
 				requestedControlActionId,
-				applicationBatches: [{ applicationBatchId, insecticideBatchId }],
+				applications: [line],
 				acknowledgedMissionGeometryNotCovered: true,
 			}).payload,
 		).toMatchObject({
 			missionItemId,
-			applicationId,
-			insecticideId,
-			amountApplied: 1.5,
-			applicationUnitId: unitId,
+			treatmentId,
 			applicationDate: '2026-05-12',
 			applicatorProfileId: actorProfileId,
 			geometry: polygonGeometry,
 			addressId,
 			requestedControlActionId,
-			applicationBatches: [{ applicationBatchId, insecticideBatchId }],
+			formulationId: null,
+			mixAmount: null,
+			mixUnitId: null,
+			applications: [line],
 			completeMissionItem: true,
 			autoStartMission: true,
 			acknowledgedMissionGeometryNotCovered: true,
 		});
+	});
+
+	it('refuses a mission treatment with no lines or a repeated insecticide', () => {
+		const base = {
+			organizationId,
+			actorProfileId,
+			missionItemId,
+			treatmentId,
+			applicationDate: '2026-05-12',
+		};
+		expect(() => recordTreatmentForMissionItemCommand({ ...base, applications: [] })).toThrow(
+			DomainValidationError,
+		);
+
+		const repeated = (() => {
+			try {
+				recordTreatmentForMissionItemCommand({
+					...base,
+					applications: [
+						line,
+						{ ...line, id: applicationId2, application_batches: [] },
+						{
+							...line,
+							id: missionItemId2,
+							insecticide_id: insecticideId2,
+							application_batches: [],
+						},
+					],
+				});
+			} catch (error) {
+				return error;
+			}
+			return undefined;
+		})();
+		expect(repeated).toBeInstanceOf(DomainValidationError);
+		expect((repeated as DomainValidationError).issues.map((issue) => issue.path)).toEqual([
+			'applications.1.insecticide_id',
+		]);
 	});
 
 	it('rejects invalid helper context shapes', () => {

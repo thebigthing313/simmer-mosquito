@@ -30,7 +30,6 @@ export const ACKNOWLEDGEMENTS = [
 	'acknowledgedActualActionDetach',
 	'acknowledgedAssignmentItemDeletion',
 	'acknowledgedAssociatedRecordsDeletion',
-	'acknowledgedBatchClearance',
 	'acknowledgedBatchDeletion',
 	'acknowledgedCascadeDelete',
 	'acknowledgedClosedRequestChange',
