@@ -158,32 +158,16 @@ export interface ApplicationMethodsTable {
 export interface ApplicationsTable {
 	id: Generated<string>;
 	organization_id: string;
-	application_method_id: string | null;
 	insecticide_id: string;
-	applicator_profile_id: string | null;
-	application_date: DateColumn;
-	address_id: string | null;
-	vehicle_id: string | null;
-	equipment_id: string | null;
 	amount_applied: number;
 	application_unit_id: string;
-	habitat_id: string | null;
-	collection_id: string | null;
-	inspection_id: string | null;
-	metadata: JsonColumn;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;
 	updated_at: TimestampWithDefault;
 	deleted_at: NullableTimestampWithDefault;
 	deleted_by_profile_id: string | null;
-	requested_control_action_id: string | null;
-	mission_item_id: string | null;
-	geom: GeometryColumn;
-	lat: GeneratedColumn<number>;
-	lng: GeneratedColumn<number>;
-	geojson: GeneratedColumn<GeoJsonGeometry>;
-	geom_type: GeneratedColumn<string>;
+	treatment_id: string;
 }
 
 export interface AssignmentItemsTable {
@@ -1030,6 +1014,37 @@ export interface TrapsTable {
 	geom_type: GeneratedColumn<string>;
 }
 
+export interface TreatmentsTable {
+	id: Generated<string>;
+	organization_id: string;
+	application_date: DateColumn;
+	applicator_profile_id: string | null;
+	application_method_id: string | null;
+	vehicle_id: string | null;
+	equipment_id: string | null;
+	address_id: string | null;
+	habitat_id: string | null;
+	inspection_id: string | null;
+	collection_id: string | null;
+	requested_control_action_id: string | null;
+	mission_item_id: string | null;
+	formulation_id: string | null;
+	mix_amount: number | null;
+	mix_unit_id: string | null;
+	geom: GeometryColumn;
+	lat: GeneratedColumn<number>;
+	lng: GeneratedColumn<number>;
+	geojson: GeneratedColumn<GeoJsonGeometry>;
+	geom_type: GeneratedColumn<string>;
+	metadata: JsonColumn;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
 export interface UnitsTable {
 	id: Generated<string>;
 	unit_name: string;
@@ -1172,6 +1187,7 @@ export interface SimmerDatabase {
 	tag_items: TagItemsTable;
 	tags: TagsTable;
 	traps: TrapsTable;
+	treatments: TreatmentsTable;
 	units: UnitsTable;
 	users: UsersTable;
 	vehicles: VehiclesTable;
@@ -1231,12 +1247,7 @@ export interface ServerOwnedColumns {
 		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
-		| 'deleted_at'
-		| 'geom'
-		| 'lat'
-		| 'lng'
-		| 'geojson'
-		| 'geom_type';
+		| 'deleted_at';
 	assignment_items:
 		| 'created_by_profile_id'
 		| 'updated_by_profile_id'
@@ -1584,6 +1595,18 @@ export interface ServerOwnedColumns {
 		| 'lng'
 		| 'geojson'
 		| 'geom_type';
+	treatments:
+		| 'organization_id'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geojson'
+		| 'geom_type'
+		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
 	units: 'created_at';
 	users: 'created_at' | 'updated_at';
 	vehicles:

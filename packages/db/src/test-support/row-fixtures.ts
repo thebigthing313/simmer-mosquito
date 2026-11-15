@@ -650,25 +650,49 @@ export function createSourceReduction(
 }
 
 /**
- * An insecticide application, the control work the `application` control type names.
+ * A Treatment, the visit the `application` control type names.
+ *
+ * It holds no product: a Treatment with no live Chemical Application breaks a
+ * rule the server holds, so a suite that reads one also files a line under it
+ * with {@link createApplication}.
+ */
+export function createTreatment(
+	db: DbExecutor,
+	organizationId: string,
+	overrides: Overrides<'treatments', 'organization_id'> = {},
+): Promise<string> {
+	return insertRow(db, 'treatments', {
+		organization_id: organizationId,
+		application_date: sql`date '2026-08-01'`,
+		geom: fixturePoint(),
+		...overrides,
+	});
+}
+
+/**
+ * A Chemical Application, one product's line within a Treatment.
  *
  * The insecticide is the caller's because `trade_name` is unique per
- * Organization, so two applications in one test need two products behind them.
+ * Organization, and a Treatment takes one live line per Insecticide, so two
+ * lines in one test need two products behind them.
  */
 export function createApplication(
 	db: DbExecutor,
 	organizationId: string,
-	links: { readonly insecticideId: string; readonly unitId: string },
+	links: {
+		readonly treatmentId: string;
+		readonly insecticideId: string;
+		readonly unitId: string;
+	},
 	overrides: Overrides<
 		'applications',
-		'organization_id' | 'insecticide_id' | 'application_unit_id'
+		'organization_id' | 'treatment_id' | 'insecticide_id' | 'application_unit_id'
 	> = {},
 ): Promise<string> {
 	return insertRow(db, 'applications', {
 		organization_id: organizationId,
+		treatment_id: links.treatmentId,
 		insecticide_id: links.insecticideId,
-		application_date: sql`date '2026-08-01'`,
-		geom: fixturePoint(),
 		amount_applied: 2,
 		application_unit_id: links.unitId,
 		...overrides,

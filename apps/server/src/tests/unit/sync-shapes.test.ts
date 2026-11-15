@@ -504,7 +504,7 @@ describe('registerSyncShapeRoutes', () => {
 		for (const path of [
 			'/sync/shapes/traps',
 			'/sync/shapes/collections',
-			'/sync/shapes/applications',
+			'/sync/shapes/treatments',
 			'/sync/shapes/source_reductions',
 			'/sync/shapes/outreach_actions',
 			'/sync/shapes/biocontrol_actions',

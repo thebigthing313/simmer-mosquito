@@ -79,7 +79,7 @@ describe('the owned geometry register', () => {
 		expect(tables).toHaveLength(15);
 		expect(new Set(tables).size).toBe(15);
 		expect(getOwnedGeometryPolicy('controlAction').tables).toEqual([
-			'applications',
+			'treatments',
 			'source_reductions',
 			'outreach_actions',
 			'biocontrol_actions',

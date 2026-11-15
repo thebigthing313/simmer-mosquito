@@ -50,6 +50,7 @@ import type {
 	TagItemsTable,
 	TagsTable,
 	TrapsTable,
+	TreatmentsTable,
 	UnitsTable,
 	UsersTable,
 	VehiclesTable,
@@ -109,6 +110,7 @@ import type { Species } from '../../../../collections/tables/species.js';
 import type { TagItem } from '../../../../collections/tables/tag_items.js';
 import type { Tag } from '../../../../collections/tables/tags.js';
 import type { Trap } from '../../../../collections/tables/traps.js';
+import type { Treatment } from '../../../../collections/tables/treatments.js';
 import type { Unit } from '../../../../collections/tables/units.js';
 import type { User } from '../../../../collections/tables/users.js';
 import type { Vehicle } from '../../../../collections/tables/vehicles.js';
@@ -219,7 +221,7 @@ type ApplicationBatchDrift = Drift<ApplicationBatch, ApplicationBatchesTable>;
 type _ApplicationBatch = Assert<ApplicationBatchDrift>;
 type ApplicationMethodDrift = Drift<ApplicationMethod, ApplicationMethodsTable>;
 type _ApplicationMethod = Assert<ApplicationMethodDrift>;
-type ApplicationDrift = Drift<Application, ApplicationsTable, never, 'application_date'>;
+type ApplicationDrift = Drift<Application, ApplicationsTable>;
 type _Application = Assert<ApplicationDrift>;
 type AssignmentItemDrift = Drift<AssignmentItem, AssignmentItemsTable>;
 type _AssignmentItem = Assert<AssignmentItemDrift>;
@@ -344,6 +346,8 @@ type TagDrift = Drift<Tag, TagsTable>;
 type _Tag = Assert<TagDrift>;
 type TrapDrift = Drift<Trap, TrapsTable>;
 type _Trap = Assert<TrapDrift>;
+type TreatmentDrift = Drift<Treatment, TreatmentsTable, never, 'application_date'>;
+type _Treatment = Assert<TreatmentDrift>;
 type UnitDrift = Drift<Unit, UnitsTable>;
 type _Unit = Assert<UnitDrift>;
 type UserDrift = Drift<User, UsersTable>;
@@ -417,6 +421,7 @@ const CHECKED_TABLES = [
 	'tag_items',
 	'tags',
 	'traps',
+	'treatments',
 	'units',
 	'users',
 	'vehicles',

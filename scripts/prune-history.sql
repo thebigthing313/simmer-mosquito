@@ -114,7 +114,7 @@ begin
 			-- The dated roots this file deletes from.
 			select oid from pg_class
 			where relkind = 'r' and relname = any (array[
-				'applications', 'biocontrol_actions', 'source_reductions', 'outreach_actions',
+				'treatments', 'biocontrol_actions', 'source_reductions', 'outreach_actions',
 				'requested_control_actions', 'collections', 'inspections', 'service_requests',
 				'assignments', 'missions', 'weather_summaries', 'samples', 'sample_species'
 			])
@@ -197,13 +197,13 @@ where s.inspection_id = i.id
 -- ---------------------------------------------------------------------------
 -- 3. The dated roots
 -- ---------------------------------------------------------------------------
--- Everything else that references these is ON DELETE CASCADE (application
--- batches, collection species, assignment and mission items, mission
--- notifications) or ON DELETE SET NULL (the cross-links between actions,
--- requests, inspections, and collections). Both are what we want: a kept record
--- that pointed at a pruned one loses the pointer and stays.
+-- Everything else that references these is ON DELETE CASCADE (a Treatment's
+-- Chemical Applications and their batches, collection species, assignment and
+-- mission items, mission notifications) or ON DELETE SET NULL (the cross-links
+-- between actions, requests, inspections, and collections). Both are what we
+-- want: a kept record that pointed at a pruned one loses the pointer and stays.
 
-delete from applications where application_date < :'cutoff';
+delete from treatments where application_date < :'cutoff';
 delete from biocontrol_actions where biocontrol_date < :'cutoff';
 delete from source_reductions where source_reduction_date < :'cutoff';
 delete from outreach_actions where outreach_date < :'cutoff';
@@ -355,6 +355,7 @@ end $cleanup$;
 -- Run after the transient indexes are dropped, so none of them get rewritten
 -- on the way out.
 vacuum (full, analyze) inspections;
+vacuum (full, analyze) treatments;
 vacuum (full, analyze) applications;
 vacuum (full, analyze) application_batches;
 vacuum (full, analyze) collections;
@@ -371,7 +372,8 @@ select pg_size_pretty(pg_database_size(current_database())) as db_size;
 
 \echo '--> remaining operational rows:'
 select 'inspections' as table_name, count(*) as rows, min(inspection_date) as oldest from inspections
-union all select 'applications', count(*), min(application_date) from applications
+union all select 'treatments', count(*), min(application_date) from treatments
+union all select 'applications', count(*), null from applications
 union all select 'collections', count(*), min(coalesce(collected_at::date, collection_date)) from collections
 union all select 'samples', count(*), null from samples
 union all select 'service_requests', count(*), min(request_date) from service_requests

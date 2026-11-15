@@ -989,34 +989,17 @@ CREATE TABLE public.application_methods (
 CREATE TABLE public.applications (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     organization_id uuid NOT NULL,
-    application_method_id uuid,
     insecticide_id uuid NOT NULL,
-    applicator_profile_id uuid,
-    application_date date NOT NULL,
-    address_id uuid,
-    vehicle_id uuid,
-    equipment_id uuid,
     amount_applied double precision NOT NULL,
     application_unit_id uuid NOT NULL,
-    habitat_id uuid,
-    collection_id uuid,
-    inspection_id uuid,
-    metadata jsonb,
     created_by_profile_id uuid,
     updated_by_profile_id uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     deleted_at timestamp with time zone,
     deleted_by_profile_id uuid,
-    requested_control_action_id uuid,
-    mission_item_id uuid,
-    geom public.geometry(Geometry,4326) NOT NULL,
-    lat double precision,
-    lng double precision,
-    geojson jsonb GENERATED ALWAYS AS ((public.st_asgeojson(geom))::jsonb) STORED,
-    geom_type text,
-    CONSTRAINT applications_amount_applied_positive CHECK ((amount_applied > (0)::double precision)),
-    CONSTRAINT applications_geom_type_check CHECK ((public.geometrytype(geom) = ANY (ARRAY['POINT'::text, 'LINESTRING'::text, 'POLYGON'::text, 'MULTIPOINT'::text, 'MULTILINESTRING'::text, 'MULTIPOLYGON'::text])))
+    treatment_id uuid NOT NULL,
+    CONSTRAINT applications_amount_applied_positive CHECK ((amount_applied > (0)::double precision))
 );
 
 
@@ -1832,7 +1815,46 @@ CREATE TABLE public.tags (
     deleted_at timestamp with time zone,
     deleted_by_profile_id uuid,
     relevant_entity_types text[] DEFAULT '{}'::text[] NOT NULL,
-    CONSTRAINT tags_relevant_entity_types_known CHECK ((relevant_entity_types <@ ARRAY['address'::text, 'region'::text, 'trap'::text, 'habitat'::text, 'contact'::text, 'service_request'::text]))
+    CONSTRAINT tags_relevant_entity_types_known CHECK ((relevant_entity_types <@ ARRAY['address'::text, 'region'::text, 'trap'::text, 'habitat'::text, 'contact'::text, 'service_request'::text, 'treatment'::text]))
+);
+
+
+--
+-- Name: treatments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.treatments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    application_date date NOT NULL,
+    applicator_profile_id uuid,
+    application_method_id uuid,
+    vehicle_id uuid,
+    equipment_id uuid,
+    address_id uuid,
+    habitat_id uuid,
+    inspection_id uuid,
+    collection_id uuid,
+    requested_control_action_id uuid,
+    mission_item_id uuid,
+    formulation_id uuid,
+    mix_amount double precision,
+    mix_unit_id uuid,
+    geom public.geometry(Geometry,4326) NOT NULL,
+    lat double precision,
+    lng double precision,
+    geojson jsonb GENERATED ALWAYS AS ((public.st_asgeojson(geom))::jsonb) STORED,
+    geom_type text,
+    metadata jsonb,
+    created_by_profile_id uuid,
+    updated_by_profile_id uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    deleted_by_profile_id uuid,
+    CONSTRAINT treatments_formulation_all_or_none CHECK ((((formulation_id IS NULL) AND (mix_amount IS NULL) AND (mix_unit_id IS NULL)) OR ((formulation_id IS NOT NULL) AND (mix_amount IS NOT NULL) AND (mix_unit_id IS NOT NULL)))),
+    CONSTRAINT treatments_geom_type_check CHECK ((public.geometrytype(geom) = ANY (ARRAY['POINT'::text, 'LINESTRING'::text, 'POLYGON'::text, 'MULTIPOINT'::text, 'MULTILINESTRING'::text, 'MULTIPOLYGON'::text]))),
+    CONSTRAINT treatments_mix_amount_positive CHECK ((mix_amount > (0)::double precision))
 );
 
 
@@ -2389,6 +2411,14 @@ ALTER TABLE ONLY public.traps
 
 
 --
+-- Name: treatments treatments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: units units_abbreviation_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2553,45 +2583,10 @@ CREATE UNIQUE INDEX application_methods_organization_normalized_name_unique ON p
 
 
 --
--- Name: applications_geom_gist_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: applications_active_treatment_insecticide_unique; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX applications_geom_gist_idx ON public.applications USING gist (geom) WHERE (deleted_at IS NULL);
-
-
---
--- Name: applications_mission_item_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX applications_mission_item_idx ON public.applications USING btree (mission_item_id) WHERE ((deleted_at IS NULL) AND (mission_item_id IS NOT NULL));
-
-
---
--- Name: applications_organization_address_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX applications_organization_address_idx ON public.applications USING btree (organization_id, address_id) WHERE ((deleted_at IS NULL) AND (address_id IS NOT NULL));
-
-
---
--- Name: applications_organization_collection_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX applications_organization_collection_idx ON public.applications USING btree (organization_id, collection_id) WHERE ((deleted_at IS NULL) AND (collection_id IS NOT NULL));
-
-
---
--- Name: applications_organization_date_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX applications_organization_date_idx ON public.applications USING btree (organization_id, application_date DESC, created_at DESC) WHERE (deleted_at IS NULL);
-
-
---
--- Name: applications_organization_habitat_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX applications_organization_habitat_idx ON public.applications USING btree (organization_id, habitat_id) WHERE ((deleted_at IS NULL) AND (habitat_id IS NOT NULL));
+CREATE UNIQUE INDEX applications_active_treatment_insecticide_unique ON public.applications USING btree (treatment_id, insecticide_id) WHERE (deleted_at IS NULL);
 
 
 --
@@ -2602,24 +2597,10 @@ CREATE INDEX applications_organization_insecticide_idx ON public.applications US
 
 
 --
--- Name: applications_organization_inspection_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: applications_treatment_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX applications_organization_inspection_idx ON public.applications USING btree (organization_id, inspection_id) WHERE ((deleted_at IS NULL) AND (inspection_id IS NOT NULL));
-
-
---
--- Name: applications_organization_method_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX applications_organization_method_idx ON public.applications USING btree (organization_id, application_method_id) WHERE ((deleted_at IS NULL) AND (application_method_id IS NOT NULL));
-
-
---
--- Name: applications_requested_control_action_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX applications_requested_control_action_idx ON public.applications USING btree (requested_control_action_id) WHERE ((deleted_at IS NULL) AND (requested_control_action_id IS NOT NULL));
+CREATE INDEX applications_treatment_idx ON public.applications USING btree (treatment_id) WHERE (deleted_at IS NULL);
 
 
 --
@@ -3848,6 +3829,76 @@ CREATE INDEX traps_organization_method_idx ON public.traps USING btree (organiza
 
 
 --
+-- Name: treatments_geom_gist_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX treatments_geom_gist_idx ON public.treatments USING gist (geom) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: treatments_id_organization_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX treatments_id_organization_unique ON public.treatments USING btree (id, organization_id);
+
+
+--
+-- Name: treatments_mission_item_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX treatments_mission_item_idx ON public.treatments USING btree (mission_item_id) WHERE ((deleted_at IS NULL) AND (mission_item_id IS NOT NULL));
+
+
+--
+-- Name: treatments_organization_address_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX treatments_organization_address_idx ON public.treatments USING btree (organization_id, address_id) WHERE ((deleted_at IS NULL) AND (address_id IS NOT NULL));
+
+
+--
+-- Name: treatments_organization_collection_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX treatments_organization_collection_idx ON public.treatments USING btree (organization_id, collection_id) WHERE ((deleted_at IS NULL) AND (collection_id IS NOT NULL));
+
+
+--
+-- Name: treatments_organization_date_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX treatments_organization_date_idx ON public.treatments USING btree (organization_id, application_date DESC, created_at DESC) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: treatments_organization_habitat_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX treatments_organization_habitat_idx ON public.treatments USING btree (organization_id, habitat_id) WHERE ((deleted_at IS NULL) AND (habitat_id IS NOT NULL));
+
+
+--
+-- Name: treatments_organization_inspection_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX treatments_organization_inspection_idx ON public.treatments USING btree (organization_id, inspection_id) WHERE ((deleted_at IS NULL) AND (inspection_id IS NOT NULL));
+
+
+--
+-- Name: treatments_organization_method_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX treatments_organization_method_idx ON public.treatments USING btree (organization_id, application_method_id) WHERE ((deleted_at IS NULL) AND (application_method_id IS NOT NULL));
+
+
+--
+-- Name: treatments_requested_control_action_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX treatments_requested_control_action_idx ON public.treatments USING btree (requested_control_action_id) WHERE ((deleted_at IS NULL) AND (requested_control_action_id IS NOT NULL));
+
+
+--
 -- Name: units_code_unique; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3950,13 +4001,6 @@ CREATE TRIGGER addresses_search_document_update AFTER UPDATE ON public.addresses
 --
 
 CREATE TRIGGER addresses_search_document_write AFTER INSERT OR DELETE ON public.addresses FOR EACH ROW EXECUTE FUNCTION public.search_documents_sync();
-
-
---
--- Name: applications applications_centroid; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER applications_centroid BEFORE INSERT OR UPDATE OF geom ON public.applications FOR EACH ROW EXECUTE FUNCTION public.set_owned_centroid();
 
 
 --
@@ -4198,6 +4242,13 @@ CREATE TRIGGER traps_search_document_write AFTER INSERT OR DELETE ON public.trap
 
 
 --
+-- Name: treatments treatments_centroid; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER treatments_centroid BEFORE INSERT OR UPDATE OF geom ON public.treatments FOR EACH ROW EXECUTE FUNCTION public.set_owned_centroid();
+
+
+--
 -- Name: weather_sources weather_sources_centroid; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -4371,43 +4422,11 @@ ALTER TABLE ONLY public.application_methods
 
 
 --
--- Name: applications applications_address_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.applications
-    ADD CONSTRAINT applications_address_id_fkey FOREIGN KEY (address_id) REFERENCES public.addresses(id) ON DELETE RESTRICT;
-
-
---
--- Name: applications applications_application_method_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.applications
-    ADD CONSTRAINT applications_application_method_id_fkey FOREIGN KEY (application_method_id) REFERENCES public.application_methods(id) ON DELETE SET NULL;
-
-
---
 -- Name: applications applications_application_unit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.applications
     ADD CONSTRAINT applications_application_unit_id_fkey FOREIGN KEY (application_unit_id) REFERENCES public.units(id) ON DELETE RESTRICT;
-
-
---
--- Name: applications applications_applicator_profile_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.applications
-    ADD CONSTRAINT applications_applicator_profile_id_fkey FOREIGN KEY (applicator_profile_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
-
-
---
--- Name: applications applications_collection_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.applications
-    ADD CONSTRAINT applications_collection_id_fkey FOREIGN KEY (collection_id) REFERENCES public.collections(id) ON DELETE SET NULL;
 
 
 --
@@ -4427,43 +4446,11 @@ ALTER TABLE ONLY public.applications
 
 
 --
--- Name: applications applications_equipment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.applications
-    ADD CONSTRAINT applications_equipment_id_fkey FOREIGN KEY (equipment_id) REFERENCES public.equipment(id) ON DELETE SET NULL;
-
-
---
--- Name: applications applications_habitat_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.applications
-    ADD CONSTRAINT applications_habitat_id_fkey FOREIGN KEY (habitat_id) REFERENCES public.habitats(id) ON DELETE SET NULL;
-
-
---
 -- Name: applications applications_insecticide_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.applications
     ADD CONSTRAINT applications_insecticide_id_fkey FOREIGN KEY (insecticide_id) REFERENCES public.insecticides(id) ON DELETE RESTRICT;
-
-
---
--- Name: applications applications_inspection_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.applications
-    ADD CONSTRAINT applications_inspection_id_fkey FOREIGN KEY (inspection_id) REFERENCES public.inspections(id) ON DELETE SET NULL;
-
-
---
--- Name: applications applications_mission_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.applications
-    ADD CONSTRAINT applications_mission_item_id_fkey FOREIGN KEY (mission_item_id) REFERENCES public.mission_items(id) ON DELETE SET NULL;
 
 
 --
@@ -4475,11 +4462,11 @@ ALTER TABLE ONLY public.applications
 
 
 --
--- Name: applications applications_requested_control_action_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: applications applications_treatment_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.applications
-    ADD CONSTRAINT applications_requested_control_action_id_fkey FOREIGN KEY (requested_control_action_id) REFERENCES public.requested_control_actions(id) ON DELETE SET NULL;
+    ADD CONSTRAINT applications_treatment_fkey FOREIGN KEY (treatment_id, organization_id) REFERENCES public.treatments(id, organization_id) ON DELETE CASCADE;
 
 
 --
@@ -4488,14 +4475,6 @@ ALTER TABLE ONLY public.applications
 
 ALTER TABLE ONLY public.applications
     ADD CONSTRAINT applications_updated_by_profile_id_fkey FOREIGN KEY (updated_by_profile_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
-
-
---
--- Name: applications applications_vehicle_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.applications
-    ADD CONSTRAINT applications_vehicle_id_fkey FOREIGN KEY (vehicle_id) REFERENCES public.vehicles(id) ON DELETE SET NULL;
 
 
 --
@@ -6603,6 +6582,134 @@ ALTER TABLE ONLY public.traps
 
 
 --
+-- Name: treatments treatments_address_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_address_id_fkey FOREIGN KEY (address_id) REFERENCES public.addresses(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: treatments treatments_application_method_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_application_method_id_fkey FOREIGN KEY (application_method_id) REFERENCES public.application_methods(id) ON DELETE SET NULL;
+
+
+--
+-- Name: treatments treatments_applicator_profile_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_applicator_profile_id_fkey FOREIGN KEY (applicator_profile_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+
+--
+-- Name: treatments treatments_collection_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_collection_id_fkey FOREIGN KEY (collection_id) REFERENCES public.collections(id) ON DELETE SET NULL;
+
+
+--
+-- Name: treatments treatments_created_by_profile_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_created_by_profile_id_fkey FOREIGN KEY (created_by_profile_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+
+--
+-- Name: treatments treatments_deleted_by_profile_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_deleted_by_profile_id_fkey FOREIGN KEY (deleted_by_profile_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+
+--
+-- Name: treatments treatments_equipment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_equipment_id_fkey FOREIGN KEY (equipment_id) REFERENCES public.equipment(id) ON DELETE SET NULL;
+
+
+--
+-- Name: treatments treatments_formulation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_formulation_id_fkey FOREIGN KEY (formulation_id) REFERENCES public.formulations(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: treatments treatments_habitat_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_habitat_id_fkey FOREIGN KEY (habitat_id) REFERENCES public.habitats(id) ON DELETE SET NULL;
+
+
+--
+-- Name: treatments treatments_inspection_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_inspection_id_fkey FOREIGN KEY (inspection_id) REFERENCES public.inspections(id) ON DELETE SET NULL;
+
+
+--
+-- Name: treatments treatments_mission_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_mission_item_id_fkey FOREIGN KEY (mission_item_id) REFERENCES public.mission_items(id) ON DELETE SET NULL;
+
+
+--
+-- Name: treatments treatments_mix_unit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_mix_unit_id_fkey FOREIGN KEY (mix_unit_id) REFERENCES public.units(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: treatments treatments_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: treatments treatments_requested_control_action_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_requested_control_action_id_fkey FOREIGN KEY (requested_control_action_id) REFERENCES public.requested_control_actions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: treatments treatments_updated_by_profile_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_updated_by_profile_id_fkey FOREIGN KEY (updated_by_profile_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+
+--
+-- Name: treatments treatments_vehicle_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.treatments
+    ADD CONSTRAINT treatments_vehicle_id_fkey FOREIGN KEY (vehicle_id) REFERENCES public.vehicles(id) ON DELETE SET NULL;
+
+
+--
 -- Name: vehicles vehicles_created_by_profile_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6784,4 +6891,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('202609240001'),
     ('202609290001'),
     ('202610080001'),
-    ('202610130001');
+    ('202610130001'),
+    ('202611150001');
