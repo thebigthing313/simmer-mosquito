@@ -175,6 +175,7 @@ export const syncShapeScopes = {
 	insecticide_batches: 'organization',
 	formulations: 'organization',
 	formulation_insecticides: 'organization',
+	treatments: 'organization',
 	applications: 'organization',
 	application_batches: 'organization',
 	source_reduction_methods: 'organization',

@@ -62,6 +62,7 @@ import { speciesSchema } from './species.js';
 import { tagItemSchema } from './tag_items.js';
 import { tagSchema } from './tags.js';
 import { trapSchema } from './traps.js';
+import { treatmentSchema } from './treatments.js';
 import { unitSchema } from './units.js';
 import { userSchema } from './users.js';
 import { vehicleSchema } from './vehicles.js';
@@ -120,6 +121,7 @@ export const tableSchemas = {
 	tag_items: tagItemSchema,
 	tags: tagSchema,
 	traps: trapSchema,
+	treatments: treatmentSchema,
 	units: unitSchema,
 	users: userSchema,
 	vehicles: vehicleSchema,

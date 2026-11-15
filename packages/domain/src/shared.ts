@@ -201,7 +201,7 @@ export const OWNED_GEOMETRY_POLICIES = [
 	{
 		kind: 'controlAction',
 		domainName: 'Control Action Geometry',
-		tables: ['applications', 'source_reductions', 'outreach_actions', 'biocontrol_actions'],
+		tables: ['treatments', 'source_reductions', 'outreach_actions', 'biocontrol_actions'],
 		allowedTypes: EVERY_SHAPE,
 	},
 	{

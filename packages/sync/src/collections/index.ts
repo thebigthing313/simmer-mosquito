@@ -81,6 +81,7 @@ export * from './tables/index.js';
 export * from './tag_items.js';
 export * from './tags.js';
 export * from './traps.js';
+export * from './treatments.js';
 export * from './units.js';
 export * from './users.js';
 export * from './vehicles.js';
