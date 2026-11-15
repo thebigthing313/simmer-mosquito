@@ -37,6 +37,9 @@ export function VariantCLedger({
 	const unitAbbr = (id: string) => catalog.units.find((unit) => unit.id === id)?.abbreviation ?? '';
 	const formulation = mix === null ? undefined : formulationOf(catalog, mix.formulationId);
 	const live = liveCount(lines);
+	// From a formulation, the products are the mix's: amounts, units and batches
+	// stay editable, but no product is swapped, removed or added.
+	const locked = entryToggle && path === 'formulation';
 
 	// Untouched lines track the mix; a line whose amount the crew changed keeps it.
 	const changeMix = (next: Mix | null) => {
@@ -44,7 +47,10 @@ export function VariantCLedger({
 			ops.setMix(null);
 			return;
 		}
-		if (mode === 'create' && (mix === null || mix.formulationId !== next.formulationId)) {
+		if (
+			(mode === 'create' || entryToggle) &&
+			(mix === null || mix.formulationId !== next.formulationId)
+		) {
 			ops.fillFromMix(next);
 			return;
 		}
@@ -120,17 +126,9 @@ export function VariantCLedger({
 						/>
 					</label>
 					{mode === 'edit' && mix !== null ? (
-						<div className="flex items-center justify-between gap-2 text-muted-foreground text-xs @md/fields:col-span-2">
-							<span>Changing the mix keeps the products below as recorded.</span>
-							<Button
-								onClick={() => ops.fillFromMix(mix)}
-								size="xs"
-								type="button"
-								variant="outline"
-							>
-								Refill products from mix
-							</Button>
-						</div>
+						<p className="m-0 text-muted-foreground text-xs @md/fields:col-span-2">
+							Picking a different formulation replaces the products below with its own.
+						</p>
 					) : null}
 				</div>
 			) : null}
@@ -232,23 +230,38 @@ export function VariantCLedger({
 						>
 							<div className="grid grid-cols-[1.25rem_1fr_auto] items-center gap-2">
 								<span className="text-muted-foreground text-xs tabular-nums">{index + 1}</span>
-								<ProductSelect
-									catalog={catalog}
-									invalid={error !== undefined}
-									onChange={(insecticideId) => {
-										const product = catalog.insecticides.find((row) => row.id === insecticideId);
-										ops.update(line.id, {
-											insecticideId,
-											unitId: product?.defaultUnitId ?? '',
-											batchIds: [],
-											fromMix: mixShare(catalog, mix, insecticideId),
-										});
-									}}
-									value={line.insecticideId}
-								/>
-								<Button onClick={() => ops.remove(line.id)} size="xs" type="button" variant="ghost">
-									Remove
-								</Button>
+								{locked ? (
+									<span className="truncate font-medium text-sm">
+										{productLabel(catalog.insecticides, line.insecticideId)}
+									</span>
+								) : (
+									<ProductSelect
+										catalog={catalog}
+										invalid={error !== undefined}
+										onChange={(insecticideId) => {
+											const product = catalog.insecticides.find((row) => row.id === insecticideId);
+											ops.update(line.id, {
+												insecticideId,
+												unitId: product?.defaultUnitId ?? '',
+												batchIds: [],
+												fromMix: mixShare(catalog, mix, insecticideId),
+											});
+										}}
+										value={line.insecticideId}
+									/>
+								)}
+								{locked ? (
+									<span className="text-muted-foreground text-xs">In the mix</span>
+								) : (
+									<Button
+										onClick={() => ops.remove(line.id)}
+										size="xs"
+										type="button"
+										variant="ghost"
+									>
+										Remove
+									</Button>
+								)}
 							</div>
 							<div className="grid grid-cols-[1.25rem_1fr_1fr] items-center gap-2 @md/fields:grid-cols-[1.25rem_7rem_9rem_1fr]">
 								<span />
@@ -292,9 +305,15 @@ export function VariantCLedger({
 			</ol>
 
 			<div className="flex items-center justify-between gap-2 border-border border-t bg-muted/20 px-3 py-2">
-				<Button onClick={ops.add} size="sm" type="button" variant="ghost">
-					+ Product
-				</Button>
+				{locked ? (
+					<span className="text-muted-foreground text-xs">
+						To add or drop a product, switch to product by product.
+					</span>
+				) : (
+					<Button onClick={ops.add} size="sm" type="button" variant="ghost">
+						+ Product
+					</Button>
+				)}
 				<span className="text-muted-foreground text-xs">
 					{live} {live === 1 ? 'product' : 'products'}
 					{mix?.mixAmount != null
