@@ -24,12 +24,13 @@ import {
 import type { LineOps } from './ops';
 import { VariantATable } from './variant-a-table';
 import { VariantBCards } from './variant-b-cards';
-import { VariantCLedger } from './variant-c-ledger';
+import { VariantCLedger, VariantDHybrid } from './variant-c-ledger';
 
 const VARIANTS = [
 	{ key: 'A', name: 'Line table', Component: VariantATable },
 	{ key: 'B', name: 'Product cards', Component: VariantBCards },
 	{ key: 'C', name: 'Mix ledger', Component: VariantCLedger },
+	{ key: 'D', name: 'Hybrid: B toggle, C ledger', Component: VariantDHybrid },
 ] as const;
 
 /** The `?variant=` key when the prototype is switched on, else null. Dev builds only. */

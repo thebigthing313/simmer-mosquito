@@ -10,12 +10,30 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from '@simmer-mosquito/ui-web/components/ui/native-select';
+import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
+import { useState } from 'react';
 import { productLabel } from '../application-form-values';
 import { AmountInput, BatchPicker, ProductSelect, UnitSelect } from './controls';
 import { batchPhrase, formulationOf, linesFromMix, liveCount, type Mix, mixShare } from './model';
 import type { VariantProps } from './ops';
 
-export function VariantCLedger({ catalog, mode, lines, mix, refusals, ops }: VariantProps) {
+/** Variant D, the hybrid: B's "how was this mixed" toggle over C's ledger. */
+export function VariantDHybrid(props: VariantProps) {
+	return <VariantCLedger {...props} entryToggle />;
+}
+
+export function VariantCLedger({
+	catalog,
+	mode,
+	lines,
+	mix,
+	refusals,
+	ops,
+	entryToggle = false,
+}: VariantProps & { readonly entryToggle?: boolean }) {
+	const [path, setPath] = useState<'products' | 'formulation'>(
+		mix === null ? 'products' : 'formulation',
+	);
 	const unitAbbr = (id: string) => catalog.units.find((unit) => unit.id === id)?.abbreviation ?? '';
 	const formulation = mix === null ? undefined : formulationOf(catalog, mix.formulationId);
 	const live = liveCount(lines);
@@ -42,48 +60,127 @@ export function VariantCLedger({ catalog, mode, lines, mix, refusals, ops }: Var
 		}
 	};
 
-	return (
-		<section className="grid gap-0 overflow-hidden rounded-lg border border-border">
-			<div className="grid gap-3 bg-muted/40 p-3">
-				<div className="flex items-baseline justify-between">
-					<h3 className="m-0 font-semibold text-sm">Mix</h3>
-					<span className="text-muted-foreground text-xs">Optional</span>
-				</div>
-				<div className="grid gap-2 @md/fields:grid-cols-[1fr_9rem]">
-					<NativeSelect
-						aria-label="Formulation"
-						onChange={(event) =>
-							changeMix({ formulationId: event.target.value, mixAmount: mix?.mixAmount ?? null })
-						}
-						value={mix?.formulationId ?? ''}
-					>
-						<NativeSelectOption value="">
-							No formulation, enter products directly
-						</NativeSelectOption>
-						{catalog.formulations
-							.filter((row) => row.isActive || row.id === mix?.formulationId)
-							.map((row) => (
-								<NativeSelectOption key={row.id} value={row.id}>
-									{row.formulationName}
-								</NativeSelectOption>
-							))}
-					</NativeSelect>
-					{mix === null ? null : (
+	const mixUnit = unitAbbr(formulation?.batchUnitId ?? '');
+	const header = entryToggle ? (
+		<div className="grid gap-3 bg-muted/40 p-3">
+			<ToggleGroup
+				aria-label="How this was mixed"
+				className="w-full"
+				onValueChange={(next) => {
+					if (next !== 'products' && next !== 'formulation') return;
+					setPath(next);
+					if (next === 'products') {
+						ops.setMix(null);
+						for (const line of lines) ops.update(line.id, { fromMix: null });
+					}
+				}}
+				size="sm"
+				type="single"
+				value={path}
+				variant="outline"
+			>
+				<ToggleGroupItem className="flex-1 text-xs" value="products">
+					Product by product
+				</ToggleGroupItem>
+				<ToggleGroupItem className="flex-1 text-xs" value="formulation">
+					From a formulation
+				</ToggleGroupItem>
+			</ToggleGroup>
+			{path === 'formulation' ? (
+				<div className="grid gap-3 @md/fields:grid-cols-2">
+					<label className="grid gap-1 text-sm">
+						<span className="font-medium">Formulation</span>
+						<NativeSelect
+							onChange={(event) =>
+								changeMix({ formulationId: event.target.value, mixAmount: mix?.mixAmount ?? null })
+							}
+							value={mix?.formulationId ?? ''}
+						>
+							<NativeSelectOption value="">Pick a formulation</NativeSelectOption>
+							{catalog.formulations
+								.filter((row) => row.isActive || row.id === mix?.formulationId)
+								.map((row) => (
+									<NativeSelectOption key={row.id} value={row.id}>
+										{row.formulationName}
+									</NativeSelectOption>
+								))}
+						</NativeSelect>
+					</label>
+					<label className="grid gap-1 text-sm">
+						<span className="font-medium">
+							Total mix applied{mixUnit === '' ? '' : ` (${mixUnit})`}
+						</span>
 						<AmountInput
 							label="Total mix applied"
-							onChange={(mixAmount) => changeMix({ ...mix, mixAmount })}
-							placeholder={`Mix total (${unitAbbr(formulation?.batchUnitId ?? '')})`}
-							value={mix.mixAmount}
+							onChange={(mixAmount) => {
+								if (mix !== null) changeMix({ ...mix, mixAmount });
+							}}
+							placeholder="e.g. 78"
+							value={mix?.mixAmount ?? null}
 						/>
-					)}
+					</label>
+					{mode === 'edit' && mix !== null ? (
+						<div className="flex items-center justify-between gap-2 text-muted-foreground text-xs @md/fields:col-span-2">
+							<span>Changing the mix keeps the products below as recorded.</span>
+							<Button
+								onClick={() => ops.fillFromMix(mix)}
+								size="xs"
+								type="button"
+								variant="outline"
+							>
+								Refill products from mix
+							</Button>
+						</div>
+					) : null}
 				</div>
-				{mode === 'edit' && mix !== null ? (
-					<p className="m-0 text-muted-foreground text-xs">
-						The mix is a record of what was mixed. Products below are what went out, and they win
-						when the two disagree.
-					</p>
-				) : null}
-			</div>
+			) : null}
+		</div>
+	) : null;
+
+	return (
+		<section className="grid gap-0 overflow-hidden rounded-lg border border-border">
+			{header ?? (
+				<div className="grid gap-3 bg-muted/40 p-3">
+					<div className="flex items-baseline justify-between">
+						<h3 className="m-0 font-semibold text-sm">Mix</h3>
+						<span className="text-muted-foreground text-xs">Optional</span>
+					</div>
+					<div className="grid gap-2 @md/fields:grid-cols-[1fr_9rem]">
+						<NativeSelect
+							aria-label="Formulation"
+							onChange={(event) =>
+								changeMix({ formulationId: event.target.value, mixAmount: mix?.mixAmount ?? null })
+							}
+							value={mix?.formulationId ?? ''}
+						>
+							<NativeSelectOption value="">
+								No formulation, enter products directly
+							</NativeSelectOption>
+							{catalog.formulations
+								.filter((row) => row.isActive || row.id === mix?.formulationId)
+								.map((row) => (
+									<NativeSelectOption key={row.id} value={row.id}>
+										{row.formulationName}
+									</NativeSelectOption>
+								))}
+						</NativeSelect>
+						{mix === null ? null : (
+							<AmountInput
+								label="Total mix applied"
+								onChange={(mixAmount) => changeMix({ ...mix, mixAmount })}
+								placeholder={`Mix total (${unitAbbr(formulation?.batchUnitId ?? '')})`}
+								value={mix.mixAmount}
+							/>
+						)}
+					</div>
+					{mode === 'edit' && mix !== null ? (
+						<p className="m-0 text-muted-foreground text-xs">
+							The mix is a record of what was mixed. Products below are what went out, and they win
+							when the two disagree.
+						</p>
+					) : null}
+				</div>
+			)}
 
 			{refusals.formError === null ? null : (
 				<p
