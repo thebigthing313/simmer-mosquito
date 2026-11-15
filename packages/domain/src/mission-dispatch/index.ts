@@ -22,9 +22,9 @@ import type {
 	CompleteMissionItemCommand,
 	MoveMissionItemsCommand,
 	RecordBiocontrolActionForMissionItemCommand,
-	RecordChemicalApplicationForMissionItemCommand,
 	RecordOutreachActionForMissionItemCommand,
 	RecordSourceReductionForMissionItemCommand,
+	RecordTreatmentForMissionItemCommand,
 	RemoveMissionItemCommand,
 	RenameMissionItemCommand,
 	ReopenMissionItemCommand,
@@ -68,7 +68,7 @@ export type MissionDispatchCommand =
 	| ReopenMissionItemCommand
 	| SkipMissionItemCommand
 	| UnskipMissionItemCommand
-	| RecordChemicalApplicationForMissionItemCommand
+	| RecordTreatmentForMissionItemCommand
 	| RecordSourceReductionForMissionItemCommand
 	| RecordOutreachActionForMissionItemCommand
 	| RecordBiocontrolActionForMissionItemCommand;

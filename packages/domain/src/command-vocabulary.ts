@@ -84,9 +84,9 @@ export type DomainCommandType =
  *    Either way the caller named N rows and expects N to change, and they are
  *    separate keys, so nothing merges them and every one needs writing.
  * 2. **A parent and the children created with it.** Creating a Mission with its
- *    Mission Items, a Chemical Application with its batches, a Notification
- *    Registration with its types — one command, one payload, a parent row and N
- *    child rows that reference it.
+ *    Mission Items, a Treatment with its Chemical Applications and their batches,
+ *    a Notification Registration with its types — one command, one payload, a
+ *    parent row and N child rows that reference it.
  *
  *    These belong here whether or not a given screen lists the children while
  *    they are being created, and the reason is order rather than display: a
@@ -104,10 +104,14 @@ export type DomainCommandType =
  *    to: the page these are called from navigates straight to the new worklist,
  *    which is a list of exactly those children.
  *
- *    That is why recording a Chemical Application off a mission stop is here and
- *    the other three mission-stop creates are not. It is the same command shape
- *    as the ordinary create — the batches ride in the payload — and the rule
- *    above does not care that a stop is also being closed. A Source Reduction,
+ *    That is why recording a Treatment off a mission stop is here and the other
+ *    three mission-stop creates are not. It is the same command shape as the
+ *    ordinary create (the lines and their batches ride in the payload) and the
+ *    rule above does not care that a stop is also being closed.
+ *
+ *    Revising a Treatment's lines is the same shape on an existing parent: the
+ *    payload carries the whole line set, and the server inserts, updates and
+ *    soft-deletes lines and batch links to match it. A Source Reduction,
  *    Biocontrol Action or Outreach Action recorded off a stop is one row, and the
  *    stop's completion arrives over sync like any other server-side effect.
  * 3. **A record and the thing that produced it.** The four
@@ -149,8 +153,9 @@ export type MultiRowCommandType =
 	| 'fieldWork.moveRouteItems'
 	| 'missionDispatch.moveMissionItems'
 	// A parent, and the children created with it in one payload.
-	| 'controlOperations.recordChemicalApplication'
-	| 'missionDispatch.recordChemicalApplicationForMissionItem'
+	| 'controlOperations.recordTreatment'
+	| 'missionDispatch.recordTreatmentForMissionItem'
+	| 'controlOperations.reviseTreatmentLines'
 	| 'missionDispatch.createMission'
 	| 'publicEngagement.createNotificationRegistration'
 	| 'fieldWork.createAssignmentFromRoute'

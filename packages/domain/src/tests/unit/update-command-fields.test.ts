@@ -13,7 +13,6 @@ import {
 } from '../../adult-surveillance/index.js';
 import {
 	BIOCONTROL_ACTION_UPDATE_FIELDS,
-	CHEMICAL_APPLICATION_UPDATE_FIELDS,
 	EQUIPMENT_UPDATE_FIELDS,
 	FORMULATION_INSECTICIDE_UPDATE_FIELDS,
 	FORMULATION_UPDATE_FIELDS,
@@ -23,10 +22,10 @@ import {
 	OUTREACH_ACTION_UPDATE_FIELDS,
 	REQUESTED_CONTROL_ACTION_UPDATE_FIELDS,
 	SOURCE_REDUCTION_UPDATE_FIELDS,
+	TREATMENT_UPDATE_FIELDS,
 	updateApplicationMethodCommand,
 	updateBiocontrolActionFieldDetailsCommand,
 	updateBiocontrolMethodCommand,
-	updateChemicalApplicationFieldDetailsCommand,
 	updateEquipmentCommand,
 	updateFormulationDetailsCommand,
 	updateFormulationInsecticideCommand,
@@ -37,6 +36,7 @@ import {
 	updateRequestedControlActionDetailsCommand,
 	updateSourceReductionFieldDetailsCommand,
 	updateSourceReductionMethodCommand,
+	updateTreatmentFieldDetailsCommand,
 	updateVehicleCommand,
 	VEHICLE_UPDATE_FIELDS,
 } from '../../control-operations/index.js';
@@ -217,21 +217,18 @@ const CASES: readonly UpdateCase[] = [
 		build: updateCollectionSpeciesCountCommand,
 	}),
 	updateCase({
-		name: 'controlOperations.updateChemicalApplicationFieldDetails',
-		fields: CHEMICAL_APPLICATION_UPDATE_FIELDS,
-		base: { ...org, applicationId: recordId },
+		name: 'controlOperations.updateTreatmentFieldDetails',
+		fields: TREATMENT_UPDATE_FIELDS,
+		base: { ...org, treatmentId: recordId },
 		samples: {
 			applicationDate: '2026-01-02',
 			applicatorProfileId: otherId,
 			applicationMethodId: otherId,
-			insecticideId: otherId,
-			amountApplied: 2.5,
-			applicationUnitId: otherId,
 			vehicleId: otherId,
 			equipmentId: otherId,
 			metadata: { note: 'windy' },
 		},
-		build: updateChemicalApplicationFieldDetailsCommand,
+		build: updateTreatmentFieldDetailsCommand,
 	}),
 	updateCase({
 		name: 'controlOperations.updateSourceReductionFieldDetails',

@@ -11,9 +11,7 @@ import {
 	validateBase,
 	validateIdCommand,
 } from '../command-validation.js';
-import type { ControlActionLocationSourceInput } from '../location-intent.js';
-import type { ApplicationBatchInput, ControlActionContext } from '../performed-control-actions.js';
-import type { DomainId, JsonObject, LocalDateString } from '../shared.js';
+import type { DomainId, JsonObject } from '../shared.js';
 import {
 	jsonObjectField,
 	nullableTextField,
@@ -25,11 +23,6 @@ import {
 	type UpdateFieldsInput,
 	updateFieldsCommand,
 } from '../update-command-fields.js';
-import type {
-	RecordChemicalApplicationCommand,
-	RecordChemicalApplicationCommandInput,
-} from './actions.js';
-import { recordChemicalApplicationCommand } from './actions.js';
 import type {
 	ControlCommandInput,
 	ControlCommandPayload,
@@ -316,27 +309,6 @@ export interface FormulationComponentAmount {
 	/** The scaled amount, in `unitId` — the product's own unit, not the batch's. */
 	readonly amount: number;
 	readonly unitId: DomainId;
-}
-
-export interface FormulationExpansionComponentInput extends FormulationComponentAmountInput {
-	readonly applicationId: DomainId;
-	readonly applicationBatches?: readonly ApplicationBatchInput[];
-}
-
-export interface ExpandFormulationApplicationCommandsInput extends ControlCommandInput {
-	readonly totalAmount: number;
-	readonly batchSize: number;
-	readonly components: readonly FormulationExpansionComponentInput[];
-	readonly applicationDate: LocalDateString;
-	readonly applicatorProfileId?: DomainId | null;
-	readonly locationSource: ControlActionLocationSourceInput;
-	readonly addressId?: DomainId | null;
-	readonly context?: ControlActionContext;
-	readonly requestedControlActionId?: DomainId | null;
-	readonly applicationMethodId?: DomainId | null;
-	readonly vehicleId?: DomainId | null;
-	readonly equipmentId?: DomainId | null;
-	readonly metadata?: unknown | null;
 }
 
 export function createInsecticideCommand(
@@ -662,62 +634,4 @@ export function calculateFormulationComponentAmounts(
 		unitId: component.unitId,
 		amount: Number((component.amount * batches).toFixed(6)),
 	}));
-}
-
-export function expandFormulationApplicationCommands(
-	input: ExpandFormulationApplicationCommandsInput,
-): readonly RecordChemicalApplicationCommand[] {
-	const amounts = calculateFormulationComponentAmounts(input);
-	const amountByInsecticide = new Map(amounts.map((amount) => [amount.insecticideId, amount]));
-	const applicationIds = new Set<string>();
-	return input.components.map((component, index) => {
-		const applicationId = normalizeRequiredId(component.applicationId);
-		const issues = createIssues();
-		requireUuid(component.applicationId, `components.${index}.applicationId`, issues);
-		if (applicationIds.has(applicationId)) {
-			issues.push({
-				path: `components.${index}.applicationId`,
-				message: 'Generated application ids must be unique.',
-			});
-		}
-		applicationIds.add(applicationId);
-		const amount = amountByInsecticide.get(normalizeRequiredId(component.insecticideId));
-		if (amount === undefined) {
-			issues.push({
-				path: `components.${index}.insecticideId`,
-				message: 'Component amount could not be calculated.',
-			});
-		}
-		throwIfIssues('Formulation application expansion is invalid.', issues);
-		const commandInput: RecordChemicalApplicationCommandInput = {
-			organizationId: input.organizationId,
-			actorProfileId: input.actorProfileId,
-			applicationId: component.applicationId,
-			insecticideId: component.insecticideId,
-			amountApplied: amount?.amount ?? 0,
-			// Each generated application is recorded in its own product's unit —
-			// pounds of granules out of a mix measured in gallons.
-			applicationUnitId: amount?.unitId ?? component.unitId,
-			applicationDate: input.applicationDate,
-			locationSource: input.locationSource,
-			...(input.applicatorProfileId !== undefined
-				? { applicatorProfileId: input.applicatorProfileId }
-				: {}),
-			...(input.addressId !== undefined ? { addressId: input.addressId } : {}),
-			...(input.context !== undefined ? { context: input.context } : {}),
-			...(input.requestedControlActionId !== undefined
-				? { requestedControlActionId: input.requestedControlActionId }
-				: {}),
-			...(input.applicationMethodId !== undefined
-				? { applicationMethodId: input.applicationMethodId }
-				: {}),
-			...(input.vehicleId !== undefined ? { vehicleId: input.vehicleId } : {}),
-			...(input.equipmentId !== undefined ? { equipmentId: input.equipmentId } : {}),
-			...(component.applicationBatches !== undefined
-				? { applicationBatches: component.applicationBatches }
-				: {}),
-			...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
-		};
-		return recordChemicalApplicationCommand(commandInput);
-	});
 }
