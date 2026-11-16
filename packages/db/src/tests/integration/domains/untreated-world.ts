@@ -10,6 +10,7 @@ import {
 	createRequestedControlAction,
 	createSourceReduction,
 	createSourceReductionMethod,
+	createTreatment,
 	createUnit,
 } from '../../../test-support/row-fixtures.js';
 
@@ -87,53 +88,61 @@ export async function seedUntreatedWorld(db: DbExecutor): Promise<{
 	// In: read heavy six days ago, the first day of the window.
 	const firstDayOfWindow = await habitatWithReading(6, 'heavy');
 
-	// Out: treated by an application dated after the reading, naming the habitat.
-	const treatedByApplication = await habitatWithReading(4, 'heavy');
-	await createApplication(
-		db,
-		organizationId,
-		{ insecticideId, unitId },
-		{ habitat_id: treatedByApplication.habitatId, application_date: dateOf(daysAgo(2)) },
-	);
+	// A Treatment with its one Chemical Application, the shape the server always
+	// writes. A deleted Treatment takes its line with it, as `deleteTreatment` does.
+	const treat = async (
+		links: { readonly habitatId?: string; readonly inspectionId?: string },
+		date: string,
+		deleted = false,
+	) => {
+		const deletedAt = deleted ? sql<Date>`now()` : null;
+		const treatmentId = await createTreatment(db, organizationId, {
+			habitat_id: links.habitatId ?? null,
+			inspection_id: links.inspectionId ?? null,
+			application_date: dateOf(date),
+			deleted_at: deletedAt,
+		});
+		await createApplication(
+			db,
+			organizationId,
+			{ treatmentId, insecticideId, unitId },
+			{ deleted_at: deletedAt },
+		);
+	};
+
+	// Out: a Treatment dated after the reading names the habitat.
+	const treatedByHabitatLink = await habitatWithReading(4, 'heavy');
+	await treat({ habitatId: treatedByHabitatLink.habitatId }, daysAgo(2));
 	// Out: treated the same day, and named by the inspection rather than the habitat.
 	const treatedByInspectionLink = await habitatWithReading(4, 'heavy');
+	await treat({ inspectionId: treatedByInspectionLink.inspectionId }, daysAgo(4));
+	// In: drained since the heavy reading. A Source Reduction is control work, not
+	// treatment, so it leaves the habitat on the list (#1735).
+	const drained = await habitatWithReading(4, 'heavy');
 	await createSourceReduction(
 		db,
 		organizationId,
 		{ methodId: sourceReductionMethodId, unitId },
 		{
-			inspection_id: treatedByInspectionLink.inspectionId,
-			source_reduction_date: dateOf(daysAgo(4)),
+			habitat_id: drained.habitatId,
+			inspection_id: drained.inspectionId,
+			source_reduction_date: dateOf(daysAgo(2)),
 		},
 	);
-	// Out: a release since the reading.
-	const treatedByRelease = await habitatWithReading(2, 'heavy');
+	// In: stocked since the heavy reading, for the same reason.
+	const stocked = await habitatWithReading(2, 'heavy');
 	await createBiocontrolAction(
 		db,
 		organizationId,
 		{ methodId: biocontrolMethod.id, unitId },
-		{ habitat_id: treatedByRelease.habitatId, biocontrol_date: dateOf(daysAgo(1)) },
+		{ habitat_id: stocked.habitatId, biocontrol_date: dateOf(daysAgo(1)) },
 	);
-	// In: the only action predates the reading, so it treated an earlier one.
-	const actionBefore = await habitatWithReading(2, 'heavy');
-	await createApplication(
-		db,
-		organizationId,
-		{ insecticideId, unitId },
-		{ habitat_id: actionBefore.habitatId, application_date: dateOf(daysAgo(5)) },
-	);
-	// In: the action after the reading was deleted.
-	const actionDeleted = await habitatWithReading(3, 'heavy');
-	await createApplication(
-		db,
-		organizationId,
-		{ insecticideId, unitId },
-		{
-			habitat_id: actionDeleted.habitatId,
-			application_date: dateOf(daysAgo(1)),
-			deleted_at: sql`now()`,
-		},
-	);
+	// In: the only Treatment predates the reading, so it answered an earlier one.
+	const treatedBefore = await habitatWithReading(2, 'heavy');
+	await treat({ habitatId: treatedBefore.habitatId }, daysAgo(5));
+	// In: the Treatment after the reading was deleted.
+	const treatmentDeleted = await habitatWithReading(3, 'heavy');
+	await treat({ habitatId: treatmentDeleted.habitatId }, daysAgo(1), true);
 	// Out: an open request already counts it on the requests queue.
 	const requested = await habitatWithReading(1, 'heavy');
 	await createRequestedControlAction(db, organizationId, { habitat_id: requested.habitatId });
@@ -196,8 +205,10 @@ export async function seedUntreatedWorld(db: DbExecutor): Promise<{
 			inaccessible.habitatId,
 			readToday.habitatId,
 			firstDayOfWindow.habitatId,
-			actionBefore.habitatId,
-			actionDeleted.habitatId,
+			drained.habitatId,
+			stocked.habitatId,
+			treatedBefore.habitatId,
+			treatmentDeleted.habitatId,
 			requestResolved.habitatId,
 			sameDayHeavy.habitatId,
 		],

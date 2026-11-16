@@ -2,11 +2,14 @@ import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
 import {
 	createActingOrganization,
 	createAddress,
+	createApplication,
 	createContact,
+	createInsecticide,
 	createNotificationRegistration,
 	createNotificationType,
 	createProfile,
 	createSourceReductionMethod,
+	createTreatment,
 	createUnit,
 	describeDbIntegration,
 	createMission as insertMission,
@@ -221,6 +224,53 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 		});
 	});
 
+	it('refuses cancelling a mission with a Treatment on one of its stops', async () => {
+		await withTestDb(async ({ db }) => {
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
+			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
+			const stopId = await createStop(db, org, missionId, 0);
+			await createTreatmentOnStop(db, org, stopId);
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('PATCH', ['missionDispatch.cancelMission'], {
+					cancellationCommentId: crypto.randomUUID(),
+					cancelled_at: '2026-08-11T08:00:00.000Z',
+					cancellation_reason: 'Rained off',
+					acknowledgedPartialWorkCancellation: false,
+				}),
+			);
+
+			await expectStateRefusal(response, 'acknowledgedPartialWorkCancellation', 'carried out');
+			const mission = await readMission(db, missionId);
+			expect(mission.cancelled_at).toBeNull();
+		});
+	});
+
+	it('cancels a mission whose only Treatment was deleted', async () => {
+		await withTestDb(async ({ db }) => {
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
+			const missionId = await createMission(db, org, {});
+			const stopId = await createStop(db, org, missionId, 0);
+			await createTreatmentOnStop(db, org, stopId, { deleted: true });
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('PATCH', ['missionDispatch.cancelMission'], {
+					cancellationCommentId: crypto.randomUUID(),
+					cancelled_at: '2026-08-11T08:00:00.000Z',
+					cancellation_reason: 'Rained off',
+					acknowledgedProgressedMissionCancellation: false,
+					acknowledgedPartialWorkCancellation: false,
+				}),
+			);
+
+			expect(response.status).toBe(200);
+			const mission = await readMission(db, missionId);
+			expect(mission.cancelled_at).not.toBeNull();
+		});
+	});
+
 	it('cancels a mission nobody has started work on, both flags withheld', async () => {
 		await withTestDb(async ({ db }) => {
 			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
@@ -378,6 +428,26 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			const stopId = await createStop(db, org, missionId, 0);
 			await createSourceReduction(db, org, stopId);
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/mission_items/${stopId}`,
+				command('DELETE', ['missionDispatch.removeMissionItem'], {
+					acknowledgedActualActionDetach: false,
+				}),
+			);
+
+			await expectStateRefusal(response, 'acknowledgedActualActionDetach', 'recorded');
+			const stop = await readStop(db, stopId);
+			expect(stop.deleted_at).toBeNull();
+		});
+	});
+
+	it('refuses removing a stop a Treatment cites', async () => {
+		await withTestDb(async ({ db }) => {
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
+			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
+			const stopId = await createStop(db, org, missionId, 0);
+			await createTreatmentOnStop(db, org, stopId);
 
 			const response = await commandApp(db, org, actor).request(
 				`/commands/mission_items/${stopId}`,
@@ -797,6 +867,34 @@ async function createSourceReduction(
 		{ methodId, unitId },
 		{ source_reduction_date: sql`date '2026-08-10'`, mission_item_id: missionItemId },
 	);
+}
+
+/**
+ * A Treatment filed against a stop, with the one Chemical Application every
+ * Treatment holds. A deleted one takes its line with it, as `deleteTreatment`
+ * does, and no longer counts as work on the stop.
+ */
+async function createTreatmentOnStop(
+	db: Db,
+	organizationId: string,
+	missionItemId: string,
+	state: { readonly deleted?: boolean } = {},
+): Promise<string> {
+	const unitId = await createUnit(db, { unit_name: 'gallons', abbreviation: 'gal' });
+	const insecticideId = await createInsecticide(db, organizationId, unitId);
+	const deletedAt = state.deleted === true ? sql<Date>`now()` : null;
+	const treatmentId = await createTreatment(db, organizationId, {
+		application_date: sql`date '2026-08-10'`,
+		mission_item_id: missionItemId,
+		deleted_at: deletedAt,
+	});
+	await createApplication(
+		db,
+		organizationId,
+		{ treatmentId, insecticideId, unitId },
+		{ deleted_at: deletedAt },
+	);
+	return treatmentId;
 }
 
 /**

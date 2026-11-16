@@ -123,7 +123,7 @@ async function anyActualActionOnMission(
 			and item.organization_id = ${organizationId}
 			and item.deleted_at is null
 			and exists (
-				select 1 from applications where mission_item_id = item.id and deleted_at is null
+				select 1 from treatments where mission_item_id = item.id and deleted_at is null
 				union all
 				select 1 from source_reductions where mission_item_id = item.id and deleted_at is null
 				union all
@@ -646,7 +646,7 @@ async function anyActualActionOnStop(
 	const found = await sql<{ present: number }>`
 		select 1 as present
 		from (
-			select mission_item_id, deleted_at from applications
+			select mission_item_id, deleted_at from treatments
 			union all
 			select mission_item_id, deleted_at from source_reductions
 			union all

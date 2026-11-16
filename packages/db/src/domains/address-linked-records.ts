@@ -108,15 +108,20 @@ interface LinkedShape extends RecordColumnsShape {
  * The newest action recorded against a stop, which is the record ADR 0012
  * says closed it. The four tables carrying `mission_item_id` are the four
  * actions a Mission can ask for.
+ *
+ * Insecticide work closes a stop with a Treatment (ADR 0020), under the
+ * `application` category the activity register already names it by. Its
+ * `ref_id` is the Treatment's method, as each other kind's is, because a
+ * Treatment can hold several products and no one of them names the visit.
  */
 const CLOSING_RECORD_JOIN = `left join lateral (
 		select closer.category, closer.id, closer.ref_id
 		from (
-			select 'application'::text as category, a.id::text as id,
-				a.insecticide_id::text as ref_id, a.created_at
-			from applications a
-			where a.mission_item_id = r.id and a.organization_id = r.organization_id
-				and a.deleted_at is null
+			select 'application'::text as category, t.id::text as id,
+				t.application_method_id::text as ref_id, t.created_at
+			from treatments t
+			where t.mission_item_id = r.id and t.organization_id = r.organization_id
+				and t.deleted_at is null
 			union all
 			select 'sourceReduction'::text, s.id::text, s.source_reduction_method_id::text, s.created_at
 			from source_reductions s

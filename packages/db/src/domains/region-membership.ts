@@ -40,7 +40,7 @@ export const REGION_MEMBERSHIP_RECORD_TYPES = [
 	'collections',
 	'habitats',
 	'inspections',
-	'applications',
+	'treatments',
 	'source_reductions',
 	'outreach_actions',
 	'biocontrol_actions',

@@ -22,6 +22,7 @@ import {
 	createSourceReduction,
 	createSourceReductionMethod,
 	createTrap,
+	createTreatment,
 	createUnit,
 } from '../../test-support/row-fixtures.js';
 
@@ -329,12 +330,25 @@ describeDbIntegration('address linked records', () => {
 				address_id: addressId,
 				position: 2,
 			});
-			const applicationId = await createApplication(
-				db,
-				organizationId,
-				{ insecticideId, unitId },
-				{ mission_item_id: done },
-			);
+			const method = await db
+				.insertInto('application_methods')
+				.values({ organization_id: organizationId, name: 'Backpack' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			// The stop's Treatment holds two products, so the row names its method.
+			const treatmentId = await createTreatment(db, organizationId, {
+				mission_item_id: done,
+				application_method_id: method.id,
+			});
+			await createApplication(db, organizationId, { treatmentId, insecticideId, unitId });
+			await createApplication(db, organizationId, {
+				treatmentId,
+				insecticideId: await createInsecticide(db, organizationId, unitId, {
+					trade_name: 'Second larvicide',
+					registration_number: '99999-2',
+				}),
+				unitId,
+			});
 
 			const { families } = await listAddressLinkedRecords(db, {
 				organizationId,
@@ -351,8 +365,8 @@ describeDbIntegration('address linked records', () => {
 				missionName: 'North ditches',
 				controlType: 'application',
 				closedByCategory: 'application',
-				closedById: applicationId,
-				closedByRefId: insecticideId,
+				closedById: treatmentId,
+				closedByRefId: method.id,
 			});
 			expect(stops.items.find((item) => item.id === open)).toMatchObject({
 				detail: 'open',

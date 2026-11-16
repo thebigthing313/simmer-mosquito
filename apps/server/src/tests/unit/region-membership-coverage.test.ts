@@ -38,9 +38,10 @@ function geomTablesFromRowSchemas(): ReadonlySet<string> {
 /**
  * The declared type of every `geom` column, from the migrations in order.
  *
- * Reading `create table` blocks alone would miss every one of these: all fifteen
- * geom columns arrived through `alter table ... add column` in
- * `202605270001_owned_geometry_columns.sql`. A later `alter column ... type`
+ * Reading `create table` blocks alone would miss fourteen of these: they arrived
+ * through `alter table ... add column` in
+ * `202605270001_owned_geometry_columns.sql`, and only `treatments` was created
+ * with one. A later `alter column ... type`
  * overwrites, and a `drop column` removes, so the answer is the last thing the
  * set said rather than the first.
  */
@@ -59,7 +60,9 @@ async function geomColumnTypesFromMigrations(): Promise<ReadonlyMap<string, stri
 			String.raw`(?<dropTable>drop\s+table\s+(?:if\s+exists\s+)?(?<dropped>[a-z_]+))`,
 			String.raw`(?<addColumn>alter\s+table\s+(?:only\s+)?(?<added>[a-z_]+)\s+add\s+column\s+(?:if\s+not\s+exists\s+)?geom\s+geometry\(\s*(?<addedType>\w+)\s*,)`,
 			String.raw`(?<alterType>alter\s+table\s+(?:only\s+)?(?<altered>[a-z_]+)\s+alter\s+column\s+geom\s+(?:set\s+data\s+)?type\s+geometry\(\s*(?<alteredType>\w+)\s*,)`,
-			String.raw`(?<dropColumn>alter\s+table\s+(?:only\s+)?(?<uncolumned>[a-z_]+)\s+drop\s+column\s+(?:if\s+exists\s+)?geom\b)`,
+			// Anywhere among the statement's clauses: the treatments migration drops
+			// `applications.geom` as the fourteenth of seventeen `drop column`s.
+			String.raw`(?<dropColumn>alter\s+table\s+(?:only\s+)?(?<uncolumned>[a-z_]+)\s[^;]*?\bdrop\s+column\s+(?:if\s+exists\s+)?geom\b)`,
 		].join('|'),
 		'gi',
 	);
@@ -152,5 +155,14 @@ describe('the client-side membership path', () => {
 		const types = await geomColumnTypesFromMigrations();
 
 		expect(types.get('habitats')).toBe('geometry');
+	});
+
+	it('sees a geom dropped among other clauses of one statement', async () => {
+		// `applications.geom` went in a seventeen-clause `alter table` (ADR 0020).
+		// A parser that read only a lone `drop column geom` would still list it.
+		const types = await geomColumnTypesFromMigrations();
+
+		expect(types.has('applications')).toBe(false);
+		expect(types.get('treatments')).toBe('geometry');
 	});
 });
