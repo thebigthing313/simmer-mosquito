@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 import {
 	applyRecordDeletion,
 	assertRecordDeletable,
+	type DeletableRecordType,
 	type DeleteAcknowledgement,
 	DeleteAcknowledgementRequiredError,
 	type Kysely,
@@ -681,6 +682,155 @@ describeDbIntegration('record deletion policy', () => {
 					organizationId: org,
 				}),
 			).rejects.toBeInstanceOf(RecordDeleteBlockedError);
+		});
+	});
+
+	// The insecticide and batch rules read lines, and only live ones. Deleting the
+	// Treatment takes its lines and their batch links, and the catalog rows free up.
+	it('frees an insecticide and its batch once the Treatment using them is deleted', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db);
+			const unitId = await createUnit(db);
+			const treatmentId = await createTreatment(db, org, unitId, {});
+			const line = await db
+				.selectFrom('applications')
+				.select(['id', 'insecticide_id'])
+				.where('treatment_id', '=', treatmentId)
+				.executeTakeFirstOrThrow();
+			const batchId = await createInsecticideBatch(db, org, line.insecticide_id);
+			await createApplicationBatch(db, org, {
+				applicationId: line.id,
+				insecticideBatchId: batchId,
+			});
+
+			const blockers = async () => ({
+				insecticide: entry(
+					(
+						await readDeleteImpact(db, {
+							recordType: 'insecticide',
+							recordId: line.insecticide_id,
+							organizationId: org,
+						})
+					).blockers,
+					'insecticideApplications',
+				),
+				batch: entry(
+					(
+						await readDeleteImpact(db, {
+							recordType: 'insecticideBatch',
+							recordId: batchId,
+							organizationId: org,
+						})
+					).blockers,
+					'insecticideBatchApplications',
+				),
+			});
+
+			expect(await blockers()).toEqual({ insecticide: 1, batch: 1 });
+
+			await db.transaction().execute((trx) =>
+				applyRecordDeletion(trx, {
+					recordType: 'treatment',
+					recordId: treatmentId,
+					organizationId: org,
+					actorProfileId: null,
+					acknowledged: CONFIRMED,
+				}),
+			);
+
+			expect(await blockers()).toEqual({ insecticide: 0, batch: 0 });
+		});
+	});
+
+	// ADR 0020: the visit columns moved to the Treatment, so every rule over one
+	// reads `treatments`, and a deleted Treatment counts for none of them.
+	it('reads every visit column off live Treatments', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db);
+			const unitId = await createUnit(db);
+			const addressId = await createAddress(db, org);
+			const methodId = (
+				await db
+					.insertInto('application_methods')
+					.values({ organization_id: org, name: 'Backpack' })
+					.returning(['id'])
+					.executeTakeFirstOrThrow()
+			).id;
+			const vehicleId = (
+				await db
+					.insertInto('vehicles')
+					.values({ organization_id: org, vehicle_name: 'Truck 4' })
+					.returning(['id'])
+					.executeTakeFirstOrThrow()
+			).id;
+			const equipmentId = (
+				await db
+					.insertInto('equipment')
+					.values({ organization_id: org, equipment_name: 'Sprayer 2' })
+					.returning(['id'])
+					.executeTakeFirstOrThrow()
+			).id;
+			const habitatId = await createHabitat(db, org);
+			const inspectionId = await createInspection(db, org, { habitat_id: habitatId });
+			const collectionMethodId = await createCollectionMethod(db, org);
+			const trapId = await createTrap(db, org, collectionMethodId);
+			const collectionId = await createCollection(db, org, { trapId, collectionMethodId });
+
+			const treatmentId = await createTreatment(db, org, unitId, {});
+			await db
+				.updateTable('treatments')
+				.set({
+					address_id: addressId,
+					application_method_id: methodId,
+					vehicle_id: vehicleId,
+					equipment_id: equipmentId,
+					inspection_id: inspectionId,
+					collection_id: collectionId,
+				})
+				.where('id', '=', treatmentId)
+				.execute();
+
+			const counts = async () => {
+				const read = async (recordType: DeletableRecordType, recordId: string) => {
+					const impact = await readDeleteImpact(db, { recordType, recordId, organizationId: org });
+					return [...impact.blockers, ...impact.detaches];
+				};
+				return {
+					address: entry(await read('address', addressId), 'addressTreatments'),
+					method: entry(await read('applicationMethod', methodId), 'applicationMethodTreatments'),
+					vehicle: entry(await read('vehicle', vehicleId), 'vehicleTreatments'),
+					equipment: entry(await read('equipment', equipmentId), 'equipmentTreatments'),
+					inspection: entry(await read('inspection', inspectionId), 'inspectionTreatments'),
+					collection: entry(await read('collection', collectionId), 'collectionTreatments'),
+					trap: entry(await read('trap', trapId), 'trapCollectionTreatments'),
+				};
+			};
+
+			expect(await counts()).toEqual({
+				address: 1,
+				method: 1,
+				vehicle: 1,
+				equipment: 1,
+				inspection: 1,
+				collection: 1,
+				trap: 1,
+			});
+
+			await db
+				.updateTable('treatments')
+				.set({ deleted_at: sql`now()` })
+				.where('id', '=', treatmentId)
+				.execute();
+
+			expect(await counts()).toEqual({
+				address: 0,
+				method: 0,
+				vehicle: 0,
+				equipment: 0,
+				inspection: 0,
+				collection: 0,
+				trap: 0,
+			});
 		});
 	});
 

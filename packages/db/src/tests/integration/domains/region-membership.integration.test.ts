@@ -14,10 +14,18 @@ import {
 	regionMembershipMatch,
 } from '../../../domains/map-region-filter.js';
 import { regionGeojsonToGeom } from '../../../domains/org-owned-writes.js';
-import { readRecordRegions } from '../../../domains/region-membership.js';
+import {
+	isRegionMembershipRecordType,
+	readRecordRegions,
+} from '../../../domains/region-membership.js';
 import type { DbExecutor } from '../../../index.js';
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
-import { createOrganization } from '../../../test-support/row-fixtures.js';
+import {
+	createOrganization,
+	createRegion,
+	createTreatment,
+	fixturePoint,
+} from '../../../test-support/row-fixtures.js';
 
 // --- the SQL half of the region-membership corpus ----------------------------
 //
@@ -578,6 +586,38 @@ describeDbIntegration('region membership, validity and the threshold at its line
 					),
 				);
 			}
+		});
+	});
+
+	// A Treatment holds the visit's geometry since ADR 0020, so its detail page
+	// asks `treatments` which Regions contain it. A Chemical Application is a line
+	// with no geometry, and the read no longer answers for one.
+	it('answers for a Treatment and not for a Chemical Application', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			const regionId = await createRegion(db, organizationId, { name: 'North zone' });
+			const inside = await createTreatment(db, organizationId);
+			const outside = await createTreatment(db, organizationId, { geom: fixturePoint(-80, 30) });
+
+			const read = (recordId: string) =>
+				readRecordRegions(db, { recordType: 'treatments', recordId, organizationId });
+
+			expect(await read(inside)).toEqual({
+				recordType: 'treatments',
+				recordId: inside,
+				found: true,
+				groups: [
+					{ folderId: null, folderName: null, regions: [{ id: regionId, name: 'North zone' }] },
+				],
+			});
+			expect(await read(outside)).toEqual({
+				recordType: 'treatments',
+				recordId: outside,
+				found: true,
+				groups: [],
+			});
+			expect(isRegionMembershipRecordType('treatments')).toBe(true);
+			expect(isRegionMembershipRecordType('applications')).toBe(false);
 		});
 	});
 });

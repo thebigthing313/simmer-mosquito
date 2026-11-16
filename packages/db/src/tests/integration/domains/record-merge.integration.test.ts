@@ -9,10 +9,12 @@ import {
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
 import {
 	createAddress,
+	createApplication,
 	createCollectionMethod,
 	createComment,
 	createContact,
 	createHabitat,
+	createInsecticide,
 	createMission,
 	createNotificationRegistration,
 	createNotificationType,
@@ -23,6 +25,8 @@ import {
 	createTag,
 	createTagItem,
 	createTrap,
+	createTreatment,
+	createUnit,
 	createMissionNotification as insertMissionNotification,
 } from '../../../test-support/row-fixtures.js';
 
@@ -96,6 +100,58 @@ describeDbIntegration('record merge policy', () => {
 
 			expect(await liveCommentCount(db, 'address', source)).toBe(0);
 			expect(await liveCommentCount(db, 'address', target)).toBe(1);
+		});
+	});
+
+	// ADR 0020: the visit's address and habitat sit on the Treatment, so both
+	// merges move the Treatment and leave its Chemical Applications where they are.
+	it('moves a Treatment to the merged address and the merged habitat', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db);
+			const unitId = await createUnit(db);
+			const insecticideId = await createInsecticide(db, org, unitId);
+			const targetAddress = await createAddress(db, org, { display_name: 'Depot' });
+			const sourceAddress = await createAddress(db, org, { display_name: 'Depot (dup)' });
+			const targetHabitat = await createHabitat(db, org, { habitat_name: 'Keep' });
+			const sourceHabitat = await createHabitat(db, org, { habitat_name: 'Fold' });
+			const treatmentId = await createTreatment(db, org, {
+				address_id: sourceAddress,
+				habitat_id: sourceHabitat,
+			});
+			const lineId = await createApplication(db, org, { treatmentId, insecticideId, unitId });
+
+			const merge = (recordType: 'address' | 'habitat', targetId: string, sourceId: string) =>
+				db.transaction().execute((trx) =>
+					applyRecordMerge(trx, {
+						recordType,
+						targetId,
+						sourceIds: [sourceId],
+						organizationId: org,
+						actorProfileId: null,
+					}),
+				);
+
+			const addressImpact = await merge('address', targetAddress, sourceAddress);
+			const habitatImpact = await merge('habitat', targetHabitat, sourceHabitat);
+			expect(entry(addressImpact.moves, 'addressTreatments')).toBe(1);
+			expect(entry(habitatImpact.moves, 'habitatTreatments')).toBe(1);
+
+			const treatment = await db
+				.selectFrom('treatments')
+				.select(['address_id', 'habitat_id', 'deleted_at'])
+				.where('id', '=', treatmentId)
+				.executeTakeFirstOrThrow();
+			expect(treatment).toEqual({
+				address_id: targetAddress,
+				habitat_id: targetHabitat,
+				deleted_at: null,
+			});
+			const line = await db
+				.selectFrom('applications')
+				.select(['treatment_id', 'deleted_at'])
+				.where('id', '=', lineId)
+				.executeTakeFirstOrThrow();
+			expect(line).toEqual({ treatment_id: treatmentId, deleted_at: null });
 		});
 	});
 

@@ -47,11 +47,15 @@ const HEAVY_DENSITIES = ['heavy', 'very_heavy'] as const;
  * organization's zone, came back `heavy` or `very_heavy`, and nothing has
  * answered it since (`CONTEXT.md`, #991):
  *
- * - No live Chemical Application, Source Reduction or Biocontrol Action dated
- *   on or after that inspection names the Habitat by `habitat_id` or the
- *   inspection by `inspection_id`. All three tables carry both columns. Same
- *   day counts, because the columns are dates. No spatial matching: an
- *   unlinked action nearby is a data-entry finding, not a treatment.
+ * - No live Treatment dated on or after that inspection names the Habitat by
+ *   `habitat_id` or the inspection by `inspection_id`. Same day counts,
+ *   because `application_date` is a date. A Treatment always holds a live
+ *   Chemical Application, so the read asks nothing of its lines. No spatial
+ *   matching: an unlinked Treatment nearby is a data-entry finding.
+ * - A Source Reduction or Biocontrol Action answers nothing here. Draining or
+ *   stocking a habitat is control work, not treatment (ADR 0020, #1735), so a
+ *   habitat drained after a heavy reading stays on the list until a later
+ *   reading comes back lower or the heavy one ages out of the window.
  * - No open Requested Control Action names the Habitat. That Habitat is
  *   already counted on the requests queue or is on a Mission, and one
  *   condition gets one count.
@@ -75,7 +79,7 @@ const HEAVY_DENSITIES = ['heavy', 'very_heavy'] as const;
  *
  * Every table is read inside the organization, which is what lets each lookup
  * seek on the `(organization_id, habitat_id)` and `(organization_id,
- * inspection_id)` indexes those tables already carry. A record names only
+ * inspection_id)` indexes `treatments` carries. A record names only
  * records of its own organization, so the scope narrows nothing the rule
  * counts.
  *
@@ -104,25 +108,11 @@ export function untreatedHabitatSql(context: MapReadContext): RawBuilder<boolean
 			where latest.inspection_date <= ${today}
 				and latest.density = any(${[...HEAVY_DENSITIES]}::larval_density[])
 				and not exists (
-					select 1 from applications a
-					where a.organization_id = ${context.organizationId}
-						and a.deleted_at is null
-						and a.application_date >= latest.inspection_date
-						and (a.habitat_id = latest.habitat_id or a.inspection_id = latest.id)
-				)
-				and not exists (
-					select 1 from source_reductions sr
-					where sr.organization_id = ${context.organizationId}
-						and sr.deleted_at is null
-						and sr.source_reduction_date >= latest.inspection_date
-						and (sr.habitat_id = latest.habitat_id or sr.inspection_id = latest.id)
-				)
-				and not exists (
-					select 1 from biocontrol_actions b
-					where b.organization_id = ${context.organizationId}
-						and b.deleted_at is null
-						and b.biocontrol_date >= latest.inspection_date
-						and (b.habitat_id = latest.habitat_id or b.inspection_id = latest.id)
+					select 1 from treatments t
+					where t.organization_id = ${context.organizationId}
+						and t.deleted_at is null
+						and t.application_date >= latest.inspection_date
+						and (t.habitat_id = latest.habitat_id or t.inspection_id = latest.id)
 				)
 				and not exists (
 					select 1 from requested_control_actions rca
