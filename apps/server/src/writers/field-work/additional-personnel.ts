@@ -1,7 +1,12 @@
 import { checkedValues } from '@simmer-mosquito/db';
 import { type FieldWorkCommand, toDbEntityType } from '@simmer-mosquito/domain';
 import { returnColumns } from '../../return-columns.js';
-import { type AdditionalPersonnelRow, type FieldWorkTransaction, softDelete } from './shared.js';
+import {
+	type AdditionalPersonnelRow,
+	assertSupportTarget,
+	type FieldWorkTransaction,
+	softDelete,
+} from './shared.js';
 
 // ===========================================================================
 // Additional personnel
@@ -13,6 +18,7 @@ export async function writeAdditionalPersonnelCommand(
 ): Promise<AdditionalPersonnelRow | null> {
 	switch (command.type) {
 		case 'fieldWork.addAdditionalPersonnel': {
+			await assertSupportTarget(trx, command.payload.organizationId, command.payload.target);
 			const row = await trx
 				.insertInto('additional_personnel')
 				.values(

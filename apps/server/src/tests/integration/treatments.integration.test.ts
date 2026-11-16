@@ -21,7 +21,11 @@ import {
 	describeDbIntegration,
 	withTestDb,
 } from '@simmer-mosquito/db/test-support';
-import { DomainValidationError } from '@simmer-mosquito/domain';
+import {
+	addAdditionalPersonnelCommand,
+	addCommentCommand,
+	DomainValidationError,
+} from '@simmer-mosquito/domain';
 import { expect, it } from 'vitest';
 import type { AuthContext } from '../../auth-context.js';
 import { CommandError } from '../../command-endpoint.js';
@@ -33,6 +37,8 @@ import {
 	type TreatmentCommand,
 	writeTreatmentCommand,
 } from '../../writers/control-operations/treatments.js';
+import { writeAdditionalPersonnelCommand } from '../../writers/field-work/additional-personnel.js';
+import { writeCommentCommand } from '../../writers/field-work/comments.js';
 
 /**
  * `/commands/treatments` against real Postgres (ADR 0020).
@@ -698,7 +704,127 @@ describeDbIntegration('treatment write surface', () => {
 			);
 		});
 	});
+
+	it('trades insecticides between two kept lines in one revise', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedWorld(db);
+			const treatmentId = crypto.randomUUID();
+			const first = lineOf(world, world.a, 2, []);
+			const second = lineOf(world, world.b, 3, []);
+			await send(db, world, world.manager, treatmentId, ['recordTreatment'], {
+				...visit(),
+				applications: [first, second],
+			});
+
+			// Midway through the diff both lines name B; the deferred exclusion
+			// constraint reads the set at commit, when they name one each again.
+			await send(db, world, world.manager, treatmentId, ['reviseTreatmentLines'], {
+				applications: [
+					{ ...first, insecticide_id: world.b },
+					{ ...second, insecticide_id: world.a },
+				],
+			});
+
+			const byId = new Map(
+				(await liveLines(db, treatmentId)).map((line) => [line.id, line.insecticide_id]),
+			);
+			expect(byId.get(first.id)).toBe(world.b);
+			expect(byId.get(second.id)).toBe(world.a);
+		});
+	});
 });
+
+/**
+ * Comments and Additional Personnel hang on the Treatment, never on a line
+ * (ADR 0020). The target type is `treatment`, the stored `entity_type` is
+ * `'treatment'`, and a Chemical Application id sent as the target is refused.
+ */
+describeDbIntegration('support records on a treatment', () => {
+	it('files a comment and an assisting person on the treatment', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedWorld(db);
+			const treatmentId = crypto.randomUUID();
+			await send(db, world, world.manager, treatmentId, ['recordTreatment'], {
+				...visit(),
+				applications: [lineOf(world, world.a, 2, [])],
+			});
+
+			const comment = await db
+				.transaction()
+				.execute((trx) => writeCommentCommand(trx, commentOn(world, treatmentId)));
+			const person = await db
+				.transaction()
+				.execute((trx) => writeAdditionalPersonnelCommand(trx, personOn(world, treatmentId)));
+
+			expect(comment).toMatchObject({ entity_type: 'treatment', entity_id: treatmentId });
+			expect(person).toMatchObject({ entity_type: 'treatment', entity_id: treatmentId });
+		});
+	});
+
+	it('refuses a chemical application id sent as the treatment', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedWorld(db);
+			const treatmentId = crypto.randomUUID();
+			const line = lineOf(world, world.a, 2, []);
+			await send(db, world, world.manager, treatmentId, ['recordTreatment'], {
+				...visit(),
+				applications: [line],
+			});
+
+			for (const write of [
+				async (trx: Parameters<typeof writeCommentCommand>[0]): Promise<unknown> =>
+					writeCommentCommand(trx, commentOn(world, line.id)),
+				async (trx: Parameters<typeof writeCommentCommand>[0]): Promise<unknown> =>
+					writeAdditionalPersonnelCommand(trx, personOn(world, line.id)),
+			]) {
+				const refusal = await capture(() => db.transaction().execute(write));
+				expect(refusal).toBeInstanceOf(CommandError);
+				expect((refusal as CommandError).body).toEqual({
+					error: 'target_not_found',
+					reason: 'That treatment is not available.',
+				});
+			}
+			const filed = await db
+				.selectFrom('comments')
+				.select('id')
+				.where('entity_id', '=', line.id)
+				.execute();
+			expect(filed).toEqual([]);
+		});
+	});
+
+	it('no longer takes a chemical application as a target', () => {
+		expect(() =>
+			addCommentCommand({
+				organizationId: crypto.randomUUID(),
+				actorProfileId: crypto.randomUUID(),
+				commentId: crypto.randomUUID(),
+				target: { type: 'application' as never, id: crypto.randomUUID() },
+				commentText: 'Two basins dry.',
+			}),
+		).toThrow(DomainValidationError);
+	});
+});
+
+function commentOn(world: World, entityId: string) {
+	return addCommentCommand({
+		organizationId: world.organizationId,
+		actorProfileId: world.manager.profileId,
+		commentId: crypto.randomUUID(),
+		target: { type: 'treatment', id: entityId },
+		commentText: 'Two basins dry.',
+	});
+}
+
+function personOn(world: World, entityId: string) {
+	return addAdditionalPersonnelCommand({
+		organizationId: world.organizationId,
+		actorProfileId: world.manager.profileId,
+		additionalPersonnelId: crypto.randomUUID(),
+		target: { type: 'treatment', id: entityId },
+		personnelProfileId: world.collector.profileId,
+	});
+}
 
 // ---------------------------------------------------------------------------
 // The world and the request

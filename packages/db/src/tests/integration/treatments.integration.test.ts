@@ -347,9 +347,23 @@ describeDbIntegration('the treatments schema', () => {
 			const first = await createApplication(db, organizationId, links);
 
 			await expect(createApplication(db, organizationId, links)).rejects.toMatchObject({
-				code: '23505',
-				constraint: 'applications_active_treatment_insecticide_unique',
+				code: '23P01',
+				constraint: 'applications_active_treatment_insecticide_excl',
 			});
+
+			// Deferred: the duplicate is written, and the transaction is refused at
+			// commit, which is what lets two lines trade Insecticides mid-revise.
+			let insertedInside = false;
+			await expect(
+				db.transaction().execute(async (trx) => {
+					await createApplication(trx, organizationId, links);
+					insertedInside = true;
+				}),
+			).rejects.toMatchObject({
+				code: '23P01',
+				constraint: 'applications_active_treatment_insecticide_excl',
+			});
+			expect(insertedInside).toBe(true);
 
 			await db
 				.updateTable('applications')
