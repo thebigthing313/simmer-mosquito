@@ -18,6 +18,7 @@ import {
 	createSourceReductionMethod,
 	createSpecies,
 	createTrap,
+	createTreatment,
 	createUnit,
 } from '../../test-support/row-fixtures.js';
 
@@ -82,6 +83,8 @@ describeDbIntegration('overview', () => {
 				// Six of seven: the pending one has no effective date. The trap
 				// emptied at 23:30 New York on June 30 files under June, not July.
 				collections: [true, [6, 0, 0, null], 0],
+				// Treatments: the two-product job on June 1 counts once, and the
+				// deleted one on June 10 not at all.
 				applications: [true, [2, 2, 0, null], 0],
 				sourceReductions: [true, [1, 0, 0, null], 0],
 				releases: [false, [0, 0, 0, null], 0],
@@ -259,17 +262,32 @@ async function seedJune2025(db: DbExecutor): Promise<string> {
 
 	// Control operations.
 	const insecticideId = await createInsecticide(db, organizationId, unitId);
-	const application = (date: string) =>
-		createApplication(
-			db,
-			organizationId,
-			{ insecticideId, unitId },
-			{ application_date: dateOf(date) },
-		);
-	await application('2025-06-01');
-	await application('2025-06-30');
-	await application('2025-05-02');
-	await application('2025-05-20');
+	const treatment = async (date: string) => {
+		const treatmentId = await createTreatment(db, organizationId, {
+			application_date: dateOf(date),
+		});
+		await createApplication(db, organizationId, { treatmentId, insecticideId, unitId });
+		return treatmentId;
+	};
+	// The June 1 job mixed two products: one Treatment with two lines.
+	const mixed = await treatment('2025-06-01');
+	await createApplication(db, organizationId, {
+		treatmentId: mixed,
+		insecticideId: await createInsecticide(db, organizationId, unitId, {
+			trade_name: 'Second larvicide',
+			registration_number: '99999-2',
+		}),
+		unitId,
+	});
+	await treatment('2025-06-30');
+	await treatment('2025-05-02');
+	await treatment('2025-05-20');
+	const deletedTreatment = await treatment('2025-06-10');
+	await db
+		.updateTable('treatments')
+		.set({ deleted_at: sql`now()` })
+		.where('id', '=', deletedTreatment)
+		.execute();
 	const reductionMethodId = await createSourceReductionMethod(db, organizationId);
 	await createSourceReduction(
 		db,

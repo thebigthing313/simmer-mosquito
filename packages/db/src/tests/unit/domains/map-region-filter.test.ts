@@ -54,7 +54,7 @@ describe('region membership filter', () => {
 			'c',
 		],
 		[
-			'chemical applications',
+			'treatments',
 			async (db: Kysely<SimmerDatabase>) =>
 				MAP_SURFACES.chemical.getTile(db, {
 					z: 12,
@@ -64,8 +64,8 @@ describe('region membership filter', () => {
 					timeZone,
 					filters: { regionIds },
 				}),
-			'a',
-			'a',
+			't',
+			't',
 		],
 	])('scopes the %s read to regions of the same organization', async (_surface, read, geomAlias, organizationAlias) => {
 		const { db, queries } = compilingDatabase();

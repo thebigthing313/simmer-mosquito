@@ -41,6 +41,13 @@ export type { ActivityCategory, ActivityFamily };
  */
 export type PlaceSource = 'habitat' | 'trap' | 'address';
 
+/** One product a Treatment put out: its Insecticide and the amount, in the line's unit. */
+export interface ActivityTreatmentLine {
+	readonly insecticideId: string;
+	readonly amount: number;
+	readonly unitId: string;
+}
+
 /**
  * The half of an activity row that describes the record rather than the
  * person: which record it is, where it is, when its work is dated, and what a
@@ -70,14 +77,25 @@ export interface ActivityRecordRow {
 	 * the thing this surface exists to avoid.
 	 */
 	readonly placeName: string | null;
-	/** The lookup that names the record's kind (type/method/insecticide). */
+	/**
+	 * The lookup that names the record's kind: a habitat type, a collection
+	 * method, or a control action's method. A Treatment's is its method, as
+	 * every other control action's is, because a Treatment can hold several
+	 * products and no one of them names the visit.
+	 */
 	readonly refId: string | null;
-	/** A second lookup where one exists — an application's method, beside its product. */
-	readonly methodRefId: string | null;
-	/** The quantity the record measures: applied, eliminated, released, reached. */
+	/**
+	 * The quantity the record measures: eliminated, released, reached. Null on
+	 * a Treatment, whose amounts are per product, in `lines`.
+	 */
 	readonly amount: number | null;
 	/** The unit `amount` is in. Null where the quantity is a bare count (outreach reach). */
 	readonly unitId: string | null;
+	/**
+	 * A Treatment's products, one per live Chemical Application, oldest first.
+	 * Null on every other category.
+	 */
+	readonly lines: readonly ActivityTreatmentLine[] | null;
 	/**
 	 * One short, category-specific thing more: a density or `dry` for inspections,
 	 * the four-state status for collections, `active`/`inactive`/`inaccessible`
@@ -148,9 +166,10 @@ export interface RecordShape {
 	 */
 	readonly placeSource: string;
 	readonly refId: string;
-	readonly methodRefId?: string;
 	readonly amount?: string;
 	readonly unitId?: string;
+	/** A `jsonb` array of {@link ActivityTreatmentLine}, on the Treatment alone. */
+	readonly lines?: string;
 	readonly detail?: string;
 	readonly stages?: string;
 	readonly context?: string;
@@ -163,6 +182,25 @@ const NO_NUMBER = 'null::numeric';
 const NO_TEXT = 'null::text';
 const NO_FLAG = 'null::boolean';
 const NO_TEXT_ARRAY = 'null::text[]';
+const NO_JSON = 'null::jsonb';
+
+/**
+ * A Treatment's live lines as {@link ActivityTreatmentLine}s, over the
+ * Treatment aliased `r`. Every Treatment holds at least one, so the empty
+ * array is never what a live row reads.
+ */
+const TREATMENT_LINES = `coalesce((
+	select jsonb_agg(
+		jsonb_build_object(
+			'insecticideId', l.insecticide_id,
+			'amount', l.amount_applied,
+			'unitId', l.application_unit_id
+		)
+		order by l.created_at, l.id
+	)
+	from applications l
+	where l.treatment_id = r.id and l.deleted_at is null
+), '[]'::jsonb)`;
 
 /** The habitat, else the address, a record was performed at. */
 const SITE_JOINS =
@@ -281,19 +319,19 @@ export function recordShapes(timeZone: string): {
 			detail: collectionStatusSql('r'),
 			hasBycatch: 'r.has_bycatch',
 		},
+		// The `application` category is the Treatment (ADR 0020): one entry per
+		// visit, so a two-product job is one entry with two lines.
 		application: {
 			category: 'application',
 			family: 'control',
-			table: 'applications',
+			table: 'treatments',
 			joins: SITE_JOINS,
 			date: 'r.application_date',
 			occurredAt: NO_TIMESTAMP,
 			label: NO_TEXT,
 			...SITE_PLACE,
-			refId: 'r.insecticide_id::text',
-			methodRefId: 'r.application_method_id::text',
-			amount: 'r.amount_applied',
-			unitId: 'r.application_unit_id::text',
+			refId: 'r.application_method_id::text',
+			lines: TREATMENT_LINES,
 		},
 		sourceReduction: {
 			category: 'sourceReduction',
@@ -397,9 +435,9 @@ export function recordColumns(
 		${sql.raw(shape.label)} as label,
 		${sql.raw(shape.placeName)} as "placeName",
 		${sql.raw(shape.refId)} as "refId",
-		${sql.raw(shape.methodRefId ?? NO_TEXT)} as "methodRefId",
 		${sql.raw(shape.amount ?? NO_NUMBER)} as amount,
 		${sql.raw(shape.unitId ?? NO_TEXT)} as "unitId",
+		${sql.raw(shape.lines ?? NO_JSON)} as lines,
 		${sql.raw(shape.detail ?? NO_TEXT)} as detail,
 		${sql.raw(shape.stages ?? NO_TEXT)} as stages,
 		${sql.raw(shape.context ?? NO_TEXT)} as context,

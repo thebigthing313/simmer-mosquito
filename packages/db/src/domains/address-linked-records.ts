@@ -50,7 +50,7 @@ export interface LinkedRecordRow extends Omit<ActivityRecordRow, 'category' | 'f
 	 */
 	readonly closedByCategory: ActivityCategory | null;
 	readonly closedById: string | null;
-	/** The closing record's kind lookup, an insecticide or a method. */
+	/** The closing record's method, a Treatment's as every other kind's. */
 	readonly closedByRefId: string | null;
 }
 

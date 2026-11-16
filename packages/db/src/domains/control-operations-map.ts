@@ -42,14 +42,22 @@ function controlExportTail(alias: string, context: MapReadContext): MapExportCol
 	];
 }
 
-// --- chemical applications --------------------------------------------------
+/// --- treatments -------------------------------------------------------------
+//
+// The chemical surface is one feature and one row per Treatment (ADR 0020). The
+// visit is the Treatment's own row; the products are its live Chemical
+// Applications, which ride on the display row as `lines`. The Insecticide
+// filter, the Insecticide grouping and the amount breakdown read lines; the
+// export is one row per line, because a state pesticide-use report is per
+// product.
 
-export interface ApplicationMapFilters {
+export interface TreatmentMapFilters {
+	/** Match Treatments with any live line naming one of these insecticides. */
 	readonly insecticideIds?: readonly string[];
 	readonly applicationMethodIds?: readonly string[];
-	/** Match applications performed by any of these profiles. */
+	/** Match Treatments performed by any of these profiles. */
 	readonly applicatorProfileIds?: readonly string[];
-	/** Match applications falling inside any of these regions. */
+	/** Match Treatments falling inside any of these regions. */
 	readonly regionIds?: readonly string[];
 	/** Inclusive lower bound on `application_date` (`YYYY-MM-DD`). */
 	readonly dateFrom?: string;
@@ -57,169 +65,214 @@ export interface ApplicationMapFilters {
 	readonly dateTo?: string;
 }
 
+/** One live Chemical Application under a Treatment, as its card lists it. */
+export interface SafeTreatmentLine {
+	readonly id: string;
+	readonly insecticideId: string;
+	readonly amountApplied: number;
+	readonly applicationUnitId: string;
+	/** Batch names of the insecticide batches recorded against this line. */
+	readonly batchNames: string[];
+}
+
 /**
- * A server-safe application display row: the geometry projection plus the record
- * fields the explorer list and detail card read. Product, method, and unit names
- * resolve client-side from the eager catalog, so only ids ride here.
+ * A server-safe Treatment display row: the geometry projection, the visit
+ * fields the explorer list and detail card read, and the Treatment's products.
+ * Product, method, and unit names resolve client-side from the eager catalog,
+ * so only ids ride here.
  */
-export interface SafeApplicationDisplayRow {
+export interface SafeTreatmentDisplayRow {
 	readonly id: string;
 	readonly organizationId: string;
 	readonly lat: number;
 	readonly lng: number;
 	readonly geojson: GeoJsonGeometry;
 	readonly geomType: string;
-	readonly insecticideId: string;
 	readonly applicationMethodId: string | null;
 	readonly applicationDate: string;
-	readonly amountApplied: number;
-	readonly applicationUnitId: string;
 	readonly habitatId: string | null;
 	readonly applicatorProfileId: string | null;
 	readonly applicatorName: string | null;
-	/** Batch names of the insecticide batches recorded against this application. */
-	readonly batchNames: string[];
+	/** The live lines, oldest first. A Treatment always holds at least one. */
+	readonly lines: SafeTreatmentLine[];
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
 
-/** A page of application rows plus the full count for the current filters. */
-// Applicator name + batch-name roll-up, kept as one fragment so the paged list
-// and by-id readers can never drift in their joins.
-const applicationDisplayJoins = sql`
-	left join profiles ap on ap.id = a.applicator_profile_id
+/** A Treatment's live lines, over the Treatment aliased `t`. */
+const LIVE_LINES = sql`applications l where l.treatment_id = t.id and l.deleted_at is null`;
+
+// Applicator name + line roll-up, kept as one fragment so the paged list and
+// by-id readers can never drift in their joins.
+const treatmentDisplayJoins = sql`
+	left join profiles ap on ap.id = t.applicator_profile_id
 	left join lateral (
-		select json_agg(ib.batch_name order by ib.batch_name) as batch_names
-		from application_batches abx
-		join insecticide_batches ib on ib.id = abx.insecticide_batch_id
-		where abx.application_id = a.id
-			and abx.deleted_at is null
-			and ib.deleted_at is null
-	) batches on true
+		select json_agg(
+			json_build_object(
+				'id', l.id,
+				'insecticideId', l.insecticide_id,
+				'amountApplied', l.amount_applied,
+				'applicationUnitId', l.application_unit_id,
+				'batchNames', coalesce((
+					select json_agg(ib.batch_name order by ib.batch_name)
+					from application_batches abx
+					join insecticide_batches ib on ib.id = abx.insecticide_batch_id
+					where abx.application_id = l.id
+						and abx.deleted_at is null
+						and ib.deleted_at is null
+				), '[]'::json)
+			)
+			order by l.created_at, l.id
+		) as lines
+		from ${LIVE_LINES}
+	) treatment_lines on true
 `;
 
-const applicationDisplayColumns: MapDisplayColumns<SafeApplicationDisplayRow> = {
-	id: sql`a.id`,
-	organizationId: sql`a.organization_id`,
-	lat: sql`a.lat`,
-	lng: sql`a.lng`,
-	geojson: sql`a.geojson`,
-	geomType: sql`a.geom_type`,
-	insecticideId: sql`a.insecticide_id`,
-	applicationMethodId: sql`a.application_method_id`,
-	applicationDate: sql`a.application_date::text`,
-	amountApplied: sql`a.amount_applied`,
-	applicationUnitId: sql`a.application_unit_id`,
-	habitatId: sql`a.habitat_id`,
-	applicatorProfileId: sql`a.applicator_profile_id`,
+const treatmentDisplayColumns: MapDisplayColumns<SafeTreatmentDisplayRow> = {
+	id: sql`t.id`,
+	organizationId: sql`t.organization_id`,
+	lat: sql`t.lat`,
+	lng: sql`t.lng`,
+	geojson: sql`t.geojson`,
+	geomType: sql`t.geom_type`,
+	applicationMethodId: sql`t.application_method_id`,
+	applicationDate: sql`t.application_date::text`,
+	habitatId: sql`t.habitat_id`,
+	applicatorProfileId: sql`t.applicator_profile_id`,
 	applicatorName: sql`ap.display_name`,
-	batchNames: sql`coalesce(batches.batch_names, '[]'::json)`,
-	createdAt: sql`a.created_at`,
-	updatedAt: sql`a.updated_at`,
+	lines: sql`coalesce(treatment_lines.lines, '[]'::json)`,
+	createdAt: sql`t.created_at`,
+	updatedAt: sql`t.updated_at`,
 };
 
 /**
- * An application as a spreadsheet row, over the display join's applicator
- * (`ap`), with its batches by name. The amount is the row's own, in the row's own unit, and
- * never summed: gallons and ounces of one product are two rows.
+ * A Treatment as spreadsheet rows, one per live line, over the display join's
+ * applicator (`ap`). The visit columns repeat on every product row, and the
+ * Treatment ID says which rows are one visit. The amount is the line's own, in
+ * the line's own unit, and never summed: gallons and ounces of one product are
+ * two rows.
  */
-const applicationExport: MapSurfaceExport = {
+const treatmentExport: MapSurfaceExport = {
+	rows: {
+		join: sql`join applications l on l.treatment_id = t.id and l.deleted_at is null`,
+		orderBy: sql`l.created_at, l.id`,
+	},
 	joins: sql`
-		left join insecticides ins on ins.id = a.insecticide_id
-		left join application_methods am on am.id = a.application_method_id
-		left join units au on au.id = a.application_unit_id
-		left join habitats hb on hb.id = a.habitat_id
-		left join addresses ad on ad.id = a.address_id
+		left join insecticides ins on ins.id = l.insecticide_id
+		left join application_methods am on am.id = t.application_method_id
+		left join units au on au.id = l.application_unit_id
+		left join habitats hb on hb.id = t.habitat_id
+		left join addresses ad on ad.id = t.address_id
 		left join lateral (
 			select string_agg(ib.batch_name, ', ' order by ib.batch_name) as names
 			from application_batches abx
 			join insecticide_batches ib on ib.id = abx.insecticide_batch_id
-			where abx.application_id = a.id
+			where abx.application_id = l.id
 				and abx.deleted_at is null
 				and ib.deleted_at is null
 		) batch_list on true
 	`,
 	columns: (context) => [
-		{ header: 'Application date', value: sql`a.application_date::text` },
+		{ header: 'Treatment ID', value: sql`t.id::text` },
+		{ header: 'Application date', value: sql`t.application_date::text` },
 		{ header: 'Insecticide', value: sql`ins.trade_name` },
 		{ header: 'Active ingredient', value: sql`ins.active_ingredient` },
 		{ header: 'EPA registration', value: sql`ins.registration_number` },
 		{ header: 'Method', value: sql`am.name` },
-		{ header: 'Amount', value: sql`a.amount_applied` },
+		{ header: 'Amount', value: sql`l.amount_applied` },
 		{ header: 'Unit', value: sql`au.unit_name` },
 		{ header: 'Batches', value: sql`batch_list.names` },
 		{ header: 'Applicator', value: sql`ap.display_name` },
 		{ header: 'Habitat', value: sql`hb.habitat_name` },
 		{ header: 'Address', value: sql`ad.display_name` },
-		...controlExportTail('a', context),
+		...controlExportTail('t', context),
 	],
 };
 
 /**
- * The applications map surface, with the layer it stamps into its tiles handed in by
- * the register it is declared in.
+ * The Treatments map surface, with the layer it stamps into its tiles handed
+ * in by the register it is declared in.
  */
-export function applicationSurface(
+export function treatmentSurface(
 	layer: MapTilesetLayer,
-): MapRecordSurfaceReaders<ApplicationMapFilters, SafeApplicationDisplayRow> {
-	return mapRecordSurface<ApplicationMapFilters, SafeApplicationDisplayRow>({
+): MapRecordSurfaceReaders<TreatmentMapFilters, SafeTreatmentDisplayRow> {
+	return mapRecordSurface<TreatmentMapFilters, SafeTreatmentDisplayRow>({
 		layer,
-		from: sql`applications a`,
-		alias: 'a',
-		geom: sql`a.geom`,
-		properties: [sql`a.id`],
-		filterWhere: applicationFilterWhere,
-		// What the Chemical Applications rail counts by over 100 in view (#1374),
-		// each one a filter the rail already has, so a group is a button that
-		// applies it.
+		from: sql`treatments t`,
+		alias: 't',
+		geom: sql`t.geom`,
+		properties: [sql`t.id`],
+		filterWhere: treatmentFilterWhere,
+		// What the Chemical rail counts by over 100 in view (#1374), each one a
+		// filter the rail already has, so a group is a button that applies it.
+		// A Treatment counts once under each product it holds, so the
+		// insecticide counts can add up to more than the total.
 		groupings: () => ({
-			insecticideId: sql`a.insecticide_id`,
-			applicationMethodId: sql`a.application_method_id`,
-			applicatorProfileId: sql`a.applicator_profile_id`,
+			insecticideId: {
+				each: sql<readonly string[]>`array(select distinct l.insecticide_id from ${LIVE_LINES})`,
+			},
+			applicationMethodId: sql`t.application_method_id`,
+			applicatorProfileId: sql`t.applicator_profile_id`,
 		}),
 		// An amount only adds up within one unit, so it is summed per
-		// insecticide and per unit rather than across the box.
+		// insecticide and per unit rather than across the box, line by line.
 		breakdowns: () => ({
 			amountApplied: {
-				by: { insecticideId: sql`a.insecticide_id`, unitId: sql`a.application_unit_id` },
-				sum: sql<number>`a.amount_applied`,
+				each: {
+					by: {
+						insecticideId: sql<readonly string[]>`array(
+							select l.insecticide_id from ${LIVE_LINES} order by l.id
+						)`,
+						unitId: sql<readonly string[]>`array(
+							select l.application_unit_id from ${LIVE_LINES} order by l.id
+						)`,
+					},
+					sum: sql<readonly number[]>`array(
+						select l.amount_applied from ${LIVE_LINES} order by l.id
+					)`,
+				},
 			},
 		}),
 		display: {
-			columns: applicationDisplayColumns,
-			joins: applicationDisplayJoins,
-			orderBy: sql`a.application_date desc, a.created_at desc, a.id`,
+			columns: treatmentDisplayColumns,
+			joins: treatmentDisplayJoins,
+			orderBy: sql`t.application_date desc, t.created_at desc, t.id`,
 		},
-		export: applicationExport,
+		export: treatmentExport,
 	});
 }
 
-function applicationFilterWhere(filters: ApplicationMapFilters | undefined): RawBuilder<boolean>[] {
+function treatmentFilterWhere(filters: TreatmentMapFilters | undefined): RawBuilder<boolean>[] {
 	const clauses: RawBuilder<boolean>[] = [];
 	if (filters?.insecticideIds !== undefined && filters.insecticideIds.length > 0) {
-		clauses.push(sql<boolean>`a.insecticide_id = any(${[...filters.insecticideIds]}::uuid[])`);
+		clauses.push(
+			sql<boolean>`exists (
+				select 1 from ${LIVE_LINES}
+					and l.insecticide_id = any(${[...filters.insecticideIds]}::uuid[])
+			)`,
+		);
 	}
 	if (filters?.applicationMethodIds !== undefined && filters.applicationMethodIds.length > 0) {
 		clauses.push(
-			sql<boolean>`a.application_method_id = any(${[...filters.applicationMethodIds]}::uuid[])`,
+			sql<boolean>`t.application_method_id = any(${[...filters.applicationMethodIds]}::uuid[])`,
 		);
 	}
 	if (filters?.applicatorProfileIds !== undefined && filters.applicatorProfileIds.length > 0) {
 		clauses.push(
-			sql<boolean>`a.applicator_profile_id = any(${[...filters.applicatorProfileIds]}::uuid[])`,
+			sql<boolean>`t.applicator_profile_id = any(${[...filters.applicatorProfileIds]}::uuid[])`,
 		);
 	}
 	if (filters?.dateFrom !== undefined) {
-		clauses.push(sql<boolean>`a.application_date >= ${filters.dateFrom}`);
+		clauses.push(sql<boolean>`t.application_date >= ${filters.dateFrom}`);
 	}
 	if (filters?.dateTo !== undefined) {
-		clauses.push(sql<boolean>`a.application_date <= ${filters.dateTo}`);
+		clauses.push(sql<boolean>`t.application_date <= ${filters.dateTo}`);
 	}
 	clauses.push(
 		...regionMembershipClauses({
-			geom: sql`a.geom`,
-			geomType: sql`a.geom_type`,
-			organizationId: sql`a.organization_id`,
+			geom: sql`t.geom`,
+			geomType: sql`t.geom_type`,
+			organizationId: sql`t.organization_id`,
 			regionIds: filters?.regionIds,
 		}),
 	);

@@ -142,12 +142,14 @@ function typeSource(type: OverviewRecordType, timeZone: string): TypeSource {
 					sql<boolean>`c.organization_id = ${organizationId} and c.deleted_at is null and ${effectiveDate} is not null`,
 			};
 		}
+		// The key predates ADR 0020. The count is Treatments, the visits, so a
+		// two-product job counts once; a line is a product, not a job.
 		case 'applications':
 			return {
-				from: sql`applications a`,
-				date: sql`a.application_date`,
+				from: sql`treatments t`,
+				date: sql`t.application_date`,
 				live: (organizationId) =>
-					sql<boolean>`a.organization_id = ${organizationId} and a.deleted_at is null`,
+					sql<boolean>`t.organization_id = ${organizationId} and t.deleted_at is null`,
 			};
 		case 'sourceReductions':
 			return {

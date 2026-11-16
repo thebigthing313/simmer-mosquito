@@ -395,9 +395,9 @@ const clusteringSurfaces: readonly ClusteringSurface[] = [
 		tile: filteredTile(MAP_SURFACES.samples, { nonMosquitoOnly: true }),
 	},
 	{
-		name: 'application',
+		name: 'treatment',
 		layer: 'chemical',
-		table: 'applications',
+		table: 'treatments',
 		companion: { application_date: dayBefore },
 		kept: 'inside',
 		tile: filteredTile(MAP_SURFACES.chemical, { dateFrom: seedDay }),

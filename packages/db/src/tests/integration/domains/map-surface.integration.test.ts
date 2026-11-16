@@ -4,11 +4,11 @@ import { PbfReader } from 'pbf';
 import { expect, it } from 'vitest';
 import type { CollectionMapFilters, TrapMapFilters } from '../../../domains/adult-surveillance.js';
 import {
-	type ApplicationMapFilters,
 	type BiocontrolMapFilters,
 	getRequestedControlActionDisplayRowById,
 	type OutreachMapFilters,
 	type SourceReductionMapFilters,
+	type TreatmentMapFilters,
 } from '../../../domains/control-operations-map.js';
 import type { AddressMvtTileFilters } from '../../../domains/foundation-geography.js';
 import type { HabitatMvtTileFilters } from '../../../domains/habitats.js';
@@ -155,7 +155,7 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		byId: MAP_SURFACES.collections.getById,
 	},
 	{
-		name: 'application',
+		name: 'treatment',
 		layer: 'chemical',
 		tile: MAP_SURFACES.chemical.getTile,
 		extent: MAP_SURFACES.chemical.getExtent,
@@ -1091,7 +1091,7 @@ function featureIds(tile: Uint8Array | undefined, layerName: string): string[] {
 // must hold is that they count the same set: the summary's total is compared
 // with the page's under every filter a grouping button writes, and each
 // grouping's counts add up to that total. The world is the untreated suite's,
-// so the untreated grouping is read against the same eight habitats that suite
+// so the untreated grouping is read against the same ten habitats that suite
 // asserts by id.
 describeDbIntegration('habitat summary against Postgres', () => {
 	it('counts the habitats the page counts, grouped by each declared grouping', async () => {
@@ -2108,19 +2108,21 @@ async function moveCollectionsToSecondMethod(
 	return { seededMethodId, lightMethodId };
 }
 
-// Over 100 chemical applications in view the Chemical Applications rail draws
-// the same summary (#1374). The seeded world's one live application in the box,
-// 2 gallons of Larvicide A by backpack, is joined by five more across a second
-// insecticide, a second method, a second applicator and a second unit, one of
-// them dated in January. The amount applied is added up per insecticide and per
-// unit and never across units, so one insecticide recorded in gallons and in
-// ounces is two sums.
-describeDbIntegration('chemical application summary against Postgres', () => {
-	it('counts the applications the page counts, and sums the amount per insecticide and unit', async () => {
+// Over 100 Treatments in view the Chemical rail draws the same summary
+// (#1374). The seeded world's one live Treatment in the box, 2 gallons of
+// Larvicide A by backpack, is joined by five more across a second insecticide,
+// a second method, a second applicator and a second unit, one of them dated in
+// January, and one holding two products. A Treatment counts once in the total,
+// the method and the applicator, and once under each product it holds; the
+// amount applied is added up line by line, per insecticide and per unit, and
+// never across units, so one insecticide recorded in gallons and in ounces is
+// two sums (ADR 0020).
+describeDbIntegration('chemical summary against Postgres', () => {
+	it('counts the Treatments the page counts, and sums the amount per insecticide and unit', async () => {
 		await withTestDb(async ({ db }) => {
 			await seedMapSurfaces(db);
-			const ids = await seedApplicationVariety(db);
-			const read = (filters: ApplicationMapFilters) =>
+			const ids = await seedTreatmentVariety(db);
+			const read = (filters: TreatmentMapFilters) =>
 				summaryAndPage(db, MAP_SURFACES.chemical, filters);
 
 			const all = await read({});
@@ -2128,8 +2130,9 @@ describeDbIntegration('chemical application summary against Postgres', () => {
 			expect(all.summary).toEqual({
 				total: 6,
 				groups: {
+					// Seven across six Treatments: the two-product one is under both.
 					insecticideId: [
-						{ value: ids.larvicideId, count: 4 },
+						{ value: ids.larvicideId, count: 5 },
 						{ value: ids.adulticideId, count: 2 },
 					],
 					applicationMethodId: [
@@ -2146,14 +2149,14 @@ describeDbIntegration('chemical application summary against Postgres', () => {
 				breakdowns: {
 					amountApplied: [
 						{ by: { insecticideId: ids.larvicideId, unitId: ids.gallonId }, count: 3, sum: 15 },
+						{ by: { insecticideId: ids.larvicideId, unitId: ids.ounceId }, count: 2, sum: 6 },
 						{ by: { insecticideId: ids.adulticideId, unitId: ids.gallonId }, count: 2, sum: 2 },
-						{ by: { insecticideId: ids.larvicideId, unitId: ids.ounceId }, count: 1, sum: 4 },
 					],
 				},
 			});
 
 			// Each group's count is the total of the page its button narrows to.
-			const narrowed: readonly (readonly [string, string, ApplicationMapFilters])[] = [
+			const narrowed: readonly (readonly [string, string, TreatmentMapFilters])[] = [
 				['insecticideId', ids.larvicideId, { insecticideIds: [ids.larvicideId] }],
 				['insecticideId', ids.adulticideId, { insecticideIds: [ids.adulticideId] }],
 				['applicationMethodId', ids.truckMethodId, { applicationMethodIds: [ids.truckMethodId] }],
@@ -2182,15 +2185,15 @@ describeDbIntegration('chemical application summary against Postgres', () => {
 				);
 			});
 
-			// March alone drops the January application, and the sums follow the page.
+			// March alone drops the January Treatment, and the sums follow the page.
 			const march = await read({ dateFrom: '2026-03-01', dateTo: '2026-03-31' });
 			expect(march.pageTotal).toBe(5);
 			expect(march.summary.total).toBe(5);
 			expect(march.summary.breakdowns).toEqual({
 				amountApplied: [
+					{ by: { insecticideId: ids.larvicideId, unitId: ids.ounceId }, count: 2, sum: 6 },
 					{ by: { insecticideId: ids.larvicideId, unitId: ids.gallonId }, count: 2, sum: 5 },
 					{ by: { insecticideId: ids.adulticideId, unitId: ids.gallonId }, count: 2, sum: 2 },
-					{ by: { insecticideId: ids.larvicideId, unitId: ids.ounceId }, count: 1, sum: 4 },
 				],
 			});
 
@@ -2202,15 +2205,114 @@ describeDbIntegration('chemical application summary against Postgres', () => {
 			});
 		});
 	});
+
+	// The Insecticide filter is any live line naming the product. The
+	// adulticide Treatment whose larvicide line was deleted is not a larvicide
+	// Treatment, and the two-product Treatment answers to either product.
+	it('filters by a live line naming the insecticide', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = await seedTreatmentVariety(db);
+			const listed = (filters: TreatmentMapFilters) =>
+				MAP_SURFACES.chemical.listByBounds(db, {
+					organizationId: mapSurfaceOrganizationIds.own,
+					timeZone: mapSurfaceTimeZone,
+					bounds: mapSurfacePlace.bounds,
+					filters,
+					...page,
+				});
+
+			const larvicide = await listed({ insecticideIds: [ids.larvicideId] });
+			const adulticide = await listed({ insecticideIds: [ids.adulticideId] });
+
+			expect(larvicide.rows.map((row) => row.id)).toContain(ids.twoProductTreatmentId);
+			expect(larvicide.rows.map((row) => row.id)).not.toContain(ids.droppedLineTreatmentId);
+			expect(adulticide.rows.map((row) => row.id).sort()).toEqual(
+				[ids.twoProductTreatmentId, ids.droppedLineTreatmentId].sort(),
+			);
+		});
+	});
+
+	// One feature and one row per Treatment, with its products on the row; the
+	// export is one row per product, the visit repeated and the Treatment named
+	// on each, so the file runs one row past the page here.
+	it('draws a two-product Treatment once and exports it as two rows', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = await seedTreatmentVariety(db);
+			const input = {
+				organizationId: mapSurfaceOrganizationIds.own,
+				timeZone: mapSurfaceTimeZone,
+				bounds: mapSurfacePlace.bounds,
+				filters: {},
+			};
+
+			const listed = await MAP_SURFACES.chemical.listByBounds(db, { ...input, ...page });
+			expect(listed.total).toBe(6);
+			expect(listed.rows.filter((row) => row.id === ids.twoProductTreatmentId)).toHaveLength(1);
+
+			const row = await MAP_SURFACES.chemical.getById(db, {
+				organizationId: mapSurfaceOrganizationIds.own,
+				timeZone: mapSurfaceTimeZone,
+				id: ids.twoProductTreatmentId,
+			});
+			expect(row?.applicationMethodId).toBe(ids.truckMethodId);
+			expect(row?.lines).toHaveLength(2);
+			expect(row?.lines).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						insecticideId: ids.adulticideId,
+						amountApplied: 1.5,
+						applicationUnitId: ids.gallonId,
+						batchNames: [],
+					}),
+					expect.objectContaining({
+						insecticideId: ids.larvicideId,
+						amountApplied: 2,
+						applicationUnitId: ids.ounceId,
+					}),
+				]),
+			);
+			// The deleted line is on no row.
+			const dropped = await MAP_SURFACES.chemical.getById(db, {
+				organizationId: mapSurfaceOrganizationIds.own,
+				timeZone: mapSurfaceTimeZone,
+				id: ids.droppedLineTreatmentId,
+			});
+			expect(dropped?.lines.map((line) => line.insecticideId)).toEqual([ids.adulticideId]);
+
+			const exported = await MAP_SURFACES.chemical.exportByBounds(db, input);
+			if (exported.kind !== 'rows') {
+				throw new Error('expected rows');
+			}
+			expect(exported.headers[0]).toBe('Treatment ID');
+			expect(exported.rows).toHaveLength(7);
+			const column = (header: string) => exported.headers.indexOf(header);
+			const twoProduct = exported.rows.filter(
+				(cells) => cells[column('Treatment ID')] === ids.twoProductTreatmentId,
+			);
+			expect(twoProduct).toHaveLength(2);
+			expect(twoProduct.map((cells) => cells[column('Insecticide')]).sort()).toEqual([
+				'Adulticide B',
+				'Larvicide A',
+			]);
+			for (const cells of twoProduct) {
+				expect(cells[column('Application date')]).toBe('2026-03-15');
+				expect(cells[column('Method')]).toBe('Truck ULV');
+				expect(cells[column('Applicator')]).toBe('Second Applicator');
+			}
+		});
+	});
 });
 
 /**
- * Five more live applications in the box beside the seeded one: a second
+ * Five more live Treatments in the box beside the seeded one: a second
  * insecticide, a truck method, a second applicator and a unit in ounces, with
- * one application carrying no method, one no applicator, and one dated in
- * January.
+ * one Treatment carrying no method, one no applicator, and one dated in
+ * January. One holds two products, adulticide in gallons and larvicide in
+ * ounces, and one holds an adulticide line beside a deleted larvicide line.
  */
-async function seedApplicationVariety(db: Kysely<SimmerDatabase>): Promise<{
+async function seedTreatmentVariety(db: Kysely<SimmerDatabase>): Promise<{
 	readonly larvicideId: string;
 	readonly adulticideId: string;
 	readonly backpackMethodId: string;
@@ -2219,16 +2321,19 @@ async function seedApplicationVariety(db: Kysely<SimmerDatabase>): Promise<{
 	readonly secondApplicatorId: string;
 	readonly gallonId: string;
 	readonly ounceId: string;
+	readonly twoProductTreatmentId: string;
+	readonly droppedLineTreatmentId: string;
 }> {
 	const inside = await db
-		.selectFrom('applications')
+		.selectFrom('treatments as t')
+		.innerJoin('applications as l', 'l.treatment_id', 't.id')
 		.select([
-			'insecticide_id',
-			'application_method_id',
-			'applicator_profile_id',
-			'application_unit_id',
+			'l.insecticide_id',
+			't.application_method_id',
+			't.applicator_profile_id',
+			'l.application_unit_id',
 		])
-		.where('id', '=', mapSurfaceRowIds.application.inside)
+		.where('t.id', '=', mapSurfaceRowIds.treatment.inside)
 		.executeTakeFirstOrThrow();
 	const larvicideId = String(inside.insecticide_id);
 	const backpackMethodId = String(inside.application_method_id);
@@ -2285,58 +2390,68 @@ async function seedApplicationVariety(db: Kysely<SimmerDatabase>): Promise<{
 	};
 
 	// The date goes in as text, since a `Date` is sent in the machine's own zone.
-	const base = {
+	const geom = sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`;
+	const march = sql<Date>`date '2026-03-15'`;
+	const treatments = [
+		{ method: ids.backpackMethodId, applicator: ids.seededApplicatorId, date: march },
+		{ method: ids.truckMethodId, applicator: null, date: march },
+		{ method: ids.truckMethodId, applicator: ids.secondApplicatorId, date: march },
+		{ method: null, applicator: ids.secondApplicatorId, date: march },
+		{
+			method: ids.truckMethodId,
+			applicator: ids.secondApplicatorId,
+			date: sql<Date>`date '2026-01-10'`,
+		},
+	];
+	const treatmentIds: string[] = [];
+	for (const treatment of treatments) {
+		const row = await db
+			.insertInto('treatments')
+			.values({
+				organization_id: organizationId,
+				geom,
+				application_method_id: treatment.method,
+				applicator_profile_id: treatment.applicator,
+				application_date: treatment.date,
+			})
+			.returning('id')
+			.executeTakeFirstOrThrow();
+		treatmentIds.push(String(row.id));
+	}
+	const [backpack, noApplicator, twoProduct, noMethod, january] = treatmentIds as [
+		string,
+		string,
+		string,
+		string,
+		string,
+	];
+	const line = (
+		treatmentId: string,
+		insecticideId: string,
+		amount: number,
+		unitId: string,
+		deleted = false,
+	) => ({
 		organization_id: organizationId,
-		geom: sql<string>`st_setsrid(st_makepoint(${mapSurfacePlace.inside.lng}, ${mapSurfacePlace.inside.lat}), 4326)`,
-		application_date: sql<Date>`date '2026-03-15'`,
-	};
+		treatment_id: treatmentId,
+		insecticide_id: insecticideId,
+		amount_applied: amount,
+		application_unit_id: unitId,
+		deleted_at: deleted ? sql<Date>`now()` : null,
+	});
 	await db
 		.insertInto('applications')
 		.values([
-			{
-				...base,
-				insecticide_id: ids.larvicideId,
-				application_method_id: ids.backpackMethodId,
-				applicator_profile_id: ids.seededApplicatorId,
-				amount_applied: 3,
-				application_unit_id: ids.gallonId,
-			},
-			{
-				...base,
-				insecticide_id: ids.larvicideId,
-				application_method_id: ids.truckMethodId,
-				applicator_profile_id: null,
-				amount_applied: 4,
-				application_unit_id: ids.ounceId,
-			},
-			{
-				...base,
-				insecticide_id: ids.adulticideId,
-				application_method_id: ids.truckMethodId,
-				applicator_profile_id: ids.secondApplicatorId,
-				amount_applied: 1.5,
-				application_unit_id: ids.gallonId,
-			},
-			{
-				...base,
-				insecticide_id: ids.adulticideId,
-				application_method_id: null,
-				applicator_profile_id: ids.secondApplicatorId,
-				amount_applied: 0.5,
-				application_unit_id: ids.gallonId,
-			},
-			{
-				...base,
-				application_date: sql<Date>`date '2026-01-10'`,
-				insecticide_id: ids.larvicideId,
-				application_method_id: ids.truckMethodId,
-				applicator_profile_id: ids.secondApplicatorId,
-				amount_applied: 10,
-				application_unit_id: ids.gallonId,
-			},
+			line(backpack, ids.larvicideId, 3, ids.gallonId),
+			line(noApplicator, ids.larvicideId, 4, ids.ounceId),
+			line(twoProduct, ids.adulticideId, 1.5, ids.gallonId),
+			line(twoProduct, ids.larvicideId, 2, ids.ounceId),
+			line(noMethod, ids.adulticideId, 0.5, ids.gallonId),
+			line(noMethod, ids.larvicideId, 9, ids.gallonId, true),
+			line(january, ids.larvicideId, 10, ids.gallonId),
 		])
 		.execute();
-	return ids;
+	return { ...ids, twoProductTreatmentId: twoProduct, droppedLineTreatmentId: noMethod };
 }
 
 // Over 100 source reductions in view the Source Reductions rail draws the same
