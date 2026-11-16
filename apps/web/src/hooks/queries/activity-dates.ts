@@ -25,12 +25,12 @@
 
 import type { OverviewRecordType } from '@simmer-mosquito/domain';
 import type {
-	Application,
 	BiocontrolAction,
 	Inspection,
 	OutreachAction,
 	ServiceRequest,
 	SourceReduction,
+	Treatment,
 } from '@simmer-mosquito/sync';
 import type { Ref } from '@tanstack/react-db';
 import { collectedSince, collectionEffectiveDate } from './collection-day';
@@ -52,10 +52,14 @@ export const ACTIVITY_DATES = {
 	/** Read through the parent inspection: a sample has no date of its own. */
 	samples: { parentColumn: inspectionDate },
 	collections: { since: collectedSince, day: collectionEffectiveDate },
+	/**
+	 * The `applications` type counts Treatments, on the Treatment's date: a
+	 * line has no date of its own (ADR 0020), so a two-product job counts once.
+	 */
 	applications: {
-		column: <TRef extends HasColumn<Application, 'application_date'>>(
-			application: TRef,
-		): TRef['application_date'] => application.application_date,
+		column: <TRef extends HasColumn<Treatment, 'application_date'>>(
+			treatment: TRef,
+		): TRef['application_date'] => treatment.application_date,
 	},
 	sourceReductions: {
 		column: <TRef extends HasColumn<SourceReduction, 'source_reduction_date'>>(

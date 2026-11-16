@@ -136,7 +136,7 @@ describe('the chemical applications explorer with applications in view', () => {
 			// The method the address bar holds is drawn as the selected group.
 			const method = await screen.findByRole(
 				'button',
-				{ name: 'Unknown method, 240 chemical applications' },
+				{ name: 'Unknown method, 240 treatments' },
 				SUMMARY_WAIT,
 			);
 			expect(method.getAttribute('aria-pressed')).toBe('true');

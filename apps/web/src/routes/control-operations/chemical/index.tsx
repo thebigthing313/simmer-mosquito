@@ -117,7 +117,7 @@ function ApplicationsExplorerRoute() {
 						declarations={applicationFilterDeclarations}
 						figures={(data) => applicationSummaryFigures(data, { insecticideNameById, unitById })}
 						order={['insecticides', 'methods', 'people']}
-						recordType="application"
+						recordType="treatment"
 						state={summary}
 					/>
 				) : undefined,

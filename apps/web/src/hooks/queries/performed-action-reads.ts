@@ -1,10 +1,11 @@
 /**
  * How a read joins and projects each performed control action.
  *
- * Not a hook, so not a `use-` file. A chemical application, a source
- * reduction, a biocontrol release and an outreach action each name a method
- * catalog (an application names its product as well), a unit (outreach has
- * none) and whoever performed it, each on a foreign key of its own. About ten
+ * Not a hook, so not a `use-` file. A Treatment, a source reduction, a
+ * biocontrol release and an outreach action each name a method catalog and
+ * whoever performed it, and the last three a unit (outreach has none), each on
+ * a foreign key of its own. A Treatment's products and amounts are on its
+ * lines, the `applications` rows, which carry the product and the unit. About ten
  * read hooks used to write those joins and the columns behind them out per
  * type (#1428). This module is the one place that knows them, and a hook
  * composes what it needs into its own query.
@@ -50,6 +51,7 @@ import type {
 	Profile,
 	SourceReduction,
 	SourceReductionMethod,
+	Treatment,
 	Unit,
 } from '@simmer-mosquito/sync';
 import { eq, type IR } from '@tanstack/react-db';
@@ -59,47 +61,67 @@ import { ACTIVITY_DATES, type HasColumn } from './activity-dates';
 type Predicate = IR.BasicExpression<boolean>;
 
 export const PERFORMED_ACTIONS = {
-	applications: {
+	/**
+	 * The visit: when, by whom and how. A Treatment names no product, because it
+	 * can hold several (ADR 0020); its products are `treatmentLines`.
+	 */
+	treatments: {
 		date: ACTIVITY_DATES.applications.column,
-		joinProduct: (
-			application: HasColumn<Application, 'insecticide_id'>,
-			product: HasColumn<Insecticide, 'id'>,
-		): Predicate => eq(application.insecticide_id, product.id),
 		joinMethod: (
-			application: HasColumn<Application, 'application_method_id'>,
+			treatment: HasColumn<Treatment, 'application_method_id'>,
 			method: HasColumn<ApplicationMethod, 'id'>,
-		): Predicate => eq(application.application_method_id, method.id),
-		joinUnit: (
-			application: HasColumn<Application, 'application_unit_id'>,
-			unit: HasColumn<Unit, 'id'>,
-		): Predicate => eq(application.application_unit_id, unit.id),
+		): Predicate => eq(treatment.application_method_id, method.id),
 		joinPerformer: (
-			application: HasColumn<Application, 'applicator_profile_id'>,
+			treatment: HasColumn<Treatment, 'applicator_profile_id'>,
 			performer: HasColumn<Profile, 'id'>,
-		): Predicate => eq(application.applicator_profile_id, performer.id),
+		): Predicate => eq(treatment.applicator_profile_id, performer.id),
+		measured: <
+			TRef extends HasColumn<Treatment, 'application_method_id' | 'applicator_profile_id'>,
+		>(
+			treatment: TRef,
+		): {
+			methodId: TRef['application_method_id'];
+			performerProfileId: TRef['applicator_profile_id'];
+		} => ({
+			methodId: treatment.application_method_id,
+			performerProfileId: treatment.applicator_profile_id,
+		}),
+	},
+	/**
+	 * A Treatment's lines, one Chemical Application per Insecticide. A line has
+	 * no date, place or person, so it is read only as a correlated include from
+	 * its Treatment, and `of` is that include's `where`. Nothing filters or sorts
+	 * lines by a Treatment column: that drops the on-demand pushdown and loads
+	 * every line in the Organization. `treatment-lines.ts` is the include.
+	 */
+	treatmentLines: {
+		of: (
+			line: HasColumn<Application, 'treatment_id'>,
+			treatment: HasColumn<Treatment, 'id'>,
+		): Predicate => eq(line.treatment_id, treatment.id),
+		joinProduct: (
+			line: HasColumn<Application, 'insecticide_id'>,
+			product: HasColumn<Insecticide, 'id'>,
+		): Predicate => eq(line.insecticide_id, product.id),
+		joinUnit: (
+			line: HasColumn<Application, 'application_unit_id'>,
+			unit: HasColumn<Unit, 'id'>,
+		): Predicate => eq(line.application_unit_id, unit.id),
 		measured: <
 			TRef extends HasColumn<
 				Application,
-				| 'insecticide_id'
-				| 'application_method_id'
-				| 'applicator_profile_id'
-				| 'amount_applied'
-				| 'application_unit_id'
+				'insecticide_id' | 'amount_applied' | 'application_unit_id'
 			>,
 		>(
-			application: TRef,
+			line: TRef,
 		): {
 			productId: TRef['insecticide_id'];
-			methodId: TRef['application_method_id'];
-			performerProfileId: TRef['applicator_profile_id'];
 			amount: TRef['amount_applied'];
 			unitId: TRef['application_unit_id'];
 		} => ({
-			productId: application.insecticide_id,
-			methodId: application.application_method_id,
-			performerProfileId: application.applicator_profile_id,
-			amount: application.amount_applied,
-			unitId: application.application_unit_id,
+			productId: line.insecticide_id,
+			amount: line.amount_applied,
+			unitId: line.application_unit_id,
 		}),
 	},
 	sourceReductions: {

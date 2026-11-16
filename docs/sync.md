@@ -26,14 +26,14 @@ is a plan rather than a description.
 - Eager and on-demand are declared per app, not per package: each module under
   `apps/web/src/lib/collections` declares its own `syncMode`, and the source
   installed at startup passes it to the collection factory. The matrix below is
-  what those fifty-three modules say, so a table that changes mode changes it
+  what those fifty-four modules say, so a table that changes mode changes it
   there and this table follows. `collection-modules.test.ts` holds the two to
   each other, so the matrix is checked rather than maintained by hand.
 - Web is online-only in v1. Mobile uses automatic scoped offline persistence.
 
 ## Web matrix
 
-Twenty-four eager, twenty-nine on-demand.
+Twenty-four eager, thirty on-demand.
 
 | Area | Eager | On-demand | Excluded |
 | --- | --- | --- | --- |
@@ -42,7 +42,7 @@ Twenty-four eager, twenty-nine on-demand.
 | Adult surveillance | `traps` | `collections`, `collection_species` | none |
 | Larval surveillance | none | `habitats`, `inspections`, `samples`, `sample_species` | none |
 | Field-work support | `tags`, `routes` | `tag_items`, `comments`, `additional_personnel`, `route_items`, `assignments`, `assignment_items` | none |
-| Control operations | `application_methods`, `source_reduction_methods`, `outreach_methods`, `biocontrol_methods`, `vehicles`, `equipment`, `insecticides`, `formulations`, `formulation_insecticides` | `applications`, `application_batches`, `insecticide_batches`, `source_reductions`, `outreach_actions`, `biocontrol_actions`, `requested_control_actions` | none |
+| Control operations | `application_methods`, `source_reduction_methods`, `outreach_methods`, `biocontrol_methods`, `vehicles`, `equipment`, `insecticides`, `formulations`, `formulation_insecticides` | `treatments`, `applications`, `application_batches`, `insecticide_batches`, `source_reductions`, `outreach_actions`, `biocontrol_actions`, `requested_control_actions` | none |
 | Public engagement | `notification_types` | `contacts`, `service_requests`, `notification_registrations`, `notification_registration_types`, `mission_notifications` | none |
 | Mission dispatch | none | `missions`, `mission_items` | none |
 | Weather | `weather_sources` | `weather_summaries` | `weather_source_subscriptions` |

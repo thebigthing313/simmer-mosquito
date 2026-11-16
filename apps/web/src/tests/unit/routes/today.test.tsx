@@ -140,7 +140,7 @@ describe('the Today page', () => {
 			'Inspections',
 			'Samples',
 			'Collections',
-			'Chemical Applications',
+			'Treatments',
 			'Source Reductions',
 			'Service Requests received',
 			'Positive inspections',

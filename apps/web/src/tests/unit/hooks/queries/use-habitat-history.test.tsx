@@ -19,6 +19,7 @@
  * exists to show.
  */
 
+import { waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useHabitatHistory } from '../../../../hooks/queries/use-habitat-history';
 import { application_methods } from '../../../../lib/collections/application_methods';
@@ -32,6 +33,7 @@ import { samples } from '../../../../lib/collections/samples';
 import { source_reduction_methods } from '../../../../lib/collections/source_reduction_methods';
 import { source_reductions } from '../../../../lib/collections/source_reductions';
 import { species } from '../../../../lib/collections/species';
+import { treatments } from '../../../../lib/collections/treatments';
 import { units } from '../../../../lib/collections/units';
 import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
 import { inspection } from './larval-rows';
@@ -270,49 +272,101 @@ describe('useHabitatHistory joined names', () => {
 		]);
 	});
 
-	it('names the applicator, the insecticide, the method and the unit', async () => {
-		seedRows(applications, [
+	it('names the applicator and the method of a Treatment, and each product and unit on its lines', async () => {
+		seedRows(treatments, [
 			{
-				id: 'a1',
+				id: 't1',
 				habitat_id: HABITAT,
 				application_date: '2026-08-12',
 				applicator_profile_id: PROFILE,
-				insecticide_id: INSECTICIDE,
 				application_method_id: APPLICATION_METHOD,
+			},
+			{
+				id: 't2',
+				habitat_id: HABITAT,
+				application_date: '2026-08-11',
+				applicator_profile_id: null,
+				application_method_id: null,
+			},
+		]);
+		seedRows(applications, [
+			{
+				id: 'l1',
+				treatment_id: 't1',
+				insecticide_id: INSECTICIDE,
 				amount_applied: 2,
 				application_unit_id: UNIT,
 			},
 			{
-				id: 'a2',
-				habitat_id: HABITAT,
-				application_date: '2026-08-11',
-				applicator_profile_id: null,
+				id: 'l2',
+				treatment_id: 't2',
 				insecticide_id: '99999999-9999-4999-8999-999999999999',
-				application_method_id: null,
 				amount_applied: 1,
 				application_unit_id: UNIT,
 			},
 		]);
 
 		const { result } = await renderRead(() => useHabitatHistory(HABITAT));
+		await waitFor(() => expect(result.current.applications).toHaveLength(2));
 
 		expect(result.current.applications).toEqual([
 			expect.objectContaining({
-				id: 'a1',
+				id: 't1',
 				applicatorName: 'Rosa Lam',
-				insecticideName: 'VectoBac 12AS',
 				applicationMethodId: APPLICATION_METHOD,
 				applicationMethodName: 'Backpack sprayer',
-				unitAbbreviation: 'gal',
+				lines: [
+					expect.objectContaining({ insecticideName: 'VectoBac 12AS', unitAbbreviation: 'gal' }),
+				],
 			}),
 			expect.objectContaining({
-				id: 'a2',
+				id: 't2',
 				applicatorProfileId: null,
 				applicatorName: null,
-				insecticideName: null,
 				applicationMethodId: null,
 				applicationMethodName: null,
+				lines: [expect.objectContaining({ insecticideName: null })],
 			}),
+		]);
+	});
+
+	it('counts a two-product Treatment once, holding both products', async () => {
+		seedRows(treatments, [
+			{ id: 't1', habitat_id: HABITAT, application_date: '2026-08-12' },
+			{ id: 't-elsewhere', habitat_id: OTHER_HABITAT, application_date: '2026-08-12' },
+		]);
+		seedRows(applications, [
+			{
+				id: 'l1',
+				treatment_id: 't1',
+				insecticide_id: INSECTICIDE,
+				amount_applied: 2,
+				application_unit_id: UNIT,
+			},
+			{
+				id: 'l2',
+				treatment_id: 't1',
+				insecticide_id: '99999999-9999-4999-8999-999999999999',
+				amount_applied: 1,
+				application_unit_id: UNIT,
+			},
+			{
+				id: 'l3',
+				treatment_id: 't-elsewhere',
+				insecticide_id: INSECTICIDE,
+				amount_applied: 4,
+				application_unit_id: UNIT,
+			},
+		]);
+
+		const { result } = await renderRead(() => useHabitatHistory(HABITAT));
+		await waitFor(() => expect(result.current.applications[0]?.lines).toHaveLength(2));
+
+		// The tab count is `applications.length`: one visit, two products.
+		expect(result.current.applications).toHaveLength(1);
+		expect(result.current.applications[0]?.lines.map((line) => line.id).sort()).toEqual([
+			'l1',
+			'l2',
 		]);
 	});
 

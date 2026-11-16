@@ -138,6 +138,7 @@ const CREATE_VERBS: Record<RecordType, CreateVerb> = {
 	serviceRequest: 'Create',
 	sourceReduction: 'Record',
 	trap: 'Create',
+	treatment: 'Record',
 	weatherStation: 'Create',
 };
 

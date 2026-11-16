@@ -10,6 +10,7 @@ import type { ComponentType } from 'react';
 import type { MapSummary } from '../../hooks/explorer/use-explorer-summary';
 import { type CatalogDescriptor, catalogs } from '../../hooks/queries/catalog-register';
 import type { DateDirection } from '../../lib/date-presets';
+import type { RecordType } from '../../lib/record-nouns';
 import type { SummaryGroup, SummaryGrouping } from './explorer-summary';
 import { type FilterOption, toggle } from './multi-select-filter';
 import type { RecordSetLinks } from './record-set';
@@ -103,6 +104,13 @@ export interface IdSetDeclaration<TKey extends string> {
 		 * selects them. Left out, those records are not drawn.
 		 */
 		readonly none?: string;
+		/**
+		 * What this grouping's counts count, where it is not what the rest of
+		 * the summary counts. The chemical summary counts Treatments, and its
+		 * Insecticide grouping counts the Chemical Applications naming each
+		 * product.
+		 */
+		readonly recordType?: RecordType;
 	};
 }
 
@@ -444,7 +452,9 @@ function idSetGrouping<TFilters>(
 			return spec.none === undefined ? [] : [{ key: 'none', label: spec.none, count }];
 		},
 	);
-	return { key, title: spec.title, groups };
+	return spec.recordType === undefined
+		? { key, title: spec.title, groups }
+		: { key, title: spec.title, groups, recordType: spec.recordType };
 }
 
 function flagGrouping<TFilters>(

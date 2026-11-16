@@ -28,7 +28,9 @@ export const applicationFilterDeclarations = defineFilterDeclarations(applicatio
 		empty: 'No insecticides',
 		options: INSECTICIDE_SOURCE,
 		unknown: 'Unknown insecticide',
-		summary: { grouping: 'insecticideId', title: 'Insecticide' },
+		// A product grouping counts lines: a two-product Treatment is one under
+		// each product, while Method and Applicator count it once (ADR 0020).
+		summary: { grouping: 'insecticideId', title: 'Insecticide', recordType: 'application' },
 	},
 	{
 		kind: 'idSet',

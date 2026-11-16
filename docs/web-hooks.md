@@ -2385,9 +2385,12 @@ how a species count gets its taxon's name.
 The control action joins are not written in these hooks. `PERFORMED_ACTIONS`
 in `hooks/queries/performed-action-reads.ts` holds them for the four performed
 control actions, one entry per type: a join predicate for the method, for the
-product on a Chemical Application, for the unit on every type but an Outreach
-Action, and for whoever performed it, plus `measured`, which returns the
-method, performer, amount and unit columns under one set of field names. Before
+unit on every type but an Outreach Action and a Treatment, and for whoever
+performed it, plus `measured`, which returns the method, performer, amount and
+unit columns under one set of field names. The chemical type is two entries
+since ADR 0020: `treatments`, the visit, with its date, method and performer,
+and `treatmentLines`, the Chemical Applications under it, with the product,
+the amount and the unit and `of`, the correlation to its Treatment. Before
 #1428 about ten read hooks wrote those joins and columns out per type; eleven
 compose them from the module now, `useLinkedControlActions` and
 `useHabitatHistory` among them. A hook keeps its own `from`, `where`, ordering
@@ -2432,6 +2435,34 @@ now, and the card, row or thread draws the same words itself. The Inspection
 map card is the case that showed: it read only the name, so an inspection
 whose inspector's Profile was deleted said `Unassigned`, and it reads the id
 first now and says `Unknown`, as the detail page does.
+
+#### useInsecticideUsage, useControlActionsForDay and the Treatment readers
+
+A line has no date, place or person (ADR 0020), so every collection-backed
+reader starts from `treatments` and reads lines as `lines:
+treatmentLines(query, treatment)`, the correlated include in
+`hooks/queries/treatment-lines.ts`. Its `where` is `applications.treatment_id`
+alone, which the `applications` collection indexes, so the compiler loads lines
+by `treatment_id = any(...)` over the Treatments it matched. No query filters
+or sorts lines by a Treatment column: that moves the predicate off the table
+being loaded, and on an on-demand table it loads every line in the
+Organization (#1026). The product and unit names inside the include are `left`
+joins on two eager catalogs, so the include adds no second on-demand level,
+the shape that has 503'd over wide windows before.
+
+The noun follows the thing counted. `useControlActionsForDay`,
+`useDayActivity`, `useHabitatHistory` and `useLinkedControlActions` return one
+row per Treatment with its products in `lines`, so the Daily Control Actions
+panel's per-person count and kind breakdown, people-today, Daily Work, the
+habitat's Treatments tab and the inspection's linked-actions badge count a
+two-product job once. `useInsecticideUsage` rolls up lines, so the same job
+adds one Chemical Application to each product. `useActivityStrip` counts
+Treatments by date and loads no lines, because no cell counts a product. Each
+of the four hooks' suites seeds a two-product Treatment and asserts both
+counts.
+
+A hook that re-sorts after a `toArray` does so in JavaScript, for the reason
+under `useHabitatHistory`: the joined result arrives in key order.
 
 #### useInspection and useHabitatSuspense
 

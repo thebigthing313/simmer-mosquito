@@ -17,7 +17,7 @@ const ACTIVITY_NOUNS: Readonly<Record<OverviewRecordType, CountNoun>> = {
 	inspections: recordNoun('inspection'),
 	samples: recordNoun('sample'),
 	collections: recordNoun('collection'),
-	applications: recordNoun('application'),
+	applications: recordNoun('treatment'),
 	sourceReductions: recordNoun('sourceReduction'),
 	releases: recordNoun('biocontrolAction'),
 	serviceRequests: {

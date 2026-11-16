@@ -32,7 +32,7 @@ import { useRecentSourceReductions } from '../../hooks/queries/use-recent-source
 import { useUnitLabels } from '../../hooks/queries/use-unit-labels';
 import { useOrganizationClock } from '../../hooks/use-organization-clock';
 import { addDaysToDateString } from '../../lib/local-date';
-import { recordNoun } from '../../lib/record-nouns';
+import { recordCount, recordNoun } from '../../lib/record-nouns';
 import { groupRows, type RowGroup } from '../../lib/row-groups';
 
 /**
@@ -258,16 +258,17 @@ function ControlActionRow({ action }: { readonly action: DailyControlAction }) {
 				<span className="truncate text-muted-foreground text-xs">{actionSecondary(action)}</span>
 			</div>
 			<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-				{formatMeasure(action.amount, action.unitAbbreviation)}
+				{actionMeasure(action)}
 			</span>
 		</li>
 	);
 }
 
-const KIND_LABEL: Record<ControlActionKind, string> = {
-	application: 'application',
-	sourceReduction: 'source reduction',
-	biocontrol: 'biocontrol release',
+/** How many of one kind a person did. A Treatment counts once however many products it held. */
+const KIND_COUNT: Record<ControlActionKind, (count: number) => string> = {
+	application: (count) => recordCount('treatment', count),
+	sourceReduction: (count) => `${count} source reduction${count === 1 ? '' : 's'}`,
+	biocontrol: (count) => `${count} biocontrol release${count === 1 ? '' : 's'}`,
 };
 
 const KIND_ICON: Record<ControlActionKind, typeof ApplicationIcon> = {
@@ -289,17 +290,14 @@ const KIND_DETAIL_ROUTE: Record<
 
 const KIND_ORDER = ['application', 'sourceReduction', 'biocontrol'] as const;
 
-/** "4 applications · 2 source reductions" — what the day was actually made of. */
+/** "4 treatments · 2 source reductions" — what the day was actually made of. */
 function kindBreakdown(actions: readonly DailyControlAction[]): string {
 	const counts = new Map<ControlActionKind, number>();
 	for (const action of actions) {
 		counts.set(action.kind, (counts.get(action.kind) ?? 0) + 1);
 	}
 	return KIND_ORDER.filter((kind) => counts.has(kind))
-		.map((kind) => {
-			const count = counts.get(kind) ?? 0;
-			return `${count} ${KIND_LABEL[kind]}${count === 1 ? '' : 's'}`;
-		})
+		.map((kind) => KIND_COUNT[kind](counts.get(kind) ?? 0))
 		.join(' · ');
 }
 
@@ -323,12 +321,20 @@ function actionSecondary(action: DailyControlAction): string {
 	return `Application · ${action.methodName ?? 'Unknown method'}`;
 }
 
-/** What titles the row: the product for an application, the method otherwise. */
+/** What titles the row: a Treatment's products, the method otherwise. */
 function actionSubject(action: DailyControlAction): string {
-	if (action.subjectName !== null) {
-		return action.subjectName;
+	if (action.kind === 'application') {
+		return action.lines.map((line) => line.insecticideName ?? 'Unknown insecticide').join(', ');
 	}
-	return action.kind === 'application' ? 'Unknown insecticide' : 'Unknown method';
+	return action.subjectName ?? 'Unknown method';
+}
+
+/** What the row measured: each of a Treatment's products in its own unit, else the one amount. */
+function actionMeasure(action: DailyControlAction): string {
+	if (action.kind === 'application') {
+		return action.lines.map((line) => formatMeasure(line.amount, line.unitAbbreviation)).join(', ');
+	}
+	return action.amount === null ? '' : formatMeasure(action.amount, action.unitAbbreviation);
 }
 
 // --- insecticide usage ------------------------------------------------------
@@ -416,7 +422,7 @@ function InsecticideUsagePanel({
 								<div className="grid min-w-0 flex-1">
 									<span className="truncate font-medium text-foreground text-sm">{row.name}</span>
 									<span className="truncate text-muted-foreground text-xs tabular-nums">
-										{row.applicationCount} application{row.applicationCount === 1 ? '' : 's'}
+										{recordCount('application', row.applicationCount)}
 									</span>
 								</div>
 								<span
