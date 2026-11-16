@@ -90,10 +90,10 @@ describe('acknowledgementRequiredBody', () => {
 			'acknowledgedCrossDomainDetach',
 			[
 				{
-					key: 'habitatApplications',
+					key: 'habitatTreatments',
 					count: 1,
-					singular: 'chemical application',
-					plural: 'chemical applications',
+					singular: 'treatment',
+					plural: 'treatments',
 				},
 				{
 					key: 'habitatControlRequests',
@@ -107,7 +107,7 @@ describe('acknowledgementRequiredBody', () => {
 		// Singular at one, plural above it, and the record's own domain noun
 		// rather than the registry key — the same rule the blocked message follows.
 		expect(error.message).toBe(
-			'Deleting this habitat also affects 1 chemical application and 2 control requests.',
+			'Deleting this habitat also affects 1 treatment and 2 control requests.',
 		);
 	});
 });

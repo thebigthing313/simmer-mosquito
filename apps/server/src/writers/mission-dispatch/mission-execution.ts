@@ -208,7 +208,7 @@ export async function assertMissionGeometryCovered(
 	trx: MissionDispatchTransaction,
 	payload: MissionExecutionCommandFields,
 	actionId: string,
-	actionTable: 'applications' | 'source_reductions' | 'outreach_actions' | 'biocontrol_actions',
+	actionTable: 'treatments' | 'source_reductions' | 'outreach_actions' | 'biocontrol_actions',
 ): Promise<void> {
 	if (payload.acknowledgedMissionGeometryNotCovered) {
 		return;

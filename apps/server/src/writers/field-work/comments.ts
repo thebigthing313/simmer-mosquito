@@ -1,7 +1,13 @@
 import { checkedValues, sql } from '@simmer-mosquito/db';
 import { type FieldWorkCommand, toDbEntityType } from '@simmer-mosquito/domain';
 import { returnColumns } from '../../return-columns.js';
-import { type CommentRow, type FieldWorkTransaction, softDelete, updateRow } from './shared.js';
+import {
+	assertSupportTarget,
+	type CommentRow,
+	type FieldWorkTransaction,
+	softDelete,
+	updateRow,
+} from './shared.js';
 
 // ===========================================================================
 // Comments
@@ -13,6 +19,7 @@ export async function writeCommentCommand(
 ): Promise<CommentRow | null> {
 	switch (command.type) {
 		case 'fieldWork.addComment': {
+			await assertSupportTarget(trx, command.payload.organizationId, command.payload.target);
 			const row = await trx
 				.insertInto('comments')
 				.values(

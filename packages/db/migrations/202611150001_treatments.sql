@@ -111,8 +111,16 @@ alter table applications
   references treatments (id, organization_id)
   on delete cascade;
 
-create unique index applications_active_treatment_insecticide_unique
-  on applications (treatment_id, insecticide_id) where deleted_at is null;
+-- One live line per Insecticide, read at commit. A revise in which two kept
+-- lines trade Insecticides passes through a moment where both name the same
+-- one; a unique index would refuse that row by row, and the server already
+-- refuses a real duplicate in the final set before the database sees it.
+-- Equality on two uuids needs no btree_gist: btree serves the exclusion.
+alter table applications
+  add constraint applications_active_treatment_insecticide_excl
+  exclude using btree (treatment_id with =, insecticide_id with =)
+  where (deleted_at is null)
+  deferrable initially deferred;
 
 create index applications_treatment_idx on applications (treatment_id) where deleted_at is null;
 
@@ -284,7 +292,7 @@ update comments set entity_type = 'application' where entity_type = 'treatment';
 update additional_personnel set entity_type = 'application' where entity_type = 'treatment';
 
 drop index applications_treatment_idx;
-drop index applications_active_treatment_insecticide_unique;
+alter table applications drop constraint applications_active_treatment_insecticide_excl;
 
 alter table applications
   drop constraint applications_treatment_fkey,

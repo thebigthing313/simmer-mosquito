@@ -16,7 +16,7 @@ export type CommentTargetType =
 	| 'habitat'
 	| 'inspection'
 	| 'sample'
-	| 'application'
+	| 'treatment'
 	| 'sourceReduction'
 	| 'outreachAction'
 	| 'biocontrolAction'
@@ -38,7 +38,7 @@ export type TagTargetType =
 export type AdditionalPersonnelTargetType =
 	| 'inspection'
 	| 'collection'
-	| 'application'
+	| 'treatment'
 	| 'sourceReduction'
 	| 'outreachAction'
 	| 'biocontrolAction';
@@ -142,7 +142,7 @@ export const COMMENT_TARGET_TYPES = [
 	'habitat',
 	'inspection',
 	'sample',
-	'application',
+	'treatment',
 	'sourceReduction',
 	'outreachAction',
 	'biocontrolAction',
@@ -227,7 +227,7 @@ export function normalizeRelevantEntityTypes(
 export const ADDITIONAL_PERSONNEL_TARGET_TYPES = [
 	'inspection',
 	'collection',
-	'application',
+	'treatment',
 	'sourceReduction',
 	'outreachAction',
 	'biocontrolAction',

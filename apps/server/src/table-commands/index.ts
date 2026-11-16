@@ -28,7 +28,6 @@ import type { CommandDb } from '../command-write.js';
 import type { MembershipAuth } from '../membership-commands.js';
 import { additionalPersonnelTableCommands } from './additional-personnel.js';
 import { addressTableCommands } from './addresses.js';
-import { applicationBatchTableCommands, applicationTableCommands } from './applications.js';
 import { assignmentItemTableCommands } from './assignment-items.js';
 import { assignmentTableCommands } from './assignments.js';
 import { collectionSpeciesTableCommands } from './collection-species.js';
@@ -83,6 +82,7 @@ import { tagItemTableCommands } from './tag-items.js';
 import { tagTableCommands } from './tags.js';
 import { genusTableCommands, speciesTableCommands } from './taxonomy.js';
 import { trapTableCommands } from './traps.js';
+import { treatmentTableCommands } from './treatments.js';
 import { unitTableCommands } from './units.js';
 import { weatherStationTableCommands, weatherSummaryTableCommands } from './weather.js';
 
@@ -122,8 +122,7 @@ export function tableCommandSpecs(
 		outreachActionTableCommands(db),
 		biocontrolActionTableCommands(db),
 		requestedControlActionTableCommands(db),
-		applicationTableCommands(db),
-		applicationBatchTableCommands(db),
+		treatmentTableCommands(db),
 		insecticideTableCommands(db),
 		insecticideBatchTableCommands(db),
 		formulationTableCommands(db),

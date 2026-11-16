@@ -95,6 +95,7 @@ const REFERENCED_RECORD_TABLES = [
 	'routes',
 	'samples',
 	'traps',
+	'treatments',
 ] as const;
 
 export type ReferencedRecordTable = (typeof REFERENCED_RECORD_TABLES)[number];
@@ -166,6 +167,7 @@ const RECORD_REFERENCE_COLUMNS = {
 	status_changed_by_profile_id: { record: 'profiles', label: 'profile' },
 	technician_profile_id: { record: 'profiles', label: 'technician' },
 	trap_id: { record: 'traps', label: 'trap' },
+	treatment_id: { record: 'treatments', label: 'treatment' },
 } as const satisfies Record<string, { record: ReferencedRecordTable; label: string }>;
 
 /** The coverage test walks this to hold the registry against the live schema. */

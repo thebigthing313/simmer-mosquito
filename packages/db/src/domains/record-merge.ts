@@ -176,13 +176,7 @@ const MERGEABLE_RECORDS: Record<MergeableRecordType, MergeableRecordConfig> = {
 			repoints('addressCollections', 'collections', 'address_id', 'collection', 'collections'),
 			repoints('addressHabitats', 'habitats', 'address_id', 'habitat', 'habitats'),
 			repoints('addressInspections', 'inspections', 'address_id', 'inspection', 'inspections'),
-			repoints(
-				'addressApplications',
-				'applications',
-				'address_id',
-				'chemical application',
-				'chemical applications',
-			),
+			repoints('addressTreatments', 'treatments', 'address_id', 'treatment', 'treatments'),
 			repoints(
 				'addressSourceReductions',
 				'source_reductions',
@@ -256,13 +250,7 @@ const MERGEABLE_RECORDS: Record<MergeableRecordType, MergeableRecordConfig> = {
 		plural: 'habitats',
 		rules: [
 			repoints('habitatInspections', 'inspections', 'habitat_id', 'inspection', 'inspections'),
-			repoints(
-				'habitatApplications',
-				'applications',
-				'habitat_id',
-				'chemical application',
-				'chemical applications',
-			),
+			repoints('habitatTreatments', 'treatments', 'habitat_id', 'treatment', 'treatments'),
 			repoints(
 				'habitatSourceReductions',
 				'source_reductions',

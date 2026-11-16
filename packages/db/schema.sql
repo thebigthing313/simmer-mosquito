@@ -1995,6 +1995,14 @@ ALTER TABLE ONLY public.application_methods
 
 
 --
+-- Name: applications applications_active_treatment_insecticide_excl; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.applications
+    ADD CONSTRAINT applications_active_treatment_insecticide_excl EXCLUDE USING btree (treatment_id WITH =, insecticide_id WITH =) WHERE ((deleted_at IS NULL)) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
 -- Name: applications applications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2580,13 +2588,6 @@ CREATE INDEX application_methods_org_active_name_idx ON public.application_metho
 --
 
 CREATE UNIQUE INDEX application_methods_organization_normalized_name_unique ON public.application_methods USING btree (organization_id, lower(btrim(name))) WHERE (deleted_at IS NULL);
-
-
---
--- Name: applications_active_treatment_insecticide_unique; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX applications_active_treatment_insecticide_unique ON public.applications USING btree (treatment_id, insecticide_id) WHERE (deleted_at IS NULL);
 
 
 --

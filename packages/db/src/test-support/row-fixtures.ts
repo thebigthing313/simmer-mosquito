@@ -699,6 +699,24 @@ export function createApplication(
 	});
 }
 
+/** A batch link: which lot of its line's insecticide a Chemical Application drew on. */
+export function createApplicationBatch(
+	db: DbExecutor,
+	organizationId: string,
+	links: { readonly applicationId: string; readonly insecticideBatchId: string },
+	overrides: Overrides<
+		'application_batches',
+		'organization_id' | 'application_id' | 'insecticide_batch_id'
+	> = {},
+): Promise<string> {
+	return insertRow(db, 'application_batches', {
+		organization_id: organizationId,
+		application_id: links.applicationId,
+		insecticide_batch_id: links.insecticideBatchId,
+		...overrides,
+	});
+}
+
 export function createBiocontrolAction(
 	db: DbExecutor,
 	organizationId: string,

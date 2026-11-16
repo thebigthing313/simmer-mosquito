@@ -25,7 +25,7 @@ export type DeletableRecordType =
 	| 'habitat'
 	| 'inspection'
 	| 'sample'
-	| 'application'
+	| 'treatment'
 	| 'sourceReduction'
 	| 'outreachAction'
 	| 'biocontrolAction'
@@ -241,13 +241,17 @@ export function countPhrase(consequences: readonly DeleteImpactEntry[]): string 
  * The confirmations that ride on a write clearing a row set rather than
  * deleting a record.
  *
- * Four writes remove rows without any record being deleted: marking a
- * collection zero-result drops its species counts, changing an application's
- * insecticide drops the batch links that no longer match it, retiring a habitat
- * takes it off its routes, and deleting a weather station destroys its
- * summaries. The question the organization is asked is the delete registry's
- * question — "this many rows go, did you mean that" — but the write is not a
- * delete, so no rule in the registry describes it.
+ * Three writes remove rows without any record being deleted: marking a
+ * collection zero-result drops its species counts, retiring a habitat takes it
+ * off its routes, and deleting a weather station destroys its summaries. The
+ * question the organization is asked is the delete registry's question — "this
+ * many rows go, did you mean that" — but the write is not a delete, so no rule
+ * in the registry describes it.
+ *
+ * Changing a Chemical Application's insecticide used to be a fourth, dropping
+ * the batch links that no longer matched. A Treatment's lines now travel whole
+ * and the form shows what a save takes with it, so that write asks nothing
+ * (ADR 0020).
  *
  * They deliberately do not become a fourth `ReferenceEffect`. The registry's
  * entries are read twice, once by `readDeleteImpact` to say what a delete would
@@ -262,12 +266,12 @@ export function countPhrase(consequences: readonly DeleteImpactEntry[]): string 
  * and a nullable `organization_id`, so the filters every registry rule applies
  * would find nothing there.
  *
- * A fifth write counts rows it is not removing. Recording a second record
+ * Another write counts rows it is not removing. Recording a second record
  * against an assignment stop that is already complete asks the same question
  * over the same count — "this many are already there, did you mean that" — so
  * it takes the same check and supplies its own sentence through `message`.
  *
- * A sixth counts rows it is taking out of use. Retiring an insecticide leaves
+ * And one counts rows it is taking out of use. Retiring an insecticide leaves
  * its batches and the formulations naming it exactly where they are and makes
  * every one of them unusable, which is the same question over the same count
  * again, with a third sentence. It is also the one that made `rules` a list:
@@ -275,7 +279,6 @@ export function countPhrase(consequences: readonly DeleteImpactEntry[]): string 
  * and then the other has been surprised twice by one write.
  */
 export type ClearanceAcknowledgement =
-	| 'acknowledgedBatchClearance'
 	| 'acknowledgedCompletedItemAdditionalRecord'
 	| 'acknowledgedDependentDeactivation'
 	| 'acknowledgedRouteRemoval'
@@ -302,8 +305,8 @@ export interface ClearanceRule {
  * renders one list either way. Nothing has been written when this is thrown.
  *
  * `message` is the sentence the person sees. It defaults to the removal one
- * because four of the five callers are removing what they counted; the fifth
- * counts what is already there and says so instead.
+ * because most callers are removing what they counted; the completed-stop
+ * check counts what is already there and says so instead.
  */
 export class ClearanceAcknowledgementRequiredError extends Error {
 	readonly acknowledgement: ClearanceAcknowledgement;
@@ -556,6 +559,7 @@ function cascadesSupportUnderChild(
 const COLLECTIONS_OF_TRAP: ChildSet = { table: 'collections', column: 'trap_id' };
 const SAMPLES_OF_INSPECTION: ChildSet = { table: 'samples', column: 'inspection_id' };
 const ITEMS_OF_MISSION: ChildSet = { table: 'mission_items', column: 'mission_id' };
+const LINES_OF_TREATMENT: ChildSet = { table: 'applications', column: 'treatment_id' };
 
 /**
  * Every control action carries the same support rows and the same links out, so
@@ -609,13 +613,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 			blocks('addressCollections', 'collections', 'address_id', 'collection', 'collections'),
 			blocks('addressHabitats', 'habitats', 'address_id', 'habitat', 'habitats'),
 			blocks('addressInspections', 'inspections', 'address_id', 'inspection', 'inspections'),
-			blocks(
-				'addressApplications',
-				'applications',
-				'address_id',
-				'chemical application',
-				'chemical applications',
-			),
+			blocks('addressTreatments', 'treatments', 'address_id', 'treatment', 'treatments'),
 			blocks(
 				'addressSourceReductions',
 				'source_reductions',
@@ -739,12 +737,12 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'acknowledgedCascadeDelete',
 			),
 			detachesUnderChild(
-				'trapCollectionApplications',
-				'applications',
+				'trapCollectionTreatments',
+				'treatments',
 				'collection_id',
 				COLLECTIONS_OF_TRAP,
-				'chemical application',
-				'chemical applications',
+				'treatment',
+				'treatments',
 				'acknowledgedCascadeDelete',
 			),
 			detachesUnderChild(
@@ -814,11 +812,11 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				null,
 			),
 			detaches(
-				'collectionApplications',
-				'applications',
+				'collectionTreatments',
+				'treatments',
 				'collection_id',
-				'chemical application',
-				'chemical applications',
+				'treatment',
+				'treatments',
 				null,
 			),
 			detaches(
@@ -874,11 +872,11 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'acknowledgedInspectionDetach',
 			),
 			detaches(
-				'habitatApplications',
-				'applications',
+				'habitatTreatments',
+				'treatments',
 				'habitat_id',
-				'chemical application',
-				'chemical applications',
+				'treatment',
+				'treatments',
 				'acknowledgedCrossDomainDetach',
 			),
 			detaches(
@@ -955,11 +953,11 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'acknowledgedAssociatedRecordsDeletion',
 			),
 			detaches(
-				'inspectionApplications',
-				'applications',
+				'inspectionTreatments',
+				'treatments',
 				'inspection_id',
-				'chemical application',
-				'chemical applications',
+				'treatment',
+				'treatments',
 				'acknowledgedCrossDomainDetach',
 			),
 			detaches(
@@ -1020,32 +1018,55 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 		],
 	},
 
-	application: {
-		table: 'applications',
-		singular: 'chemical application',
+	/**
+	 * A Treatment takes its Chemical Applications with it unasked: a line is part
+	 * of the visit, not a record somebody filed beside it, and lines are not
+	 * separately deletable. Their batch links and the visit's support records are
+	 * what the organization recorded on top, so those ask (ADR 0020).
+	 */
+	treatment: {
+		table: 'treatments',
+		singular: 'treatment',
 		rules: [
-			cascades(
-				'applicationBatches',
+			cascadesUnderChild(
+				'treatmentBatches',
 				'application_batches',
 				'application_id',
+				LINES_OF_TREATMENT,
 				'batch record',
 				'batch records',
 				'acknowledgedBatchDeletion',
 			),
+			cascades(
+				'treatmentApplications',
+				'applications',
+				'treatment_id',
+				'chemical application',
+				'chemical applications',
+				null,
+			),
 			cascadesSupport(
-				'applicationComments',
+				'treatmentComments',
 				'comments',
-				'application',
+				'treatment',
 				'comment',
 				'comments',
 				'acknowledgedSupportRecordDeletion',
 			),
 			cascadesSupport(
-				'applicationPersonnel',
+				'treatmentPersonnel',
 				'additional_personnel',
-				'application',
+				'treatment',
 				'assisting person',
 				'assisting people',
+				'acknowledgedSupportRecordDeletion',
+			),
+			cascadesSupport(
+				'treatmentTags',
+				'tag_items',
+				'treatment',
+				'tag',
+				'tags',
 				'acknowledgedSupportRecordDeletion',
 			),
 		],
@@ -1202,11 +1223,11 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				null,
 			),
 			detaches(
-				'controlRequestApplications',
-				'applications',
+				'controlRequestTreatments',
+				'treatments',
 				'requested_control_action_id',
-				'chemical application',
-				'chemical applications',
+				'treatment',
+				'treatments',
 				'acknowledgedActionDetach',
 			),
 			detaches(
@@ -1249,12 +1270,12 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 		singular: 'mission',
 		rules: [
 			detachesUnderChild(
-				'missionItemApplications',
-				'applications',
+				'missionItemTreatments',
+				'treatments',
 				'mission_item_id',
 				ITEMS_OF_MISSION,
-				'chemical application',
-				'chemical applications',
+				'treatment',
+				'treatments',
 				'acknowledgedActualActionDetach',
 			),
 			detachesUnderChild(
@@ -1379,11 +1400,11 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 		singular: 'application method',
 		rules: [
 			blocks(
-				'applicationMethodApplications',
-				'applications',
+				'applicationMethodTreatments',
+				'treatments',
 				'application_method_id',
-				'chemical application',
-				'chemical applications',
+				'treatment',
+				'treatments',
 			),
 		],
 	},
@@ -1433,29 +1454,13 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 	vehicle: {
 		table: 'vehicles',
 		singular: 'vehicle',
-		rules: [
-			blocks(
-				'vehicleApplications',
-				'applications',
-				'vehicle_id',
-				'chemical application',
-				'chemical applications',
-			),
-		],
+		rules: [blocks('vehicleTreatments', 'treatments', 'vehicle_id', 'treatment', 'treatments')],
 	},
 
 	equipment: {
 		table: 'equipment',
 		singular: 'equipment record',
-		rules: [
-			blocks(
-				'equipmentApplications',
-				'applications',
-				'equipment_id',
-				'chemical application',
-				'chemical applications',
-			),
-		],
+		rules: [blocks('equipmentTreatments', 'treatments', 'equipment_id', 'treatment', 'treatments')],
 	},
 
 	insecticide: {
@@ -1512,6 +1517,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'ingredient',
 				'ingredients',
 			),
+			blocks('formulationTreatments', 'treatments', 'formulation_id', 'treatment', 'treatments'),
 		],
 	},
 
