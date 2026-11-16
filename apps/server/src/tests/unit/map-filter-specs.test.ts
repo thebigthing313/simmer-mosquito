@@ -21,7 +21,6 @@ import {
 import { describe, expect, it } from 'vitest';
 import {
 	parseAddressTileFilters,
-	parseApplicationMapFilters,
 	parseBiocontrolMapFilters,
 	parseCollectionMapFilters,
 	parseHabitatTileFilters,
@@ -32,6 +31,7 @@ import {
 	parseServiceRequestMapFilters,
 	parseSourceReductionMapFilters,
 	parseTrapMapFilters,
+	parseTreatmentMapFilters,
 } from '../../map-tiles.js';
 
 /**
@@ -56,7 +56,7 @@ const SPECS: readonly (readonly [string, MapFilterSpec, Parser])[] = [
 	['regions', REGION_MAP_FILTERS, parseRegionTileFilters],
 	['inspections', INSPECTION_MAP_FILTERS, parseInspectionTileFilters],
 	['samples', SAMPLE_MAP_FILTERS, parseSampleTileFilters],
-	['chemical', CHEMICAL_MAP_FILTERS, parseApplicationMapFilters],
+	['chemical', CHEMICAL_MAP_FILTERS, parseTreatmentMapFilters],
 	['source-reduction', SOURCE_REDUCTION_MAP_FILTERS, parseSourceReductionMapFilters],
 	['biocontrol', BIOCONTROL_MAP_FILTERS, parseBiocontrolMapFilters],
 	['outreach', OUTREACH_MAP_FILTERS, parseOutreachMapFilters],

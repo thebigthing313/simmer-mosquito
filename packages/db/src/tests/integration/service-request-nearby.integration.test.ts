@@ -7,7 +7,13 @@ import {
 	sql,
 } from '../../index.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
-import { createOrganization } from '../../test-support/row-fixtures.js';
+import {
+	createApplication,
+	createInsecticide,
+	createOrganization,
+	createTreatment,
+	createUnit,
+} from '../../test-support/row-fixtures.js';
 
 describeDbIntegration('service-request center', () => {
 	// The close is the end anchor of the nearby window, so it is a day in the
@@ -248,7 +254,7 @@ describeDbIntegration('service-request nearby', () => {
 				// not stream to the client.
 				placeName: 'Culvert 12',
 				refId: habitatType.id,
-				methodRefId: null,
+				lines: null,
 				amount: null,
 				unitId: null,
 				detail: 'light',
@@ -264,6 +270,67 @@ describeDbIntegration('service-request nearby', () => {
 			const place = rows.find((row) => row.category === 'habitat');
 			expect(place).toMatchObject({ family: 'larval', label: 'Culvert 12', detail: 'active' });
 			expect(place?.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+		});
+	});
+
+	// ADR 0020: a nearby control action is the visit. A Treatment with two
+	// products is one row, titled by its method, with both products on it, and
+	// a deleted Treatment is no row at all.
+	it('reads a two-product Treatment as one row carrying its lines', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			const unitId = await createUnit(db);
+			const first = await createInsecticide(db, organizationId, unitId);
+			const second = await createInsecticide(db, organizationId, unitId, {
+				trade_name: 'Second larvicide',
+				registration_number: '99999-2',
+			});
+			const method = await db
+				.insertInto('application_methods')
+				.values({ organization_id: organizationId, name: 'Backpack' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			const visit = { geom: NEAR, application_date: sql<Date>`date '2026-07-12'` };
+			const treatmentId = await createTreatment(db, organizationId, {
+				...visit,
+				application_method_id: method.id,
+			});
+			await createApplication(db, organizationId, { treatmentId, insecticideId: first, unitId });
+			await createApplication(
+				db,
+				organizationId,
+				{ treatmentId, insecticideId: second, unitId },
+				{ amount_applied: 5 },
+			);
+			const deleted = await createTreatment(db, organizationId, {
+				...visit,
+				deleted_at: sql`now()`,
+			});
+			await createApplication(db, organizationId, {
+				treatmentId: deleted,
+				insecticideId: first,
+				unitId,
+			});
+
+			const { items: rows } = await listNearbyRecords(db, nearby(organizationId));
+			const treatments = rows.filter((row) => row.category === 'application');
+
+			expect(treatments).toHaveLength(1);
+			expect(treatments[0]).toMatchObject({
+				id: treatmentId,
+				family: 'control',
+				date: '2026-07-12',
+				refId: method.id,
+				amount: null,
+				unitId: null,
+			});
+			expect(treatments[0]?.lines).toHaveLength(2);
+			expect(treatments[0]?.lines).toEqual(
+				expect.arrayContaining([
+					{ insecticideId: first, amount: 2, unitId },
+					{ insecticideId: second, amount: 5, unitId },
+				]),
+			);
 		});
 	});
 

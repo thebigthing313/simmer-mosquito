@@ -1,9 +1,9 @@
 import { collectionSurface, trapSurface } from './adult-surveillance.js';
 import {
-	applicationSurface,
 	biocontrolSurface,
 	outreachSurface,
 	sourceReductionSurface,
+	treatmentSurface,
 } from './control-operations-map.js';
 import { addressSurface, regionSurface } from './foundation-geography.js';
 import { habitatSurface } from './habitats.js';
@@ -80,7 +80,7 @@ export const MAP_SURFACES = buildMapSurfaces({
 	addresses: addressSurface,
 	inspections: inspectionSurface,
 	samples: sampleSurface,
-	chemical: applicationSurface,
+	chemical: treatmentSurface,
 	'source-reduction': sourceReductionSurface,
 	biocontrol: biocontrolSurface,
 	outreach: outreachSurface,

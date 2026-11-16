@@ -395,11 +395,11 @@ const mapReads: ReadonlyArray<{
 		read: (db) => MAP_SURFACES.collections.getById(db, { organizationId, timeZone, id }),
 	},
 
-	// --- chemical applications ---
+	// --- treatments (chemical) ---
 	{
-		name: 'application tile',
-		organizationAlias: 'a',
-		geomAlias: 'a',
+		name: 'treatment tile',
+		organizationAlias: 't',
+		geomAlias: 't',
 		spatial: true,
 		read: (db) =>
 			MAP_SURFACES.chemical.getTile(db, {
@@ -416,9 +416,9 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
-		name: 'application bbox list',
-		organizationAlias: 'a',
-		geomAlias: 'a',
+		name: 'treatment bbox list',
+		organizationAlias: 't',
+		geomAlias: 't',
 		spatial: true,
 		read: (db) =>
 			MAP_SURFACES.chemical.listByBounds(db, {
@@ -436,9 +436,9 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
-		name: 'application extent',
-		organizationAlias: 'a',
-		geomAlias: 'a',
+		name: 'treatment extent',
+		organizationAlias: 't',
+		geomAlias: 't',
 		spatial: false,
 		read: (db) =>
 			MAP_SURFACES.chemical.getExtent(db, {
@@ -454,9 +454,9 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
-		name: 'application by id',
-		organizationAlias: 'a',
-		geomAlias: 'a',
+		name: 'treatment by id',
+		organizationAlias: 't',
+		geomAlias: 't',
 		spatial: false,
 		read: (db) => MAP_SURFACES.chemical.getById(db, { organizationId, timeZone, id }),
 	},
@@ -932,9 +932,9 @@ const exportReads: ReadonlyArray<{
 			}),
 	},
 	{
-		name: 'application export',
-		organizationAlias: 'a',
-		geomAlias: 'a',
+		name: 'treatment export',
+		organizationAlias: 't',
+		geomAlias: 't',
 		read: (db) =>
 			MAP_SURFACES.chemical.exportByBounds(db, {
 				organizationId,

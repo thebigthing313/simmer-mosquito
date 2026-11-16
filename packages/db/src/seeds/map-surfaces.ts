@@ -79,7 +79,7 @@ export type MapSurfaceName =
 	| 'sample'
 	| 'trap'
 	| 'collection'
-	| 'application'
+	| 'treatment'
 	| 'sourceReduction'
 	| 'biocontrol'
 	| 'outreach'
@@ -95,7 +95,7 @@ const surfaceNames: readonly MapSurfaceName[] = [
 	'sample',
 	'trap',
 	'collection',
-	'application',
+	'treatment',
 	'sourceReduction',
 	'biocontrol',
 	'outreach',
@@ -521,18 +521,32 @@ async function seedSurfaceRows(db: DbExecutor): Promise<void> {
 		)
 		.execute();
 
+	const treatmentRows = surfaceRows('treatment');
 	await db
-		.insertInto('applications')
+		.insertInto('treatments')
 		.values(
-			surfaceRows('application').map((row) => ({
+			treatmentRows.map((row) => ({
 				id: row.id,
 				organization_id: row.organization_id,
 				geom: row.geom,
 				deleted_at: row.deleted_at,
 				application_method_id: row.refs.applicationMethodId,
-				insecticide_id: row.refs.insecticideId,
 				applicator_profile_id: row.refs.profileId,
 				application_date: inspectionDate,
+			})),
+		)
+		.execute();
+
+	// One live line under each Treatment, the deleted ones included: what keeps
+	// a deleted Treatment off the surface is its own delete, not its lines'.
+	await db
+		.insertInto('applications')
+		.values(
+			treatmentRows.map((row, index) => ({
+				id: mapSurfaceTreatmentLineIds[index],
+				organization_id: row.organization_id,
+				treatment_id: row.id,
+				insecticide_id: row.refs.insecticideId,
 				amount_applied: 2,
 				application_unit_id: unitId,
 			})),
@@ -649,6 +663,13 @@ async function seedSurfaceRows(db: DbExecutor): Promise<void> {
 function seedId(surface: number, row: number): string {
 	return `00000000-0000-4000-8000-${String(surface).padStart(6, '0')}${String(row).padStart(6, '0')}`;
 }
+
+/**
+ * The Chemical Application under each seeded Treatment, in the order
+ * `surfaceRows` lists the Treatments: inside, outside, deleted, deleted far,
+ * other organization.
+ */
+const mapSurfaceTreatmentLineIds = [11, 12, 13, 14, 15].map((row) => seedId(5, row));
 
 /** The two multi-part habitats {@link seedSplitHabitats} writes, keyed by shape. */
 export const mapSurfaceSplitHabitatIds = {

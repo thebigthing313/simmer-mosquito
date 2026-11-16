@@ -6,7 +6,6 @@ import type { AuthContext } from '../../auth-context.js';
 import type { AuthVariables } from '../../auth-middleware.js';
 import {
 	parseAddressTileFilters,
-	parseApplicationMapFilters,
 	parseBiocontrolMapFilters,
 	parseCollectionMapFilters,
 	parseHabitatDisplayQuery,
@@ -20,6 +19,7 @@ import {
 	parseSourceReductionMapFilters,
 	parseTileCoordinate,
 	parseTrapMapFilters,
+	parseTreatmentMapFilters,
 	registerMapTileRoutes,
 } from '../../map-tiles.js';
 
@@ -1053,10 +1053,10 @@ describe('registerMapTileRoutes — record set exports', () => {
 		],
 		[
 			'chemical',
-			'exportApplications',
+			'exportTreatments',
 			'dateTo=2026-09-28',
 			{ dateTo: '2026-09-28' },
-			'getApplicationDisplayRow',
+			'getTreatmentDisplayRow',
 		],
 		[
 			'source-reduction',
@@ -1412,9 +1412,9 @@ describe('registerMapTileRoutes — chemical application summary', () => {
 				amountApplied: [{ by: { insecticideId, unitId }, count: 240, sum: 480 }],
 			},
 		};
-		const summarizeApplications = vi.fn(async () => summary);
-		const getApplicationDisplayRow = vi.fn();
-		const app = createApp({ summarizeApplications, getApplicationDisplayRow });
+		const summarizeTreatments = vi.fn(async () => summary);
+		const getTreatmentDisplayRow = vi.fn();
+		const app = createApp({ summarizeTreatments, getTreatmentDisplayRow });
 
 		const response = await app.request(
 			`/map/chemical/summary?bbox=-91,35,-90,36&insecticideId=${insecticideId}&applicationMethodId=${methodId}&applicator=${applicatorId}&regionId=${regionId}&dateFrom=2026-07-01&dateTo=2026-09-28`,
@@ -1422,7 +1422,7 @@ describe('registerMapTileRoutes — chemical application summary', () => {
 
 		expect(response.status).toBe(200);
 		await expect(response.json()).resolves.toEqual(summary);
-		expect(summarizeApplications).toHaveBeenCalledWith(expect.anything(), {
+		expect(summarizeTreatments).toHaveBeenCalledWith(expect.anything(), {
 			organizationId,
 			bounds: { west: -91, south: 35, east: -90, north: 36 },
 			filters: {
@@ -1434,7 +1434,7 @@ describe('registerMapTileRoutes — chemical application summary', () => {
 				dateTo: '2026-09-28',
 			},
 		});
-		expect(getApplicationDisplayRow).not.toHaveBeenCalled();
+		expect(getTreatmentDisplayRow).not.toHaveBeenCalled();
 	});
 
 	it.each([
@@ -1443,26 +1443,26 @@ describe('registerMapTileRoutes — chemical application summary', () => {
 		['a date that is not a date', '?bbox=-91,35,-90,36&dateFrom=last-week'],
 		['a param no application filter admits', '?bbox=-91,35,-90,36&status=active'],
 	])('refuses %s before reading the application summary', async (_case, query) => {
-		const summarizeApplications = vi.fn();
-		const getApplicationDisplayRow = vi.fn();
-		const app = createApp({ summarizeApplications, getApplicationDisplayRow });
+		const summarizeTreatments = vi.fn();
+		const getTreatmentDisplayRow = vi.fn();
+		const app = createApp({ summarizeTreatments, getTreatmentDisplayRow });
 
 		const response = await app.request(`/map/chemical/summary${query}`);
 
 		expect(response.status).toBe(400);
 		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
-		expect(summarizeApplications).not.toHaveBeenCalled();
-		expect(getApplicationDisplayRow).not.toHaveBeenCalled();
+		expect(summarizeTreatments).not.toHaveBeenCalled();
+		expect(getTreatmentDisplayRow).not.toHaveBeenCalled();
 	});
 
 	it('reads no application summary for a request with no session', async () => {
-		const summarizeApplications = vi.fn();
-		const app = createApp({ authenticated: false, summarizeApplications });
+		const summarizeTreatments = vi.fn();
+		const app = createApp({ authenticated: false, summarizeTreatments });
 
 		const response = await app.request('/map/chemical/summary?bbox=-91,35,-90,36');
 
 		expect(response.status).toBe(401);
-		expect(summarizeApplications).not.toHaveBeenCalled();
+		expect(summarizeTreatments).not.toHaveBeenCalled();
 	});
 });
 
@@ -1848,7 +1848,7 @@ describe('registerMapTileRoutes: clustered tiles', () => {
 		['addresses', 'getAddressTile'],
 		['inspections', 'getInspectionTile'],
 		['samples', 'getSampleTile'],
-		['chemical', 'getApplicationTile'],
+		['chemical', 'getTreatmentTile'],
 		['source-reduction', 'getSourceReductionTile'],
 		['biocontrol', 'getBiocontrolTile'],
 		['outreach', 'getOutreachTile'],
@@ -2164,7 +2164,7 @@ describe('paged map surfaces', () => {
 	const pagedSurfaces = [
 		['/map/addresses', 'listAddressDisplayRows', bbox],
 		['/map/samples', 'listSampleDisplayRows', bbox],
-		['/map/chemical', 'listApplicationDisplayRows', bbox],
+		['/map/chemical', 'listTreatmentDisplayRows', bbox],
 		['/map/source-reduction', 'listSourceReductionDisplayRows', bbox],
 		['/map/biocontrol', 'listBiocontrolDisplayRows', bbox],
 		['/map/outreach', 'listOutreachDisplayRows', bbox],
@@ -2274,7 +2274,7 @@ describe('enum map filters', () => {
 	});
 
 	it('refuses an id that is not a UUID inside a list filter', async () => {
-		const app = createApp({ listApplicationDisplayRows: async () => ({ rows: [], total: 0 }) });
+		const app = createApp({ listTreatmentDisplayRows: async () => ({ rows: [], total: 0 }) });
 
 		const response = await app.request('/map/chemical?bbox=-91,35,-90,36&insecticideId=not-a-uuid');
 
@@ -2327,7 +2327,7 @@ describe('map filter fields', () => {
 	it('maps the chemical params', () => {
 		expect(
 			filtersOf(
-				parseApplicationMapFilters,
+				parseTreatmentMapFilters,
 				`insecticideId=${idA}&applicationMethodId=${idB}&applicator=${idA}&regionId=${idB}&dateFrom=2026-01-01&dateTo=2026-02-01`,
 			),
 		).toEqual({

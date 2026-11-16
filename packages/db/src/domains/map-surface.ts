@@ -141,10 +141,24 @@ export interface MapSummaryBreakdown {
 	readonly sum: RawBuilder<number>;
 }
 
+/**
+ * A breakdown over the parts of a record rather than the record: every key and
+ * the amount are arrays of one length, read position by position, and each
+ * position is one part. A Treatment's Chemical Applications are the case, one
+ * Insecticide and one amount each, so a two-product Treatment adds to two rows.
+ * A row's `count` is then the parts carrying that combination.
+ */
+export interface MapSummaryBreakdownEach {
+	readonly each: {
+		readonly by: Readonly<Record<string, RawBuilder<readonly unknown[]>>>;
+		readonly sum: RawBuilder<readonly number[]>;
+	};
+}
+
 /** The breakdowns a surface's summary sums, keyed by name. */
 export type MapSurfaceBreakdowns = (
 	context: MapReadContext,
-) => Readonly<Record<string, MapSummaryBreakdown>>;
+) => Readonly<Record<string, MapSummaryBreakdown | MapSummaryBreakdownEach>>;
 
 /**
  * A grouping that files one record under several values: the expression is an
@@ -321,6 +335,18 @@ export interface MapSurfaceExport {
 	 * alias, and a join here takes an alias of its own.
 	 */
 	readonly joins?: RawBuilder<unknown>;
+	/**
+	 * Where one record is several rows of the file: the inner join that fans a
+	 * record out into its rows, and the order of those rows within the record.
+	 * A Treatment is one row per Chemical Application, because a state
+	 * pesticide-use report is per product. The join is read by the count as well
+	 * as the rows, so the ceiling counts rows of the file, and the columns and
+	 * `joins` may name its alias.
+	 */
+	readonly rows?: {
+		readonly join: RawBuilder<unknown>;
+		readonly orderBy: RawBuilder<unknown>;
+	};
 }
 
 /** The box and filters of an export, which are a summary's: no paging. */
@@ -408,9 +434,10 @@ export interface MapRecordSurfaceReaders<TFilters, TRow> extends MapSurfaceReade
  * refusal over {@link MAP_EXPORT_CEILING}.
  *
  * The same box and filters as {@link MapRecordSurfaceReaders.listByBounds},
- * narrowed by the same predicate, so the rows it answers are the page's
- * `total` for the same request. The box is the Map's viewport, or the whole
- * world for the Table.
+ * narrowed by the same predicate, so the records it answers are the page's
+ * `total` for the same request. A surface whose export declares `rows` writes
+ * more rows than that, one per part of each record. The box is the Map's
+ * viewport, or the whole world for the Table.
  */
 export type MapExportReader<TFilters> = (
 	db: DbExecutor,
@@ -482,8 +509,7 @@ export function mapRecordSurface<TFilters, TRow>(
 		// would put it in `TRow`, where the by-id read that never selects it
 		// would then claim it.
 		async listByBounds(db, input) {
-			const orderBy =
-				typeof display.orderBy === 'function' ? display.orderBy(input.filters) : display.orderBy;
+			const orderBy = displayOrderBy(display, input.filters);
 			const result = await sql<TRow & { readonly total: number }>`
 				with bounds as (
 					select st_makeenvelope(
@@ -537,7 +563,7 @@ export function mapRecordSurface<TFilters, TRow>(
 }
 
 /** What {@link mapRecordSurface} is declared from. */
-type MapRecordDefinition<TFilters, TRow> = MapSummaryDefinition<TFilters> & {
+export type MapRecordDefinition<TFilters, TRow> = MapSummaryDefinition<TFilters> & {
 	readonly display: MapSurfaceDisplay<TRow, TFilters>;
 	/**
 	 * The columns an export of the surface holds. Required, so a record set
@@ -555,9 +581,11 @@ type MapRecordDefinition<TFilters, TRow> = MapSummaryDefinition<TFilters> & {
  * Counted first so a refusal costs a count rather than 50,000 rows read and
  * thrown away. Both statements narrow with `surfaceWhere` and `envelopeWhere`,
  * the predicate the page and the summary narrow with, so the count is the
- * page's `total`. The rows read in the rail's order, under the display joins
- * that order may name, and the columns go out under positional aliases, `c0`,
- * `c1`, so a header never reaches the SQL as an identifier.
+ * page's `total`, or, where the export fans a record out into `rows`, the rows
+ * of the file. The rows read in the rail's order, under the display joins that
+ * order may name, then in the fan-out's own order within a record, and the
+ * columns go out under positional aliases, `c0`, `c1`, so a header never
+ * reaches the SQL as an identifier.
  *
  * The two statements are two snapshots, so rows committed between them can
  * take a box the count passed over the ceiling. The read is limited to one row
@@ -584,10 +612,12 @@ async function readMapExport<TFilters, TRow>(
 		) as geom_4326
 	)`;
 
+	const fanOut = exportFanOut(exportDeclaration);
 	const counted = await sql<{ readonly total: number }>`
 		with ${bounds}
 		select count(*)::int as "total"
 		from ${definition.from}
+		${fanOut.join}
 		cross join bounds
 		where ${where}
 	`.execute(db);
@@ -599,8 +629,7 @@ async function readMapExport<TFilters, TRow>(
 	const { display } = definition;
 	const columns = exportDeclaration.columns(input);
 	const aliases = columns.map((_column, index) => `c${index}`);
-	const orderBy =
-		typeof display.orderBy === 'function' ? display.orderBy(input.filters) : display.orderBy;
+	const orderBy = displayOrderBy(display, input.filters);
 	const result = await sql<Record<string, unknown>>`
 		with ${bounds}
 		select ${sql.join(
@@ -611,10 +640,11 @@ async function readMapExport<TFilters, TRow>(
 		)}
 		from ${definition.from}
 		${display.joins ?? sql``}
+		${fanOut.join}
 		${exportDeclaration.joins ?? sql``}
 		cross join bounds
 		where ${where}
-		order by ${orderBy}
+		order by ${orderBy}${fanOut.orderBy}
 		limit ${MAP_EXPORT_CEILING + 1}
 	`.execute(db);
 	if (result.rows.length > MAP_EXPORT_CEILING) {
@@ -626,6 +656,28 @@ async function readMapExport<TFilters, TRow>(
 		headers: columns.map((exportColumn) => exportColumn.header),
 		rows: result.rows.map((row) => aliases.map((alias) => row[alias] ?? null)),
 	};
+}
+
+/** A display's order, which may depend on the filters. */
+function displayOrderBy<TRow, TFilters>(
+	display: MapSurfaceDisplay<TRow, TFilters>,
+	filters: TFilters | undefined,
+): RawBuilder<unknown> {
+	return typeof display.orderBy === 'function' ? display.orderBy(filters) : display.orderBy;
+}
+
+/**
+ * An export's fan-out as the join both statements read and the order tail the
+ * row read appends, each empty for an export that is one row per record.
+ */
+function exportFanOut(declaration: MapSurfaceExport): {
+	readonly join: RawBuilder<unknown>;
+	readonly orderBy: RawBuilder<unknown>;
+} {
+	const rows = declaration.rows;
+	return rows === undefined
+		? { join: sql``, orderBy: sql`` }
+		: { join: rows.join, orderBy: sql`, ${rows.orderBy}` };
 }
 
 interface SummaryCountRow {
@@ -714,7 +766,15 @@ async function readMapSummary<TFilters>(
 
 type SummaryGroupingEntry = readonly [string, RawBuilder<unknown> | MapSummaryGroupingEach];
 type SummaryFigureEntry = readonly [string, RawBuilder<number> | MapSummaryFigureMax];
-type SummaryBreakdownEntry = readonly [string, MapSummaryBreakdown];
+type SummaryBreakdownEntry = readonly [string, MapSummaryBreakdown | MapSummaryBreakdownEach];
+
+/** A breakdown's keys and amount, whether each is one value per record or an array of parts. */
+function breakdownParts(breakdown: MapSummaryBreakdown | MapSummaryBreakdownEach): {
+	readonly by: Readonly<Record<string, RawBuilder<unknown>>>;
+	readonly sum: RawBuilder<unknown>;
+} {
+	return 'each' in breakdown ? breakdown.each : breakdown;
+}
 
 const groupAlias = (index: number) => sql.raw(`"g${index}"`);
 const figureAlias = (index: number) => sql.raw(`"f${index}"`);
@@ -738,12 +798,15 @@ function summarySelectList(
 		...figures.map(
 			([, figure], index) => sql`${'max' in figure ? figure.max : figure} as ${figureAlias(index)}`,
 		),
-		...breakdowns.flatMap(([, breakdown], index) => [
-			...Object.values(breakdown.by).map(
-				(key, keyIndex) => sql`${key} as ${breakdownKeyAlias(index, keyIndex)}`,
-			),
-			sql`${breakdown.sum} as ${breakdownSumAlias(index)}`,
-		]),
+		...breakdowns.flatMap(([, breakdown], index) => {
+			const parts = breakdownParts(breakdown);
+			return [
+				...Object.values(parts.by).map(
+					(key, keyIndex) => sql`${key} as ${breakdownKeyAlias(index, keyIndex)}`,
+				),
+				sql`${parts.sum} as ${breakdownSumAlias(index)}`,
+			];
+		}),
 	];
 	return columns.length === 0 ? sql`1` : sql.join(columns, sql`, `);
 }
@@ -754,7 +817,9 @@ function summarySelectList(
  *
  * Each is an uncorrelated subquery over `in_view`, grouped by its keys, so it
  * sits beside the whole-box aggregates on the one row that carries them. The
- * key names go in by parameter, as a grouping's name does.
+ * key names go in by parameter, as a grouping's name does. An `each`
+ * breakdown unnests its arrays together first, so it groups parts rather than
+ * records.
  */
 function breakdownTotals(breakdowns: readonly SummaryBreakdownEntry[]): RawBuilder<unknown> {
 	if (breakdowns.length === 0) {
@@ -762,7 +827,7 @@ function breakdownTotals(breakdowns: readonly SummaryBreakdownEntry[]): RawBuild
 	}
 	return sql`jsonb_build_object(${sql.join(
 		breakdowns.map(([name, breakdown], index) => {
-			const keys = Object.keys(breakdown.by).map((key, keyIndex) => ({
+			const keys = Object.keys(breakdownParts(breakdown).by).map((key, keyIndex) => ({
 				key,
 				alias: breakdownKeyAlias(index, keyIndex),
 			}));
@@ -774,6 +839,18 @@ function breakdownTotals(breakdowns: readonly SummaryBreakdownEntry[]): RawBuild
 				keys.map(({ alias }) => alias),
 				sql`, `,
 			);
+			const partAliases = [...keys.map(({ alias }) => alias), breakdownSumAlias(index)];
+			const source =
+				'each' in breakdown
+					? sql`(
+						select parts.*
+						from in_view
+						cross join lateral unnest(${sql.join(
+							partAliases.map((alias) => sql`in_view.${alias}`),
+							sql`, `,
+						)}) as parts(${sql.join(partAliases, sql`, `)})
+					) as in_view_parts`
+					: sql`in_view`;
 			return sql`${name}::text, (
 				select coalesce(
 					jsonb_agg(
@@ -784,7 +861,7 @@ function breakdownTotals(breakdowns: readonly SummaryBreakdownEntry[]): RawBuild
 				)
 				from (
 					select ${keyColumns}, count(*)::int as record_count, coalesce(sum(${breakdownSumAlias(index)}), 0) as amount
-					from in_view
+					from ${source}
 					group by ${keyColumns}
 				) as breakdown_rows
 			)`;

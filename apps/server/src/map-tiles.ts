@@ -1,6 +1,5 @@
 import {
 	type AddressMvtTileFilters,
-	type ApplicationMapFilters,
 	type BiocontrolMapFilters,
 	type CollectionMapFilters,
 	countActiveHabitatsByType,
@@ -27,6 +26,7 @@ import {
 	sampleStatusValues,
 	searchHabitatSites,
 	type TrapMapFilters,
+	type TreatmentMapFilters,
 } from '@simmer-mosquito/db';
 import {
 	ADDRESS_MAP_FILTERS,
@@ -124,12 +124,12 @@ const defaultMapReaders = {
 	getCollectionDisplayRow: MAP_SURFACES.collections.getById,
 	exportCollections: MAP_SURFACES.collections.exportByBounds,
 
-	getApplicationTile: MAP_SURFACES.chemical.getTile,
-	getApplicationExtent: MAP_SURFACES.chemical.getExtent,
-	listApplicationDisplayRows: MAP_SURFACES.chemical.listByBounds,
-	summarizeApplications: MAP_SURFACES.chemical.summarizeByBounds,
-	getApplicationDisplayRow: MAP_SURFACES.chemical.getById,
-	exportApplications: MAP_SURFACES.chemical.exportByBounds,
+	getTreatmentTile: MAP_SURFACES.chemical.getTile,
+	getTreatmentExtent: MAP_SURFACES.chemical.getExtent,
+	listTreatmentDisplayRows: MAP_SURFACES.chemical.listByBounds,
+	summarizeTreatments: MAP_SURFACES.chemical.summarizeByBounds,
+	getTreatmentDisplayRow: MAP_SURFACES.chemical.getById,
+	exportTreatments: MAP_SURFACES.chemical.exportByBounds,
 
 	getSourceReductionTile: MAP_SURFACES['source-reduction'].getTile,
 	getSourceReductionExtent: MAP_SURFACES['source-reduction'].getExtent,
@@ -442,32 +442,32 @@ export function registerMapTileRoutes(
 
 	registerPagedRoute(app, options, {
 		path: '/map/chemical',
-		key: 'applications',
+		key: 'treatments',
 		parseQuery: (searchParams, organizationId, timeZone) =>
-			parseBboxPageQuery(searchParams, organizationId, timeZone, parseApplicationMapFilters),
-		list: readers.listApplicationDisplayRows,
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseTreatmentMapFilters),
+		list: readers.listTreatmentDisplayRows,
 	});
 
-	// What the Chemical Applications rail draws in place of the page over 100 in
+	// What the Chemical rail draws in place of the page over 100 in
 	// view (#1374). Registered before `/:id` so the literal segment wins.
 	registerSummaryRoute(app, options, {
 		path: '/map/chemical/summary',
-		parseFilters: parseApplicationMapFilters,
-		summarize: readers.summarizeApplications,
+		parseFilters: parseTreatmentMapFilters,
+		summarize: readers.summarizeTreatments,
 	});
 
 	// Registered before `/:id` so the literal segment wins.
 	registerExportRoute(app, options, {
 		path: '/map/chemical/export',
-		parseFilters: parseApplicationMapFilters,
-		export: readers.exportApplications,
+		parseFilters: parseTreatmentMapFilters,
+		export: readers.exportTreatments,
 	});
 
 	registerByIdRoute(app, options, {
 		path: '/map/chemical/:id',
-		key: 'application',
-		noun: 'Application',
-		get: readers.getApplicationDisplayRow,
+		key: 'treatment',
+		noun: 'Treatment',
+		get: readers.getTreatmentDisplayRow,
 	});
 
 	registerPagedRoute(app, options, {
@@ -1037,10 +1037,10 @@ function createTileSetRegistry(readers: MapReaders): ReadonlyMap<string, TileSet
 			getExtent: readers.getSampleExtent,
 		}),
 		chemical: defineTileSet({
-			parseFilters: parseApplicationMapFilters,
+			parseFilters: parseTreatmentMapFilters,
 			clusters: true,
-			getTile: readers.getApplicationTile,
-			getExtent: readers.getApplicationExtent,
+			getTile: readers.getTreatmentTile,
+			getExtent: readers.getTreatmentExtent,
 		}),
 		'source-reduction': defineTileSet({
 			parseFilters: parseSourceReductionMapFilters,
@@ -1363,7 +1363,7 @@ export const parseSampleTileFilters = readerFilters<SampleListFilters>()(
 	SAMPLE_MAP_FILTERS,
 );
 
-export const parseApplicationMapFilters = readerFilters<ApplicationMapFilters>()(
+export const parseTreatmentMapFilters = readerFilters<TreatmentMapFilters>()(
 	'chemical',
 	CHEMICAL_MAP_FILTERS,
 );

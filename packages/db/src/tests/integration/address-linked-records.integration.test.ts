@@ -56,6 +56,21 @@ async function insertLandingRate(
 	return row.id;
 }
 
+/** A Treatment at the Address with one product, which is the least a Treatment holds. */
+async function treatmentWithLine(
+	db: DbExecutor,
+	organizationId: string,
+	links: { readonly addressId: string; readonly insecticideId: string; readonly unitId: string },
+): Promise<string> {
+	const treatmentId = await createTreatment(db, organizationId, { address_id: links.addressId });
+	await createApplication(db, organizationId, {
+		treatmentId,
+		insecticideId: links.insecticideId,
+		unitId: links.unitId,
+	});
+	return treatmentId;
+}
+
 function page(
 	families: readonly LinkedRecordFamilyPage[],
 	family: LinkedRecordFamilyPage['family'],
@@ -144,12 +159,11 @@ describeDbIntegration('address linked records', () => {
 					{ addressId, durationUnitId: unitId },
 					'2026-08-02',
 				),
-				application: await createApplication(
-					db,
-					organizationId,
-					{ insecticideId, unitId },
-					{ address_id: addressId },
-				),
+				application: await treatmentWithLine(db, organizationId, {
+					addressId,
+					insecticideId,
+					unitId,
+				}),
 				sourceReduction: await createSourceReduction(
 					db,
 					organizationId,
@@ -212,6 +226,71 @@ describeDbIntegration('address linked records', () => {
 			]);
 			expect(page(families, 'requests').total).toBe(2);
 			expect(page(families, 'controlActions').total).toBe(3);
+		});
+	});
+
+	// ADR 0020: the row is the visit. A Treatment with two products is one
+	// control action with both products on it, and a deleted line drops off it.
+	it('lists a two-product Treatment once, with its live lines', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			const addressId = await createAddress(db, organizationId);
+			const unitId = await createUnit(db);
+			const first = await createInsecticide(db, organizationId, unitId);
+			const second = await createInsecticide(db, organizationId, unitId, {
+				trade_name: 'Second larvicide',
+				registration_number: '99999-2',
+			});
+			const dropped = await createInsecticide(db, organizationId, unitId, {
+				trade_name: 'Dropped larvicide',
+				registration_number: '99999-3',
+			});
+			const method = await db
+				.insertInto('application_methods')
+				.values({ organization_id: organizationId, name: 'Backpack' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			const treatmentId = await createTreatment(db, organizationId, {
+				address_id: addressId,
+				application_method_id: method.id,
+			});
+			await createApplication(db, organizationId, { treatmentId, insecticideId: first, unitId });
+			await createApplication(
+				db,
+				organizationId,
+				{ treatmentId, insecticideId: second, unitId },
+				{ amount_applied: 5 },
+			);
+			await createApplication(
+				db,
+				organizationId,
+				{ treatmentId, insecticideId: dropped, unitId },
+				{ deleted_at: sql`now()` },
+			);
+
+			const { families } = await listAddressLinkedRecords(db, {
+				organizationId,
+				addressId,
+				timeZone,
+			});
+			const controlActions = page(families, 'controlActions');
+
+			expect(controlActions.total).toBe(1);
+			expect(controlActions.items).toHaveLength(1);
+			expect(controlActions.items[0]).toMatchObject({
+				id: treatmentId,
+				category: 'application',
+				refId: method.id,
+				amount: null,
+				unitId: null,
+			});
+			expect(controlActions.items[0]?.lines).toHaveLength(2);
+			expect(controlActions.items[0]?.lines).toEqual(
+				expect.arrayContaining([
+					{ insecticideId: first, amount: 2, unitId },
+					{ insecticideId: second, amount: 5, unitId },
+				]),
+			);
 		});
 	});
 
