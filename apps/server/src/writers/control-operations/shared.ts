@@ -1,15 +1,8 @@
-import {
-	assertWriteReferences,
-	checkedValues,
-	type geojsonToGeom,
-	localDateColumn,
-	softDelete,
-	updateRow,
-} from '@simmer-mosquito/db';
+import { localDateColumn, softDelete, updateRow } from '@simmer-mosquito/db';
 import type { ControlActionContext, LocationSource } from '@simmer-mosquito/domain';
 import type { CommandTransaction } from '../../command-write.js';
 import { resolveLocationGeom } from '../../location-source.js';
-import { type CommandRow, returnColumns } from '../../return-columns.js';
+import type { CommandRow } from '../../return-columns.js';
 
 export type ControlOperationsTransaction = CommandTransaction;
 export { localDateColumn, softDelete };
@@ -19,46 +12,6 @@ export const updateActionRow = updateRow;
 
 /** This family's name for the shared resolver. */
 export const resolveGeom = resolveLocationGeom;
-
-export async function insertApplicationBatch(
-	trx: ControlOperationsTransaction,
-	input: {
-		readonly id: string;
-		readonly organizationId: string;
-		readonly applicationId: string;
-		readonly insecticideBatchId: string;
-		readonly actorProfileId: string;
-	},
-): Promise<ApplicationBatchRow> {
-	await assertWriteReferences(trx, {
-		organizationId: input.organizationId,
-		write: { kind: 'create' },
-		references: [
-			{
-				column: 'insecticide_batch_id',
-				catalog: 'insecticideBatch',
-				id: input.insecticideBatchId,
-				label: 'batch',
-			},
-		],
-	});
-
-	const row = await trx
-		.insertInto('application_batches')
-		.values(
-			await checkedValues(trx, input.organizationId, {
-				id: input.id,
-				organization_id: input.organizationId,
-				application_id: input.applicationId,
-				insecticide_batch_id: input.insecticideBatchId,
-				created_by_profile_id: input.actorProfileId,
-				updated_by_profile_id: input.actorProfileId,
-			}),
-		)
-		.returning(returnColumns.application_batches)
-		.executeTakeFirstOrThrow();
-	return row;
-}
 
 // ===========================================================================
 // Location source / context resolution
@@ -134,9 +87,7 @@ export type FormulationRow = CommandRow<'formulations'>;
 
 export type FormulationInsecticideRow = CommandRow<'formulation_insecticides'>;
 
-export type ApplicationRow = CommandRow<'applications'>;
-
-export type ApplicationBatchRow = CommandRow<'application_batches'>;
+export type TreatmentRow = CommandRow<'treatments'>;
 
 export type SourceReductionRow = CommandRow<'source_reductions'>;
 
@@ -156,24 +107,5 @@ export type FormulationUpdateColumns = {
 	batch_size?: number;
 	batch_unit_id?: string;
 	is_active?: boolean;
-	updated_by_profile_id: string;
-};
-
-export type ApplicationUpdateColumns = {
-	geom?: ReturnType<typeof geojsonToGeom>;
-	application_method_id?: string | null;
-	insecticide_id?: string;
-	applicator_profile_id?: string | null;
-	application_date?: ReturnType<typeof localDateColumn>;
-	address_id?: string | null;
-	vehicle_id?: string | null;
-	equipment_id?: string | null;
-	amount_applied?: number;
-	application_unit_id?: string;
-	habitat_id?: string | null;
-	collection_id?: string | null;
-	inspection_id?: string | null;
-	requested_control_action_id?: string | null;
-	metadata?: unknown | null;
 	updated_by_profile_id: string;
 };

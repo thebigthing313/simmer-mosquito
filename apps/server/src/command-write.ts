@@ -59,12 +59,17 @@ export function commandActor(authContext: AuthContext): CommandActor {
  *
  * The result carries the last row written and the transaction id the client
  * waits on before trusting its optimistic mutation.
+ *
+ * `settle` runs once after the last command, inside the same transaction, for a
+ * rule that has to read what the whole batch left behind; see
+ * {@link RunCommandsConfig.settle}.
  */
 export async function writeCommands<TCommand extends WritableCommand, TRow>(
 	db: CommandDb,
 	actor: CommandActor,
 	commands: readonly TCommand[],
 	write: (trx: CommandTransaction, command: TCommand) => Promise<TRow | null>,
+	settle?: (trx: CommandTransaction) => Promise<void>,
 ): Promise<MutationWriteResult<TRow | null>> {
 	return db.transaction().execute(async (trx) => {
 		let row: TRow | null = null;
@@ -72,6 +77,7 @@ export async function writeCommands<TCommand extends WritableCommand, TRow>(
 			await assertCommandOwnership(trx, command, actor);
 			row = await write(trx, command);
 		}
+		await settle?.(trx);
 		return { row, txid: await readCurrentTransactionId(trx) };
 	});
 }
@@ -143,6 +149,18 @@ export interface RunCommandsConfig<TCommand extends WritableCommand, TRow> {
 	readonly notFound: string;
 	/** The response key the row is returned under, e.g. `regionFolder`. */
 	readonly key: string;
+	/**
+	 * A check over what the whole request wrote, run once after its last command
+	 * and before the commit.
+	 *
+	 * Only `treatments` has one. A PATCH may name a header intent and
+	 * `reviseTreatmentLines` together, and the recipe check compares the header's
+	 * Formulation against the lines: run after either command alone, it would
+	 * compare a new mix amount against the old lines, or new lines against the old
+	 * mix, and refuse a save that is consistent once both have landed. Throwing
+	 * here rolls the request back like a refusal from inside the write.
+	 */
+	readonly settle?: (trx: CommandTransaction) => Promise<void>;
 	/** Only `memberships` has one — see {@link SecondSystem}. */
 	readonly secondSystem?: SecondSystem<TCommand>;
 }
@@ -260,6 +278,7 @@ export async function runCommands<TCommand extends WritableCommand, TRow>(
 			commandActor(authContext),
 			commands,
 			config.write,
+			config.settle,
 		);
 		if (result.row === null) {
 			return context.json({ error: config.notFound }, 404);

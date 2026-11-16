@@ -21,7 +21,6 @@ import {
 const EXPECTED_TYPES = [
 	'address',
 	'assignment',
-	'application',
 	'biocontrolAction',
 	'collection',
 	'contact',
@@ -38,6 +37,7 @@ const EXPECTED_TYPES = [
 	'serviceRequest',
 	'sourceReduction',
 	'trap',
+	'treatment',
 	// Catalogs, block-only.
 	'applicationMethod',
 	'biocontrolMethod',

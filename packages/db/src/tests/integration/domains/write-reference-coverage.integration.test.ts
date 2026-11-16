@@ -268,7 +268,20 @@ interface OrgOwnedReference {
 	readonly parent: string;
 }
 
-/** Every foreign key whose parent table carries an `organization_id`. */
+/**
+ * Every foreign key column whose parent table carries an `organization_id`.
+ *
+ * Read from `pg_constraint` so each referencing column is paired with the column
+ * it references. `information_schema` cannot pair them: it lists a composite
+ * key's columns on one side and its referenced columns on the other, so the
+ * Chemical Application's `(treatment_id, organization_id)` key to
+ * `treatments (id, organization_id)` read as `applications.organization_id ->
+ * treatments`, a reference no payload makes.
+ *
+ * That half of a composite key is skipped: a column referencing its parent's
+ * `organization_id` is the key holding the two rows to one organization, which
+ * the schema enforces itself and the writer sets from the session.
+ */
 async function orgOwnedReferences(
 	db: Kysely<SimmerDatabase>,
 ): Promise<readonly OrgOwnedReference[]> {
@@ -278,23 +291,25 @@ async function orgOwnedReferences(
 		readonly parent: string;
 	}>`
 		select
-			kcu.table_name  as child,
-			kcu.column_name as column,
-			ccu.table_name  as parent
-		from information_schema.table_constraints tc
-		join information_schema.key_column_usage kcu
-			on kcu.constraint_name = tc.constraint_name
-			and kcu.table_schema = tc.table_schema
-		join information_schema.constraint_column_usage ccu
-			on ccu.constraint_name = tc.constraint_name
-			and ccu.table_schema = tc.table_schema
-		where tc.constraint_type = 'FOREIGN KEY'
-			and tc.table_schema = current_schema()
+			child_table.relname  as child,
+			child_column.attname as column,
+			parent_table.relname as parent
+		from pg_constraint fk
+		cross join lateral unnest(fk.conkey, fk.confkey) as pair(child_attnum, parent_attnum)
+		join pg_class child_table on child_table.oid = fk.conrelid
+		join pg_class parent_table on parent_table.oid = fk.confrelid
+		join pg_attribute child_column
+			on child_column.attrelid = fk.conrelid and child_column.attnum = pair.child_attnum
+		join pg_attribute parent_column
+			on parent_column.attrelid = fk.confrelid and parent_column.attnum = pair.parent_attnum
+		where fk.contype = 'f'
+			and fk.connamespace = current_schema()::regnamespace
+			and parent_column.attname <> 'organization_id'
 			and exists (
-				select 1 from information_schema.columns oc
-				where oc.table_schema = current_schema()
-					and oc.table_name = ccu.table_name
-					and oc.column_name = 'organization_id'
+				select 1 from pg_attribute oc
+				where oc.attrelid = fk.confrelid
+					and oc.attname = 'organization_id'
+					and not oc.attisdropped
 			)
 	`.execute(db);
 

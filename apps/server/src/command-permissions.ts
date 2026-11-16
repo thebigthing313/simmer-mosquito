@@ -73,7 +73,7 @@ export type OwnedRecordRef =
  */
 export interface PerformedRecordRef {
 	readonly table:
-		| 'applications'
+		| 'treatments'
 		| 'source_reductions'
 		| 'outreach_actions'
 		| 'biocontrol_actions'
@@ -81,14 +81,6 @@ export interface PerformedRecordRef {
 	readonly payloadKey: string;
 	readonly performerColumn: string;
 	readonly performedOnColumn: string;
-	/**
-	 * For a command that names a child row instead of the record itself.
-	 *
-	 * `removeChemicalApplicationBatch` carries only `applicationBatchId`, so the
-	 * application whose performer decides the answer has to be looked up through
-	 * the link row first.
-	 */
-	readonly through?: { readonly table: 'application_batches'; readonly parentColumn: string };
 }
 
 /**
@@ -111,11 +103,11 @@ export type DeletionEscalation =
 			readonly kind: 'actionRecord';
 			/** The `entity_type` the polymorphic support tables store this row under. */
 			readonly entityType:
-				| 'application'
+				| 'treatment'
 				| 'source_reduction'
 				| 'outreach_action'
 				| 'biocontrol_action';
-			/** Applications alone also carry batch links. */
+			/** Treatments alone also carry batch links, on their Chemical Applications. */
 			readonly hasBatchLinks: boolean;
 	  }
 	/** A request escalates once anything references it, or once it is resolved. */
@@ -179,22 +171,17 @@ function ownAction(
 	};
 }
 
-const OWN_APPLICATION = ownAction(
-	'applications',
-	'applicationId',
+/**
+ * A Treatment and its lines are one record for a floor. Changing a line's
+ * Insecticide used to be a guarded correction of its own; it is the same check
+ * on the Treatment now, so it folds in (ADR 0020).
+ */
+const OWN_TREATMENT = ownAction(
+	'treatments',
+	'treatmentId',
 	'applicator_profile_id',
 	'application_date',
 );
-const OWN_APPLICATION_VIA_BATCH: CommandPermission = {
-	kind: 'performer',
-	performed: {
-		table: 'applications',
-		payloadKey: 'applicationBatchId',
-		performerColumn: 'applicator_profile_id',
-		performedOnColumn: 'application_date',
-		through: { table: 'application_batches', parentColumn: 'application_id' },
-	},
-};
 const OWN_SOURCE_REDUCTION = ownAction(
 	'source_reductions',
 	'sourceReductionId',
@@ -231,9 +218,9 @@ function ownActionDeletion(
 	return { kind: 'performer', performed: base.performed, escalation };
 }
 
-const DELETE_OWN_APPLICATION = ownActionDeletion(OWN_APPLICATION, {
+const DELETE_OWN_TREATMENT = ownActionDeletion(OWN_TREATMENT, {
 	kind: 'actionRecord',
-	entityType: 'application',
+	entityType: 'treatment',
 	hasBatchLinks: true,
 });
 const DELETE_OWN_SOURCE_REDUCTION = ownActionDeletion(OWN_SOURCE_REDUCTION, {
@@ -359,7 +346,7 @@ const MISSION_DISPATCH_PERMISSIONS: Record<MissionDispatchCommandType, CommandPe
 	'missionDispatch.reopenMissionItem': OWN_MISSION_ITEM,
 	'missionDispatch.skipMissionItem': OWN_MISSION_ITEM,
 	'missionDispatch.unskipMissionItem': OWN_MISSION_ITEM,
-	'missionDispatch.recordChemicalApplicationForMissionItem': OWN_MISSION_ITEM,
+	'missionDispatch.recordTreatmentForMissionItem': OWN_MISSION_ITEM,
 	'missionDispatch.recordSourceReductionForMissionItem': OWN_MISSION_ITEM,
 	'missionDispatch.recordOutreachActionForMissionItem': OWN_MISSION_ITEM,
 	'missionDispatch.recordBiocontrolActionForMissionItem': OWN_MISSION_ITEM,
@@ -589,12 +576,11 @@ const CONTROL_OPERATIONS_PERMISSIONS: Record<ControlOperationsCommandType, Comma
 	'controlOperations.updateFormulationInsecticide': ADMIN,
 	'controlOperations.removeFormulationInsecticide': ADMIN,
 
-	'controlOperations.recordChemicalApplication': COLLECTOR,
-	'controlOperations.updateChemicalApplicationFieldDetails': OWN_APPLICATION,
-	'controlOperations.updateChemicalApplicationLocationAndContext': OWN_APPLICATION,
-	'controlOperations.deleteChemicalApplication': DELETE_OWN_APPLICATION,
-	'controlOperations.addChemicalApplicationBatch': OWN_APPLICATION,
-	'controlOperations.removeChemicalApplicationBatch': OWN_APPLICATION_VIA_BATCH,
+	'controlOperations.recordTreatment': COLLECTOR,
+	'controlOperations.updateTreatmentFieldDetails': OWN_TREATMENT,
+	'controlOperations.updateTreatmentLocationAndContext': OWN_TREATMENT,
+	'controlOperations.reviseTreatmentLines': OWN_TREATMENT,
+	'controlOperations.deleteTreatment': DELETE_OWN_TREATMENT,
 
 	'controlOperations.recordSourceReduction': COLLECTOR,
 	'controlOperations.updateSourceReductionFieldDetails': OWN_SOURCE_REDUCTION,

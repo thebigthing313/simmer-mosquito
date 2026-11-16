@@ -136,7 +136,6 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedActualActionDetach: deleteRegistry,
 	acknowledgedAssignmentItemDeletion: deleteRegistry,
 	acknowledgedAssociatedRecordsDeletion: deleteRegistry,
-	acknowledgedBatchClearance: clearanceCheck,
 	acknowledgedBatchDeletion: deleteRegistry,
 	acknowledgedCascadeDelete: deleteRegistry,
 	acknowledgedClosedRequestChange: stateGuard,

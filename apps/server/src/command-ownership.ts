@@ -181,15 +181,7 @@ async function resolvePerformerOwnership(
 	organizationId: string,
 	actor: CommandActor,
 ): Promise<OwnershipOutcome> {
-	const namedId = readPayloadId(payload, performed.payloadKey);
-	if (namedId === null) {
-		return MISSING_ACTION;
-	}
-
-	const recordId =
-		performed.through === undefined
-			? namedId
-			: await readLinkedParentId(trx, performed.through, namedId, organizationId);
+	const recordId = readPayloadId(payload, performed.payloadKey);
 	if (recordId === null) {
 		return MISSING_ACTION;
 	}
@@ -243,7 +235,7 @@ function performerRefusal(verdict: Exclude<PerformerVerdict, 'owner'>): Ownershi
  */
 const ESCALATION_REASONS: Record<EscalationCause, string> = {
 	support_rows: 'This record has comments or assisting personnel on it. A manager can delete it.',
-	batch_links: 'This application has insecticide batches linked to it. A manager can delete it.',
+	batch_links: 'This treatment has insecticide batches linked to it. A manager can delete it.',
 	requested_action_link: 'This record answers a requested control action. A manager can delete it.',
 	referenced_request:
 		'This request is referenced by recorded work or a mission. A manager can delete it.',
@@ -277,10 +269,7 @@ async function readDeletionEscalation(
 	if (await hasSupportRows(trx, escalation.entityType, recordId, organizationId)) {
 		return 'support_rows';
 	}
-	if (
-		escalation.hasBatchLinks &&
-		(await hasActiveRows(trx, 'application_batches', 'application_id', recordId, organizationId))
-	) {
+	if (escalation.hasBatchLinks && (await hasLiveBatchLinks(trx, recordId, organizationId))) {
 		return 'batch_links';
 	}
 	return (await hasRequestedActionLink(trx, escalation.entityType, recordId, organizationId))
@@ -326,7 +315,7 @@ async function readRequestedActionEscalation(
 
 /** The four actual-action tables, as the doc's "actual actions" set. */
 const ACTION_TABLES = [
-	'applications',
+	'treatments',
 	'source_reductions',
 	'outreach_actions',
 	'biocontrol_actions',
@@ -334,7 +323,7 @@ const ACTION_TABLES = [
 
 /** `entity_type` → the record's own table, for the requested-action link column. */
 const ACTION_TABLE_BY_ENTITY_TYPE = {
-	application: 'applications',
+	treatment: 'treatments',
 	source_reduction: 'source_reductions',
 	outreach_action: 'outreach_actions',
 	biocontrol_action: 'biocontrol_actions',
@@ -379,10 +368,35 @@ async function hasRequestedActionLink(
 	return row?.requested_control_action_id != null;
 }
 
+/**
+ * Whether any live line of the Treatment carries a live batch link.
+ *
+ * Batch links hang off a Chemical Application, not the Treatment, so this is a
+ * join where the other escalations read one table. A link under a removed line
+ * does not count: the line's removal took the link with it.
+ */
+async function hasLiveBatchLinks(
+	trx: CommandTransaction,
+	treatmentId: string,
+	organizationId: string,
+): Promise<boolean> {
+	const row = await trx
+		.selectFrom('application_batches')
+		.innerJoin('applications', 'applications.id', 'application_batches.application_id')
+		.select(sql<number>`1`.as('present'))
+		.where('applications.treatment_id', '=', treatmentId)
+		.where('applications.organization_id', '=', organizationId)
+		.where('applications.deleted_at', 'is', null)
+		.where('application_batches.deleted_at', 'is', null)
+		.limit(1)
+		.executeTakeFirst();
+	return row !== undefined;
+}
+
 /** Whether any non-deleted row in `table` points at `id` through `column`. */
 async function hasActiveRows(
 	trx: CommandTransaction,
-	table: 'application_batches' | 'mission_items' | (typeof ACTION_TABLES)[number],
+	table: 'mission_items' | (typeof ACTION_TABLES)[number],
 	column: string,
 	id: string,
 	organizationId: string,
@@ -396,22 +410,6 @@ async function hasActiveRows(
 		.limit(1)
 		.executeTakeFirst();
 	return row !== undefined;
-}
-
-async function readLinkedParentId(
-	trx: CommandTransaction,
-	through: NonNullable<PerformedRecordRef['through']>,
-	id: string,
-	organizationId: string,
-): Promise<string | null> {
-	const row = await trx
-		.selectFrom(through.table)
-		.select(sql<string>`${sql.ref(through.parentColumn)}`.as('parent_id'))
-		.where('id', '=', id)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.executeTakeFirst();
-	return row?.parent_id ?? null;
 }
 
 /**

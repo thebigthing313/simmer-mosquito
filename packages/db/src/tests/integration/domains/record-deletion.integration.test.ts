@@ -13,13 +13,16 @@ import {
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
 import {
 	createAddress,
+	createApplicationBatch,
 	createCollection,
 	createCollectionMethod,
 	createCollectionSpecies,
 	createComment,
 	createContact,
+	createFormulation,
 	createHabitat,
 	createInsecticide,
+	createInsecticideBatch,
 	createInspection,
 	createMission,
 	createMissionItem,
@@ -29,6 +32,8 @@ import {
 	createRequestedControlAction,
 	createSourceReductionMethod,
 	createSpecies,
+	createTag,
+	createTagItem,
 	createTrap,
 	createUnit,
 	createApplication as insertApplication,
@@ -37,6 +42,7 @@ import {
 	createOutreachAction as insertOutreachAction,
 	createNotificationRegistrationType as insertRegistrationType,
 	createSourceReduction as insertSourceReduction,
+	createTreatment as insertTreatment,
 } from '../../../test-support/row-fixtures.js';
 
 /**
@@ -180,7 +186,7 @@ describeDbIntegration('record deletion policy', () => {
 			const unit = await createUnit(db);
 			const habitatId = await createHabitat(db, org);
 			await createInspection(db, org, { habitat_id: habitatId });
-			await createApplication(db, org, unit, { habitatId });
+			await createTreatment(db, org, unit, { habitatId });
 
 			const first = await habitatRefusal(db, org, habitatId, {});
 			expect(first.acknowledgement).toBe('acknowledgedInspectionDetach');
@@ -191,7 +197,7 @@ describeDbIntegration('record deletion policy', () => {
 				acknowledgedInspectionDetach: true,
 			});
 			expect(second.acknowledgement).toBe('acknowledgedCrossDomainDetach');
-			expect(entry(second.consequences, 'habitatApplications')).toBe(1);
+			expect(entry(second.consequences, 'habitatTreatments')).toBe(1);
 		});
 	});
 
@@ -313,7 +319,7 @@ describeDbIntegration('record deletion policy', () => {
 			const itemId = await createMissionItem(db, org, missionId);
 			const otherMissionItem = await createMissionItem(db, org, await createMission(db, org));
 
-			const applicationId = await createApplication(db, org, unit, { missionItemId: itemId });
+			const treatmentId = await createTreatment(db, org, unit, { missionItemId: itemId });
 			const sourceReductionId = await createSourceReduction(db, org, unit, {
 				missionItemId: itemId,
 			});
@@ -321,7 +327,7 @@ describeDbIntegration('record deletion policy', () => {
 			const biocontrolId = await createBiocontrolAction(db, org, unit, { missionItemId: itemId });
 			// A neighbour on a different mission, to catch a rule that resolved its
 			// child set too widely.
-			const untouchedApplication = await createApplication(db, org, unit, {
+			const untouchedTreatment = await createTreatment(db, org, unit, {
 				missionItemId: otherMissionItem,
 			});
 			await createComment(db, org, { entityType: 'mission', entityId: missionId });
@@ -335,7 +341,7 @@ describeDbIntegration('record deletion policy', () => {
 			expect(impact.blockers).toEqual([]);
 			expect(entry(impact.cascades, 'missionItems')).toBe(1);
 			expect(entry(impact.cascades, 'missionComments')).toBe(1);
-			expect(entry(impact.detaches, 'missionItemApplications')).toBe(1);
+			expect(entry(impact.detaches, 'missionItemTreatments')).toBe(1);
 			expect(entry(impact.detaches, 'missionItemSourceReductions')).toBe(1);
 			expect(entry(impact.detaches, 'missionItemOutreachActions')).toBe(1);
 			expect(entry(impact.detaches, 'missionItemBiocontrolActions')).toBe(1);
@@ -354,7 +360,7 @@ describeDbIntegration('record deletion policy', () => {
 			// its link to a deleted stop cleared. Losing it would erase a record of
 			// pesticide actually applied.
 			for (const [table, id] of [
-				['applications', applicationId],
+				['treatments', treatmentId],
 				['source_reductions', sourceReductionId],
 				['outreach_actions', outreachId],
 				['biocontrol_actions', biocontrolId],
@@ -370,9 +376,9 @@ describeDbIntegration('record deletion policy', () => {
 
 			// The other mission's stop is untouched on both counts.
 			const neighbour = await db
-				.selectFrom('applications')
+				.selectFrom('treatments')
 				.select(['mission_item_id', 'deleted_at'])
-				.where('id', '=', untouchedApplication)
+				.where('id', '=', untouchedTreatment)
 				.executeTakeFirstOrThrow();
 			expect(neighbour.deleted_at).toBeNull();
 			expect(neighbour.mission_item_id).toBe(otherMissionItem);
@@ -393,7 +399,7 @@ describeDbIntegration('record deletion policy', () => {
 			const unit = await createUnit(db);
 			const requestId = await createRequestedControlAction(db, org);
 
-			const applicationId = await createApplication(db, org, unit, { requestId });
+			const treatmentId = await createTreatment(db, org, unit, { requestId });
 			const sourceReductionId = await createSourceReduction(db, org, unit, { requestId });
 			const outreachId = await createOutreachAction(db, org, unit, { requestId });
 			const biocontrolId = await createBiocontrolAction(db, org, unit, { requestId });
@@ -409,7 +415,7 @@ describeDbIntegration('record deletion policy', () => {
 			});
 			expect(impact.found).toBe(true);
 			expect(impact.blockers).toEqual([]);
-			expect(entry(impact.detaches, 'controlRequestApplications')).toBe(1);
+			expect(entry(impact.detaches, 'controlRequestTreatments')).toBe(1);
 			expect(entry(impact.detaches, 'controlRequestMissionItems')).toBe(1);
 			expect(entry(impact.cascades, 'controlRequestComments')).toBe(1);
 
@@ -424,7 +430,7 @@ describeDbIntegration('record deletion policy', () => {
 			});
 
 			for (const [table, id] of [
-				['applications', applicationId],
+				['treatments', treatmentId],
 				['source_reductions', sourceReductionId],
 				['outreach_actions', outreachId],
 				['biocontrol_actions', biocontrolId],
@@ -525,15 +531,140 @@ describeDbIntegration('record deletion policy', () => {
 		});
 	});
 
+	// ADR 0020: a Treatment's lines go with it unasked, because a line is part of
+	// the visit. Their batch links, and the visit's comments, people and tags, are
+	// what the organization recorded on top, so those ask.
+	it('takes a treatment’s lines unasked and asks about its batch links and support records', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db);
+			const unit = await createUnit(db);
+			const treatmentId = await createTreatment(db, org, unit, {});
+			const second = await insertApplication(db, org, {
+				treatmentId,
+				insecticideId: await createLineInsecticide(db, org, unit),
+				unitId: unit,
+			});
+			const line = await db
+				.selectFrom('applications')
+				.select(['id', 'insecticide_id'])
+				.where('treatment_id', '=', treatmentId)
+				.where('id', '<>', second)
+				.executeTakeFirstOrThrow();
+			const batchId = await createInsecticideBatch(db, org, line.insecticide_id);
+			const linkId = await createApplicationBatch(db, org, {
+				applicationId: line.id,
+				insecticideBatchId: batchId,
+			});
+			await createComment(db, org, { entityType: 'treatment', entityId: treatmentId });
+			const tagId = await createTag(db, org);
+			await createTagItem(db, org, { tagId, entityType: 'treatment', entityId: treatmentId });
+			// A neighbour, to catch a cascade that resolved its child set too widely.
+			const neighbour = await createTreatment(db, org, unit, {});
+
+			const impact = await readDeleteImpact(db, {
+				recordType: 'treatment',
+				recordId: treatmentId,
+				organizationId: org,
+			});
+			expect(impact.blockers).toEqual([]);
+			expect(entry(impact.cascades, 'treatmentApplications')).toBe(2);
+			expect(entry(impact.cascades, 'treatmentBatches')).toBe(1);
+			expect(entry(impact.cascades, 'treatmentComments')).toBe(1);
+			expect(entry(impact.cascades, 'treatmentTags')).toBe(1);
+
+			const refusal = await db
+				.transaction()
+				.execute((trx) =>
+					applyRecordDeletion(trx, {
+						recordType: 'treatment',
+						recordId: treatmentId,
+						organizationId: org,
+						actorProfileId: null,
+						acknowledged: { acknowledgedSupportRecordDeletion: true },
+					}),
+				)
+				.catch((error: unknown) => error);
+			expect(refusal).toBeInstanceOf(DeleteAcknowledgementRequiredError);
+			expect((refusal as DeleteAcknowledgementRequiredError).acknowledgement).toBe(
+				'acknowledgedBatchDeletion',
+			);
+
+			await db.transaction().execute(async (trx) => {
+				await applyRecordDeletion(trx, {
+					recordType: 'treatment',
+					recordId: treatmentId,
+					organizationId: org,
+					actorProfileId: null,
+					acknowledged: {
+						acknowledgedBatchDeletion: true,
+						acknowledgedSupportRecordDeletion: true,
+					},
+				});
+			});
+
+			const lines = await db
+				.selectFrom('applications')
+				.select(['treatment_id', 'deleted_at'])
+				.where('treatment_id', 'in', [treatmentId, neighbour])
+				.execute();
+			expect(lines.filter((row) => row.treatment_id === treatmentId)).toHaveLength(2);
+			for (const row of lines) {
+				expect(row.deleted_at === null).toBe(row.treatment_id === neighbour);
+			}
+			const link = await db
+				.selectFrom('application_batches')
+				.select(['deleted_at'])
+				.where('id', '=', linkId)
+				.executeTakeFirstOrThrow();
+			expect(link.deleted_at).not.toBeNull();
+			expect(await liveCommentCount(db, 'treatment', treatmentId)).toBe(0);
+		});
+	});
+
+	it('refuses a formulation a live treatment was mixed from', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db);
+			const unit = await createUnit(db);
+			const formulationId = await createFormulation(db, org, unit);
+			const treatmentId = await createTreatment(db, org, unit, {});
+			await db
+				.updateTable('treatments')
+				.set({ formulation_id: formulationId, mix_amount: 50, mix_unit_id: unit })
+				.where('id', '=', treatmentId)
+				.execute();
+
+			const impact = await readDeleteImpact(db, {
+				recordType: 'formulation',
+				recordId: formulationId,
+				organizationId: org,
+			});
+			expect(entry(impact.blockers, 'formulationTreatments')).toBe(1);
+
+			// A deleted Treatment no longer holds the Formulation.
+			await db
+				.updateTable('treatments')
+				.set({ deleted_at: sql`now()` })
+				.where('id', '=', treatmentId)
+				.execute();
+			await expect(
+				assertRecordDeletable(db, {
+					recordType: 'formulation',
+					recordId: formulationId,
+					organizationId: org,
+				}),
+			).resolves.toBeUndefined();
+		});
+	});
+
 	it('refuses an insecticide a chemical application used', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db);
 			const unitId = await createUnit(db);
-			const applicationId = await createApplication(db, org, unitId, {});
+			const treatmentId = await createTreatment(db, org, unitId, {});
 			const application = await db
 				.selectFrom('applications')
 				.select(['insecticide_id'])
-				.where('id', '=', applicationId)
+				.where('treatment_id', '=', treatmentId)
 				.executeTakeFirstOrThrow();
 
 			const impact = await readDeleteImpact(db, {
@@ -760,30 +891,39 @@ interface ActionLinks {
 	readonly habitatId?: string;
 }
 
-/** Each application brings its own insecticide: the trade name is unique per organization. */
+/** Each line brings its own insecticide: the trade name is unique per organization. */
 let nextInsecticide = 1;
 
-async function createApplication(
+async function createLineInsecticide(
+	db: Db,
+	organizationId: string,
+	unitId: string,
+): Promise<string> {
+	const suffix = nextInsecticide++;
+	return createInsecticide(db, organizationId, unitId, {
+		trade_name: `Test larvicide ${suffix}`,
+		registration_number: `12345-${suffix}`,
+	});
+}
+
+/** A Treatment carrying the links, with the one live line every Treatment holds. */
+async function createTreatment(
 	db: Db,
 	organizationId: string,
 	unitId: string,
 	links: ActionLinks,
 ): Promise<string> {
-	const suffix = nextInsecticide++;
-	const insecticideId = await createInsecticide(db, organizationId, unitId, {
-		trade_name: `Test larvicide ${suffix}`,
-		registration_number: `12345-${suffix}`,
+	const treatmentId = await insertTreatment(db, organizationId, {
+		mission_item_id: links.missionItemId ?? null,
+		requested_control_action_id: links.requestId ?? null,
+		habitat_id: links.habitatId ?? null,
 	});
-	return insertApplication(
-		db,
-		organizationId,
-		{ insecticideId, unitId },
-		{
-			mission_item_id: links.missionItemId ?? null,
-			requested_control_action_id: links.requestId ?? null,
-			habitat_id: links.habitatId ?? null,
-		},
-	);
+	await insertApplication(db, organizationId, {
+		treatmentId,
+		insecticideId: await createLineInsecticide(db, organizationId, unitId),
+		unitId,
+	});
+	return treatmentId;
 }
 
 async function createSourceReduction(

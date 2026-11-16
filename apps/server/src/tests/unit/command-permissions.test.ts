@@ -160,7 +160,7 @@ describe('decideCommand', () => {
 			'fieldWork.completeAssignmentItem',
 			'fieldWork.skipAssignmentItem',
 			'missionDispatch.startMission',
-			'missionDispatch.recordChemicalApplicationForMissionItem',
+			'missionDispatch.recordTreatmentForMissionItem',
 		] as const) {
 			expect(decideAsRole('collector', readCommandPermission(type))).toBe('ownership');
 		}
@@ -182,7 +182,7 @@ describe('decideCommand across the other organization domains', () => {
 			'larvalSurveillance.addSampleSpeciesCount',
 			'adultSurveillance.collectCollection',
 			'adultSurveillance.createTrap',
-			'controlOperations.recordChemicalApplication',
+			'controlOperations.recordTreatment',
 			'controlOperations.createInsecticide',
 			'publicEngagement.createServiceRequest',
 			'publicEngagement.createNotificationType',
@@ -278,10 +278,9 @@ describe('decideCommand across the other organization domains', () => {
 
 	it('defers a collector correcting a control action they may have performed', () => {
 		for (const type of [
-			'controlOperations.updateChemicalApplicationFieldDetails',
-			'controlOperations.updateChemicalApplicationLocationAndContext',
-			'controlOperations.addChemicalApplicationBatch',
-			'controlOperations.removeChemicalApplicationBatch',
+			'controlOperations.updateTreatmentFieldDetails',
+			'controlOperations.updateTreatmentLocationAndContext',
+			'controlOperations.reviseTreatmentLines',
 			'controlOperations.updateSourceReductionFieldDetails',
 			'controlOperations.updateOutreachActionFieldDetails',
 			'controlOperations.updateBiocontrolActionFieldDetails',
@@ -294,10 +293,7 @@ describe('decideCommand across the other organization domains', () => {
 
 		// Recording is unconditional.
 		expect(
-			decideAsRole(
-				'collector',
-				readCommandPermission('controlOperations.recordChemicalApplication'),
-			),
+			decideAsRole('collector', readCommandPermission('controlOperations.recordTreatment')),
 		).toBe('allow');
 		// Resolution is supervisory outright — no row can make it a collector's.
 		expect(
@@ -313,7 +309,7 @@ describe('decideCommand across the other organization domains', () => {
 		// command on one with support rows, batch links, or a linked request is a
 		// manager's. Neither answer is available from the role, so all five defer.
 		for (const type of [
-			'controlOperations.deleteChemicalApplication',
+			'controlOperations.deleteTreatment',
 			'controlOperations.deleteSourceReduction',
 			'controlOperations.deleteOutreachAction',
 			'controlOperations.deleteBiocontrolAction',
@@ -322,6 +318,45 @@ describe('decideCommand across the other organization domains', () => {
 			expect(decideAsRole('collector', readCommandPermission(type))).toBe('ownership');
 			expect(decideAsRole('manager', readCommandPermission(type))).toBe('allow');
 			expect(decideAsRole('viewer', readCommandPermission(type))).toBe('deny');
+		}
+	});
+
+	// ADR 0020: the floors are checked against the Treatment, whose row holds the
+	// performer and the date. Its lines carry neither.
+	it('checks every Treatment edit against the Treatment itself', () => {
+		const ownTreatment = {
+			kind: 'performer',
+			performed: {
+				table: 'treatments',
+				payloadKey: 'treatmentId',
+				performerColumn: 'applicator_profile_id',
+				performedOnColumn: 'application_date',
+			},
+		};
+		for (const type of [
+			'controlOperations.updateTreatmentFieldDetails',
+			'controlOperations.updateTreatmentLocationAndContext',
+			'controlOperations.reviseTreatmentLines',
+		] as const) {
+			expect(readCommandPermission(type)).toEqual(ownTreatment);
+		}
+		expect(readCommandPermission('controlOperations.deleteTreatment')).toEqual({
+			...ownTreatment,
+			escalation: { kind: 'actionRecord', entityType: 'treatment', hasBatchLinks: true },
+		});
+		expect(readCommandPermission('missionDispatch.recordTreatmentForMissionItem')).toMatchObject({
+			kind: 'assignedCollector',
+		});
+	});
+
+	it('maps none of the retired Chemical Application commands', () => {
+		for (const type of [
+			'controlOperations.recordChemicalApplication',
+			'controlOperations.updateChemicalApplicationFieldDetails',
+			'controlOperations.addChemicalApplicationBatch',
+			'controlOperations.removeChemicalApplicationBatch',
+		]) {
+			expect(readCommandPermission(type as OrganizationCommandType)).toEqual({ kind: 'unmapped' });
 		}
 	});
 });

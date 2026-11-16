@@ -16,7 +16,7 @@ const assignmentId = 'b7c2f0a4-6f0e-4c39-9f1e-6a4a4b7c9d21';
 const assignmentItemId = 'c8d3f1b5-7a1f-4d4a-8e2f-7b5b5c8d0e32';
 const missionItemId = 'd9e4a2c6-8b2a-4e5b-9f3a-8c6c6d9e1f43';
 const commentId = 'ea5b3d7f-9c3b-4f6c-8a4b-9d7d7eaf2a54';
-const applicationId = 'fb6c4e80-ad4c-4a7d-9b5c-ae8e8fb03b65';
+const treatmentId = 'fb6c4e80-ad4c-4a7d-9b5c-ae8e8fb03b65';
 const sourceReductionId = '0c7d5f91-be5d-4b8e-8c6d-bf9f90c14c76';
 const biocontrolActionId = '1d8e6a02-cf6e-4c9f-9d7e-c0a0a1d25d87';
 const requestedControlActionId = '2e9f7b13-d07f-4da0-8e8f-d1b1b2e36e98';
@@ -80,7 +80,7 @@ describe('resolveCommandOwnership', () => {
 				mission_items: { mission_id: 'mission_1' },
 				missions: { assigned_to_profile_id: 'profile_someone_else' },
 			}),
-			command('missionDispatch.recordChemicalApplicationForMissionItem', { missionItemId }),
+			command('missionDispatch.recordTreatmentForMissionItem', { missionItemId }),
 			theirs,
 		);
 
@@ -174,6 +174,81 @@ describe('resolveCommandOwnership', () => {
 });
 
 /**
+ * OWN_TREATMENT: a Collector corrects their own Treatment for 30 days after its
+ * `application_date`, and a Manager or above corrects any. The three PATCH
+ * intents share it, `reviseTreatmentLines` included, which is where the old
+ * guarded correction for changing an Insecticide folded in.
+ */
+describe('treatment correction floor', () => {
+	const dayMs = 24 * 60 * 60 * 1000;
+
+	it.each([
+		'controlOperations.updateTreatmentFieldDetails',
+		'controlOperations.updateTreatmentLocationAndContext',
+		'controlOperations.reviseTreatmentLines',
+	] as const)('lets a collector run %s on their own recent treatment', async (type) => {
+		const outcome = await resolveCommandOwnership(
+			rows({ treatments: { performed_on: new Date(), performer_id: theirs.profileId } }),
+			command(type, { treatmentId }),
+			theirs,
+		);
+
+		expect(outcome).toEqual({ kind: 'allowed' });
+	});
+
+	it('closes the window 30 days after the application date', async () => {
+		const outcome = await resolveCommandOwnership(
+			rows({
+				treatments: {
+					performed_on: new Date(Date.now() - 31 * dayMs),
+					performer_id: theirs.profileId,
+				},
+			}),
+			command('controlOperations.reviseTreatmentLines', { treatmentId }),
+			theirs,
+		);
+
+		expect(outcome).toEqual({
+			kind: 'refused',
+			reason: 'Control actions can only be corrected by their performer for 30 days.',
+		});
+	});
+
+	it("refuses a collector somebody else's treatment", async () => {
+		const outcome = await resolveCommandOwnership(
+			rows({ treatments: { performed_on: new Date(), performer_id: 'profile_someone_else' } }),
+			command('controlOperations.updateTreatmentFieldDetails', { treatmentId }),
+			theirs,
+		);
+
+		expect(outcome).toEqual({
+			kind: 'refused',
+			reason: 'Collectors can only correct control actions they performed.',
+		});
+	});
+
+	it('answers a treatment that is not there as missing', async () => {
+		const outcome = await resolveCommandOwnership(
+			rows({}),
+			command('controlOperations.reviseTreatmentLines', { treatmentId }),
+			theirs,
+		);
+
+		expect(outcome).toEqual({ kind: 'missing', entity: 'control_action' });
+	});
+
+	it('reads nothing for a manager correcting an old or foreign treatment', async () => {
+		const outcome = await resolveCommandOwnership(
+			unreadable(),
+			command('controlOperations.reviseTreatmentLines', { treatmentId }),
+			manager,
+		);
+
+		expect(outcome).toEqual({ kind: 'allowed' });
+	});
+});
+
+/**
  * `docs/control-operations-domain.md`: a collector may delete their own action
  * record inside the correction window "when no supervisory/associated-record
  * rules require manager escalation". These are the rules that escalate it, and
@@ -211,20 +286,62 @@ describe('control-action deletion escalations', () => {
 		}
 	});
 
-	it('escalates an application with batch links', async () => {
+	it('escalates a treatment whose lines carry batch links', async () => {
 		const outcome = await resolveCommandOwnership(
 			rows({
-				applications: { ...recent, requested_control_action_id: null },
+				treatments: { ...recent, requested_control_action_id: null },
 				application_batches: {},
 			}),
-			command('controlOperations.deleteChemicalApplication', { applicationId }),
+			command('controlOperations.deleteTreatment', { treatmentId }),
 			theirs,
 		);
 
 		expect(outcome).toEqual({
 			kind: 'refused',
-			reason: 'This application has insecticide batches linked to it. A manager can delete it.',
+			reason: 'This treatment has insecticide batches linked to it. A manager can delete it.',
 		});
+	});
+
+	// The order is the escalation order the doc reads: support rows, then batch
+	// links, then the requested-action link. The first one that applies is named.
+	it('escalates a treatment for its support rows before its batch links', async () => {
+		const outcome = await resolveCommandOwnership(
+			rows({
+				treatments: { ...recent, requested_control_action_id: null },
+				comments: {},
+				application_batches: {},
+			}),
+			command('controlOperations.deleteTreatment', { treatmentId }),
+			theirs,
+		);
+
+		expect(outcome).toEqual({
+			kind: 'refused',
+			reason: 'This record has comments or assisting personnel on it. A manager can delete it.',
+		});
+	});
+
+	it('escalates a treatment that answers a requested control action', async () => {
+		const outcome = await resolveCommandOwnership(
+			rows({ treatments: { ...recent, requested_control_action_id: requestedControlActionId } }),
+			command('controlOperations.deleteTreatment', { treatmentId }),
+			theirs,
+		);
+
+		expect(outcome).toEqual({
+			kind: 'refused',
+			reason: 'This record answers a requested control action. A manager can delete it.',
+		});
+	});
+
+	it('lets a collector delete their own recent standalone treatment', async () => {
+		const outcome = await resolveCommandOwnership(
+			rows({ treatments: { ...recent, requested_control_action_id: null } }),
+			command('controlOperations.deleteTreatment', { treatmentId }),
+			theirs,
+		);
+
+		expect(outcome).toEqual({ kind: 'allowed' });
 	});
 
 	it('escalates a record that answers a requested control action', async () => {
@@ -317,7 +434,7 @@ describe('control-action deletion escalations', () => {
 	it('reads nothing for a manager, who was already allowed by role', async () => {
 		const outcome = await resolveCommandOwnership(
 			unreadable(),
-			command('controlOperations.deleteChemicalApplication', { applicationId }),
+			command('controlOperations.deleteTreatment', { treatmentId }),
 			manager,
 		);
 
@@ -345,6 +462,7 @@ function rows(
 				select: () => builder,
 				where: () => builder,
 				limit: () => builder,
+				innerJoin: () => builder,
 				executeTakeFirst: async () => tables[table],
 			};
 			return builder;
