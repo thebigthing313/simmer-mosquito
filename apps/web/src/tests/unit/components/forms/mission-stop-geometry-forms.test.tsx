@@ -39,11 +39,11 @@ vi.mock('../../../../components/control-operations/control-pickers', () => ({
 	HabitatPicker: () => null,
 }));
 
-const { ApplicationFormPage } = await import(
-	'../../../../components/control-operations/chemical/application-form'
+const { TreatmentFormPage } = await import(
+	'../../../../components/control-operations/chemical/treatment-form'
 );
-const { defaultApplicationFormValues } = await import(
-	'../../../../components/control-operations/chemical/application-form-values'
+const { defaultTreatmentFormValues } = await import(
+	'../../../../components/control-operations/chemical/treatment-form-values'
 );
 const { BiocontrolFormPage, defaultBiocontrolFormValues } = await import(
 	'../../../../components/control-operations/biocontrol/biocontrol-form'
@@ -84,19 +84,21 @@ const FORMS: readonly {
 	readonly render: (missionStop: MissionStopGeometry, onSave: () => Promise<void>) => ReactElement;
 }[] = [
 	{
-		name: 'chemical application',
-		missing: 'Map where the product was applied.',
+		name: 'treatment',
+		missing: 'Map where the products were applied.',
 		render: (missionStop, onSave) => (
-			<ApplicationFormPage
+			<TreatmentFormPage
 				{...shared}
 				applicationMethods={[]}
-				defaultValues={defaultApplicationFormValues(ZONE)}
+				defaultValues={defaultTreatmentFormValues(ZONE)}
 				equipment={[]}
+				formulationComponents={[]}
+				formulations={[]}
 				header={{
-					title: 'Create Application',
-					description: 'Record an application.',
+					title: 'Record Treatment',
+					description: 'Record a treatment.',
 					backTo: '/control-operations/chemical',
-					backLabel: 'Applications',
+					backLabel: 'Treatments',
 				}}
 				insecticides={[]}
 				missionStop={missionStop}

@@ -47,7 +47,7 @@ const CREATE_TARGETS = {
 	},
 	'/control-operations/chemical/create': {
 		icon: iconRegistry.entities.application.icon,
-		recordType: 'application',
+		recordType: 'treatment',
 	},
 	'/control-operations/source-reduction/create': {
 		icon: iconRegistry.entities.sourceReduction.icon,

@@ -51,7 +51,7 @@ export const DELETE_FLOOR: Record<DeletableRecordType, MinimumRole> = {
 	route: 'manager',
 	assignment: 'manager',
 	mission: 'manager',
-	application: 'manager',
+	treatment: 'manager',
 	sourceReduction: 'manager',
 	outreachAction: 'manager',
 	biocontrolAction: 'manager',

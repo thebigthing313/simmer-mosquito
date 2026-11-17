@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 /**
- * What a control operations write dispatches: applications, source reductions,
+ * What a control operations write dispatches: Treatments, source reductions,
  * biocontrol releases, control requests and formulations.
  *
  * The four performed actions split every edit across two builders and the server
@@ -16,25 +16,31 @@
  * different requests and the tests below assert which was sent rather than only
  * that a context was.
  *
- * A chemical application create is the one write here that posts, because it
- * carries its batch rows in the same command. It is asserted on the wire; see
+ * A Treatment create, and an edit that revises its lines, are the writes here
+ * that post, because each carries its line and batch rows in the same command. It is asserted on the wire; see
  * `dispatch-harness.ts` for why the two seams are different.
  */
 
 import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActionLocation } from '../../../../hooks/mutations/performed-action-writes';
-import type { ApplicationValues } from '../../../../hooks/mutations/use-application-mutations';
 import type { BiocontrolActionValues } from '../../../../hooks/mutations/use-biocontrol-action-mutations';
 import type { FormulationFields } from '../../../../hooks/mutations/use-formulation-mutations';
 import type { RequestFields } from '../../../../hooks/mutations/use-requested-control-action-mutations';
 import type { SourceReductionValues } from '../../../../hooks/mutations/use-source-reduction-mutations';
 import type {
+	TreatmentLineInput,
+	TreatmentValues,
+} from '../../../../hooks/mutations/use-treatment-mutations';
+import type {
 	BiocontrolAction,
-	ChemicalApplication,
 	SourceReduction,
+	TreatmentDetail,
 } from '../../../../hooks/queries/control-action-view';
-import { installMemoryCollections } from '../../lib/collections/memory-collections';
+import { application_batches } from '../../../../lib/collections/application_batches';
+import { applications } from '../../../../lib/collections/applications';
+import { treatments } from '../../../../lib/collections/treatments';
+import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const PROFILE = '22222222-2222-4222-8222-222222222222';
@@ -51,7 +57,9 @@ const BATCH_A = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const BATCH_B = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const BATCH_C = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const LINK_A = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
-const LINK_B = '12121212-1212-4212-8212-121212121212';
+const LINE_ONE = '13131313-1313-4313-8313-131313131313';
+const LINE_TWO = '14141414-1414-4414-8414-141414141414';
+const FORMULATION = '15151515-1515-4515-8515-151515151515';
 
 vi.mock('../../../../lib/collections/mutate', async () => {
 	const { recordDispatch } = await import('./dispatch-harness');
@@ -84,13 +92,12 @@ const {
 	stubApi,
 } = await import('./dispatch-harness');
 const {
-	APPLICATION_DELETE_REFUSALS,
-	APPLICATION_SAVE_REFUSALS,
 	CONTROL_ACTION_DELETE_REFUSALS,
 	CONTROL_REQUEST_DELETE_REFUSALS,
+	TREATMENT_DELETE_REFUSALS,
 } = await import('../../../../lib/acknowledgement-copy');
-const { useApplicationMutations } = await import(
-	'../../../../hooks/mutations/use-application-mutations'
+const { useTreatmentMutations } = await import(
+	'../../../../hooks/mutations/use-treatment-mutations'
 );
 const { useSourceReductionMutations } = await import(
 	'../../../../hooks/mutations/use-source-reduction-mutations'
@@ -159,12 +166,9 @@ function actionBase() {
 	};
 }
 
-/** The application an edit is compared against. */
-function applicationValues(overrides: Partial<ApplicationValues> = {}): ApplicationValues {
+/** The visit's fields an edit is compared against. */
+function treatmentValues(overrides: Partial<TreatmentValues> = {}): TreatmentValues {
 	return {
-		insecticideId: INSECTICIDE,
-		amountApplied: 2,
-		unitId: UNIT,
 		actionDate: '2026-08-03',
 		methodId: null,
 		applicatorProfileId: null,
@@ -177,323 +181,365 @@ function applicationValues(overrides: Partial<ApplicationValues> = {}): Applicat
 	};
 }
 
+/** One line as the form saves it. */
+function lineInput(overrides: Partial<TreatmentLineInput> = {}): TreatmentLineInput {
+	return {
+		id: LINE_ONE,
+		insecticideId: INSECTICIDE,
+		amountApplied: 2,
+		unitId: UNIT,
+		insecticideBatchIds: [],
+		...overrides,
+	};
+}
+
 /**
- * The stored row an edit is diffed against.
+ * The stored Treatment an edit is diffed against.
  *
  * Written out rather than cast, because the diff is the whole point: a field the
  * fixture leaves undefined would read as moved and name a command the test did
  * not mean.
  */
-function application(overrides: Partial<ChemicalApplication> = {}): ChemicalApplication {
+function treatment(overrides: Partial<TreatmentDetail> = {}): TreatmentDetail {
 	return {
 		...actionBase(),
-		...applicationValues(),
-		productName: 'Aqua-Reslin',
+		...treatmentValues(),
 		methodName: null,
 		applicatorName: null,
-		unitAbbreviation: null,
 		vehicleName: null,
 		equipmentName: null,
 		collectionId: null,
+		formulationId: null,
+		formulationName: null,
+		mixAmount: null,
+		mixUnitId: null,
+		mixUnitAbbreviation: null,
+		lines: [
+			{
+				id: LINE_ONE,
+				insecticideId: INSECTICIDE,
+				insecticideName: 'Aqua-Reslin',
+				amount: 2,
+				unitId: UNIT,
+				unitAbbreviation: 'gal',
+			},
+		],
 		...overrides,
 	};
 }
 
-describe('recording a chemical application', () => {
-	it('names the create and sends every batch in the one request', async () => {
-		// The link rows name the application, so they cannot be posted first. One
-		// command carries all of them; three requests would be the two-phase write
-		// this replaced, which reports "recorded, but not the batches".
-		const { result } = renderHook(() => useApplicationMutations());
+/** The stored rows a revise writes against, so its optimistic updates have something to change. */
+function seedStoredTreatment(links: readonly { id: string; insecticideBatchId: string }[] = []) {
+	seedRows(treatments, [{ id: RECORD }]);
+	seedRows(applications, [{ id: LINE_ONE, treatment_id: RECORD }]);
+	seedRows(
+		application_batches,
+		links.map((link) => ({
+			id: link.id,
+			application_id: LINE_ONE,
+			insecticide_batch_id: link.insecticideBatchId,
+		})),
+	);
+}
+
+describe('recording a treatment', () => {
+	it('posts one recordTreatment carrying every line and batch link', async () => {
+		// The lines and their links name the Treatment, so they cannot be posted
+		// first. One command carries all of them, and the old loop over separate
+		// creates, with its partial-failure count, is gone.
+		const { result } = renderHook(() => useTreatmentMutations());
 
 		await result.current.record({
-			applicationId: RECORD,
-			values: applicationValues(),
+			treatmentId: RECORD,
+			values: treatmentValues(),
+			mix: null,
+			lines: [
+				lineInput({ insecticideBatchIds: [BATCH_A, BATCH_B] }),
+				lineInput({ id: LINE_TWO, insecticideId: OTHER, insecticideBatchIds: [BATCH_C] }),
+			],
 			location: DRAWN,
-			insecticideBatchIds: [BATCH_A, BATCH_B, BATCH_C],
 			missionItemId: null,
 		});
 
 		expect(requests()).toHaveLength(1);
-		expect(lastRequest().url).toBe(commandUrl('applications'));
+		expect(lastRequest().url).toBe(commandUrl('treatments'));
 		expect(lastRequest().method).toBe('POST');
 		expect(lastRequest().body).toMatchObject({
-			intents: ['controlOperations.recordChemicalApplication'],
+			intents: ['controlOperations.recordTreatment'],
 			id: RECORD,
-			insecticide_id: INSECTICIDE,
+			formulation_id: null,
 			locationSource: { kind: 'geometry', geometry: SHAPE },
 		});
-		const links = lastRequest().body.application_batches as readonly {
-			readonly insecticide_batch_id: string;
+		const lines = lastRequest().body.applications as readonly {
+			readonly id: string;
+			readonly insecticide_id: string;
+			readonly application_batches: readonly { readonly insecticide_batch_id: string }[];
 		}[];
-		expect(links.map((link) => link.insecticide_batch_id)).toEqual([BATCH_A, BATCH_B, BATCH_C]);
+		expect(lines.map((line) => line.id)).toEqual([LINE_ONE, LINE_TWO]);
+		expect(lines[0]?.application_batches.map((link) => link.insecticide_batch_id)).toEqual([
+			BATCH_A,
+			BATCH_B,
+		]);
+		expect(lines[1]?.insecticide_id).toBe(OTHER);
+	});
+
+	it('writes optimistic rows in all three collections while the command is out', async () => {
+		const { result } = renderHook(() => useTreatmentMutations());
+
+		// The rows are applied synchronously, before the request goes out.
+		const saving = result.current.record({
+			treatmentId: RECORD,
+			values: treatmentValues(),
+			mix: null,
+			lines: [lineInput({ insecticideBatchIds: [BATCH_A] })],
+			location: DRAWN,
+			missionItemId: null,
+		});
+
+		expect(treatments().has(RECORD)).toBe(true);
+		expect(applications().get(LINE_ONE)?.treatment_id).toBe(RECORD);
+		expect([...application_batches().values()].map((link) => link.application_id)).toEqual([
+			LINE_ONE,
+		]);
+		await saving;
+	});
+
+	it('sends the Formulation set whole', async () => {
+		const { result } = renderHook(() => useTreatmentMutations());
+
+		await result.current.record({
+			treatmentId: RECORD,
+			values: treatmentValues(),
+			mix: { formulationId: FORMULATION, mixAmount: 78, mixUnitId: UNIT },
+			lines: [lineInput()],
+			location: DRAWN,
+			missionItemId: null,
+		});
+
+		expect(lastRequest().body).toMatchObject({
+			formulation_id: FORMULATION,
+			mix_amount: 78,
+			mix_unit_id: UNIT,
+		});
 	});
 
 	it('names the mission command when the treatment closed a stop', async () => {
-		const { result } = renderHook(() => useApplicationMutations());
+		const { result } = renderHook(() => useTreatmentMutations());
 
 		await result.current.record({
-			applicationId: RECORD,
-			values: applicationValues(),
+			treatmentId: RECORD,
+			values: treatmentValues(),
+			mix: null,
+			lines: [lineInput()],
 			location: DRAWN,
-			insecticideBatchIds: [],
 			missionItemId: STOP,
 			acknowledgements: { acknowledgedCompletedItemAdditionalRecord: false },
 		});
 
 		expect(lastRequest().body).toMatchObject({
-			intents: ['missionDispatch.recordChemicalApplicationForMissionItem'],
+			intents: ['missionDispatch.recordTreatmentForMissionItem'],
 			mission_item_id: STOP,
 			acknowledgedCompletedItemAdditionalRecord: false,
 		});
 	});
 
 	it('states the attachment either way, because a create has one to state', async () => {
-		const { result } = renderHook(() => useApplicationMutations());
+		const { result } = renderHook(() => useTreatmentMutations());
+		const input = { mix: null, lines: [lineInput()], location: DRAWN, missionItemId: null };
 
-		await result.current.record({
-			applicationId: RECORD,
-			values: applicationValues(),
-			location: DRAWN,
-			insecticideBatchIds: [],
-			missionItemId: null,
-		});
+		await result.current.record({ treatmentId: RECORD, values: treatmentValues(), ...input });
 		expect(lastRequest().body.context).toEqual({ kind: 'none' });
 
 		await result.current.record({
-			applicationId: RECORD,
-			values: applicationValues({ habitatId: HABITAT }),
-			location: DRAWN,
-			insecticideBatchIds: [],
-			missionItemId: null,
+			treatmentId: OTHER,
+			values: treatmentValues({ habitatId: HABITAT }),
+			...input,
+			lines: [lineInput({ id: LINE_TWO })],
 		});
 		expect(lastRequest().body.context).toEqual({ kind: 'larval', habitatId: HABITAT });
 	});
 
-	it('leaves the location instruction out when the form resolved no source', async () => {
-		const { result } = renderHook(() => useApplicationMutations());
+	it('keeps the server-owned columns and the location instruction out when there is none', async () => {
+		const { result } = renderHook(() => useTreatmentMutations());
 
 		await result.current.record({
-			applicationId: RECORD,
-			values: applicationValues(),
+			treatmentId: RECORD,
+			values: treatmentValues(),
+			mix: null,
+			lines: [lineInput()],
 			location: UNMOVED,
-			insecticideBatchIds: [],
 			missionItemId: null,
 		});
 
-		expect(Object.keys(lastRequest().body)).not.toContain('locationSource');
-	});
-
-	it('keeps the server-owned columns out of the posted body', async () => {
-		// The centroid is recomputed from the geometry the server stores and the
-		// stamps are the server's, so a client value for any of them reads as an
-		// intention.
-		const { result } = renderHook(() => useApplicationMutations());
-
-		await result.current.record({
-			applicationId: RECORD,
-			values: applicationValues(),
-			location: DRAWN,
-			insecticideBatchIds: [],
-			missionItemId: null,
-		});
-
-		expect(Object.keys(lastRequest().body)).not.toContain('lat');
-		expect(Object.keys(lastRequest().body)).not.toContain('updated_at');
-		expect(Object.keys(lastRequest().body)).not.toContain('organization_id');
+		const keys = Object.keys(lastRequest().body);
+		expect(keys).not.toContain('locationSource');
+		expect(keys).not.toContain('lat');
+		expect(keys).not.toContain('updated_at');
+		expect(keys).not.toContain('organization_id');
 	});
 });
 
-describe('correcting a chemical application', () => {
-	it('names both commands when the measurements and the placement both moved', async () => {
-		const { result } = renderHook(() => useApplicationMutations());
+describe('correcting a treatment', () => {
+	const unchangedLines = { lines: [lineInput()], savedLinks: [] } as const;
 
-		await result.current.update(application(), {
-			values: applicationValues({ amountApplied: 3, addressId: ADDRESS }),
+	it('names both header commands on a PATCH that leaves the lines alone', async () => {
+		const { result } = renderHook(() => useTreatmentMutations());
+
+		await result.current.update(treatment(), {
+			values: treatmentValues({ methodId: METHOD, addressId: ADDRESS }),
+			mix: null,
+			...unchangedLines,
 			location: DRAWN,
 		});
 
+		expect(requests()).toHaveLength(0);
 		expect(dispatches()).toHaveLength(1);
 		expect(lastIntents()).toEqual([
-			'controlOperations.updateChemicalApplicationFieldDetails',
-			'controlOperations.updateChemicalApplicationLocationAndContext',
+			'controlOperations.updateTreatmentFieldDetails',
+			'controlOperations.updateTreatmentLocationAndContext',
 		]);
 		expect(lastWrite().locationSource).toEqual({ kind: 'geometry', geometry: SHAPE });
 	});
 
 	it('names only the field details when the placement stood still', async () => {
-		const { result } = renderHook(() => useApplicationMutations());
+		const { result } = renderHook(() => useTreatmentMutations());
 
-		await result.current.update(application(), {
-			values: applicationValues({ amountApplied: 3 }),
+		await result.current.update(treatment(), {
+			values: treatmentValues({ methodId: METHOD }),
+			mix: null,
+			...unchangedLines,
 		});
 
-		expect(lastIntents()).toEqual(['controlOperations.updateChemicalApplicationFieldDetails']);
-		expect(lastChanges().amount_applied).toBe(3);
+		expect(lastIntents()).toEqual(['controlOperations.updateTreatmentFieldDetails']);
+		expect(lastChanges().application_method_id).toBe(METHOD);
 		expect(Object.keys(lastChanges())).not.toContain('address_id');
-		expect(lastWrite().locationSource).toBeUndefined();
 	});
 
-	it('names only the location command when the address moved', async () => {
-		// The field-details builder has no reader for `address_id`, so this name is
-		// what carries the change rather than an extra one alongside it.
-		const { result } = renderHook(() => useApplicationMutations());
+	it('clears the Formulation set whole when the crew switched to product by product', async () => {
+		const { result } = renderHook(() => useTreatmentMutations());
 
-		await result.current.update(application(), {
-			values: applicationValues({ addressId: ADDRESS }),
+		await result.current.update(
+			treatment({ formulationId: FORMULATION, mixAmount: 78, mixUnitId: UNIT }),
+			{ values: treatmentValues(), mix: null, ...unchangedLines },
+		);
+
+		expect(lastIntents()).toEqual(['controlOperations.updateTreatmentFieldDetails']);
+		expect(lastChanges()).toMatchObject({
+			formulation_id: null,
+			mix_amount: null,
+			mix_unit_id: null,
 		});
-
-		expect(lastIntents()).toEqual([
-			'controlOperations.updateChemicalApplicationLocationAndContext',
-		]);
-		expect(lastChanges().address_id).toBe(ADDRESS);
-		expect(Object.keys(lastChanges())).not.toContain('amount_applied');
-	});
-
-	it('reads a cleared habitat as a stated detachment, not an absent context', async () => {
-		// `{ kind: 'none' }` detaches the record; an absent context says nothing
-		// about the attachment. An address edit must not detach a habitat it never
-		// touched.
-		const { result } = renderHook(() => useApplicationMutations());
-
-		await result.current.update(application({ habitatId: HABITAT }), {
-			values: applicationValues({ habitatId: null }),
-		});
-		expect(lastWrite().context).toEqual({ kind: 'none' });
-
-		await result.current.update(application({ habitatId: HABITAT }), {
-			values: applicationValues({ habitatId: HABITAT, addressId: ADDRESS }),
-		});
-		expect(lastWrite().context).toBeUndefined();
 	});
 
 	it('carries the inspection through a habitat change', async () => {
-		// `contextIds` maps a context onto both columns, so a context naming only
-		// the habitat clears the inspection the application was recorded from.
-		const { result } = renderHook(() => useApplicationMutations());
+		const { result } = renderHook(() => useTreatmentMutations());
 
-		await result.current.update(application({ habitatId: HABITAT, inspectionId: INSPECTION }), {
-			values: applicationValues({ habitatId: OTHER }),
+		await result.current.update(treatment({ habitatId: HABITAT, inspectionId: INSPECTION }), {
+			values: treatmentValues({ habitatId: OTHER }),
+			mix: null,
+			...unchangedLines,
 		});
 
+		expect(lastIntents()).toEqual(['controlOperations.updateTreatmentLocationAndContext']);
 		expect(lastWrite().context).toEqual({
 			kind: 'larval',
 			habitatId: OTHER,
 			inspectionId: INSPECTION,
 		});
-		expect(lastChanges().habitat_id).toBe(OTHER);
 	});
 
-	it('reseeds the centroid only when the point came with the save', async () => {
-		const { result } = renderHook(() => useApplicationMutations());
+	it('sends nothing when the form was saved untouched', async () => {
+		const { result } = renderHook(() => useTreatmentMutations());
 
-		await result.current.update(application(), {
-			values: applicationValues({ addressId: ADDRESS }),
-			location: DRAWN,
+		await result.current.update(treatment(), {
+			values: treatmentValues(),
+			mix: null,
+			...unchangedLines,
 		});
-		expect(lastChanges().lat).toBe(38.58);
-		expect(lastChanges().geom_type).toBe('st_point');
-
-		await result.current.update(application(), {
-			values: applicationValues({ addressId: ADDRESS }),
-		});
-		expect(Object.keys(lastChanges())).not.toContain('lat');
-	});
-
-	it('dispatches nothing when the form was saved untouched', async () => {
-		const { result } = renderHook(() => useApplicationMutations());
-
-		await result.current.update(application(), { values: applicationValues() });
 
 		expect(dispatches()).toHaveLength(0);
+		expect(requests()).toHaveLength(0);
 	});
 
-	it('withholds the batch clearance flag when the product moved', async () => {
-		// clearanceCheck. Lots of the old insecticide cannot describe the new one,
-		// so the server drops them — and refuses with the count while the flag is
-		// `false`.
-		const { result } = renderHook(() => useApplicationMutations());
+	it('sends one PATCH naming the header intents beside reviseTreatmentLines', async () => {
+		// The lines and the header are confirmed together, so the save is one
+		// request rather than a header write and a line write.
+		seedStoredTreatment();
+		const { result } = renderHook(() => useTreatmentMutations());
 
-		await firstAttempt(APPLICATION_SAVE_REFUSALS, (acknowledgements) =>
-			result.current.update(application(), {
-				values: applicationValues({ insecticideId: OTHER }),
-				acknowledgements,
-			}),
-		);
+		await result.current.update(treatment(), {
+			values: treatmentValues({ methodId: METHOD }),
+			mix: null,
+			lines: [lineInput({ amountApplied: 3 }), lineInput({ id: LINE_TWO, insecticideId: OTHER })],
+			savedLinks: [],
+		});
 
-		expect(lastIntents()).toEqual(['controlOperations.updateChemicalApplicationFieldDetails']);
-		expect(lastWrite().acknowledgements).toEqual({ acknowledgedBatchClearance: false });
+		expect(dispatches()).toHaveLength(0);
+		expect(requests()).toHaveLength(1);
+		expect(lastRequest().url).toBe(commandUrl('treatments', RECORD));
+		expect(lastRequest().method).toBe('PATCH');
+		expect(lastRequest().body).toMatchObject({
+			intents: [
+				'controlOperations.updateTreatmentFieldDetails',
+				'controlOperations.reviseTreatmentLines',
+			],
+			application_method_id: METHOD,
+		});
+		const lines = lastRequest().body.applications as readonly { readonly id: string }[];
+		expect(lines.map((line) => line.id)).toEqual([LINE_ONE, LINE_TWO]);
 	});
 
-	it('drops that flag when the product stayed put', async () => {
-		// A `false` the server would never read is still a claim the form is not
-		// entitled to make.
-		const { result } = renderHook(() => useApplicationMutations());
+	it('names only the revise when the lines alone moved, keeping a kept lot on its link', async () => {
+		seedStoredTreatment([{ id: LINK_A, insecticideBatchId: BATCH_A }]);
+		const { result } = renderHook(() => useTreatmentMutations());
 
-		await firstAttempt(APPLICATION_SAVE_REFUSALS, (acknowledgements) =>
-			result.current.update(application(), {
-				values: applicationValues({ amountApplied: 3 }),
-				acknowledgements,
-			}),
-		);
+		await result.current.update(treatment(), {
+			values: treatmentValues(),
+			mix: null,
+			lines: [lineInput({ insecticideBatchIds: [BATCH_A, BATCH_B] })],
+			savedLinks: [{ id: LINK_A, applicationId: LINE_ONE, insecticideBatchId: BATCH_A }],
+		});
 
-		expect(lastWrite().acknowledgements).toEqual({});
+		expect(lastRequest().body.intents).toEqual(['controlOperations.reviseTreatmentLines']);
+		const [only] = lastRequest().body.applications as readonly {
+			readonly application_batches: readonly {
+				readonly id: string;
+				readonly insecticide_batch_id: string;
+			}[];
+		}[];
+		expect(only?.application_batches[0]).toEqual({ id: LINK_A, insecticide_batch_id: BATCH_A });
+		expect(only?.application_batches[1]?.id).not.toBe(LINK_A);
+	});
+
+	it('leaves a removed line out of the set', async () => {
+		seedStoredTreatment([{ id: LINK_A, insecticideBatchId: BATCH_A }]);
+		const { result } = renderHook(() => useTreatmentMutations());
+
+		await result.current.update(treatment(), {
+			values: treatmentValues(),
+			mix: null,
+			lines: [lineInput({ id: LINE_TWO, insecticideId: OTHER })],
+			savedLinks: [{ id: LINK_A, applicationId: LINE_ONE, insecticideBatchId: BATCH_A }],
+		});
+
+		const lines = lastRequest().body.applications as readonly { readonly id: string }[];
+		expect(lines.map((line) => line.id)).toEqual([LINE_TWO]);
 	});
 
 	it('names the delete and withholds the batch and support flags', async () => {
-		// deleteRegistry. Withholding both is what makes the server count the rows
-		// rather than read an absent flag as confirmed.
-		const { result } = renderHook(() => useApplicationMutations());
+		// deleteRegistry. A Treatment's lines go with it unasked; the batch links and
+		// support records are what the registry counts while the flags are false.
+		const { result } = renderHook(() => useTreatmentMutations());
 
-		await firstAttempt(APPLICATION_DELETE_REFUSALS, (acknowledgements) =>
+		await firstAttempt(TREATMENT_DELETE_REFUSALS, (acknowledgements) =>
 			result.current.remove(RECORD, acknowledgements),
 		);
 
-		expect(lastIntents()).toEqual(['controlOperations.deleteChemicalApplication']);
+		expect(lastIntents()).toEqual(['controlOperations.deleteTreatment']);
 		expect(lastWrite().acknowledgements).toEqual({
 			acknowledgedBatchDeletion: false,
 			acknowledgedSupportRecordDeletion: false,
 		});
-	});
-});
-
-describe('linking the lots a chemical application drew from', () => {
-	it('names the link and the unlink as their own commands', async () => {
-		const { result } = renderHook(() => useApplicationMutations());
-
-		await result.current.addBatch(RECORD, BATCH_A);
-		expect(lastIntents()).toEqual(['controlOperations.addChemicalApplicationBatch']);
-		expect(lastRow().application_id).toBe(RECORD);
-		expect(lastRow().insecticide_batch_id).toBe(BATCH_A);
-
-		await result.current.removeBatch(LINK_A);
-		expect(lastIntents()).toEqual(['controlOperations.removeChemicalApplicationBatch']);
-		expect(lastWrite().key).toBe(LINK_A);
-	});
-
-	it('writes only the lots that moved, and unlinks by the link row', async () => {
-		// A kept lot is left alone rather than rewritten, and the unlink names the
-		// link row's id, which is also how the server reaches its performer.
-		const { result } = renderHook(() => useApplicationMutations());
-
-		await result.current.setBatches({
-			applicationId: RECORD,
-			existing: [
-				{ id: LINK_A, insecticideBatchId: BATCH_A },
-				{ id: LINK_B, insecticideBatchId: BATCH_B },
-			],
-			insecticideBatchIds: [BATCH_B, BATCH_C],
-		});
-
-		expect(dispatches()).toHaveLength(2);
-		expect(dispatches()[0]?.write).toMatchObject({
-			intent: 'controlOperations.removeChemicalApplicationBatch',
-			key: LINK_A,
-		});
-		expect(dispatches()[1]?.write).toMatchObject({
-			intent: 'controlOperations.addChemicalApplicationBatch',
-		});
-		expect(lastRow().insecticide_batch_id).toBe(BATCH_C);
 	});
 });
 

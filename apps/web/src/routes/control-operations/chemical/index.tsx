@@ -90,7 +90,7 @@ function ApplicationsExplorerRoute() {
 				icon: TreatmentEntityIcon,
 				total,
 				isLoading,
-				create: { to: '/control-operations/chemical/create', label: createLabel('application') },
+				create: { to: '/control-operations/chemical/create', label: createLabel('treatment') },
 			}}
 			onResetFilters={clearAll}
 			map={

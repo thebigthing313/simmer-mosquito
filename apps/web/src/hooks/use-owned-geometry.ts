@@ -28,7 +28,7 @@ export interface OwnedGeometrySource {
 
 export const CHEMICAL_GEOMETRY_SOURCE: OwnedGeometrySource = {
 	segment: 'chemical',
-	bodyKey: 'application',
+	bodyKey: 'treatment',
 	geometryKind: 'controlAction',
 };
 export const SOURCE_REDUCTION_GEOMETRY_SOURCE: OwnedGeometrySource = {

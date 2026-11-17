@@ -169,9 +169,9 @@ vi.mock('../../../components/control-operations/biocontrol/biocontrol-form', asy
 	...(await original<Record<string, unknown>>()),
 	BiocontrolFormPage: SubmitProbe,
 }));
-vi.mock('../../../components/control-operations/chemical/application-form', async (original) => ({
+vi.mock('../../../components/control-operations/chemical/treatment-form', async (original) => ({
 	...(await original<Record<string, unknown>>()),
-	ApplicationFormPage: SubmitProbe,
+	TreatmentFormPage: SubmitProbe,
 }));
 vi.mock(
 	'../../../components/control-operations/source-reduction/source-reduction-form',

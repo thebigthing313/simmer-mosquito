@@ -48,7 +48,7 @@ export const MAP_CREATE_TARGETS = {
 	inspection: target('inspection', 'inspection', '/larval-surveillance/inspections/create'),
 	trap: target('trap', 'trap', '/adult-surveillance/traps/create'),
 	collection: target('collection', 'collection', '/adult-surveillance/collections/create'),
-	chemical: target('chemical', 'application', '/control-operations/chemical/create'),
+	chemical: target('chemical', 'treatment', '/control-operations/chemical/create'),
 	sourceReduction: target(
 		'sourceReduction',
 		'sourceReduction',

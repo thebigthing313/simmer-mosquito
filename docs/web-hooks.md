@@ -2397,7 +2397,7 @@ compose them from the module now, `useLinkedControlActions` and
 and the field names of the view it returns. The same module exports
 `controlActionBaseSelect`, the placement and audit fields (address, inspection,
 request, mission item, coordinates, metadata and the four audit columns) that
-`useApplication`, `useSourceReduction`, `useBiocontrolAction` and
+`useTreatment`, `useSourceReduction`, `useBiocontrolAction` and
 `useOutreachAction` project the same way. It leaves out `habitatId`, because an
 Outreach Action has no habitat.
 
@@ -2481,6 +2481,64 @@ Treatment.
 `useLiveQuery` directly rather than `useRecordById`, because the include needs
 the root query builder and `useRecordById` hands its callback only the
 builder it has already pointed at the collection.
+
+#### useTreatment
+
+The detail page's and the edit form's read of one Treatment (#1753), which
+replaced `useApplication`. It loads the Treatment by id and its lines by
+`treatment_id` through the same `treatmentLines` include the lists use, and
+joins the method, applicator, address, vehicle, equipment, Formulation and mix
+unit, all `left`, over eager catalogs. It stays apart from `useTreatmentCard`
+for the reason given there: the card would pay for the rig and the Formulation
+on every map click. `useLiveQuery` rather than `useRecordById`, for the same
+reason as the card.
+
+The edit form opens a Formulation Treatment on these saved lines, not on a
+recomputation from the recipe. The saved lines are the record of the recipe as
+it stood, and the server skips the recipe check on a revise that leaves them
+alone (`docs/treatment-spec.md`, "When the recipe check runs"), so recomputing
+on open would turn a batch-only edit into a refusal whenever the recipe had
+been edited since.
+
+#### useTreatmentBatchLinks
+
+The batch links on a Treatment's lines, with each link's own id, read by
+`inArray(application_id, lineIds)` once `useTreatment` has the line ids. The
+edit form needs the ids, not the names `useApplicationBatchNames` gives: a
+kept lot goes back in the revise with its stored link id, because the server
+refuses a stored link id sent with a different batch, and a removed line says
+how many links go with it. It replaced `useApplicationBatches`, which read one
+line at a time and fed the batch add and remove commands that ADR 0020
+retired.
+
+#### useTreatmentMutations
+
+Replaced `useApplicationMutations` (#1753). A create is one `recordTreatment`,
+or `recordTreatmentForMissionItem` off a stop, carrying every line and its
+batch links as `applications`, through `commandTransaction` with optimistic
+rows in `treatments`, `applications` and `application_batches`. The old create
+page looped over one command per product and reported "recorded 2 of 5" when
+the third was refused; that loop and its partial-failure branch are gone,
+because one Postgres transaction writes the Treatment and every line or none
+of them.
+
+An edit works out what moved. When the line set or any line's lots changed,
+the save is one PATCH through `commandTransaction` naming the header intents
+it touched beside `reviseTreatmentLines`, with the full set, so the lines on
+screen are confirmed with the header. `commandTransaction` takes the header
+intents as `alongside`, ahead of the one multi-row command, because a revise
+is multi-row and the header commands are not. When the lines stood still, the
+save is a header-only PATCH through `mutateCollection` on `treatments`, which
+waits on that collection alone. The Formulation set travels whole on either
+path: the builder refuses one of the three keys without the others, and the
+single-row diff would drop the two that did not change.
+
+A kept lot keeps its stored link id and a new one gets a new id, for the
+reason under `useTreatmentBatchLinks`. A line the form removed is left out of
+the set, which is how the revise removes it; the revise asks for no
+acknowledgement, so the form's struck-through row is the only warning. The
+delete names `deleteTreatment` and withholds `acknowledgedBatchDeletion` and
+`acknowledgedSupportRecordDeletion`; the lines go with the Treatment unasked.
 
 #### useInspection and useHabitatSuspense
 

@@ -95,13 +95,6 @@ export function formatActionDate(value: string): string {
 	});
 }
 
-export function nameById<TRow extends { readonly id: string }>(
-	rows: readonly TRow[],
-	toName: (row: TRow) => string,
-): ReadonlyMap<string, string> {
-	return new Map(rows.map((row) => [row.id, toName(row)] as const));
-}
-
 /** Which side of the program a control action was performed against. */
 export type ControlContext = 'larval' | 'adult' | 'standalone';
 

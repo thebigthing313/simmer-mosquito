@@ -48,7 +48,13 @@ export interface TreatmentLine {
  * Treatment's ref. Lines come oldest first, which is the order the server's
  * activity rows list them in.
  */
-export function treatmentLines(query: InitialQueryBuilder, treatment: HasColumn<Treatment, 'id'>) {
+export function treatmentLines(
+	query: InitialQueryBuilder,
+	treatment: HasColumn<Treatment, 'id'>,
+	// Annotated because the inferred type names `ToArrayWrapper`, which
+	// `@tanstack/db` does not export, so declaration emit cannot name it.
+	// Every caller reads the result through `linesOf`, which narrows it.
+): ReturnType<typeof toArray> {
 	return toArray(
 		query
 			.from({ line: applications() })

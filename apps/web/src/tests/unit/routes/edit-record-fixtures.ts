@@ -148,9 +148,10 @@ export const BIOCONTROL_ACTION = row('biocontrol_actions', {
 	updated_at: TIMESTAMP,
 });
 
-// --- Chemical application --------------------------------------------------------
+// --- Treatment -------------------------------------------------------------------
 
-const APPLICATION_ID = 'e0000000-0000-4000-8000-000000000001';
+const TREATMENT_ID = 'e0000000-0000-4000-8000-000000000001';
+const TREATMENT_LINE_ID = 'e0000000-0000-4000-8000-000000000006';
 const INSECTICIDE_ID = 'e0000000-0000-4000-8000-000000000002';
 const APPLICATION_METHOD_ID = 'e0000000-0000-4000-8000-000000000003';
 const VEHICLE_ID = 'e0000000-0000-4000-8000-000000000004';
@@ -196,11 +197,10 @@ export const EQUIPMENT = row('equipment', {
 	is_active: true,
 });
 
-export const APPLICATION = row('applications', {
-	id: APPLICATION_ID,
+export const TREATMENT = row('treatments', {
+	id: TREATMENT_ID,
 	organization_id: ORGANIZATION_ID,
 	application_method_id: APPLICATION_METHOD_ID,
-	insecticide_id: INSECTICIDE_ID,
 	applicator_profile_id: TECHNICIAN_ID,
 	application_date: '2026-06-03',
 	lat: 38.58,
@@ -209,14 +209,27 @@ export const APPLICATION = row('applications', {
 	address_id: null,
 	vehicle_id: VEHICLE_ID,
 	equipment_id: EQUIPMENT_ID,
-	amount_applied: 12.5,
-	application_unit_id: GALLON_UNIT_ID,
 	habitat_id: null,
 	collection_id: null,
 	inspection_id: null,
 	requested_control_action_id: null,
 	mission_item_id: null,
+	formulation_id: null,
+	mix_amount: null,
+	mix_unit_id: null,
 	metadata: null,
+	created_at: TIMESTAMP,
+	updated_at: TIMESTAMP,
+});
+
+/** The Treatment's one Chemical Application. */
+export const TREATMENT_LINE = row('applications', {
+	id: TREATMENT_LINE_ID,
+	organization_id: ORGANIZATION_ID,
+	treatment_id: TREATMENT_ID,
+	insecticide_id: INSECTICIDE_ID,
+	amount_applied: 12.5,
+	application_unit_id: GALLON_UNIT_ID,
 	created_at: TIMESTAMP,
 	updated_at: TIMESTAMP,
 });
@@ -361,7 +374,7 @@ export const OUTREACH_ACTION = row('outreach_actions', {
 export const ADDITIONAL_PERSONNEL = (
 	[
 		['a4000000-0000-4000-8000-000000000001', 'biocontrolAction', BIOCONTROL_ACTION_ID],
-		['a4000000-0000-4000-8000-000000000002', 'application', APPLICATION_ID],
+		['a4000000-0000-4000-8000-000000000002', 'treatment', TREATMENT_ID],
 		['a4000000-0000-4000-8000-000000000003', 'sourceReduction', SOURCE_REDUCTION_ID],
 		['a4000000-0000-4000-8000-000000000004', 'inspection', INSPECTION_ID],
 		['a4000000-0000-4000-8000-000000000005', 'outreachAction', OUTREACH_ACTION_ID],

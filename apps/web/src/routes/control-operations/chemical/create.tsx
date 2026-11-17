@@ -1,26 +1,21 @@
-import { calculateFormulationComponentAmounts } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import { createLabel } from '../../../components/app-shell/navigation';
 import {
-	ApplicationFormPage,
 	type DrawGeometry,
-} from '../../../components/control-operations/chemical/application-form';
+	TreatmentFormPage,
+} from '../../../components/control-operations/chemical/treatment-form';
 import {
-	type ApplicationFormValues,
-	defaultApplicationFormValues,
-	noSelectionValue,
-} from '../../../components/control-operations/chemical/application-form-values';
+	defaultTreatmentFormValues,
+	type TreatmentFormValues,
+	treatmentSaveInput,
+} from '../../../components/control-operations/chemical/treatment-form-values';
+import type { TreatmentRecipe } from '../../../components/control-operations/chemical/treatment-line-values';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
-import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
+import { useTreatmentMutations } from '../../../hooks/mutations/use-treatment-mutations';
 import { catalogs } from '../../../hooks/queries/catalog-register';
-import type {
-	FormulationComponentListing,
-	FormulationListing,
-} from '../../../hooks/queries/chemical-roster-view';
 import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useFormulationComponentRoster } from '../../../hooks/queries/use-formulation-component-roster';
 import { useFormulationRoster } from '../../../hooks/queries/use-formulation-roster';
@@ -31,9 +26,8 @@ import { useMissionStopExecution } from '../../../hooks/use-mission-stop-executi
 import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
-import { recordCount, recordNoun } from '../../../lib/record-nouns';
+import { recordNoun } from '../../../lib/record-nouns';
 import { habitatSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
-import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
 export const Route = createFileRoute('/control-operations/chemical/create')({
@@ -50,15 +44,15 @@ export const Route = createFileRoute('/control-operations/chemical/create')({
 			throw redirect({ replace: true, to: '/control-operations/chemical' });
 		}
 	},
-	component: CreateApplicationRoute,
+	component: CreateTreatmentRoute,
 });
 
-function CreateApplicationRoute() {
+function CreateTreatmentRoute() {
 	const { auth } = Route.useRouteContext();
 	const search = Route.useSearch();
 	const initialGeometry = pointFromSearch(search);
-	// Recorded off a mission stop: the server links the action to the stop and
-	// completes it in the same transaction.
+	// Recorded off a mission stop: the server links the Treatment to the stop and
+	// completes it in the same transaction, once per Treatment.
 	const mission = useMissionStopExecution(search);
 	const navigate = useNavigate();
 	const clock = useOrganizationClock();
@@ -76,146 +70,79 @@ function CreateApplicationRoute() {
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const canSubmit = canAttributeWrite({ organization, actorProfileId });
 
-	// The first application's id is minted up front so its crew rows can be written
-	// the moment it lands. A formulation mints the rest at save.
-	const [applicationId] = useState(newRecordId);
+	// Minted up front so the crew rows and the note can name it the moment it lands.
+	const [treatmentId] = useState(newRecordId);
 	const recordExtras = useRecordExtras();
-	const { record } = useApplicationMutations();
+	const { record } = useTreatmentMutations();
 
-	// A confirmed acknowledgement re-runs the whole save. Safe because the loop
-	// below only lets a refusal escape while nothing has been written yet: once a
-	// mix has landed part way, the failure is reported as a count instead.
+	// A confirmed acknowledgement re-runs the whole save, which is safe because
+	// the Treatment and every line are one command: either all of it landed or
+	// none of it did.
 	const onSave = async (input: {
-		readonly values: ApplicationFormValues;
+		readonly values: TreatmentFormValues;
+		readonly recipe: TreatmentRecipe;
 		readonly geometry: DrawGeometry | null;
 		readonly geometryChanged: boolean;
 	}) =>
 		mission.run(async (acknowledgements) => {
-			const { values, geometry } = input;
 			if (actorProfileId === null) {
 				throw new Error('Your profile is still loading.');
 			}
-			if (values.amountApplied === null) {
-				throw new Error('Enter the amount applied.');
-			}
-
-			// The point is the application's authoritative geometry; the address (if
-			// any) is reference only. On a mission stop the form opens on the stop's
+			// The geometry is the Treatment's own location; the address (if any) is
+			// reference only. On a mission stop the form opens on the stop's
 			// geometry, and an untouched one is left for the server to copy.
-			const location = mission.resolveLocation(geometry, {
-				missing: 'Place the application point on the map.',
-				unresolvable: 'Unable to determine the application location.',
+			const location = mission.resolveLocation(input.geometry, {
+				missing: 'Place the treatment on the map.',
+				unresolvable: 'Unable to determine the treatment location.',
+			});
+			const { values, mix, lines } = treatmentSaveInput(input.values, input.recipe);
+
+			// Off a stop this is `missionDispatch.recordTreatmentForMissionItem`; the
+			// hook reads the stop id rather than making this form say so.
+			await record({
+				treatmentId,
+				values,
+				mix,
+				lines,
+				location: {
+					lat: location.lat,
+					lng: location.lng,
+					geomType: location.geomType,
+					locationSource: location.locationSource,
+				},
+				missionItemId: mission.missionItemId,
+				acknowledgements,
 			});
 
-			// A formulation is a calculator: it becomes one ordinary application per
-			// component product, each holding its own share of the total. Nothing
-			// records that they came from a mix.
-			const products =
-				values.productMode === 'formulation'
-					? formulationProducts(values, formulations, formulationComponents, applicationId)
-					: [
-							{
-								id: applicationId,
-								insecticideId: values.insecticideId,
-								amountApplied: values.amountApplied,
-								applicationUnitId: values.applicationUnitId,
-								insecticideBatchIds: values.insecticideBatchIds,
-							},
-						];
+			// Crew rows and the note name the Treatment, so they follow it.
+			await recordExtras.attach({
+				target: { type: 'treatment', id: treatmentId },
+				profileIds: input.values.additionalPersonnelIds,
+				commentText: input.values.comment,
+			});
 
-			// Written one at a time so a failure part way through a mix can say how
-			// much of it landed — those rows are real applications the user now owns.
-			// Each product is its own command, so they cannot share one transaction:
-			// a single rollback would take back rows the server had already committed.
-			const saved: ApplicationProduct[] = [];
-			for (const product of products) {
-				try {
-					// The batches go with it, in the same command and the same Postgres
-					// transaction — an application and the lots it drew from either both
-					// land or neither does. Off a stop this is
-					// `missionDispatch.recordChemicalApplicationForMissionItem`; the hook
-					// reads the stop id rather than making this form say so.
-					await record({
-						applicationId: product.id,
-						values: {
-							insecticideId: product.insecticideId,
-							amountApplied: product.amountApplied,
-							unitId: product.applicationUnitId,
-							actionDate: values.applicationDate,
-							methodId: nullableSelection(values.applicationMethodId),
-							applicatorProfileId: nullableSelection(values.applicatorProfileId),
-							vehicleId: nullableSelection(values.vehicleId),
-							equipmentId: nullableSelection(values.equipmentId),
-							addressId: values.addressId,
-							habitatId: values.habitatId,
-							metadata: values.metadata,
-						},
-						location: {
-							lat: location.lat,
-							lng: location.lng,
-							geomType: location.geomType,
-							locationSource: location.locationSource,
-						},
-						insecticideBatchIds: product.insecticideBatchIds,
-						missionItemId: mission.missionItemId,
-						acknowledgements,
-					});
-				} catch (error) {
-					if (saved.length === 0) {
-						throw error;
-					}
-					throw new Error(
-						`Recorded ${saved.length} of ${recordCount('application', products.length)} before failing: ${errorMessageForSave(
-							error,
-							'Unknown error.',
-						)}`,
-					);
-				}
-				saved.push(product);
-			}
-
-			// Crew rows and the note reference the application, so they can only be
-			// written once it exists. The batches used to be here too, and are not any
-			// more. A formulation splits into one application per component, so both
-			// go on each of them rather than on whichever one happens to be first.
-			await Promise.all(
-				saved.map((product) =>
-					recordExtras.attach({
-						target: { type: 'application', id: product.id },
-						profileIds: values.additionalPersonnelIds,
-						commentText: values.comment,
-					}),
-				),
-			);
-
-			const first = saved[0];
-			if (saved.length > 1 || first === undefined) {
-				toast.success(`Recorded ${recordCount('application', saved.length)}.`);
-				await navigate({ to: '/control-operations/chemical' });
-				return;
-			}
 			await mission.navigateAfterSave(async () => {
-				await navigate({ to: '/control-operations/chemical/$id', params: { id: first.id } });
+				await navigate({ to: '/control-operations/chemical/$id', params: { id: treatmentId } });
 			});
 		});
 
 	return (
 		<>
-			<ApplicationFormPage
+			<TreatmentFormPage
 				applicationMethods={methods}
 				canSubmit={canSubmit}
 				mode="create"
 				defaultValues={{
-					...defaultApplicationFormValues(clock.zone),
+					...defaultTreatmentFormValues(clock.zone),
 					...seededValues({ habitatId: search.habitatId }),
 				}}
 				equipment={equipment}
 				formulationComponents={formulationComponents}
 				formulations={formulations}
 				header={{
-					title: createLabel('application'),
+					title: createLabel('treatment'),
 					backTo: '/control-operations/chemical',
-					backLabel: recordNoun('application').titleMany,
+					backLabel: recordNoun('treatment').titleMany,
 				}}
 				insecticides={insecticides}
 				initialGeometry={initialGeometry}
@@ -229,60 +156,4 @@ function CreateApplicationRoute() {
 			{mission.dialog}
 		</>
 	);
-}
-
-interface ApplicationProduct {
-	readonly id: string;
-	readonly insecticideId: string;
-	readonly amountApplied: number;
-	/** The product's own unit — a mix measured in gallons can yield pounds. */
-	readonly applicationUnitId: string;
-	readonly insecticideBatchIds: readonly string[];
-}
-
-/**
- * Split a mix into the applications it becomes — the domain's own component
- * split, so the rows written match the breakdown the form previewed.
- *
- * The first application reuses the id minted when the page opened; the rest are
- * minted here, since how many there are is not known until a mix is chosen.
- */
-function formulationProducts(
-	values: ApplicationFormValues,
-	formulations: readonly FormulationListing[],
-	formulationComponents: readonly FormulationComponentListing[],
-	firstApplicationId: string,
-): readonly ApplicationProduct[] {
-	const formulation = formulations.find((row) => row.id === values.formulationId);
-	if (formulation === undefined) {
-		throw new Error('That formulation is no longer available.');
-	}
-	const components = formulationComponents.filter(
-		(component) => component.formulationId === formulation.id,
-	);
-	if (components.length === 0) {
-		throw new Error(`${formulation.formulationName} has no products in it.`);
-	}
-
-	const amounts = calculateFormulationComponentAmounts({
-		totalAmount: values.amountApplied ?? 0,
-		batchSize: formulation.batchSize,
-		components: components.map((component) => ({
-			insecticideId: component.insecticideId,
-			amount: component.amount,
-			unitId: component.unitId,
-		})),
-	});
-
-	return amounts.map((amount, index) => ({
-		id: index === 0 ? firstApplicationId : newRecordId(),
-		insecticideId: amount.insecticideId,
-		amountApplied: amount.amount,
-		applicationUnitId: amount.unitId,
-		insecticideBatchIds: values.componentBatchIds[amount.insecticideId] ?? [],
-	}));
-}
-
-function nullableSelection(value: string): string | null {
-	return value === noSelectionValue || value === '' ? null : value;
 }

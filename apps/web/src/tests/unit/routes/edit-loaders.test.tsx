@@ -65,13 +65,13 @@ import { outreach_methods } from '../../../lib/collections/outreach_methods';
 import { profiles } from '../../../lib/collections/profiles';
 import { source_reduction_methods } from '../../../lib/collections/source_reduction_methods';
 import { source_reductions } from '../../../lib/collections/source_reductions';
+import { treatments } from '../../../lib/collections/treatments';
 import { units } from '../../../lib/collections/units';
 import { vehicles } from '../../../lib/collections/vehicles';
 import { installMemoryCollections, seedRows } from '../lib/collections/memory-collections';
 import {
 	ADDITIONAL_PERSONNEL,
 	ADDRESS,
-	APPLICATION,
 	APPLICATION_METHOD,
 	BIOCONTROL_ACTION,
 	BIOCONTROL_METHOD,
@@ -87,6 +87,8 @@ import {
 	SOURCE_REDUCTION,
 	SOURCE_REDUCTION_METHOD,
 	TECHNICIAN_ID,
+	TREATMENT,
+	TREATMENT_LINE,
 	UNITS,
 	VEHICLE,
 } from './edit-record-fixtures';
@@ -136,7 +138,7 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
 	const body = Object.fromEntries(
 		[
 			'biocontrolAction',
-			'application',
+			'treatment',
 			'sourceReduction',
 			'outreachAction',
 			'address',
@@ -220,12 +222,12 @@ const EDIT_SURFACES = [
 	{
 		path: '/control-operations/chemical/$id/edit',
 		key: 'chemical',
-		recordId: APPLICATION.id,
+		recordId: TREATMENT.id,
 		fields: [
 			{ label: 'Application date', text: 'Jun 3, 2026' },
 			{ label: 'Applicator', value: 'Ana Rivera' },
 			{ label: 'Insecticide', value: 'VectoBac 12AS' },
-			{ label: 'Amount applied', value: '12.5' },
+			{ label: 'Amount', value: '12.5' },
 			{ label: 'Unit', text: 'Gallon (gal)' },
 			{ label: 'Application method', text: 'Backpack sprayer' },
 			{ label: 'Vehicle', text: 'Truck 7' },
@@ -299,7 +301,8 @@ function seedFixtures(): void {
 	seedRows(application_methods, [APPLICATION_METHOD]);
 	seedRows(vehicles, [VEHICLE]);
 	seedRows(equipment, [EQUIPMENT]);
-	seedRows(applications, [APPLICATION]);
+	seedRows(treatments, [TREATMENT]);
+	seedRows(applications, [TREATMENT_LINE]);
 	seedRows(source_reduction_methods, [SOURCE_REDUCTION_METHOD]);
 	seedRows(source_reductions, [SOURCE_REDUCTION]);
 	seedRows(addresses, [ADDRESS]);

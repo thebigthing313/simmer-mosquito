@@ -4,9 +4,10 @@
  * What five edit routes do when a link write fails after the record's own
  * update has landed.
  *
- * Collection, chemical application, biocontrol action, source reduction and
- * outreach action edit each reconcile the crew after the update, and chemical
- * application reconciles the insecticide batches too. A refusal there used to
+ * Collection, Treatment, biocontrol action, source reduction and outreach
+ * action edit each reconcile the crew after the update. A Treatment's batch
+ * links ride in its own save (#1753), so they are not a write that can fail
+ * after it. A refusal there used to
  * reject the save, so the form showed `Unable to Save` and stayed put over a
  * record whose update had committed (#1603). Now each miss is a change toast
  * naming the record, and the route opens the record, which is what inspection
@@ -41,12 +42,12 @@ import { outreach_methods } from '../../../lib/collections/outreach_methods';
 import { profiles } from '../../../lib/collections/profiles';
 import { source_reduction_methods } from '../../../lib/collections/source_reduction_methods';
 import { source_reductions } from '../../../lib/collections/source_reductions';
+import { treatments } from '../../../lib/collections/treatments';
 import { units } from '../../../lib/collections/units';
 import { vehicles } from '../../../lib/collections/vehicles';
 import { installMemoryCollections, seedRows } from '../lib/collections/memory-collections';
 import {
 	ADDITIONAL_PERSONNEL,
-	APPLICATION,
 	APPLICATION_METHOD,
 	BIOCONTROL_ACTION,
 	BIOCONTROL_METHOD,
@@ -60,6 +61,8 @@ import {
 	SOURCE_REDUCTION,
 	SOURCE_REDUCTION_METHOD,
 	TECHNICIAN_ID,
+	TREATMENT,
+	TREATMENT_LINE,
 	UNITS,
 	VEHICLE,
 } from './edit-record-fixtures';
@@ -77,7 +80,6 @@ const harness = vi.hoisted(() => ({
 	/** The record's own update, which every route awaits first. */
 	update: () => Promise.resolve(),
 	setPersonnel: () => Promise.resolve(),
-	setBatches: () => Promise.resolve(),
 	/** The form probe every route's form page is swapped for. */
 	probe: (props: { onSave: unknown; defaultValues: unknown }): ReactNode => {
 		harness.form = props;
@@ -115,11 +117,8 @@ vi.mock('sonner', () => ({
 vi.mock('../../../hooks/mutations/use-additional-personnel-mutations', () => ({
 	useAdditionalPersonnelMutations: () => ({ setPersonnel: () => harness.setPersonnel() }),
 }));
-vi.mock('../../../hooks/mutations/use-application-mutations', () => ({
-	useApplicationMutations: () => ({
-		update: () => harness.update(),
-		setBatches: () => harness.setBatches(),
-	}),
+vi.mock('../../../hooks/mutations/use-treatment-mutations', () => ({
+	useTreatmentMutations: () => ({ update: () => harness.update() }),
 }));
 vi.mock('../../../hooks/mutations/use-biocontrol-action-mutations', () => ({
 	useBiocontrolActionMutations: () => ({ update: () => harness.update() }),
@@ -176,10 +175,10 @@ vi.mock(
 	}),
 );
 vi.mock(
-	'../../../components/control-operations/chemical/application-form',
+	'../../../components/control-operations/chemical/treatment-form',
 	async (importOriginal) => ({
 		...(await importOriginal<Record<string, unknown>>()),
-		ApplicationFormPage: harness.probe,
+		TreatmentFormPage: harness.probe,
 	}),
 );
 vi.mock(
@@ -246,9 +245,9 @@ const EDIT_SURFACES: readonly EditSurface[] = [
 	},
 	{
 		key: 'chemical',
-		recordId: APPLICATION.id,
-		noun: 'chemical application',
-		page: { to: '/control-operations/chemical/$id', params: { id: APPLICATION.id } },
+		recordId: TREATMENT.id,
+		noun: 'treatment',
+		page: { to: '/control-operations/chemical/$id', params: { id: TREATMENT.id } },
 	},
 	{
 		key: 'biocontrol',
@@ -274,12 +273,10 @@ const EDIT_SURFACES: readonly EditSurface[] = [
 ];
 
 const CREW_TITLE = 'Saved, but the additional personnel could not be updated.';
-const BATCHES_TITLE = 'Saved, but the insecticide batches could not be updated.';
 
 const toastError = vi.fn();
 const navigate = vi.fn((_to: unknown) => Promise.resolve());
 const setPersonnel = vi.fn(() => Promise.resolve());
-const setBatches = vi.fn(() => Promise.resolve());
 const update = vi.fn(() => Promise.resolve());
 
 let components: Record<RouteKey, () => ReactNode>;
@@ -296,7 +293,8 @@ beforeAll(async () => {
 	seedRows(application_methods, [APPLICATION_METHOD]);
 	seedRows(vehicles, [VEHICLE]);
 	seedRows(equipment, [EQUIPMENT]);
-	seedRows(applications, [APPLICATION]);
+	seedRows(treatments, [TREATMENT]);
+	seedRows(applications, [TREATMENT_LINE]);
 	seedRows(source_reduction_methods, [SOURCE_REDUCTION_METHOD]);
 	seedRows(source_reductions, [SOURCE_REDUCTION]);
 	seedRows(outreach_methods, [OUTREACH_METHOD]);
@@ -312,16 +310,15 @@ beforeAll(async () => {
 beforeEach(() => {
 	harness.context = { auth: { snapshot: signedInSnapshot(ORGANIZATION_ID, TECHNICIAN_ID) } };
 	harness.form = null;
-	for (const stub of [toastError, navigate, setPersonnel, setBatches, update]) {
+	for (const stub of [toastError, navigate, setPersonnel, update]) {
 		stub.mockReset();
 	}
-	for (const stub of [navigate, setPersonnel, setBatches, update]) {
+	for (const stub of [navigate, setPersonnel, update]) {
 		stub.mockImplementation(() => Promise.resolve());
 	}
 	harness.toastError = toastError;
 	harness.navigate = navigate;
 	harness.setPersonnel = setPersonnel;
-	harness.setBatches = setBatches;
 	harness.update = update;
 });
 
@@ -329,6 +326,7 @@ afterEach(cleanup);
 
 type OnSave = (input: {
 	readonly values: unknown;
+	readonly recipe: unknown;
 	readonly geometry: null;
 	readonly geometryChanged: boolean;
 }) => Promise<void>;
@@ -348,7 +346,12 @@ async function save(surface: EditSurface): Promise<void> {
 	await screen.findByText('record form');
 	const form = harness.form as { onSave: OnSave; defaultValues: unknown };
 	await act(() =>
-		form.onSave({ values: form.defaultValues, geometry: null, geometryChanged: false }),
+		form.onSave({
+			values: form.defaultValues,
+			recipe: { formulation: undefined, components: [] },
+			geometry: null,
+			geometryChanged: false,
+		}),
 	);
 }
 
@@ -374,30 +377,5 @@ describe.each(EDIT_SURFACES)('$key edit, when a link write fails after the updat
 		expect(setPersonnel).not.toHaveBeenCalled();
 		expect(toastError).not.toHaveBeenCalled();
 		expect(navigate).not.toHaveBeenCalled();
-	});
-});
-
-describe('chemical application edit, when the batch write fails after the update', () => {
-	const chemical = EDIT_SURFACES.find((surface) => surface.key === 'chemical') as EditSurface;
-
-	it('reports a refused batch write and still opens the record', async () => {
-		setBatches.mockImplementation(() => Promise.reject(new Error('Refused.')));
-		await save(chemical);
-		expect(toastError).toHaveBeenCalledTimes(1);
-		expect(toastError).toHaveBeenCalledWith(BATCHES_TITLE, {
-			description: 'Refused. Edit the chemical application to try again.',
-		});
-		expect(navigate).toHaveBeenCalledWith(chemical.page);
-	});
-
-	it('reports the crew and the batches apart when both are refused', async () => {
-		setPersonnel.mockImplementation(() => Promise.reject(new Error('Refused.')));
-		setBatches.mockImplementation(() => Promise.reject(new Error('Refused.')));
-		await save(chemical);
-		expect(toastError).toHaveBeenCalledTimes(2);
-		expect(toastError.mock.calls.map(([title]) => title).sort()).toEqual(
-			[CREW_TITLE, BATCHES_TITLE].sort(),
-		);
-		expect(navigate).toHaveBeenCalledWith(chemical.page);
 	});
 });
