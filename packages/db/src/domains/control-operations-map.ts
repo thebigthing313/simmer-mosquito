@@ -258,10 +258,10 @@ export function treatmentSurface(
 function lineInsecticideClause(
 	filters: TreatmentMapFilters | undefined,
 ): RawBuilder<boolean> | undefined {
-	if (filters?.insecticideIds === undefined || filters.insecticideIds.length === 0) {
-		return undefined;
-	}
-	return sql<boolean>`l.insecticide_id = any(${[...filters.insecticideIds]}::uuid[])`;
+	const insecticideIds = [...(filters?.insecticideIds ?? [])];
+	return insecticideIds.length === 0
+		? undefined
+		: sql<boolean>`l.insecticide_id = any(${insecticideIds}::uuid[])`;
 }
 
 function treatmentFilterWhere(filters: TreatmentMapFilters | undefined): RawBuilder<boolean>[] {
