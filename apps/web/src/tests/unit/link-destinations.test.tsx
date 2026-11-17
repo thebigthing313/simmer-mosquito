@@ -23,14 +23,16 @@ import { LINKED_RECORD_FAMILIES } from '@simmer-mosquito/domain';
 import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { Suspense } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActivityEntry } from '../../components/activity/activity-data';
 import { ActivityLog } from '../../components/activity/activity-log';
 import { collectionRecordSet } from '../../components/adult-surveillance/collections/collections-search';
 import { trapRecordSet } from '../../components/adult-surveillance/traps/traps-search';
+import { ApplicationMapCard } from '../../components/control-operations/application-map-card';
 import { biocontrolRecordSet } from '../../components/control-operations/biocontrol/biocontrol-actions-search';
 import { applicationRecordSet } from '../../components/control-operations/chemical/applications-search';
+import { ApplicationsTable } from '../../components/control-operations/chemical/applications-table';
 import { sourceReductionRecordSet } from '../../components/control-operations/source-reduction/source-reductions-search';
 import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
 import { DashboardPage } from '../../components/dashboard/dashboard-page';
@@ -46,6 +48,7 @@ import { addressRecordSet } from '../../components/gis/addresses/addresses-searc
 import { AddressesTable } from '../../components/gis/addresses/addresses-table';
 import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
 import { habitatRecordSet } from '../../components/larval-surveillance/habitats/habitats-search';
+import { LinkedControlActionsCard } from '../../components/larval-surveillance/inspections/linked-control-actions-card';
 import { inspectionRecordSet } from '../../components/larval-surveillance/inspections-search';
 import { sampleRecordSet } from '../../components/larval-surveillance/samples-search';
 import { PeopleSection } from '../../components/my-organization/people';
@@ -77,7 +80,7 @@ import { dayOverview, monthOverview, yearOverview } from './components/overview/
 import { installMemoryCollections, seedRows } from './lib/collections/memory-collections';
 import { STUB_ROW_HEIGHT, stubRailViewportHeight } from './rail-viewport-stub';
 import { linkHref, linkHrefs, renderWithRouter } from './router-harness';
-import { stubPanelLayout } from './routes/explorer-route-harness';
+import { preloadRouteComponent, stubPanelLayout } from './routes/explorer-route-harness';
 
 /**
  * `raw` as the `surface` route of `set` validates it: the search that route
@@ -164,9 +167,11 @@ describe('the habitat History card', () => {
 				larvae_count: 12,
 			},
 		]);
+		// A two-product Treatment, each line with an id of its own, so a row
+		// keyed or linked by a line would draw twice or open a line.
 		seedRows(treatments, [
 			{
-				id: 'application-1',
+				id: 'treatment-1',
 				habitat_id: HABITAT,
 				application_date: '2026-08-02',
 				applicator_profile_id: 'applicator-profile-1',
@@ -176,9 +181,16 @@ describe('the habitat History card', () => {
 		seedRows(applications, [
 			{
 				id: 'application-line-1',
-				treatment_id: 'application-1',
+				treatment_id: 'treatment-1',
 				insecticide_id: 'insecticide-1',
 				amount_applied: 3,
+				application_unit_id: 'unit-1',
+			},
+			{
+				id: 'application-line-2',
+				treatment_id: 'treatment-1',
+				insecticide_id: 'insecticide-2',
+				amount_applied: 5,
 				application_unit_id: 'unit-1',
 			},
 		]);
@@ -237,11 +249,11 @@ describe('the habitat History card', () => {
 		expect(linkHrefs()).toEqual(['/larval-surveillance/samples/sample-1']);
 	});
 
-	it('opens the application a row names, not the insecticide it applied', async () => {
+	it('opens the Treatment a row names, once for two products, and not a line', async () => {
 		await openCard();
 		openTab(/^Treatments \(1\)$/);
 
-		expect(linkHrefs()).toEqual(['/control-operations/chemical/application-1']);
+		expect(linkHrefs()).toEqual(['/control-operations/chemical/treatment-1']);
 	});
 
 	it('opens the source reduction a row names, not the method it used', async () => {
@@ -256,6 +268,151 @@ describe('the habitat History card', () => {
 		openTab(/^Requests \(1\)$/);
 
 		expect(linkHrefs()).toEqual(['/operations/requests-for-control/requested-control-action-1']);
+	});
+});
+
+/**
+ * The lists that draw a Treatment (#1752, ADR 0020). Every fixture is one
+ * Treatment with two products, each line carrying an id of its own, so a list
+ * still keyed by line draws two entries or opens a line, and fails here.
+ */
+describe('a Treatment', () => {
+	const TREATMENT = 'treatment-7';
+
+	function seedTreatment(overrides: Record<string, unknown> = {}): void {
+		seedRows(treatments, [
+			{
+				id: TREATMENT,
+				application_date: '2026-08-02',
+				applicator_profile_id: 'applicator-profile-1',
+				application_method_id: 'application-method-1',
+				inspection_id: 'inspection-7',
+				...overrides,
+			},
+		]);
+		seedRows(applications, [
+			{
+				id: 'line-a',
+				treatment_id: TREATMENT,
+				insecticide_id: 'insecticide-1',
+				amount_applied: 3,
+				application_unit_id: 'unit-1',
+			},
+			{
+				id: 'line-b',
+				treatment_id: TREATMENT,
+				insecticide_id: 'insecticide-2',
+				amount_applied: 5,
+				application_unit_id: 'unit-1',
+			},
+		]);
+	}
+
+	it('opens from the Chemical table, one row for two products', () => {
+		renderWithRouter(
+			<ApplicationsTable
+				rows={[
+					{
+						id: TREATMENT,
+						lat: 0,
+						lng: 0,
+						applicationMethodId: null,
+						applicationDate: '2026-08-02',
+						habitatId: null,
+						applicatorProfileId: null,
+						applicatorName: null,
+						lines: [
+							{
+								id: 'line-a',
+								insecticideId: 'insecticide-1',
+								amountApplied: 3,
+								applicationUnitId: 'unit-1',
+								batchNames: [],
+							},
+							{
+								id: 'line-b',
+								insecticideId: 'insecticide-2',
+								amountApplied: 5,
+								applicationUnitId: 'unit-1',
+								batchNames: [],
+							},
+						],
+					},
+				]}
+			/>,
+		);
+
+		expect(linkHrefs()).toEqual([`/control-operations/chemical/${TREATMENT}?via=table`]);
+	});
+
+	it("opens from the inspection's linked control actions, one entry for two products", async () => {
+		seedTreatment();
+		renderWithRouter(<LinkedControlActionsCard inspectionId="inspection-7" />);
+		await waitFor(() => {
+			expect(screen.getByText(/Treated with/)).toBeTruthy();
+		});
+
+		expect(linkHrefs()).toEqual([`/control-operations/chemical/${TREATMENT}`]);
+	});
+
+	describe('in the Daily Control Actions panel', () => {
+		let ControlOverview: () => ReactNode;
+
+		// Code splitting makes the route component a lazy stand-in until it is
+		// preloaded, and the overview pulls in every panel's modules.
+		beforeAll(async () => {
+			ControlOverview = await preloadRouteComponent(
+				() => import('../../routes/control-operations/index'),
+				'control operations overview',
+			);
+		}, 300_000);
+
+		beforeEach(() => {
+			vi.useFakeTimers({ toFake: ['Date'] });
+			vi.setSystemTime(new Date('2026-08-02T16:00:00Z'));
+			seedRows(organizations, [{ id: 'org-1', name: 'Test Mosquito Control', settings: {} }]);
+			seedRows(profiles, [{ id: 'applicator-profile-1', display_name: 'Ana Ortiz' }]);
+			seedTreatment();
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it('opens from its row, one row for two products', async () => {
+			const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+			renderWithRouter(
+				<QueryClientProvider client={client}>
+					<Suspense fallback={null}>
+						<ControlOverview />
+					</Suspense>
+				</QueryClientProvider>,
+			);
+			// A person's day is collapsed to one summary row until it is opened.
+			const person = await screen.findByRole('button', { name: /Ana Ortiz/ }, { timeout: 10_000 });
+			fireEvent.click(person);
+			await waitFor(() => {
+				expect(screen.getByText('Treatment · Unknown method')).toBeTruthy();
+			});
+
+			// The catalog cards beside the panel link under the same path.
+			const catalogs = /\/(methods|insecticides|formulations)$/;
+			expect(
+				linkHrefs().filter(
+					(href) => href?.startsWith('/control-operations/chemical/') && !catalogs.test(href),
+				),
+			).toEqual([`/control-operations/chemical/${TREATMENT}`]);
+		});
+	});
+
+	it("opens from the map card's details link", async () => {
+		seedTreatment();
+		renderWithRouter(<ApplicationMapCard id={TREATMENT} onClose={() => {}} />);
+		await waitFor(() => {
+			expect(screen.getByText(/· 5$/)).toBeTruthy();
+		});
+
+		expect(linkHrefs()).toContain(`/control-operations/chemical/${TREATMENT}`);
 	});
 });
 
@@ -448,7 +605,7 @@ describe('the name of each Map/Table switch', () => {
 		['Samples view', emptyMapSwitch(sampleRecordSet)],
 		['Traps view', emptyMapSwitch(trapRecordSet)],
 		['Collections view', emptyMapSwitch(collectionRecordSet)],
-		['Chemical applications view', emptyMapSwitch(applicationRecordSet)],
+		['Treatments view', emptyMapSwitch(applicationRecordSet)],
 		['Biocontrol actions view', emptyMapSwitch(biocontrolRecordSet)],
 		['Source reductions view', emptyMapSwitch(sourceReductionRecordSet)],
 		['Outreach actions view', emptyMapSwitch(outreachRecordSet)],
@@ -1284,7 +1441,6 @@ describe('the nearby list', () => {
 			label: `Record ${index}`,
 			placeName: `Record ${index}`,
 			refId: null,
-			methodRefId: null,
 			amount: null,
 			unitId: null,
 			detail: null,
@@ -1423,7 +1579,6 @@ describe('the linked records on an address', () => {
 			placeName: null,
 			placeSource: null,
 			refId: null,
-			methodRefId: null,
 			amount: null,
 			unitId: null,
 			detail: null,
@@ -1545,7 +1700,6 @@ describe('the Daily Work log', () => {
 			label: `Record ${index}`,
 			placeName: `Record ${index}`,
 			refId: null,
-			methodRefId: null,
 			amount: null,
 			unitId: null,
 			detail: null,

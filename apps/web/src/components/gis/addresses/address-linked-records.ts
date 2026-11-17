@@ -40,7 +40,9 @@ export interface LinkedRecordItem extends Omit<ActivityRowRecord, 'category'> {
 	readonly missionName: string | null;
 	readonly missionScheduledStartAt: string | null;
 	readonly closedByCategory: ActivityCategory | null;
+	/** The closing record, a Treatment for a chemical stop. */
 	readonly closedById: string | null;
+	/** The closing record's method, a Treatment's as every other kind's. */
 	readonly closedByRefId: string | null;
 }
 
@@ -235,16 +237,18 @@ function missionStopState(detail: string | null): MissionStopState {
 
 /** The record kinds a Mission stop can be closed by, as the register names them. */
 const CLOSING_NOUN: Readonly<Partial<Record<ActivityCategory, string>>> = {
-	application: recordNoun('application').one,
+	// A chemical stop is closed by the Treatment, the visit, not by one of its
+	// products (ADR 0012, ADR 0020).
+	application: recordNoun('treatment').one,
 	sourceReduction: recordNoun('sourceReduction').one,
 	biocontrol: recordNoun('biocontrolAction').one,
 	outreach: recordNoun('outreachAction').one,
 };
 
 /**
- * `Closed by chemical application Altosid XR-G`, or the kind alone where its
- * product or method will not resolve. Nothing for a stop marked done with no
- * record against it, because nothing closed it but the mark.
+ * `Closed by treatment Truck ULV`, the closing record's kind and its method, or
+ * the kind alone where the method will not resolve. Nothing for a stop marked
+ * done with no record against it, because nothing closed it but the mark.
  */
 function closedByPhrase(item: LinkedRecordItem, lookups: ActivityLookups): string | null {
 	if (item.closedByCategory === null) {

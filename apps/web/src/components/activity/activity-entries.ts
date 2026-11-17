@@ -89,7 +89,6 @@ interface RecordHalf {
 	readonly label?: string | null;
 	readonly placeName?: string | null;
 	readonly refId?: string | null;
-	readonly methodRefId?: string | null;
 	readonly amount?: number | null;
 	readonly unitId?: string | null;
 	readonly lines?: readonly ActivityTreatmentLine[] | null;
@@ -112,7 +111,6 @@ const NO_RECORD_COLUMNS = {
 	label: null,
 	placeName: null,
 	refId: null,
-	methodRefId: null,
 	amount: null,
 	unitId: null,
 	lines: null,

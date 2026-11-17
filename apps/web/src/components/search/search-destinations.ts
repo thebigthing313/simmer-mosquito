@@ -63,7 +63,7 @@ const COMMENT_TARGET_ROUTES: Record<Exclude<CommentTargetType, 'route'>, DetailR
 	habitat: '/larval-surveillance/habitats/$id',
 	inspection: '/larval-surveillance/inspections/$id',
 	sample: '/larval-surveillance/samples/$id',
-	application: '/control-operations/chemical/$id',
+	treatment: '/control-operations/chemical/$id',
 	sourceReduction: '/control-operations/source-reduction/$id',
 	outreachAction: '/public-engagement/outreach/$id',
 	biocontrolAction: '/control-operations/biocontrol/$id',
@@ -181,7 +181,7 @@ type SearchIconKey =
 	| CorpusTable
 	| 'inspections'
 	| 'collections'
-	| 'applications'
+	| 'treatments'
 	| 'source_reductions'
 	| 'biocontrol_actions'
 	| 'outreach_actions';
@@ -211,7 +211,7 @@ export const SEARCH_RESULT_ICONS: Record<SearchResultIconKey, RegistryIcon> = {
 	weather_sources: iconRegistry.entities.weatherStation.icon,
 	inspections: iconRegistry.entities.inspection.icon,
 	collections: iconRegistry.entities.collection.icon,
-	applications: iconRegistry.entities.application.icon,
+	treatments: iconRegistry.entities.application.icon,
 	source_reductions: iconRegistry.entities.sourceReduction.icon,
 	biocontrol_actions: iconRegistry.entities.biocontrolAction.icon,
 	outreach_actions: iconRegistry.entities.outreachAction.icon,
@@ -235,7 +235,7 @@ const ACTION_ICON_KEYS: Record<string, SearchIconKey> = {
 	'inspections-create': 'inspections',
 	'traps-create': 'traps',
 	'collections-create': 'collections',
-	'chemical-create': 'applications',
+	'chemical-create': 'treatments',
 	'source-reduction-create': 'source_reductions',
 	'biocontrol-create': 'biocontrol_actions',
 	'service-requests-create': 'service_requests',

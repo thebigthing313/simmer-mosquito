@@ -210,7 +210,6 @@ function nearbyItem(overrides: Record<string, unknown>): Record<string, unknown>
 		label: null,
 		placeName: null,
 		refId: null,
-		methodRefId: null,
 		amount: null,
 		unitId: null,
 		detail: null,

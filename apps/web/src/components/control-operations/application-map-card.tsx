@@ -1,8 +1,10 @@
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ContactIcon, InfoIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
-import { useApplication } from '../../hooks/queries/use-application';
+import type { TreatmentLine } from '../../hooks/queries/treatment-lines';
 import { useApplicationBatchNames } from '../../hooks/queries/use-application-batch-names';
+import { useTreatmentCard } from '../../hooks/queries/use-treatment-card';
+import { listTreatmentLines } from '../../lib/list-treatment-lines';
 import { recordNoun } from '../../lib/record-nouns';
 import { MapCardAddress } from '../linked-address';
 import { MapCard, MapCardDetail, MapCardEyebrow, MapCardLocation } from '../map/map-card';
@@ -13,9 +15,9 @@ const UnitIcon = iconRegistry.entities.unit.icon;
 const MethodIcon = iconRegistry.entities.application.icon;
 
 /**
- * The map focus card for a chemical application. One query brings the
- * application up with its product, method, unit, applicator and address joined
- * ({@link useApplication}); the batch names are keyed on the same id.
+ * The map focus card for a Treatment: titled by its products, one detail line
+ * per product with its amount and batches, then the method, applicator,
+ * address and location. Takes the Treatment id ({@link useTreatmentCard}).
  */
 export function ApplicationMapCard({
 	id,
@@ -27,12 +29,11 @@ export function ApplicationMapCard({
 	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
-	const { application } = useApplication(id);
-	const batchNames = useApplicationBatchNames(id);
+	const { treatment } = useTreatmentCard(id);
 
-	if (application === undefined) {
+	if (treatment === undefined) {
 		return (
-			<MapCard inset={inset} onClose={onClose} title={recordNoun('application').title}>
+			<MapCard inset={inset} onClose={onClose} title={recordNoun('treatment').title}>
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -42,38 +43,69 @@ export function ApplicationMapCard({
 	}
 
 	const methodName =
-		application.methodId === null ? null : (application.methodName ?? 'Unknown method');
+		treatment.methodId === null ? null : (treatment.methodName ?? 'Unknown method');
 
 	return (
 		<MapCard
-			eyebrow={<MapCardEyebrow date={application.actionDate} recordType="application" />}
+			eyebrow={<MapCardEyebrow date={treatment.actionDate} recordType="treatment" />}
 			inset={inset}
 			onClose={onClose}
-			title={application.productName ?? 'Unknown insecticide'}
+			title={
+				treatment.lines.length === 0
+					? recordNoun('treatment').title
+					: listTreatmentLines(treatment.lines, productName)
+			}
 			viewDetailLink={(content) => (
-				<Link params={{ id: application.id }} to="/control-operations/chemical/$id">
+				<Link params={{ id: treatment.id }} to="/control-operations/chemical/$id">
 					{content}
 				</Link>
 			)}
 		>
 			<div className="grid gap-1.5">
-				<MapCardDetail icon={UnitIcon}>
-					{formatMeasure(application.amountApplied, application.unitAbbreviation)}
-				</MapCardDetail>
+				{treatment.lines.map((line) => (
+					<TreatmentLineDetail key={line.id} line={line} named={treatment.lines.length > 1} />
+				))}
 				{methodName === null ? null : <MapCardDetail icon={MethodIcon}>{methodName}</MapCardDetail>}
-				{application.applicatorName === null ? null : (
-					<MapCardDetail icon={ContactIcon}>{application.applicatorName}</MapCardDetail>
+				{treatment.applicatorName === null ? null : (
+					<MapCardDetail icon={ContactIcon}>{treatment.applicatorName}</MapCardDetail>
 				)}
-				{batchNames.length === 0 ? null : (
-					<MapCardDetail icon={InfoIcon}>Batch {batchNames.join(', ')}</MapCardDetail>
-				)}
-				<MapCardAddress address={application.address} addressId={application.addressId} />
+				<MapCardAddress address={treatment.address} addressId={treatment.addressId} />
 				<MapCardLocation
-					geomType={application.geometryKind}
-					lat={application.latitude}
-					lng={application.longitude}
+					geomType={treatment.geometryKind}
+					lat={treatment.latitude}
+					lng={treatment.longitude}
 				/>
 			</div>
 		</MapCard>
+	);
+}
+
+function productName(line: TreatmentLine): string {
+	return line.insecticideName ?? 'Unknown insecticide';
+}
+
+/**
+ * One product's amount, and the batches it drew from. A Treatment with more
+ * than one product names the product on each line, because the title alone
+ * does not say which amount is whose.
+ */
+function TreatmentLineDetail({
+	line,
+	named,
+}: {
+	readonly line: TreatmentLine;
+	readonly named: boolean;
+}) {
+	const batchNames = useApplicationBatchNames(line.id);
+	const amount = formatMeasure(line.amount, line.unitAbbreviation);
+	return (
+		<>
+			<MapCardDetail icon={UnitIcon}>
+				{named ? `${productName(line)} · ${amount}` : amount}
+			</MapCardDetail>
+			{batchNames.length === 0 ? null : (
+				<MapCardDetail icon={InfoIcon}>Batch {batchNames.join(', ')}</MapCardDetail>
+			)}
+		</>
 	);
 }

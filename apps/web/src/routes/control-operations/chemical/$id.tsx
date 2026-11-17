@@ -184,7 +184,7 @@ function ApplicationDetailContent({
 			lead={
 				<div className="grid content-start gap-3">
 					<ApplicationLocationCard application={application} habitatName={habitatName} />
-					<RecordRegionsBand recordId={application.id} recordType="applications" />
+					<RecordRegionsBand recordId={application.id} recordType="treatments" />
 				</div>
 			}
 		>

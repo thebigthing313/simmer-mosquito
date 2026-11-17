@@ -7,17 +7,18 @@ import {
 	applicationFilterDeclarations,
 } from '../../../components/control-operations/chemical/application-filters';
 import {
-	type ApplicationListRow,
 	applicationMethodName,
-	insecticideName,
-	normalizeApplication,
+	normalizeTreatment,
+	type TreatmentListRow,
+	treatmentAmounts,
+	treatmentBatchNames,
+	treatmentProductNames,
 } from '../../../components/control-operations/chemical/application-row-parts';
 import { applicationSummaryFigures } from '../../../components/control-operations/chemical/application-summary';
 import {
 	applicationFilterCodecs,
 	applicationRecordSet,
 } from '../../../components/control-operations/chemical/applications-search';
-import { formatAmount } from '../../../components/control-operations/control-display';
 import { ExplorerMapPage, ExplorerRow } from '../../../components/explorer';
 import { DeclaredFilterChips } from '../../../components/explorer/declared-filters';
 import { DeclaredSummary } from '../../../components/explorer/declared-summary';
@@ -38,7 +39,7 @@ import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
 
-const ApplicationEntityIcon = iconRegistry.entities.application.icon;
+const TreatmentEntityIcon = iconRegistry.entities.application.icon;
 
 export const Route = createFileRoute('/control-operations/chemical/')({
 	component: ApplicationsExplorerRoute,
@@ -69,10 +70,10 @@ function ApplicationsExplorerRoute() {
 		selectedId,
 		setSelectedId,
 		exportRequest,
-	}: ExplorerResource<ApplicationListRow> = useExplorerResource({
+	}: ExplorerResource<TreatmentListRow> = useExplorerResource({
 		set: applicationRecordSet,
 		binding,
-		normalizeRow: normalizeApplication,
+		normalizeRow: normalizeTreatment,
 		summarize: true,
 	});
 
@@ -85,8 +86,8 @@ function ApplicationsExplorerRoute() {
 			activeFilterCount={activeFilterCount}
 			filters={<ApplicationFilterFields binding={binding} />}
 			heading={{
-				title: recordNoun('application').titleMany,
-				icon: ApplicationEntityIcon,
+				title: recordNoun('treatment').titleMany,
+				icon: TreatmentEntityIcon,
 				total,
 				isLoading,
 				create: { to: '/control-operations/chemical/create', label: createLabel('application') },
@@ -122,13 +123,13 @@ function ApplicationsExplorerRoute() {
 					/>
 				) : undefined,
 				renderRow: (row) => (
-					<ApplicationListItem
-						amount={formatAmount(row.amountApplied, unitById.get(row.applicationUnitId))}
+					<TreatmentListItem
+						amounts={treatmentAmounts(row, unitById)}
 						isSelected={row.id === selectedId}
 						key={row.id}
 						methodName={applicationMethodName(row, methodNameById)}
 						onSelect={setSelectedId}
-						productName={insecticideName(row.insecticideId, insecticideNameById)}
+						productNames={treatmentProductNames(row, insecticideNameById)}
 						row={row}
 					/>
 				),
@@ -137,33 +138,38 @@ function ApplicationsExplorerRoute() {
 	);
 }
 
-function ApplicationListItem({
+/**
+ * One Treatment on the rail, titled by its products and measured by each
+ * product's amount in the same order. Selecting it opens the Treatment.
+ */
+function TreatmentListItem({
 	row,
-	productName,
+	productNames,
 	methodName,
-	amount,
+	amounts,
 	isSelected,
 	onSelect,
 }: {
-	readonly row: ApplicationListRow;
-	readonly productName: string;
+	readonly row: TreatmentListRow;
+	readonly productNames: string;
 	readonly methodName: string | null;
-	readonly amount: string;
+	readonly amounts: string;
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
-	const batches = row.batchNames.length > 0 ? `Batch ${row.batchNames.join(', ')}` : null;
+	const batchNames = treatmentBatchNames(row);
+	const batches = batchNames.length > 0 ? `Batch ${batchNames.join(', ')}` : null;
 	return (
 		<ExplorerRow
 			date={formatListDate(row.applicationDate)}
-			detailLabel={`View details for ${productName}`}
+			detailLabel={`View details for ${productNames}`}
 			detailLink={{ to: '/control-operations/chemical/$id', params: { id: row.id } }}
 			isSelected={isSelected}
 			onSelect={() => onSelect(row.id)}
 			personnel={[row.applicatorName, batches].filter(Boolean).join(' · ') || null}
-			selectLabel={`Show ${productName} on the map`}
-			subtitle={`${amount}${methodName === null ? '' : ` · ${methodName}`}`}
-			title={productName}
+			selectLabel={`Show ${productNames} on the map`}
+			subtitle={`${amounts}${methodName === null ? '' : ` · ${methodName}`}`}
+			title={productNames}
 			titleLink={{ to: '/control-operations/chemical/$id', params: { id: row.id } }}
 		/>
 	);

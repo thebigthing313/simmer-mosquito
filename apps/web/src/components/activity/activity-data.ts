@@ -7,6 +7,7 @@ import {
 import type { LinkProps } from '@tanstack/react-router';
 import type { Tag } from '../../hooks/queries/tag-view';
 import { adhocLabel } from '../../lib/coordinate-label';
+import { listTreatmentLines } from '../../lib/list-treatment-lines';
 import { type RecordType, recordNoun } from '../../lib/record-nouns';
 import {
 	type ControlContext,
@@ -51,11 +52,13 @@ export interface ActivityEntry {
 	 * sends it; an entry without it is read as though no rung is known.
 	 */
 	readonly placeSource?: PlaceSource | null;
-	/** The lookup that names its kind (type/method/insecticide). */
+	/**
+	 * The lookup that names its kind: a habitat type, a collection method, or a
+	 * control action's method. A Treatment's is its method too, because no one
+	 * of its products names the visit.
+	 */
 	readonly refId: string | null;
-	/** A second lookup where one exists, an application's method, beside its product. */
-	readonly methodRefId: string | null;
-	/** What the record measured: applied, eliminated, released, reached. */
+	/** What the record measured: eliminated, released, reached. Null on a Treatment. */
 	readonly amount: number | null;
 	/** The unit `amount` is in; null where the quantity is a bare count. */
 	readonly unitId: string | null;
@@ -105,7 +108,7 @@ const ACTIVITY_CATEGORY_LABEL: Readonly<Record<ActivityCategory, string>> = {
 	inspection: 'Inspection',
 	trap: 'Trap',
 	collection: 'Collection',
-	application: 'Application',
+	application: recordNoun('treatment').title,
 	sourceReduction: 'Source Reduction',
 	biocontrol: 'Biocontrol',
 	outreach: 'Outreach',
@@ -137,14 +140,15 @@ const ACTIVITY_RECORD_TYPE = {
 	inspection: 'inspection',
 	trap: 'trap',
 	collection: 'collection',
-	application: 'application',
+	// The `application` category is the Treatment (ADR 0020).
+	application: 'treatment',
 	sourceReduction: 'sourceReduction',
 	biocontrol: 'biocontrolAction',
 	outreach: 'outreachAction',
 	serviceRequest: 'serviceRequest',
 } as const satisfies Record<ActivityCategory, RecordType>;
 
-/** What the register titles a record of this kind: `Chemical Application`, `Collection`. */
+/** What the register titles a record of this kind: `Treatment`, `Collection`. */
 export function activityRecordTitle(category: ActivityCategory): string {
 	return recordNoun(ACTIVITY_RECORD_TYPE[category]).title;
 }
@@ -235,7 +239,7 @@ export function buildActivityMapData(
 /**
  * One id to name map over every lookup an activity entry can reference, plus
  * the unit formatter its quantity needs. Ids are globally unique, so one map
- * serves every category's `refId` and `methodRefId`.
+ * serves every category's `refId` and a Treatment's line products.
  */
 export interface ActivityLookups {
 	readonly nameById: ReadonlyMap<string, string>;
@@ -540,8 +544,7 @@ export function describeActivityEntry(
 	return DESCRIBE_BY_CATEGORY[entry.category]({
 		/** The lookup that names the record's kind. */
 		kind: resolve(entry.refId, nameById),
-		/** A second lookup, where the record has one. */
-		method: resolve(entry.methodRefId, nameById),
+		...treatmentProducts(entry.lines, nameById, formatQuantity),
 		/** The record's own name. */
 		own: text(entry.label),
 		/** The place it hangs off. */
@@ -570,7 +573,10 @@ export function describeActivityEntry(
 /** Everything one category's description is composed from, already resolved. */
 interface DescriptionParts {
 	readonly kind: string | null;
-	readonly method: string | null;
+	/** A Treatment's products by name, in line order, comma-joined. */
+	readonly products: string | null;
+	/** Each of a Treatment's products' amounts, in the same order as `products`. */
+	readonly productAmounts: string | null;
 	readonly own: string | null;
 	readonly place: string | null;
 	readonly measured: string | null;
@@ -596,9 +602,10 @@ const DESCRIBE_BY_CATEGORY: Readonly<
 	// columns are (#1231). The nearby read sends the trap alone, so there the
 	// fallback's coordinates are the rung that names it.
 	collection: (parts) => ({ title: parts.place ?? parts.fallback, subtitle: parts.kind }),
+	// One entry per Treatment, titled by its products; `kind` is its method.
 	application: (parts) => ({
-		title: parts.kind ?? parts.fallback,
-		subtitle: joinParts([parts.measured, parts.method, parts.place]),
+		title: parts.products ?? parts.fallback,
+		subtitle: joinParts([parts.productAmounts, parts.kind, parts.place]),
 	}),
 	sourceReduction: (parts) => ({
 		title: parts.kind ?? parts.fallback,
@@ -614,6 +621,29 @@ const DESCRIBE_BY_CATEGORY: Readonly<
 	}),
 	serviceRequest: (parts) => ({ title: parts.own ?? parts.fallback, subtitle: parts.place }),
 };
+
+/**
+ * A Treatment's products and their amounts, each comma-joined in line order.
+ * A product the client does not hold reads `Unknown insecticide` rather than
+ * dropping out, so the two lists stay the same length. Both are null on every
+ * other category, and on a response that predates `lines`.
+ */
+function treatmentProducts(
+	lines: readonly ActivityTreatmentLine[] | null | undefined,
+	nameById: ReadonlyMap<string, string>,
+	formatQuantity: (amount: number, unitId: string | null) => string,
+): Pick<DescriptionParts, 'products' | 'productAmounts'> {
+	if (!Array.isArray(lines) || lines.length === 0) {
+		return { products: null, productAmounts: null };
+	}
+	return {
+		products: listTreatmentLines(
+			lines,
+			(line) => nameById.get(line.insecticideId) ?? 'Unknown insecticide',
+		),
+		productAmounts: listTreatmentLines(lines, (line) => formatQuantity(line.amount, line.unitId)),
+	};
+}
 
 function resolve(id: string | null, nameById: ReadonlyMap<string, string>): string | null {
 	return typeof id === 'string' ? (nameById.get(id) ?? null) : null;

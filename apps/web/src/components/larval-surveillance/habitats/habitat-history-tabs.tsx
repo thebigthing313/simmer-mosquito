@@ -18,6 +18,7 @@ import type {
 } from '../../../hooks/queries/use-habitat-history';
 import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { formatCount } from '../../../lib/format-count';
+import { listTreatmentLines } from '../../../lib/list-treatment-lines';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { sampleName } from '../../../lib/sample-name';
@@ -165,6 +166,10 @@ export function SampleHistory({
 	);
 }
 
+/**
+ * The Treatments at this habitat, one row per Treatment with its products and
+ * their amounts in line order. The date opens the Treatment.
+ */
 export function ApplicationHistory({
 	applications,
 	habitatId,
@@ -177,15 +182,15 @@ export function ApplicationHistory({
 	return (
 		<HistoryTab
 			empty={{
-				description: 'Control applications recorded on this habitat will show here.',
-				title: 'No Applications Yet',
+				description: 'Treatments recorded on this habitat will show here.',
+				title: 'No Treatments Yet',
 			}}
 			habitatId={habitatId}
 			head={
 				<>
 					<TableHead>Date</TableHead>
 					<TableHead>Applicator</TableHead>
-					<TableHead>Insecticide</TableHead>
+					<TableHead>Insecticides</TableHead>
 					<TableHead>Method</TableHead>
 					<TableHead className="text-right">Amount</TableHead>
 				</>
@@ -195,8 +200,8 @@ export function ApplicationHistory({
 			noun={recordNoun('treatment')}
 			rows={applications}
 			unavailable={{
-				description: 'Application history could not be loaded.',
-				title: 'Applications Unavailable',
+				description: 'Treatment history could not be loaded.',
+				title: 'Treatments Unavailable',
 			}}
 		>
 			{(application) => (
@@ -218,9 +223,10 @@ export function ApplicationHistory({
 						)}
 					</TableCell>
 					<TableCell>
-						{application.lines
-							.map((line) => line.insecticideName ?? 'Unknown insecticide')
-							.join(', ')}
+						{listTreatmentLines(
+							application.lines,
+							(line) => line.insecticideName ?? 'Unknown insecticide',
+						)}
 					</TableCell>
 					<TableCell>
 						{application.applicationMethodId === null ? (
@@ -230,9 +236,9 @@ export function ApplicationHistory({
 						)}
 					</TableCell>
 					<TableCell className="text-right tabular-nums">
-						{application.lines
-							.map((line) => amountWithUnit(line.amount, line.unitAbbreviation))
-							.join(', ')}
+						{listTreatmentLines(application.lines, (line) =>
+							amountWithUnit(line.amount, line.unitAbbreviation),
+						)}
 					</TableCell>
 				</TableRow>
 			)}

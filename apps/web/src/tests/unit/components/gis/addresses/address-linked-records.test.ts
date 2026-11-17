@@ -23,7 +23,6 @@ function linkedItem(overrides: Partial<LinkedRecordItem>): LinkedRecordItem {
 		placeName: null,
 		placeSource: null,
 		refId: null,
-		methodRefId: null,
 		amount: null,
 		unitId: null,
 		detail: null,
@@ -48,6 +47,7 @@ const lookups: ActivityLookups = {
 	nameById: new Map([
 		['method-1', 'CDC light trap'],
 		['insecticide-1', 'Altosid XR-G'],
+		['insecticide-2', 'VectoBac 12AS'],
 		['ulv-1', 'Truck ULV'],
 	]),
 	formatQuantity: (amount) => String(amount),
@@ -116,23 +116,27 @@ describe('linkedRecordRow', () => {
 		expect(inspection).toMatchObject({ title: 'Inspection', subtitle: null });
 	});
 
-	it('drops the Address from a control action titled by its product', () => {
-		const application = linkedRecordRow(
+	it('drops the Address from a Treatment titled by its products', () => {
+		const treatment = linkedRecordRow(
 			linkedItem({
 				category: 'application',
 				family: 'controlActions',
+				id: 'treatment-1',
 				placeName: address,
 				placeSource: 'address',
-				refId: 'insecticide-1',
-				methodRefId: 'ulv-1',
-				amount: 4,
+				refId: 'ulv-1',
+				lines: [
+					{ insecticideId: 'insecticide-1', amount: 4, unitId: 'gal' },
+					{ insecticideId: 'insecticide-2', amount: 2, unitId: 'oz' },
+				],
 			}),
 			lookups,
 			clock,
 		);
-		expect(application).toMatchObject({
-			title: 'Altosid XR-G',
-			subtitle: 'Application · 4 · Truck ULV',
+		expect(treatment).toMatchObject({
+			title: 'Altosid XR-G, VectoBac 12AS',
+			subtitle: 'Treatment · 4, 2 · Truck ULV',
+			link: { to: '/control-operations/chemical/$id', params: { id: 'treatment-1' } },
 		});
 
 		const unnamed = linkedRecordRow(
@@ -185,14 +189,14 @@ describe('linkedRecordRow', () => {
 				family: 'controlActions',
 				placeName: address,
 				placeSource: 'habitat',
-				refId: 'insecticide-1',
+				lines: [{ insecticideId: 'insecticide-1', amount: 4, unitId: 'gal' }],
 			}),
 			lookups,
 			clock,
 		);
 		expect(application).toMatchObject({
 			title: 'Altosid XR-G',
-			subtitle: `Application · ${address}`,
+			subtitle: `Treatment · 4 · ${address}`,
 		});
 	});
 
@@ -283,7 +287,8 @@ describe('linkedRecordRow', () => {
 		});
 	});
 
-	// ADR 0012: a done stop names the record that closed it.
+	// ADR 0012: a done stop names the record that closed it. A chemical stop is
+	// closed by the Treatment, named by its method (ADR 0020).
 	it('titles a mission stop by its mission, links there, and names what closed it', () => {
 		const row = linkedRecordRow(
 			linkedItem({
@@ -297,8 +302,8 @@ describe('linkedRecordRow', () => {
 				missionName: 'North ditches',
 				missionScheduledStartAt: '2026-08-05T10:00:00Z',
 				closedByCategory: 'application',
-				closedById: 'application-1',
-				closedByRefId: 'insecticide-1',
+				closedById: 'treatment-1',
+				closedByRefId: 'ulv-1',
 			}),
 			lookups,
 			clock,
@@ -306,8 +311,7 @@ describe('linkedRecordRow', () => {
 
 		expect(row).toMatchObject({
 			title: 'North ditches',
-			subtitle:
-				'Mission Stop · Culvert behind the school · Closed by chemical application Altosid XR-G',
+			subtitle: 'Mission Stop · Culvert behind the school · Closed by treatment Truck ULV',
 			badge: { kind: 'state', token: 'done' },
 			link: { to: '/operations/missions/$id', params: { id: 'mission-1' } },
 		});

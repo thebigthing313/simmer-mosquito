@@ -226,6 +226,13 @@ export interface RecordSet<TFilters, TTile = unknown> extends RecordSetLinks<TFi
 	readonly textSearch?: TextSearch<TFilters>;
 	readonly endpoint: RecordSetEndpoint;
 	/**
+	 * What one row of the export is, where it is not one `recordType`. The
+	 * chemical rail lists Treatments and its export is one row per Chemical
+	 * Application, so the file and the ceiling refusal name the line. Left out,
+	 * the export names `recordType`.
+	 */
+	readonly exportRecordType?: RecordType;
+	/**
 	 * The tileset the Map draws, one whose filter type is exactly `TTile`. The
 	 * Table does not read it.
 	 */
@@ -270,6 +277,7 @@ export function defineRecordSet<TFilters, const TSpec extends MapFilterSpec>(
 		readonly inert?: InertFilters<NoInfer<TFilters>>;
 		readonly textSearch?: TextSearch<NoInfer<TFilters>>;
 		readonly endpoint: RecordSetEndpoint;
+		readonly exportRecordType?: RecordType;
 		readonly filterSpec: TSpec;
 		readonly tileset: NoInfer<RecordSetTileset<MapFiltersOf<TSpec>>>;
 		readonly tileFilters: (
@@ -367,14 +375,19 @@ export function recordSetFilterParams(
  * the control disabled.
  */
 export function recordSetExportRequest(
-	set: Pick<RecordSet<unknown>, 'endpoint' | 'recordType'>,
+	set: Pick<RecordSet<unknown>, 'endpoint' | 'recordType' | 'exportRecordType'>,
 	params: Readonly<Record<string, string>> | null,
 	today: string,
 ): RecordSetExportRequest | null {
 	if (params === null) {
 		return null;
 	}
-	return { path: set.endpoint.path, params, recordType: set.recordType, today };
+	return {
+		path: set.endpoint.path,
+		params,
+		recordType: set.exportRecordType ?? set.recordType,
+		today,
+	};
 }
 
 /** The filter keys that narrow nothing in `context`: none for a set that names none. */

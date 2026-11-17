@@ -349,7 +349,6 @@ describe('a row on the Daily Work log', () => {
 			label: 'Culvert 12',
 			placeName: null,
 			refId: null,
-			methodRefId: null,
 			amount: null,
 			unitId: null,
 			detail: 'active',

@@ -15,6 +15,7 @@
 import { cleanup, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { insecticides } from '../../../../../lib/collections/insecticides';
 import { organizations } from '../../../../../lib/collections/organizations';
 import type { MinimumRole } from '../../../../../lib/write-access';
 import { installMemoryCollections, seedRows } from '../../../lib/collections/memory-collections';
@@ -34,8 +35,8 @@ const harness = vi.hoisted(() => ({
 	/** What the extent endpoint answers. */
 	extent: { west: 0, south: -1, east: 1, north: 0 } as unknown,
 	/** What the page endpoint answers. */
-	page: { applications: [], total: 0 } as {
-		readonly applications: readonly unknown[];
+	page: { treatments: [], total: 0 } as {
+		readonly treatments: readonly unknown[];
 		readonly total: number;
 	},
 	/** What the summary endpoint answers. */
@@ -87,7 +88,7 @@ beforeEach(() => {
 	seedRows(organizations, [{ id: 'org-1', name: 'Test Mosquito Control', settings: {} }]);
 	harness.search = {};
 	harness.sent.length = 0;
-	harness.page = { applications: [], total: 0 };
+	harness.page = { treatments: [], total: 0 };
 	harness.summary = null;
 });
 
@@ -95,19 +96,32 @@ afterEach(() => {
 	cleanup();
 });
 
-const APPLICATION = {
-	id: 'application-1',
+/** One Treatment with two products, as `/map/chemical` answers it (ADR 0020). */
+const TREATMENT = {
+	id: 'treatment-1',
 	lat: -0.5,
 	lng: 0.5,
-	insecticideId: 'insecticide-1',
 	applicationMethodId: null,
 	applicationDate: '2026-09-20',
-	amountApplied: 2,
-	applicationUnitId: 'unit-1',
 	habitatId: null,
 	applicatorProfileId: null,
 	applicatorName: 'Ana Ortiz',
-	batchNames: [],
+	lines: [
+		{
+			id: 'line-1',
+			insecticideId: 'insecticide-1',
+			amountApplied: 2,
+			applicationUnitId: 'unit-1',
+			batchNames: ['B-2'],
+		},
+		{
+			id: 'line-2',
+			insecticideId: 'insecticide-2',
+			amountApplied: 4,
+			applicationUnitId: 'unit-1',
+			batchNames: ['A-9', 'B-2'],
+		},
+	],
 };
 
 describe('the chemical applications explorer with applications in view', () => {
@@ -117,7 +131,7 @@ describe('the chemical applications explorer with applications in view', () => {
 		'draws the summary instead of the rows over 100 in view, with no pager',
 		async () => {
 			harness.search = { from: '2026-09-01', to: '2026-09-28', methods: ['method-1'] };
-			harness.page = { applications: [APPLICATION], total: 240 };
+			harness.page = { treatments: [TREATMENT], total: 240 };
 			harness.summary = {
 				total: 240,
 				groups: {
@@ -158,11 +172,26 @@ describe('the chemical applications explorer with applications in view', () => {
 	);
 
 	it('draws the rows at 100 or fewer, with no pager and no summary request', async () => {
-		harness.page = { applications: [APPLICATION], total: 1 };
+		harness.page = { treatments: [TREATMENT], total: 1 };
 		renderExplorer(ChemicalExplorer);
 
-		expect(await screen.findByText('Ana Ortiz')).toBeTruthy();
+		expect(await screen.findByText('Ana Ortiz · Batch A-9, B-2')).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Go to next page' })).toBeNull();
 		expect(harness.sent.some((url) => url.pathname === '/map/chemical/summary')).toBe(false);
+	});
+
+	// One row per Treatment: a two-product job is one row titled by both
+	// products, measured in the same order, and opening the Treatment.
+	it('draws a two-product Treatment as one row naming both products', async () => {
+		seedRows(insecticides, [
+			{ id: 'insecticide-1', trade_name: 'VectoBac 12AS' },
+			{ id: 'insecticide-2', trade_name: 'Altosid XR-G' },
+		]);
+		harness.page = { treatments: [TREATMENT], total: 1 };
+		renderExplorer(ChemicalExplorer);
+
+		expect(await screen.findAllByText('VectoBac 12AS, Altosid XR-G')).toHaveLength(1);
+		expect(screen.getByText('2, 4')).toBeTruthy();
+		expect(screen.getByRole('heading', { name: /Treatments/ })).toBeTruthy();
 	});
 });

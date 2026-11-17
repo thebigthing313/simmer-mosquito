@@ -41,7 +41,6 @@ function item(
 		label: null,
 		placeName: null,
 		refId: null,
-		methodRefId: null,
 		amount: null,
 		unitId: null,
 		detail: null,
@@ -297,10 +296,8 @@ describe('nearbyRow', () => {
 	// categories; this holds the seam.
 	it('reads the shared parts off activityRow', () => {
 		const record = item('a', 'application', 10, {
-			refId: 'product-1',
-			methodRefId: 'method-2',
-			amount: 2,
-			unitId: 'gal',
+			refId: 'method-2',
+			lines: [{ insecticideId: 'product-1', amount: 2, unitId: 'gal' }],
 			placeName: 'Elm St basin',
 			tagIds: ['tag-1'],
 		});
@@ -313,6 +310,26 @@ describe('nearbyRow', () => {
 			tags: shared.tags,
 		});
 		expect(row.subtitle).toBe(`${shared.categoryLabel} · ${shared.subtitle}`);
+	});
+
+	// One row per Treatment, however many products it put out (ADR 0020).
+	it('draws a two-product Treatment as one row naming both products', () => {
+		const row = nearbyRow(
+			item('t-1', 'application', 10, {
+				refId: 'method-2',
+				lines: [
+					{ insecticideId: 'product-1', amount: 2, unitId: 'gal' },
+					{ insecticideId: 'product-2', amount: 4, unitId: 'oz' },
+				],
+			}),
+			{ ...LOOKUPS, nameById: new Map([...LOOKUPS.nameById, ['product-2', 'Altosid XR-G']]) },
+			'meter',
+		);
+		expect({ title: row.title, subtitle: row.subtitle, link: row.link }).toEqual({
+			title: 'VectoBac 12AS, Altosid XR-G',
+			subtitle: 'Treatment · 2 gal, 4 oz · Backpack sprayer',
+			link: { to: '/control-operations/chemical/$id', params: { id: 't-1' } },
+		});
 	});
 
 	// An inspection's title is the place it was performed at, and beside a

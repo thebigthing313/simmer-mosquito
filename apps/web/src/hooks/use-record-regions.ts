@@ -23,7 +23,7 @@ export type RegionMembershipRecordType =
 	| 'collections'
 	| 'habitats'
 	| 'inspections'
-	| 'applications'
+	| 'treatments'
 	| 'source_reductions'
 	| 'outreach_actions'
 	| 'biocontrol_actions'
