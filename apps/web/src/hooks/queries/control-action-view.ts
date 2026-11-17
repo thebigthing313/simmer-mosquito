@@ -3,7 +3,7 @@
  *
  * Not a hook, so not a `use-` file: the three hooks that return these live beside
  * it. Three interfaces rather than one with a discriminant, because the three
- * actions only *look* alike — an application names a product and a set of
+ * actions only *look* alike — a Treatment names its products and their
  * batches, a biocontrol release names an organism, a source reduction names
  * neither — and a union would make every surface narrow before it could read the
  * one field it came for.
@@ -24,6 +24,7 @@
  */
 
 import type { LinkedAddress } from './address-view';
+import type { TreatmentLine } from './treatment-lines';
 
 /** What every control action carries, whatever it did. */
 interface ControlActionBase {
@@ -47,26 +48,20 @@ interface ControlActionBase {
 	readonly updatedByProfileId: string | null;
 }
 
-/** A chemical application: a product put out at an amount, by a method. */
-export interface ChemicalApplication extends ControlActionBase {
-	readonly insecticideId: string;
+/**
+ * A Treatment: one visit's insecticide work, with its products as `lines`
+ * (ADR 0020). The visit names no product of its own; each line is one
+ * Chemical Application, one Insecticide and its amount.
+ */
+export interface TreatmentDetail extends ControlActionBase {
 	/**
-	 * The product's trade name, which is what an application is titled by.
-	 * `null` while the product is not in the client; the surface draws its own
-	 * stand-in.
-	 */
-	readonly productName: string | null;
-	/**
-	 * `null` both when the application names no method and when the method is
+	 * `null` both when the Treatment names no method and when the method is
 	 * not in the client, which every surface tells apart by `methodId`.
 	 */
 	readonly methodId: string | null;
 	readonly methodName: string | null;
 	readonly applicatorProfileId: string | null;
 	readonly applicatorName: string | null;
-	readonly amountApplied: number;
-	readonly unitId: string;
-	readonly unitAbbreviation: string | null;
 	readonly vehicleId: string | null;
 	/** `null` when no vehicle was recorded. Guard on `vehicleId`, as with the method. */
 	readonly vehicleName: string | null;
@@ -74,6 +69,16 @@ export interface ChemicalApplication extends ControlActionBase {
 	readonly equipmentName: string | null;
 	/** The adult collection this was applied against, if any. */
 	readonly collectionId: string | null;
+	/** The Formulation the Treatment was mixed from; all three mix fields are set or all null. */
+	readonly formulationId: string | null;
+	/** `null` while the Formulation is not in the client, or when there is none. */
+	readonly formulationName: string | null;
+	/** How much finished mix went out, in `mixUnitId`. */
+	readonly mixAmount: number | null;
+	readonly mixUnitId: string | null;
+	readonly mixUnitAbbreviation: string | null;
+	/** The products, oldest first. A Treatment always holds at least one. */
+	readonly lines: readonly TreatmentLine[];
 }
 
 /** A biocontrol release: an organism put out at an amount. */

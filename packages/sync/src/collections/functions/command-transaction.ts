@@ -103,12 +103,24 @@ export interface CommandTransactionRequest {
 	readonly body: CommandBody;
 }
 
-export interface CommandTransactionInput<TIntent extends string> {
+export interface CommandTransactionInput<
+	TIntent extends string,
+	TAlongside extends string = never,
+> {
 	/**
 	 * The command this write means. One name, not a list: a multi-row command is
 	 * one command, and that is the whole reason it is one request.
 	 */
 	readonly intent: TIntent;
+	/**
+	 * Single-row commands a PATCH names beside the multi-row one, sent ahead of it
+	 * in the same `intents` list. A Treatment edit that moves the header and the
+	 * lines is one request naming the header intents and `reviseTreatmentLines`,
+	 * so the server commits both in one Postgres transaction and the lines on
+	 * screen are confirmed with the header (ADR 0020). Absent for a write that is
+	 * the one command alone.
+	 */
+	readonly alongside?: readonly TAlongside[];
 	readonly request: CommandTransactionRequest;
 	/**
 	 * The optimistic rows, written to their collections as they should appear.
@@ -163,6 +175,8 @@ export async function sendCommandTransaction(input: {
 	readonly mutations: readonly TransactionWrite[];
 	readonly request: CommandTransactionRequest;
 	readonly intent: string;
+	/** Commands named ahead of `intent` in the same request; see `CommandTransactionInput`. */
+	readonly alongside?: readonly string[];
 	readonly serverUrl: string;
 }): Promise<void> {
 	// Before the request rather than after: a collection this app declared
@@ -174,7 +188,7 @@ export async function sendCommandTransaction(input: {
 	const txid = await writeCommand(
 		urlFor(input.serverUrl, input.request),
 		input.request.method,
-		{ ...input.request.body, intents: [input.intent] },
+		{ ...input.request.body, intents: [...(input.alongside ?? []), input.intent] },
 		fallbackMessage,
 	);
 
@@ -194,16 +208,22 @@ export async function sendCommandTransaction(input: {
  * which depends on both. Binding it to `MultiRowCommandType` is what keeps an
  * ordinary single-row write from being sent this way — it would be one request
  * either way, but it would skip the diffing and the no-op suppression that
- * `commandRequestFor` does for free.
+ * `commandRequestFor` does for free. `TAlongside` is the vocabulary a caller may
+ * name beside the one command, which the app binds to the single-row names.
  */
-export function createCommandTransactor<TIntent extends string>(config: CommandTransactionConfig) {
-	return function commandTransaction(input: CommandTransactionInput<TIntent>): MutationTransaction {
+export function createCommandTransactor<TIntent extends string, TAlongside extends string = never>(
+	config: CommandTransactionConfig,
+) {
+	return function commandTransaction(
+		input: CommandTransactionInput<TIntent, TAlongside>,
+	): MutationTransaction {
 		const transaction = createTransaction({
 			mutationFn: ({ transaction: pending }) =>
 				sendCommandTransaction({
 					mutations: pending.mutations,
 					request: input.request,
 					intent: input.intent,
+					...(input.alongside === undefined ? {} : { alongside: input.alongside }),
 					serverUrl: config.serverUrl,
 				}),
 		});

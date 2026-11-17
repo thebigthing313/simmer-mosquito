@@ -181,14 +181,6 @@
         "count": 1
       }
     },
-    "apps/web/src/components/control-operations/chemical/application-form.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      },
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/components/control-operations/chemical/formulation-component-panel.tsx": {
       "crap_high": {
         "count": 1
@@ -268,14 +260,6 @@
         "count": 1
       }
     },
-    "apps/web/src/hooks/mutations/use-application-mutations.ts": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "crap_critical": {
-        "count": 1
-      }
-    },
     "apps/web/src/hooks/mutations/use-biocontrol-action-mutations.ts": {
       "crap_critical": {
         "count": 1
@@ -328,14 +312,6 @@
       }
     },
     "apps/web/src/routes/adult-surveillance/collections/create.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      },
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/control-operations/chemical/$id.tsx": {
       "complexity_moderate": {
         "count": 1
       },

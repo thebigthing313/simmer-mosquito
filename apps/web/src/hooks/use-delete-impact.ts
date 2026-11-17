@@ -18,7 +18,7 @@ export type DeletableRecordType =
 	| 'habitat'
 	| 'inspection'
 	| 'sample'
-	| 'application'
+	| 'treatment'
 	| 'sourceReduction'
 	| 'outreachAction'
 	| 'biocontrolAction'

@@ -21,8 +21,8 @@ import {
 const HABITAT = '44444444-4444-4444-8444-444444444444';
 const INSPECTION = '77777777-7777-4777-8777-777777777777';
 
-const FIELDS_INTENT = 'controlOperations.updateChemicalApplicationFieldDetails';
-const PLACEMENT_INTENT = 'controlOperations.updateChemicalApplicationLocationAndContext';
+const FIELDS_INTENT = 'controlOperations.updateTreatmentFieldDetails';
+const PLACEMENT_INTENT = 'controlOperations.updateTreatmentLocationAndContext';
 
 describe('the context a save states', () => {
 	it('detaches the record when neither id is set', () => {

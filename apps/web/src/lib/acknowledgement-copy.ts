@@ -98,14 +98,9 @@ const ACKNOWLEDGEMENT_COPY: Readonly<Record<string, AcknowledgementCopy>> = {
 		body: 'Everything filed under this record is deleted with it.',
 		confirm: 'Delete it all',
 	},
-	acknowledgedBatchClearance: {
-		title: 'Drop the batch records?',
-		body: 'Batch records naming a different product are removed from this application.',
-		confirm: 'Drop them',
-	},
 	acknowledgedBatchDeletion: {
 		title: 'Delete the batch records?',
-		body: 'What was mixed for this application goes with it.',
+		body: 'The batches recorded for this treatment go with it.',
 		confirm: 'Delete them',
 	},
 	acknowledgedCascadeDelete: {
@@ -430,15 +425,10 @@ export const SAMPLE_DELETE_REFUSALS = {
 	acknowledgedAssociatedRecordsDeletion: 'acknowledgedAssociatedRecordsDeletion',
 } as const satisfies Readonly<Record<string, string>>;
 
-/** Deleting a chemical application takes its batch records and its support rows. */
-export const APPLICATION_DELETE_REFUSALS = {
+/** Deleting a Treatment takes its lines, their batch links and its support rows. */
+export const TREATMENT_DELETE_REFUSALS = {
 	acknowledgedBatchDeletion: 'acknowledgedBatchDeletion',
 	acknowledgedSupportRecordDeletion: 'acknowledgedSupportRecordDeletion',
-} as const satisfies Readonly<Record<string, string>>;
-
-/** Changing an application's product drops the batches mixed from another one. */
-export const APPLICATION_SAVE_REFUSALS = {
-	acknowledgedBatchClearance: 'acknowledgedBatchClearance',
 } as const satisfies Readonly<Record<string, string>>;
 
 /**

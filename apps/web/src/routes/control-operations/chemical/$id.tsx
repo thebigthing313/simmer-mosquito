@@ -1,85 +1,42 @@
-import type { InsecticideBatch as InsecticideBatchOption } from '@simmer-mosquito/sync';
-import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
-import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-} from '@simmer-mosquito/ui-web/components/ui/card';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@simmer-mosquito/ui-web/components/ui/select';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from '@simmer-mosquito/ui-web/components/ui/table';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
-import { createFileRoute, Link } from '@tanstack/react-router';
-import { useState } from 'react';
-import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
+import { createFileRoute } from '@tanstack/react-router';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import { TreatmentDetailsCard } from '../../../components/control-operations/chemical/treatment-details-card';
+import { TreatmentLocationCard } from '../../../components/control-operations/chemical/treatment-location-card';
+import { TreatmentProductsCard } from '../../../components/control-operations/chemical/treatment-products-card';
 import {
 	ContextBadge,
 	controlContext,
 	formatActionDate,
 	formatMeasure,
-	nameById,
 } from '../../../components/control-operations/control-display';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
-import { LinkedAddressValueById } from '../../../components/linked-address';
-import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
 	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
+import { useTreatmentMutations } from '../../../hooks/mutations/use-treatment-mutations';
 import { catalogs } from '../../../hooks/queries/catalog-register';
-import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
-import { liveQueryGcTimeMs } from '../../../hooks/queries/shared';
-import { useApplication } from '../../../hooks/queries/use-application';
-import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
+import type { TreatmentDetail } from '../../../hooks/queries/control-action-view';
 import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
+import { useTreatment } from '../../../hooks/queries/use-treatment';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
-import { useHabitatLocationContext } from '../../../hooks/use-habitat-location-context';
-import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
-import { APPLICATION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { insecticide_batches } from '../../../lib/collections/insecticide_batches';
+import { TREATMENT_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { listTreatmentLines } from '../../../lib/list-treatment-lines';
+import { recordNoun } from '../../../lib/record-nouns';
 
 export const Route = createFileRoute('/control-operations/chemical/$id')({
 	component: RouteComponent,
 });
 
-const ApplicationIcon = iconRegistry.entities.application.icon;
-const InsecticideIcon = iconRegistry.entities.insecticide.icon;
-const DeleteIcon = iconRegistry.actions.delete.icon;
+const TreatmentIcon = iconRegistry.entities.application.icon;
 
-// Roles that get a read-only view — no batch add/remove (mirrors the adult
-// collection detail's read-only gate).
+// Roles that get a read-only view: no edit entry.
 const READ_ONLY_ROLES = new Set(['viewer']);
 
 const layout: RecordDetailLayout = {
@@ -94,67 +51,69 @@ function RouteComponent() {
 	const snapshot = auth.snapshot?.authenticated === true ? auth.snapshot : null;
 	const role = snapshot?.localIdentity.role ?? null;
 	const canEdit = snapshot !== null && !(role !== null && READ_ONLY_ROLES.has(role));
-	// One query for the application, its product, method, unit, applicator, rig and
-	// address — the lookups this page used to do for itself. `applications` is
-	// on-demand, so this is status-gated rather than suspending; see the hook.
-	const { application, isReady, isError } = useApplication(id);
+	// The Treatment by id and its lines by `treatment_id`, in one read.
+	// `treatments` is on-demand, so this is status-gated rather than suspending.
+	const { treatment, isReady, isError } = useTreatment(id);
 
 	return (
 		<RecordDetailPage
-			deleteRefusals={APPLICATION_DELETE_REFUSALS}
+			deleteRefusals={TREATMENT_DELETE_REFUSALS}
 			layout={layout}
-			recordType="application"
-			reading={{ isError, isReady, record: application }}
+			recordType="treatment"
+			reading={{ isError, isReady, record: treatment }}
 		>
 			{(record, askDelete) => (
-				<ApplicationDetailContent application={record} askDelete={askDelete} canEdit={canEdit} />
+				<TreatmentDetailContent askDelete={askDelete} canEdit={canEdit} treatment={record} />
 			)}
 		</RecordDetailPage>
 	);
 }
 
-function ApplicationDetailContent({
-	application,
+function TreatmentDetailContent({
+	treatment,
 	askDelete,
 	canEdit,
 }: {
-	readonly application: ChemicalApplication;
+	readonly treatment: TreatmentDetail;
 	readonly askDelete: AskAcknowledged;
 	readonly canEdit: boolean;
 }) {
-	// The roster is still read, but only for the custom-field schema the chosen
-	// method declares — the method's *name* arrives joined.
+	// The roster is read for the custom-field schema the chosen method declares;
+	// the method's name arrives joined.
 	const methods = useCatalogRoster(catalogs.applicationMethods);
-	const { remove } = useApplicationMutations();
-	// habitats is on-demand and has no join here; resolve just the linked habitat's
+	const { remove } = useTreatmentMutations();
+	// habitats is on-demand and has no join here; resolve the linked habitat's
 	// name as a subset.
-	const habitatIds = application.habitatId === null ? [] : [application.habitatId];
-	const habitatNameById = useHabitatNames(habitatIds);
-
-	const productName = application.productName ?? 'Unknown insecticide';
-	const amount = formatMeasure(application.amountApplied, application.unitAbbreviation);
-
-	useBreadcrumbLabel(application.id, productName);
-
+	const habitatNameById = useHabitatNames(
+		treatment.habitatId === null ? [] : [treatment.habitatId],
+	);
 	const habitatName =
-		application.habitatId === null
+		treatment.habitatId === null
 			? null
-			: (habitatNameById.get(application.habitatId) ?? 'Unknown habitat');
+			: (habitatNameById.get(treatment.habitatId) ?? 'Unknown habitat');
+
+	const title =
+		treatment.lines.length === 0
+			? recordNoun('treatment').title
+			: listTreatmentLines(
+					treatment.lines,
+					(line) => line.insecticideName ?? 'Unknown insecticide',
+				);
+	const amounts = listTreatmentLines(treatment.lines, (line) =>
+		formatMeasure(line.amount, line.unitAbbreviation),
+	);
+
+	useBreadcrumbLabel(treatment.id, title);
 
 	return (
 		<DetailPageShell
-			aside={<CommentsSection target={{ type: 'application', id: application.id }} />}
+			aside={<CommentsSection target={{ type: 'treatment', id: treatment.id }} />}
 			facts={
 				<>
-					<ApplicationDetailsCard
-						amount={amount}
-						application={application}
-						habitatName={habitatName}
-						productName={productName}
-					/>
+					<TreatmentDetailsCard habitatName={habitatName} treatment={treatment} />
 					<CustomFieldsCard
-						metadata={application.metadata}
-						schema={customSchemaFor(methods, application.methodId)}
+						metadata={treatment.metadata}
+						schema={customSchemaFor(methods, treatment.methodId)}
 					/>
 				</>
 			}
@@ -162,326 +121,33 @@ function ApplicationDetailContent({
 				...(canEdit
 					? {
 							edit: {
-								params: { id: application.id },
+								params: { id: treatment.id },
 								to: '/control-operations/chemical/$id/edit' as const,
 							},
 						}
 					: {}),
-				flags: <ContextBadge context={controlContext(application)} />,
-				icon: ApplicationIcon,
-				recordType: 'application',
+				flags: <ContextBadge context={controlContext(treatment)} />,
+				icon: TreatmentIcon,
+				recordType: 'treatment',
 				remove: {
 					ask: askDelete,
-					name: productName,
-					onDelete: (acknowledgements) => remove(application.id, acknowledgements),
-					recordId: application.id,
+					name: title,
+					onDelete: (acknowledgements) => remove(treatment.id, acknowledgements),
+					recordId: treatment.id,
 					returnTo: '/control-operations/chemical',
 				},
-				subtitle: `${amount} · ${formatActionDate(application.actionDate)}`,
-				title: productName,
+				subtitle: `${amounts === '' ? '' : `${amounts} · `}${formatActionDate(treatment.actionDate)}`,
+				title,
 			}}
 			layout={layout}
 			lead={
 				<div className="grid content-start gap-3">
-					<ApplicationLocationCard application={application} habitatName={habitatName} />
-					<RecordRegionsBand recordId={application.id} recordType="treatments" />
+					<TreatmentLocationCard habitatName={habitatName} treatment={treatment} />
+					<RecordRegionsBand recordId={treatment.id} recordType="treatments" />
 				</div>
 			}
 		>
-			<ApplicationBatchesCard application={application} canEdit={canEdit} />
+			<TreatmentProductsCard treatment={treatment} />
 		</DetailPageShell>
 	);
 }
-
-// --- location ----------------------------------------------------------------
-
-/**
- * An application owns Point/LineString/Polygon geometry, so the detail page renders
- * the treated swath as drawn rather than collapsing it to a centroid. Electric
- * streams only the centroid (ADR 0009), so the full geometry is fetched here.
- *
- * The habitat treated draws underneath it: whether a swath covered the site it
- * was written against is the question a reviewer opens this card to answer.
- */
-function ApplicationLocationCard({
-	application,
-	habitatName,
-}: {
-	readonly application: ChemicalApplication;
-	readonly habitatName: string | null;
-}) {
-	const geometry = useOwnedGeometry(
-		CHEMICAL_GEOMETRY_SOURCE,
-		application.id,
-		application.updatedAt.toISOString(),
-	);
-	const habitatContext = useHabitatLocationContext(application.habitatId, habitatName);
-
-	return (
-		<RecordLocationCard
-			context={habitatContext}
-			emptyDescription="This application has no location to display."
-			geojson={geometry.geojson}
-			geomType={geometry.geomType ?? application.geometryKind}
-			isError={geometry.isError}
-			isPending={geometry.isPending}
-			unsupportedShape={geometry.unsupportedShape}
-		/>
-	);
-}
-
-// --- batches (add / remove only) ---------------------------------------------
-
-/**
- * Application batches are add/remove only — there is no update path (see the
- * `noUpdate` application-batch mutation handlers), so the list is an inline
- * add form plus per-row removal.
- */
-function ApplicationBatchesCard({
-	application,
-	canEdit,
-}: {
-	readonly application: ChemicalApplication;
-	readonly canEdit: boolean;
-}) {
-	const linkedResult = useApplicationBatches(application.id);
-	const entries = linkedResult.rows;
-	const { addBatch, removeBatch } = useApplicationMutations();
-
-	// insecticide_batches is on-demand too; only this product's batches can be
-	// linked, so scope the subset to the applied insecticide.
-	const batchResult = useLiveQuery({
-		gcTime: liveQueryGcTimeMs,
-		query: (query) =>
-			query
-				.from({ batch: insecticide_batches() })
-				.where(({ batch }) => eq(batch.insecticide_id, application.insecticideId))
-				.orderBy(({ batch }) => batch.batch_name, 'asc'),
-	});
-	const productBatches = batchResult.data;
-	const batchNameById = nameById(productBatches, (batch) => batch.batch_name);
-
-	const linkedIds = new Set(entries.map((entry) => entry.insecticideBatchId));
-	// Already-linked batches drop out of the picker; inactive ones stay out unless
-	// they are already on the record.
-	const selectableBatches = productBatches.filter(
-		(batch) => batch.is_active && !linkedIds.has(batch.id),
-	);
-
-	// Add and remove are their own commands, so each is one write — unlike a create,
-	// where the batches ride in the application's own payload.
-	const onRemoveBatch = (applicationBatchId: string) => {
-		void removeBatch(applicationBatchId);
-	};
-
-	const onAddBatch = (insecticideBatchId: string) => {
-		void addBatch(application.id, insecticideBatchId);
-	};
-
-	const isReady = linkedResult.isReady && batchResult.isReady;
-	const isError = linkedResult.isError || batchResult.isError;
-
-	return (
-		<Card variant="surface">
-			<CardHeader padding="compact">
-				<div className="flex items-start justify-between gap-3">
-					<div className="grid gap-1">
-						<CardTitle className="flex items-center gap-2">
-							<InsecticideIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-							Batches
-						</CardTitle>
-					</div>
-					{entries.length > 0 ? (
-						<Badge tone="neutral" variant="outline">
-							{entries.length} {entries.length === 1 ? 'batch' : 'batches'}
-						</Badge>
-					) : null}
-				</div>
-			</CardHeader>
-			<CardContent className="grid gap-3" padding="compact">
-				{isError ? (
-					<BatchesEmpty
-						description="Batch records could not be loaded. Try again shortly."
-						title="Batches Unavailable"
-					/>
-				) : !isReady ? (
-					<div className="grid gap-2">
-						{[0, 1].map((index) => (
-							<Skeleton className="h-11 w-full" key={index} />
-						))}
-					</div>
-				) : entries.length === 0 ? (
-					<BatchesEmpty
-						description={
-							canEdit
-								? 'No batches linked yet. Add the lot this treatment came from below.'
-								: 'No batches have been linked to this application.'
-						}
-						title="No Batches Linked"
-					/>
-				) : (
-					<div className="overflow-hidden rounded-md border border-border/40">
-						<Table>
-							<TableHeader>
-								<TableRow className="hover:bg-transparent">
-									<TableHead>Batch</TableHead>
-									{canEdit ? <TableHead className="w-10" /> : null}
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{entries.map((entry) => {
-									const batchName = batchNameById.get(entry.insecticideBatchId) ?? 'Unknown batch';
-									return (
-										<TableRow key={entry.id}>
-											<TableCell className="font-medium">{batchName}</TableCell>
-											{canEdit ? (
-												<TableCell className="text-right">
-													<Button
-														aria-label={`Remove batch ${batchName}`}
-														onClick={() => onRemoveBatch(entry.id)}
-														size="icon"
-														type="button"
-														variant="ghost"
-													>
-														<DeleteIcon aria-hidden="true" className="size-4" />
-													</Button>
-												</TableCell>
-											) : null}
-										</TableRow>
-									);
-								})}
-							</TableBody>
-						</Table>
-					</div>
-				)}
-
-				{canEdit && isReady && !isError ? (
-					<AddBatchControl batches={selectableBatches} onAdd={onAddBatch} />
-				) : null}
-			</CardContent>
-		</Card>
-	);
-}
-
-function AddBatchControl({
-	batches,
-	onAdd,
-}: {
-	readonly batches: readonly InsecticideBatchOption[];
-	readonly onAdd: (insecticideBatchId: string) => void;
-}) {
-	const [selected, setSelected] = useState('');
-
-	if (batches.length === 0) {
-		return (
-			<p className="m-0 rounded-md border border-border/50 border-dashed bg-muted/20 px-3 py-2.5 text-muted-foreground text-xs">
-				No further batches are available for this product. Add batches under Chemical →
-				Insecticides.
-			</p>
-		);
-	}
-
-	return (
-		<div className="grid gap-3 rounded-md border border-border/50 border-dashed bg-muted/20 p-3">
-			<span className="font-medium text-foreground text-sm">Add batch</span>
-			<div className="flex flex-wrap items-center gap-2">
-				<Select onValueChange={setSelected} value={selected}>
-					<SelectTrigger aria-label="Batch" className="min-w-[12rem] flex-1">
-						<SelectValue placeholder="Select batch" />
-					</SelectTrigger>
-					<SelectContent>
-						{batches.map((batch) => (
-							<SelectItem key={batch.id} value={batch.id}>
-								{batch.batch_name}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				<Button
-					disabled={selected === ''}
-					onClick={() => {
-						if (selected === '') {
-							return;
-						}
-						onAdd(selected);
-						setSelected('');
-					}}
-					size="sm"
-					type="button"
-				>
-					Add Batch
-				</Button>
-			</div>
-		</div>
-	);
-}
-
-function BatchesEmpty({
-	title,
-	description,
-}: {
-	readonly title: string;
-	readonly description: string;
-}) {
-	return (
-		<Empty className="min-h-[120px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<InsecticideIcon aria-hidden="true" />
-				</EmptyMedia>
-				<EmptyTitle>{title}</EmptyTitle>
-				<EmptyDescription>{description}</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
-	);
-}
-
-// --- details -----------------------------------------------------------------
-
-function ApplicationDetailsCard({
-	application,
-	productName,
-	amount,
-	habitatName,
-}: {
-	readonly application: ChemicalApplication;
-	readonly productName: string;
-	readonly amount: string;
-	readonly habitatName: string | null;
-}) {
-	return (
-		<Card variant="surface">
-			<CardHeader padding="compact">
-				<CardTitle>Details</CardTitle>
-			</CardHeader>
-			<CardContent className="grid gap-4" padding="compact">
-				<DetailList>
-					<DetailRow label="Product">{productName}</DetailRow>
-					<DetailRow label="Amount">{amount}</DetailRow>
-					<DetailRow label="Date">{formatActionDate(application.actionDate)}</DetailRow>
-					<DetailRow label="Method">{application.methodName}</DetailRow>
-					<DetailRow label="Applicator">{application.applicatorName}</DetailRow>
-					<DetailRow label="Vehicle">{application.vehicleName}</DetailRow>
-					<DetailRow label="Equipment">{application.equipmentName}</DetailRow>
-					<DetailRow label="Habitat">
-						{application.habitatId === null ? null : (
-							<Link
-								className={recordLink()}
-								params={{ id: application.habitatId }}
-								to="/larval-surveillance/habitats/$id"
-							>
-								{habitatName ?? 'Unknown habitat'}
-							</Link>
-						)}
-					</DetailRow>
-					<DetailRow label="Address">
-						<LinkedAddressValueById addressId={application.addressId} />
-					</DetailRow>
-				</DetailList>
-				<AdditionalPersonnelList target={{ type: 'application', id: application.id }} />
-			</CardContent>
-		</Card>
-	);
-}
-
-// --- states ------------------------------------------------------------------

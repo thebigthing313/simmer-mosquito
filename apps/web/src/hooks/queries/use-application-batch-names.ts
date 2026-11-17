@@ -2,7 +2,7 @@
  * The insecticide batches one application drew from, by name.
  *
  * Keyed on the application id and nothing else, so it starts on the same render
- * as {@link useApplication} rather than after it. That is what makes it a
+ * as the Treatment read rather than after it. That is what makes it a
  * separate hook rather than a waterfall: the batch link table already names both
  * the application and the batch, so nothing here has to wait for a column the
  * application row returns.

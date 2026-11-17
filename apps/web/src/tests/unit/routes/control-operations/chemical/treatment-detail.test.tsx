@@ -1,15 +1,13 @@
 /** @vitest-environment jsdom */
 
 /**
- * What the Chemical Application detail page calls an application whose
- * Insecticide is not in the client.
+ * What the Treatment detail page calls a Treatment, and what it lists under it.
  *
- * `productName` is the joined Insecticide's trade name, so it reads `null`
- * when that Insecticide never reached the client. The page used to fall back
- * to `Unknown product` for the heading, the breadcrumb and the page title,
- * while the overview, the explorer, the Habitat history, the Inspection detail
- * page and the Formulations page all read `Unknown insecticide` for the same
- * record (#1537).
+ * The heading is the Treatment's products in line order (#1753). A line's
+ * `insecticideName` is the joined Insecticide's trade name, so it reads `null`
+ * when that Insecticide never reached the client, and the page reads
+ * `Unknown insecticide` as every other surface does for the same record
+ * (#1537).
  *
  * The route module's `Route` hands back the params a match would and the
  * route context a signed-in Manager carries. The record comes from a stand-in
@@ -24,13 +22,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import { type ReactNode, Suspense } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ChemicalApplication } from '../../../../../hooks/queries/control-action-view';
+import type { TreatmentDetail } from '../../../../../hooks/queries/control-action-view';
+import type { TreatmentLine } from '../../../../../hooks/queries/treatment-lines';
 import { installMemoryCollections } from '../../../lib/collections/memory-collections';
 import { preloadRouteComponent } from '../../explorer-route-harness';
 
 const page = vi.hoisted(() => ({
-	/** The application the page is handed. */
-	application: undefined as ChemicalApplication | undefined,
+	/** The Treatment the page is handed. */
+	treatment: undefined as TreatmentDetail | undefined,
 	/** Every label the page handed the breadcrumb, in order. */
 	breadcrumbs: [] as string[],
 }));
@@ -60,12 +59,12 @@ vi.mock('../../../../../components/app-shell', async (importOriginal) => ({
 	},
 }));
 
-vi.mock('../../../../../hooks/queries/use-application', () => ({
-	useApplication: () => ({ application: page.application, isReady: true, isError: false }),
+vi.mock('../../../../../hooks/queries/use-treatment', () => ({
+	useTreatment: () => ({ treatment: page.treatment, isReady: true, isError: false }),
 }));
 
-vi.mock('../../../../../hooks/queries/use-application-batches', () => ({
-	useApplicationBatches: () => ({ rows: [], isReady: true, isError: false }),
+vi.mock('../../../../../hooks/queries/use-application-batch-names', () => ({
+	useApplicationBatchNames: (lineId: string) => (lineId === 'line-1' ? ['B-7', 'B-9'] : []),
 }));
 
 vi.mock('../../../../../hooks/queries/use-catalog-roster', () => ({
@@ -76,12 +75,8 @@ vi.mock('../../../../../hooks/queries/use-habitat-names', () => ({
 	useHabitatNames: () => new Map<string, string>(),
 }));
 
-vi.mock('../../../../../hooks/mutations/use-application-mutations', () => ({
-	useApplicationMutations: () => ({
-		remove: async () => {},
-		addBatch: async () => {},
-		removeBatch: async () => {},
-	}),
+vi.mock('../../../../../hooks/mutations/use-treatment-mutations', () => ({
+	useTreatmentMutations: () => ({ remove: async () => {} }),
 }));
 
 vi.mock('../../../../../components/comments-section', () => ({
@@ -119,12 +114,12 @@ vi.mock('../../../../../hooks/use-habitat-location-context', () => ({
 	useHabitatLocationContext: () => undefined,
 }));
 
-let ApplicationDetail: () => ReactNode;
+let TreatmentDetailPage: () => ReactNode;
 
 beforeAll(async () => {
-	ApplicationDetail = await preloadRouteComponent(
+	TreatmentDetailPage = await preloadRouteComponent(
 		() => import('../../../../../routes/control-operations/chemical/$id'),
-		'chemical application detail',
+		'treatment detail',
 	);
 }, 300_000);
 
@@ -137,7 +132,19 @@ afterEach(cleanup);
 
 const CREATED_AT = new Date('2026-08-04T12:00:00Z');
 
-function application(overrides: Partial<ChemicalApplication>): ChemicalApplication {
+function line(overrides: Partial<TreatmentLine>): TreatmentLine {
+	return {
+		id: 'line-1',
+		insecticideId: 'product',
+		insecticideName: 'VectoBac 12AS',
+		amount: 12,
+		unitId: 'unit',
+		unitAbbreviation: 'gal',
+		...overrides,
+	};
+}
+
+function treatment(overrides: Partial<TreatmentDetail>): TreatmentDetail {
 	return {
 		id: 'a1',
 		actionDate: '2026-08-04',
@@ -163,32 +170,33 @@ function application(overrides: Partial<ChemicalApplication>): ChemicalApplicati
 		updatedAt: CREATED_AT,
 		createdByProfileId: null,
 		updatedByProfileId: null,
-		insecticideId: 'product',
-		productName: 'VectoBac 12AS',
 		methodId: null,
 		methodName: null,
 		applicatorProfileId: null,
 		applicatorName: null,
-		amountApplied: 12,
-		unitId: 'unit',
-		unitAbbreviation: 'gal',
 		vehicleId: null,
 		vehicleName: null,
 		equipmentId: null,
 		equipmentName: null,
 		collectionId: null,
+		formulationId: null,
+		formulationName: null,
+		mixAmount: null,
+		mixUnitId: null,
+		mixUnitAbbreviation: null,
+		lines: [line({})],
 		...overrides,
 	};
 }
 
-async function renderPage(record: ChemicalApplication, heading: string): Promise<void> {
-	page.application = record;
+async function renderPage(record: TreatmentDetail, heading: string): Promise<void> {
+	page.treatment = record;
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	render(
 		<QueryClientProvider client={client}>
 			<TooltipProvider>
 				<Suspense fallback={<span>loading</span>}>
-					<ApplicationDetail />
+					<TreatmentDetailPage />
 				</Suspense>
 			</TooltipProvider>
 		</QueryClientProvider>,
@@ -196,16 +204,56 @@ async function renderPage(record: ChemicalApplication, heading: string): Promise
 	await screen.findByRole('heading', { level: 1, name: heading });
 }
 
-describe('the Chemical Application detail page', () => {
-	it('names the application after its Insecticide when the Insecticide is in the client', async () => {
-		await renderPage(application({}), 'VectoBac 12AS');
+describe('the Treatment detail page', () => {
+	it('names the Treatment after its Insecticide when the Insecticide is in the client', async () => {
+		await renderPage(treatment({}), 'VectoBac 12AS');
 
 		expect(page.breadcrumbs).toContain('VectoBac 12AS');
+		expect(screen.getAllByText('Treatment').length).toBeGreaterThan(0);
 	});
 
 	it('reads Unknown insecticide when the Insecticide is not in the client', async () => {
-		await renderPage(application({ productName: null }), 'Unknown insecticide');
+		await renderPage(
+			treatment({ lines: [line({ insecticideName: null })] }),
+			'Unknown insecticide',
+		);
 
 		expect(page.breadcrumbs).toContain('Unknown insecticide');
+	});
+
+	it('names every product in line order and lists each with its amount and batches', async () => {
+		await renderPage(
+			treatment({
+				lines: [
+					line({}),
+					line({
+						id: 'line-2',
+						insecticideName: 'Altosid XR-G',
+						amount: 4,
+						unitAbbreviation: 'oz',
+					}),
+				],
+			}),
+			'VectoBac 12AS, Altosid XR-G',
+		);
+
+		expect(screen.getByText('12 gal, 4 oz · Aug 4, 2026')).toBeDefined();
+		expect(screen.getByText('B-7, B-9')).toBeDefined();
+		expect(screen.getByText('2 products')).toBeDefined();
+	});
+
+	it('names the Formulation a Treatment was mixed from, with the mix total', async () => {
+		await renderPage(
+			treatment({
+				formulationId: 'f1',
+				formulationName: 'Mix A',
+				mixAmount: 78,
+				mixUnitId: 'u1',
+				mixUnitAbbreviation: 'gal',
+			}),
+			'VectoBac 12AS',
+		);
+
+		expect(screen.getByText('From 78 gal of Mix A')).toBeDefined();
 	});
 });

@@ -336,6 +336,73 @@ per product. A one-product Treatment draws the bare amount, since the title
 already names the product; a two-product one names the product on each line,
 because the title alone does not say which amount is whose.
 
+#### TreatmentFormPage
+
+The Treatment form (#1753), which replaced `ApplicationFormPage`. The visit's
+facts (date, personnel, location, work performed, custom fields, first
+comment) are entered once, and `TreatmentProductsSection` sits where the old
+Product section did. The layout is variant D of the throwaway prototype on
+`prototype/treatment-lines-form`: variant B's toggle over variant C's list. A
+through C were the rejected ones, and #1743 holds why.
+
+The products live in form state as `lines`, saved rows the crew removed
+included until Save, so a row's fields are ordinary `lines[i].field` form
+fields with their own errors. `validateTreatment` checks the rows before the
+domain builder runs, so a repeated product reads "X is already line 1. Put
+these batches on that line." on its row instead of the builder's sentence,
+which names no product. Lines are numbered among the live rows, because those
+positions are the `applications.N` the server names. `treatmentSaveRefusal`
+puts a 400 naming `applications.N` on row N+1 through the form's error map.
+Under formulation entry, an issue on a row's product, unit or amount, or the
+bare `applications` path, is the recipe check's: the recipe changed between
+the form loading and the save, so the rows are recomputed from the current
+recipe and the alert says to check them, rather than marking a row the crew
+cannot edit.
+
+The edit form opens a Formulation Treatment on its saved lines, for the
+reason under `useTreatment` in `docs/web-hooks.md`. Changing the mix total
+recomputes the rows in place, keeping each product's row id and lots, because
+that is what the server's recipe check then compares against. Picking a
+different Formulation replaces the rows: the saved ones show as removed and
+the new recipe's are new rows, which is #1743's rule. Amounts are
+`calculateFormulationComponentAmounts`'s, unrounded, because the server
+compares its own with exact equality; the prototype rounded to four places,
+which would have been refused on any mix that does not divide evenly. Rounding
+is the display's, through `formatAmountWithUnit`.
+
+#### TreatmentProductsSection and TreatmentLineRow
+
+The toggle, the Formulation and mix total, and the numbered list. Switching to
+product by product clears the Formulation, the mix amount and the mix unit
+together and leaves the rows editable, because the builder refuses a set that
+is not whole. Switching to a formulation changes no rows until one is picked,
+so switching back loses nothing typed. Remove is off on the last live row,
+with "A treatment keeps at least one product" as its title, because the
+server refuses an empty set and the way to remove every product is to delete
+the Treatment. A removed saved row is `RemovedTreatmentLineRow`: struck
+through, with the batch links that go with it and Keep. The revise asks for no
+acknowledgement, so that row is the only warning before Save.
+
+From a formulation, `TreatmentLineRow` draws the product, amount and unit as
+text and leaves only the batches to edit, and the footer reads "To add or drop
+a product, switch to product by product." in place of the add button. The
+count reads "3 products from 78 gal of Mix A"; the old "Saves as N chemical
+applications" preview and its `FormulationBreakdown` went, because a save
+writes one Treatment.
+
+#### The Treatment detail page cards
+
+`TreatmentDetailsCard`, `TreatmentProductsCard` and `TreatmentLocationCard`,
+one file per card. The page is headed by the products in line order, as the
+list rows are, and its eyebrow, delete dialog and danger zone read the
+Treatment, so the delete impact counts the Treatment's batch links and support
+records. Each product row reads its own batch names through
+`useApplicationBatchNames`, because a batch link names a line. The old page's
+inline batch add and remove went with the batch commands ADR 0020 retired; a
+lot changes through the edit form's revise now. Treatments are a tag target
+in the schema, but the page draws no tags yet, because `TAG_TARGET_TYPES` and
+the tag write path do not name `treatment`.
+
 #### LinkedControlActionsCard
 
 The inspection's linked control actions, moved out of the inspection route

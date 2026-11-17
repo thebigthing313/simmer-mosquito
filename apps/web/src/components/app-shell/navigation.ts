@@ -530,7 +530,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'chemical-create',
-						label: createLabel('application'),
+						label: createLabel('treatment'),
 						to: '/control-operations/chemical/create',
 						icon: iconRegistry.actions.add.icon,
 						action: {

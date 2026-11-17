@@ -15,7 +15,7 @@
  * a field can carry (see `lib/unit-options.ts`) — a question about the catalog
  * rather than about any one row.
  *
- * Anywhere one row means one unit, join it instead. `use-application.ts` and the
+ * Anywhere one row means one unit, join it instead. `use-treatment.ts` and the
  * two beside it do.
  *
  * Units are a global catalog rather than an organization one — no

@@ -1,7 +1,7 @@
 import {
 	createHabitatCommand,
 	DomainValidationError,
-	recordChemicalApplicationCommand,
+	recordBiocontrolActionCommand,
 } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
 import { domainValidator, validateAgainstCommand } from '../../../lib/domain-validation';
@@ -97,23 +97,23 @@ describe('issue wording', () => {
 		// hands the crew an identifier that appears nowhere on screen.
 		const result = validateAgainstCommand(
 			() =>
-				recordChemicalApplicationCommand({
+				recordBiocontrolActionCommand({
 					organizationId: ORG,
 					actorProfileId: ACTOR,
-					applicationId: HABITAT,
-					insecticideId: '',
-					amountApplied: 0,
-					applicationUnitId: '',
-					applicationDate: '2026-08-12',
+					biocontrolActionId: HABITAT,
+					biocontrolMethodId: '',
+					amountReleased: 0,
+					releaseUnitId: '',
+					biocontrolDate: '2026-08-12',
 					locationSource: { kind: 'geometry', geometry: POINT },
 				}),
-			{ insecticideId: 'insecticideId', amountApplied: 'amountApplied' },
+			{ biocontrolMethodId: 'biocontrolMethodId', amountReleased: 'amountReleased' },
 		);
 
-		expect(result?.fields.insecticideId).toBe('Insecticide is required.');
-		expect(result?.fields.amountApplied).toBe('Amount applied must be a positive finite number.');
+		expect(result?.fields.biocontrolMethodId).toBe('Biocontrol method is required.');
+		expect(result?.fields.amountReleased).toBe('Amount released must be a positive finite number.');
 		// Unmapped issues land on the form alert, and are worded the same way.
-		expect(result?.form).toContain('Application unit is required.');
+		expect(result?.form).toContain('Release unit is required.');
 	});
 
 	it('leaves a message that does not lead with its path alone', () => {

@@ -2,38 +2,45 @@ import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import {
-	ApplicationFormPage,
 	type DrawGeometry,
-} from '../../../components/control-operations/chemical/application-form';
+	TreatmentFormPage,
+} from '../../../components/control-operations/chemical/treatment-form';
 import {
-	type ApplicationFormValues,
 	noSelectionValue,
-} from '../../../components/control-operations/chemical/application-form-values';
+	type TreatmentFormValues,
+	treatmentSaveInput,
+} from '../../../components/control-operations/chemical/treatment-form-values';
+import type { TreatmentRecipe } from '../../../components/control-operations/chemical/treatment-line-values';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
-import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
+import { useTreatmentMutations } from '../../../hooks/mutations/use-treatment-mutations';
 import { catalogs } from '../../../hooks/queries/catalog-register';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
-import type { InsecticideListing, RigListing } from '../../../hooks/queries/chemical-roster-view';
-import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
+import type {
+	FormulationComponentListing,
+	FormulationListing,
+	InsecticideListing,
+	RigListing,
+} from '../../../hooks/queries/chemical-roster-view';
+import type { TreatmentDetail } from '../../../hooks/queries/control-action-view';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
 } from '../../../hooks/queries/use-additional-personnel';
-import { useApplication } from '../../../hooks/queries/use-application';
-import {
-	type ApplicationBatchesResult,
-	useApplicationBatches,
-} from '../../../hooks/queries/use-application-batches';
 import { useCatalogRoster } from '../../../hooks/queries/use-catalog-roster';
+import { useFormulationComponentRoster } from '../../../hooks/queries/use-formulation-component-roster';
+import { useFormulationRoster } from '../../../hooks/queries/use-formulation-roster';
 import { useInsecticideRoster } from '../../../hooks/queries/use-insecticide-roster';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { useTreatment } from '../../../hooks/queries/use-treatment';
+import {
+	type TreatmentBatchLink,
+	useTreatmentBatchLinks,
+} from '../../../hooks/queries/use-treatment-batch-links';
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
-import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
-import { APPLICATION_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -48,42 +55,46 @@ export const Route = createFileRoute('/control-operations/chemical/$id_/edit')({
 			});
 		}
 	},
-	component: EditApplicationRoute,
+	component: EditTreatmentRoute,
 });
 
-function EditApplicationRoute() {
+function EditTreatmentRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const methods = useCatalogRoster(catalogs.applicationMethods);
 	const insecticides = useInsecticideRoster();
+	const formulations = useFormulationRoster();
+	const formulationComponents = useFormulationComponentRoster();
 	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
 	const vehicles = useCatalogRoster(catalogs.vehicles);
 	const equipment = useCatalogRoster(catalogs.equipment);
 
-	// One query for the application and everything named on it. `applications` is
-	// on-demand, so this is status-gated rather than suspending; see the hook.
-	const { application, isReady, isError } = useApplication(id);
+	// The Treatment and its lines in one read. `treatments` is on-demand, so this
+	// is status-gated rather than suspending.
+	const { treatment, isReady, isError } = useTreatment(id);
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
 	return (
 		<RecordEditFrame
-			recordType="application"
-			reading={{ isError, isReady, record: application }}
+			recordType="treatment"
+			reading={{ isError, isReady, record: treatment }}
 			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
 		>
 			{(record) => (
-				<EditApplicationLoader
-					application={record}
+				<EditTreatmentLoader
 					applicationMethods={methods}
 					canSubmit={canAttributeWrite({ organization, actorProfileId })}
 					equipment={equipment}
+					formulationComponents={formulationComponents}
+					formulations={formulations}
 					insecticides={insecticides}
 					organizationId={organization.id}
 					profiles={profiles}
+					treatment={record}
 					units={units}
 					vehicles={vehicles}
 				/>
@@ -92,10 +103,12 @@ function EditApplicationRoute() {
 	);
 }
 
-function EditApplicationLoader({
-	application,
+function EditTreatmentLoader({
+	treatment,
 	applicationMethods,
 	insecticides,
+	formulations,
+	formulationComponents,
 	units,
 	profiles,
 	vehicles,
@@ -103,9 +116,11 @@ function EditApplicationLoader({
 	canSubmit,
 	organizationId,
 }: {
-	readonly application: ChemicalApplication;
+	readonly treatment: TreatmentDetail;
 	readonly applicationMethods: readonly SchemaCatalogListing[];
 	readonly insecticides: readonly InsecticideListing[];
+	readonly formulations: readonly FormulationListing[];
+	readonly formulationComponents: readonly FormulationComponentListing[];
 	readonly units: readonly UnitLabel[];
 	readonly profiles: readonly ProfileListing[];
 	readonly vehicles: readonly RigListing[];
@@ -114,198 +129,158 @@ function EditApplicationLoader({
 	readonly organizationId: string;
 }) {
 	const navigate = useNavigate();
-	const { update, setBatches } = useApplicationMutations();
-	const { run, dialog } = useAcknowledgedWrite({ askable: APPLICATION_SAVE_REFUSALS, ask: true });
+	const { update } = useTreatmentMutations();
 
 	// The synced row carries only the centroid, so the full shape (which may be a
 	// line or polygon) is read from the display endpoint before the form opens.
 	const geometryQuery = useOwnedGeometry(
 		CHEMICAL_GEOMETRY_SOURCE,
-		application.id,
-		application.updatedAt.toISOString(),
+		treatment.id,
+		treatment.updatedAt.toISOString(),
 	);
-	// Crew and batches live in their own tables; the form edits them as lists and
-	// the save reconciles each against what is attached now. Unlike a create, where
-	// the batches ride in the application's own command, an edit adds and removes
-	// links one at a time — they are their own commands with their own permissions.
-	const personnel = useAdditionalPersonnel({ type: 'application', id: application.id });
+	// The crew live in their own table and reconcile after the save. The batch
+	// links ride in the save itself, so a kept lot needs its stored link id.
+	const personnel = useAdditionalPersonnel({ type: 'treatment', id: treatment.id });
 	const { setPersonnel } = useAdditionalPersonnelMutations();
-	const batches = useApplicationBatches(application.id);
+	const links = useTreatmentBatchLinks(treatment.lines.map((line) => line.id));
 
 	const onSave = async ({
 		values,
+		recipe,
 		geometry,
 		geometryChanged,
 	}: {
-		readonly values: ApplicationFormValues;
+		readonly values: TreatmentFormValues;
+		readonly recipe: TreatmentRecipe;
 		readonly geometry: DrawGeometry | null;
 		readonly geometryChanged: boolean;
 	}) => {
-		if (values.amountApplied === null) {
-			throw new Error('Enter the amount applied.');
-		}
-		// Read out here because the narrowing above does not survive into the
-		// callback `run` takes.
-		const amountApplied = values.amountApplied;
-
 		// The shape and the address are independent: only state a location when the
-		// user actually redrew it. Absent means "leave it", which is not the same
-		// request as re-sending the shape it already has.
+		// user redrew it. Absent means "leave it".
 		const redrawn = geometryChanged && geometry !== null ? geometry : null;
 		const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
 
-		// The batch clearance goes out unanswered and comes back as a refusal only
-		// when the product moved and the record has lots of the old one, which is
-		// the only time it matters. See `useAcknowledgedWrite`.
-		//
-		// Everything past the update is *inside* the callback on purpose: `run`
-		// resolves on a refusal as well as on a success, because a refusal is a
-		// question rather than a failure. Reconciling the crew and the batches out
-		// here would file them against a record whose own edit was never written,
-		// and leaving here on the way past would abandon the page before the
-		// question could be asked.
-		await run(async (acknowledgements) => {
-			// Which commands this save means is worked out by the hook, from what
-			// actually moved — the field details and the placement are different
-			// builders, and naming one with nothing to read is refused.
-			await update(application, {
-				values: {
-					insecticideId: values.insecticideId,
-					amountApplied,
-					unitId: values.applicationUnitId,
-					actionDate: values.applicationDate,
-					methodId: nullableSelection(values.applicationMethodId),
-					applicatorProfileId: nullableSelection(values.applicatorProfileId),
-					vehicleId: nullableSelection(values.vehicleId),
-					equipmentId: nullableSelection(values.equipmentId),
-					addressId: values.addressId,
-					habitatId: values.habitatId,
-					metadata: values.metadata,
-				},
-				...(centroid === null || redrawn === null
-					? {}
-					: {
-							location: {
-								lat: centroid.lat,
-								lng: centroid.lng,
-								geomType: centroid.geomType,
-								locationSource: { kind: 'geometry', geometry: redrawn },
-							},
-						}),
-				acknowledgements,
-			});
-			// The update has landed by now, so a miss on the crew or the batches is
-			// reported rather than thrown (see attachLinksBestEffort). Each reports
-			// on its own, so one failing does not hide the other, and both can lose
-			// rows as well as gain them, so the report is a change to retry here.
-			await Promise.all([
-				attachLinksBestEffort(
-					'the additional personnel',
-					() =>
-						setPersonnel({
-							target: { type: 'application', id: application.id },
-							existing: personnel.rows,
-							profileIds: values.additionalPersonnelIds,
-						}),
-					{ write: 'change', recordType: 'application' },
-				),
-				attachLinksBestEffort(
-					'the insecticide batches',
-					() =>
-						setBatches({
-							applicationId: application.id,
-							existing: batches.rows,
-							insecticideBatchIds: values.insecticideBatchIds,
-						}),
-					{ write: 'change', recordType: 'application' },
-				),
-			]);
-			await navigate({ to: '/control-operations/chemical/$id', params: { id: application.id } });
+		// One PATCH: the header intents this save touched beside
+		// `reviseTreatmentLines` with the full set, so the lines on screen are
+		// confirmed with the header. The hook works out which from what moved.
+		await update(treatment, {
+			...treatmentSaveInput(values, recipe),
+			savedLinks: links.rows,
+			...(centroid === null || redrawn === null
+				? {}
+				: {
+						location: {
+							lat: centroid.lat,
+							lng: centroid.lng,
+							geomType: centroid.geomType,
+							locationSource: { kind: 'geometry', geometry: redrawn },
+						},
+					}),
 		});
+		// The Treatment has landed by now, so a miss on the crew is reported rather
+		// than thrown (see attachLinksBestEffort).
+		await attachLinksBestEffort(
+			'the additional personnel',
+			() =>
+				setPersonnel({
+					target: { type: 'treatment', id: treatment.id },
+					existing: personnel.rows,
+					profileIds: values.additionalPersonnelIds,
+				}),
+			{ write: 'change', recordType: 'treatment' },
+		);
+		await navigate({ to: '/control-operations/chemical/$id', params: { id: treatment.id } });
 	};
 
 	if (geometryQuery.isError) {
 		return (
 			<RecordUnavailable
-				description="This chemical application's geometry could not be loaded."
+				description="This treatment's geometry could not be loaded."
 				layout="centered"
-				recordType="application"
+				recordType="treatment"
 				reason="error"
 			/>
 		);
 	}
-	if (personnel.isError || batches.isError) {
+	if (personnel.isError || links.isError) {
 		return (
 			<RecordUnavailable
-				description="This chemical application's personnel and batches could not be loaded."
+				description="This treatment's personnel and batches could not be loaded."
 				layout="centered"
-				recordType="application"
+				recordType="treatment"
 				reason="error"
 			/>
 		);
 	}
-	if (geometryQuery.isPending || !personnel.isReady || !batches.isReady) {
+	if (geometryQuery.isPending || !personnel.isReady || !links.isReady) {
 		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
 	}
 
 	return (
-		<>
-			<ApplicationFormPage
-				applicationMethods={applicationMethods}
-				mode="edit"
-				canSubmit={canSubmit}
-				defaultValues={defaultsFromApplication(application, personnel, batches)}
-				equipment={equipment}
-				header={{
-					title: `Edit ${recordNoun('application').title}`,
-					backTo: '/control-operations/chemical/$id',
-					backParams: { id: application.id },
-					backLabel: 'Back to chemical application',
-				}}
-				initialGeometry={geometryQuery.geometry}
-				insecticides={insecticides}
-				onSave={onSave}
-				organizationId={organizationId}
-				profiles={profiles}
-				requireLocation={false}
-				missionStop={null}
-				units={units}
-				vehicles={vehicles}
-			/>
-			{dialog}
-		</>
+		<TreatmentFormPage
+			applicationMethods={applicationMethods}
+			mode="edit"
+			canSubmit={canSubmit}
+			defaultValues={defaultsFromTreatment(treatment, personnel, links.rows)}
+			equipment={equipment}
+			formulationComponents={formulationComponents}
+			formulations={formulations}
+			header={{
+				title: `Edit ${recordNoun('treatment').title}`,
+				backTo: '/control-operations/chemical/$id',
+				backParams: { id: treatment.id },
+				backLabel: 'Back to treatment',
+			}}
+			initialGeometry={geometryQuery.geometry}
+			insecticides={insecticides}
+			onSave={onSave}
+			organizationId={organizationId}
+			profiles={profiles}
+			requireLocation={false}
+			missionStop={null}
+			units={units}
+			vehicles={vehicles}
+		/>
 	);
 }
 
-function defaultsFromApplication(
-	application: ChemicalApplication,
+/**
+ * The saved Treatment as form values. A Treatment mixed from a Formulation
+ * opens on its saved lines, not a recomputation; changing the mix total is what
+ * recomputes them.
+ */
+function defaultsFromTreatment(
+	treatment: TreatmentDetail,
 	personnel: AdditionalPersonnelResult,
-	batches: ApplicationBatchesResult,
-): ApplicationFormValues {
+	links: readonly TreatmentBatchLink[],
+): TreatmentFormValues {
 	return {
-		// A saved application holds one product: it never records the mix it may
-		// have been calculated from, so editing is always single-product.
-		productMode: 'insecticide',
-		insecticideId: application.insecticideId,
-		formulationId: '',
-		componentBatchIds: {},
-		amountApplied: application.amountApplied,
-		applicationUnitId: application.unitId,
-		applicationDate: application.actionDate.slice(0, 10),
-		applicationMethodId: application.methodId ?? noSelectionValue,
-		applicatorProfileId: application.applicatorProfileId ?? noSelectionValue,
+		entry: treatment.formulationId === null ? 'products' : 'formulation',
+		formulationId: treatment.formulationId ?? '',
+		mixAmount: treatment.mixAmount,
+		lines: treatment.lines.map((line) => {
+			const lineLinks = links.filter((link) => link.applicationId === line.id);
+			return {
+				id: line.id,
+				insecticideId: line.insecticideId,
+				amount: line.amount,
+				unitId: line.unitId,
+				batchIds: [...new Set(lineLinks.map((link) => link.insecticideBatchId))],
+				stored: true,
+				removed: false,
+				savedBatchCount: lineLinks.length,
+			};
+		}),
+		applicationDate: treatment.actionDate.slice(0, 10),
+		applicationMethodId: treatment.methodId ?? noSelectionValue,
+		applicatorProfileId: treatment.applicatorProfileId ?? noSelectionValue,
 		additionalPersonnelIds: personnel.profileIds,
-		insecticideBatchIds: batches.insecticideBatchIds,
-		vehicleId: application.vehicleId ?? noSelectionValue,
-		equipmentId: application.equipmentId ?? noSelectionValue,
-		addressId: application.addressId,
-		habitatId: application.habitatId,
-		metadata: asMetadataValue(application.metadata),
+		vehicleId: treatment.vehicleId ?? noSelectionValue,
+		equipmentId: treatment.equipmentId ?? noSelectionValue,
+		addressId: treatment.addressId,
+		habitatId: treatment.habitatId,
+		metadata: asMetadataValue(treatment.metadata),
 		// Create-only field; the detail page's thread is where an edit adds a note.
 		comment: '',
 	};
-}
-
-function nullableSelection(value: string): string | null {
-	return value === noSelectionValue || value === '' ? null : value;
 }

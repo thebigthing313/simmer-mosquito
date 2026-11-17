@@ -111,6 +111,26 @@ describe('sendCommandTransaction', () => {
 		});
 	});
 
+	it('names the commands sent alongside ahead of the one command, in one request', async () => {
+		// A Treatment edit that moves the header and the lines is one PATCH, so the
+		// server commits both and the lines are confirmed with the header.
+		const { sent } = stubApi();
+
+		await sendCommandTransaction({
+			mutations: [write(collection({ id: 'treatments' }), 'update')],
+			request: { table: 'treatments', method: 'PATCH', key: 'treatment-1', body: {} },
+			intent: 'controlOperations.reviseTreatmentLines',
+			alongside: ['controlOperations.updateTreatmentFieldDetails'],
+			serverUrl: SERVER,
+		});
+
+		expect(sent).toHaveLength(1);
+		expect(sent[0]?.body.intents).toEqual([
+			'controlOperations.updateTreatmentFieldDetails',
+			'controlOperations.reviseTreatmentLines',
+		]);
+	});
+
 	it('posts to the parent table, whichever collections the rows belong to', async () => {
 		// The route follows the command, not the mutations — a create carrying
 		// children is one command against the parent's endpoint.

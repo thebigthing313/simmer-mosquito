@@ -38,7 +38,7 @@ const ACTION_LABELS: Readonly<Record<MissionItemAction, string>> = {
 const RECORD_ROUTE: Readonly<
 	Record<ControlType, { readonly to: string; readonly recordType: RecordType }>
 > = {
-	application: { to: '/control-operations/chemical/create', recordType: 'application' },
+	application: { to: '/control-operations/chemical/create', recordType: 'treatment' },
 	source_reduction: {
 		to: '/control-operations/source-reduction/create',
 		recordType: 'sourceReduction',

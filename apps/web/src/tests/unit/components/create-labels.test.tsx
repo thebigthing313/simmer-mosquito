@@ -53,7 +53,7 @@ describe('a detail page menu', () => {
 			'Record collection',
 			'Create trap',
 			'Record biocontrol action',
-			'Record chemical application',
+			'Record treatment',
 			'Record source reduction',
 			'Create habitat',
 			'Record inspection',
@@ -105,7 +105,7 @@ function renderStop(controlType: ControlType) {
 
 describe('a mission stop', () => {
 	it.each([
-		['application', 'Record Chemical Application', '/control-operations/chemical/create'],
+		['application', 'Record Treatment', '/control-operations/chemical/create'],
 		['source_reduction', 'Record Source Reduction', '/control-operations/source-reduction/create'],
 		['biocontrol', 'Record Biocontrol Action', '/control-operations/biocontrol/create'],
 		['outreach', 'Record Outreach Action', '/public-engagement/outreach/create'],
