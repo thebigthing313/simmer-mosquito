@@ -327,7 +327,7 @@ export interface MapExportColumn {
  * function of the read context because a timestamp is written in the
  * Organization's zone.
  */
-export interface MapSurfaceExport {
+export interface MapSurfaceExport<TFilters = unknown> {
 	readonly columns: (context: MapReadContext) => readonly MapExportColumn[];
 	/**
 	 * Joins the columns need beyond the surface's from-clause and its display
@@ -342,9 +342,13 @@ export interface MapSurfaceExport {
 	 * pesticide-use report is per product. The join is read by the count as well
 	 * as the rows, so the ceiling counts rows of the file, and the columns and
 	 * `joins` may name its alias.
+	 *
+	 * The join is a function of the filters because a filter on the parts
+	 * narrows the rows as well as the records: a Treatment exported under an
+	 * Insecticide filter writes only the lines naming the filtered products.
 	 */
 	readonly rows?: {
-		readonly join: RawBuilder<unknown>;
+		readonly join: (filters: TFilters | undefined) => RawBuilder<unknown>;
 		readonly orderBy: RawBuilder<unknown>;
 	};
 }
@@ -571,7 +575,7 @@ export type MapRecordDefinition<TFilters, TRow> = MapSummaryDefinition<TFilters>
 	 * draws the Export control, and the control has no branch for a set
 	 * without one.
 	 */
-	readonly export: MapSurfaceExport;
+	readonly export: MapSurfaceExport<TFilters>;
 };
 
 /**
@@ -612,7 +616,7 @@ async function readMapExport<TFilters, TRow>(
 		) as geom_4326
 	)`;
 
-	const fanOut = exportFanOut(exportDeclaration);
+	const fanOut = exportFanOut(exportDeclaration, input.filters);
 	const counted = await sql<{ readonly total: number }>`
 		with ${bounds}
 		select count(*)::int as "total"
@@ -670,14 +674,17 @@ function displayOrderBy<TRow, TFilters>(
  * An export's fan-out as the join both statements read and the order tail the
  * row read appends, each empty for an export that is one row per record.
  */
-function exportFanOut(declaration: MapSurfaceExport): {
+function exportFanOut<TFilters>(
+	declaration: MapSurfaceExport<TFilters>,
+	filters: TFilters | undefined,
+): {
 	readonly join: RawBuilder<unknown>;
 	readonly orderBy: RawBuilder<unknown>;
 } {
 	const rows = declaration.rows;
 	return rows === undefined
 		? { join: sql``, orderBy: sql`` }
-		: { join: rows.join, orderBy: sql`, ${rows.orderBy}` };
+		: { join: rows.join(filters), orderBy: sql`, ${rows.orderBy}` };
 }
 
 interface SummaryCountRow {
