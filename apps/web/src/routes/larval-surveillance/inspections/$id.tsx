@@ -1,4 +1,3 @@
-import type { ControlType } from '@simmer-mosquito/domain';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
@@ -22,6 +21,7 @@ import {
 	larvaePerDip,
 	WetnessBadge,
 } from '../../../components/larval-display';
+import { LinkedControlActionsCard } from '../../../components/larval-surveillance/inspections/linked-control-actions-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
@@ -42,16 +42,11 @@ import {
 	type InspectionSampleSpecies,
 	useInspectionSamples,
 } from '../../../hooks/queries/use-inspection-samples';
-import {
-	type LinkedControlAction,
-	useLinkedControlActions,
-} from '../../../hooks/queries/use-linked-control-actions';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { INSPECTION_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { INSPECTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { adhocLabel, habitatLabel } from '../../../lib/coordinate-label';
-import { formatAmount } from '../../../lib/format-count';
 import { formatFullDate, formatMonthDayYear } from '../../../lib/record-dates';
 import { recordNoun } from '../../../lib/record-nouns';
 import { sampleName } from '../../../lib/sample-name';
@@ -89,7 +84,6 @@ const InspectionIcon = iconRegistry.entities.inspection.icon;
 const SampleIcon = iconRegistry.entities.sample.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 const HabitatIcon = iconRegistry.entities.habitat.icon;
-const ControlIcon = iconRegistry.domains.controlOperations.icon;
 
 function InspectionDetailContent({
 	inspection,
@@ -478,188 +472,6 @@ function SpeciesChip({ entry }: { readonly entry: InspectionSampleSpecies }) {
 	);
 }
 
-// --- linked control actions -------------------------------------------------
-
-type ActionTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
-
-const actionKindMeta: Record<
-	LinkedControlAction['kind'],
-	{ readonly label: string; readonly tone: ActionTone }
-> = {
-	application: { label: 'Application', tone: 'info' },
-	sourceReduction: { label: 'Source reduction', tone: 'success' },
-	outreachAction: { label: 'Outreach', tone: 'neutral' },
-	biocontrolAction: { label: 'Biocontrol', tone: 'info' },
-	requestedControlAction: { label: 'Control request', tone: 'warning' },
-};
-
-function LinkedControlActionsCard({ inspectionId }: { readonly inspectionId: string }) {
-	const { actions, isReady, isError } = useLinkedControlActions(inspectionId);
-
-	return (
-		<Card variant="surface">
-			<CardHeader padding="compact">
-				<div className="flex items-start justify-between gap-3">
-					<div className="grid gap-1">
-						<CardTitle className="flex items-center gap-2">
-							<ControlIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-							Control Actions
-						</CardTitle>
-					</div>
-					{isReady && actions.length > 0 ? (
-						<Badge tone="neutral" variant="outline">
-							{actions.length}
-						</Badge>
-					) : null}
-				</div>
-			</CardHeader>
-			<CardContent padding="compact">
-				<PanelRows
-					empty={{
-						description:
-							'No applications, source reductions, or other control actions reference this inspection yet.',
-						title: 'No Control Actions',
-					}}
-					icon={<ControlIcon aria-hidden="true" />}
-					reading={{ isError, isReady, rows: actions }}
-					unavailable={{
-						description: 'Linked control actions could not be loaded. Try again shortly.',
-						title: 'Control Actions Unavailable',
-					}}
-				>
-					{(rows) =>
-						rows.map((action) => (
-							<LinkedActionRow action={action} key={`${action.kind}-${action.id}`} />
-						))
-					}
-				</PanelRows>
-			</CardContent>
-		</Card>
-	);
-}
-
-function LinkedActionRow({ action }: { readonly action: LinkedControlAction }) {
-	const meta = actionKindMeta[action.kind];
-	return (
-		<li className="grid gap-1.5 rounded-md border border-border/40 bg-background/60 px-3 py-2.5">
-			<div className="flex flex-wrap items-center gap-2">
-				<Badge tone={meta.tone} variant="outline">
-					{meta.label}
-				</Badge>
-				<span className="text-muted-foreground text-xs tabular-nums">
-					{formatMonthDayYear(action.date)}
-				</span>
-			</div>
-			<p className="m-0 text-foreground text-sm">
-				<LinkedActionSummary action={action} />
-			</p>
-			<p className="m-0 text-muted-foreground text-xs">
-				<LinkedActionActor action={action} />
-			</p>
-		</li>
-	);
-}
-
-function LinkedActionSummary({ action }: { readonly action: LinkedControlAction }) {
-	switch (action.kind) {
-		case 'application':
-			return (
-				<>
-					Treated with{' '}
-					{action.lines.map((line, index) => (
-						<span key={line.id}>
-							{index > 0 ? ', ' : ''}
-							{line.insecticideName ?? 'Unknown insecticide'} ·{' '}
-							<UnitAmount amount={line.amount} abbreviation={line.unitAbbreviation} />
-						</span>
-					))}
-				</>
-			);
-		case 'sourceReduction':
-			return (
-				<>
-					{action.methodName ?? unknownMethod} ·{' '}
-					<UnitAmount amount={action.amount} abbreviation={action.unitAbbreviation} /> eliminated
-				</>
-			);
-		case 'outreachAction':
-			return (
-				<>
-					{action.methodName ?? unknownMethod} · {action.reach.toLocaleString('en-US')} reached
-				</>
-			);
-		case 'biocontrolAction':
-			return (
-				<>
-					{action.methodName ?? unknownMethod} ·{' '}
-					<UnitAmount amount={action.amount} abbreviation={action.unitAbbreviation} /> released
-				</>
-			);
-		default:
-			return <RequestedActionSummary action={action} />;
-	}
-}
-
-function RequestedActionSummary({
-	action,
-}: {
-	readonly action: Extract<LinkedControlAction, { readonly kind: 'requestedControlAction' }>;
-}) {
-	return (
-		<>
-			{controlTypeLabel(action.controlType)} requested
-			{action.summary === null || action.summary.trim().length === 0 ? '' : ` · ${action.summary}`}
-			{' · '}
-			<span
-				className={
-					action.resolvedAt === null ? 'font-medium text-foreground' : 'text-muted-foreground'
-				}
-			>
-				{action.resolvedAt === null ? 'Open' : 'Resolved'}
-			</span>
-		</>
-	);
-}
-
-const unknownMethod = 'Unknown method';
-
-function LinkedActionActor({ action }: { readonly action: LinkedControlAction }) {
-	const label =
-		action.kind === 'requestedControlAction'
-			? 'Requested by'
-			: action.kind === 'application'
-				? 'Applicator'
-				: 'Technician';
-	if (action.actorProfileId === null) {
-		return (
-			<>
-				{label}: <span className="text-muted-foreground">Unassigned</span>
-			</>
-		);
-	}
-	return (
-		<>
-			{label}: {action.actorName ?? 'Unknown'}
-		</>
-	);
-}
-
-/** An amount and the unit's abbreviation, or the bare amount when the unit is not in the client. */
-function UnitAmount({
-	amount,
-	abbreviation,
-}: {
-	readonly amount: number;
-	readonly abbreviation: string | null;
-}) {
-	return (
-		<span className="tabular-nums">
-			{formatAmount(amount)}
-			{abbreviation === null || abbreviation === '' ? null : ` ${abbreviation}`}
-		</span>
-	);
-}
-
 /** The habitat as the subtitle and the Habitat row name it, with the linked address as its fallback. */
 function habitatTitle(inspection: InspectionCard): string {
 	return habitatLabel(
@@ -707,17 +519,4 @@ function sampleResult(
 
 function breadcrumbLabel(inspection: InspectionCard): string {
 	return `Inspection · ${formatMonthDayYear(inspection.inspectionDate)}`;
-}
-
-function controlTypeLabel(controlType: ControlType): string {
-	switch (controlType) {
-		case 'application':
-			return 'Application';
-		case 'source_reduction':
-			return 'Source reduction';
-		case 'biocontrol':
-			return 'Biocontrol';
-		default:
-			return 'Outreach';
-	}
 }

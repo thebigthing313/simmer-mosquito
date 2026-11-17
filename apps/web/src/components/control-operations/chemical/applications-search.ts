@@ -13,7 +13,7 @@ import {
 import { whenAny, whenText } from '../../explorer/tile-filter-params';
 import type { ChemicalTileFilters } from '../../map';
 
-// The chemical applications URL filter contract, outside the route modules so
+// The chemical URL filter contract, outside the route modules so
 // the Map and the Table read the same params. Every codec drops what it cannot
 // read, so a malformed URL degrades to the defaults.
 
@@ -40,7 +40,7 @@ export const applicationFilterCodecs: FilterCodecs<ApplicationFilters> = {
 };
 
 /**
- * What an address with no filter params means: every chemical application inside `window`, the
+ * What an address with no filter params means: every Treatment inside `window`, the
  * bounds the set's `windows` open the surface on.
  */
 export function applicationFilterDefaults(window: RecordSetWindowBounds): ApplicationFilters {
@@ -67,17 +67,21 @@ export function applicationTileFilters(filters: ApplicationFilters): ChemicalTil
 }
 
 /**
- * The Chemical Applications Map and Table. Both read `/map/chemical` and apply every filter.
+ * The Chemical Map and Table, one row per Treatment (ADR 0020). Both read
+ * `/map/chemical` and apply every filter. The Insecticide filter matches a
+ * Treatment with any live line naming the product. The export stays one row per
+ * Chemical Application, because a pesticide-use report is per product.
  */
 export const applicationRecordSet = defineRecordSet({
-	recordType: 'application',
+	recordType: 'treatment',
 	paths: { map: '/control-operations/chemical', table: '/control-operations/chemical/table' },
 	codecs: applicationFilterCodecs,
 	endpoint: {
 		path: '/map/chemical',
-		rowsKey: 'applications',
-		rowKey: 'application',
+		rowsKey: 'treatments',
+		rowKey: 'treatment',
 	},
+	exportRecordType: 'application',
 	tileset: 'chemical',
 	tileFilters: applicationTileFilters,
 	filterSpec: CHEMICAL_MAP_FILTERS,

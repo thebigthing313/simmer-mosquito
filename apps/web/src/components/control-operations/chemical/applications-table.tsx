@@ -16,18 +16,19 @@ import { catalogs } from '../../../hooks/queries/catalog-register';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { formatListDate } from '../../../lib/local-date';
 import { LinkedTableRow } from '../../record/linked-table-row';
-import { formatAmount } from '../control-display';
 import {
-	type ApplicationListRow,
 	applicationMethodName,
-	insecticideName,
+	type TreatmentListRow,
+	treatmentAmounts,
+	treatmentProductNames,
 } from './application-row-parts';
 
 /**
- * A page of Chemical Applications as a table, one row per application, each opening its detail
- * page. Takes the rows the route read.
+ * A page of Treatments as a table, one row per Treatment with its products and
+ * their amounts in the row, each opening the Treatment. Takes the rows the
+ * route read.
  */
-export function ApplicationsTable({ rows }: { readonly rows: readonly ApplicationListRow[] }) {
+export function ApplicationsTable({ rows }: { readonly rows: readonly TreatmentListRow[] }) {
 	const { nameById: insecticideNameById } = useInsecticideOptions();
 	const { nameById: methodNameById } = useCatalogOptions(catalogs.applicationMethods);
 	const unitById = useUnitLabels().byId;
@@ -36,7 +37,7 @@ export function ApplicationsTable({ rows }: { readonly rows: readonly Applicatio
 			<Table>
 				<TableHeader>
 					<TableRow className="bg-muted/40 hover:bg-muted/40">
-						<TableHead>Insecticide</TableHead>
+						<TableHead>Insecticides</TableHead>
 						<TableHead>Date</TableHead>
 						<TableHead className="text-right">Amount</TableHead>
 						<TableHead>Method</TableHead>
@@ -48,11 +49,11 @@ export function ApplicationsTable({ rows }: { readonly rows: readonly Applicatio
 				</TableHeader>
 				<TableBody>
 					{rows.map((row) => (
-						<ApplicationTableRow
-							amount={formatAmount(row.amountApplied, unitById.get(row.applicationUnitId))}
+						<TreatmentTableRow
+							amounts={treatmentAmounts(row, unitById)}
 							key={row.id}
 							methodName={applicationMethodName(row, methodNameById)}
-							productName={insecticideName(row.insecticideId, insecticideNameById)}
+							productNames={treatmentProductNames(row, insecticideNameById)}
 							row={row}
 						/>
 					))}
@@ -62,21 +63,21 @@ export function ApplicationsTable({ rows }: { readonly rows: readonly Applicatio
 	);
 }
 
-function ApplicationTableRow({
+function TreatmentTableRow({
 	row,
-	productName,
-	amount,
+	productNames,
+	amounts,
 	methodName,
 }: {
-	readonly row: ApplicationListRow;
-	readonly productName: string;
-	readonly amount: string;
+	readonly row: TreatmentListRow;
+	readonly productNames: string;
+	readonly amounts: string;
 	readonly methodName: string | null;
 }) {
 	return (
 		<LinkedTableRow
 			action={
-				<Button aria-label={`View ${productName}`} asChild size="icon-sm" variant="ghost">
+				<Button aria-label={`View ${productNames}`} asChild size="icon-sm" variant="ghost">
 					<Link
 						params={{ id: row.id }}
 						search={{ via: 'table' }}
@@ -87,11 +88,11 @@ function ApplicationTableRow({
 				</Button>
 			}
 		>
-			<TableCell className="max-w-[20rem] truncate font-medium" title={productName}>
-				{productName}
+			<TableCell className="max-w-[20rem] truncate font-medium" title={productNames}>
+				{productNames}
 			</TableCell>
 			<TableCell className="tabular-nums">{formatListDate(row.applicationDate)}</TableCell>
-			<TableCell className="text-right tabular-nums">{amount}</TableCell>
+			<TableCell className="text-right tabular-nums">{amounts}</TableCell>
 			<TableCell className="text-muted-foreground">
 				{methodName === null ? <AbsentValue /> : methodName}
 			</TableCell>

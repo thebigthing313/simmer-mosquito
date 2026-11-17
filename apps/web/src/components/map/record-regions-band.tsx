@@ -24,7 +24,6 @@ import { type RecordType, recordNoun } from '../../lib/record-nouns';
  */
 const RECORD_TYPE_BY_TABLE: Record<RegionMembershipRecordType, RecordType> = {
 	addresses: 'address',
-	applications: 'application',
 	biocontrol_actions: 'biocontrolAction',
 	collections: 'collection',
 	habitats: 'habitat',
@@ -37,6 +36,7 @@ const RECORD_TYPE_BY_TABLE: Record<RegionMembershipRecordType, RecordType> = {
 	service_requests: 'serviceRequest',
 	source_reductions: 'sourceReduction',
 	traps: 'trap',
+	treatments: 'treatment',
 	weather_sources: 'weatherStation',
 };
 

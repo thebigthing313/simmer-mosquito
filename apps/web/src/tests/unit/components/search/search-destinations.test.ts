@@ -154,6 +154,25 @@ describe('every other result', () => {
 		});
 	});
 
+	// A comment hangs on the Treatment, the visit, so it opens the chemical
+	// detail page by the Treatment's id (ADR 0020).
+	it('opens the Treatment a comment was written on', () => {
+		const onTreatment: SearchResult = {
+			kind: 'comment',
+			id: 'comment-3',
+			title: 'Second product went on the north ditch',
+			targetType: 'treatment',
+			targetId: 'treatment-1',
+			matchedField: 'body',
+			matchClass: 'text',
+		};
+
+		expect(searchResultDestination(onTreatment, LOADING)).toEqual({
+			status: 'ready',
+			destination: { to: '/control-operations/chemical/$id', params: { id: 'treatment-1' } },
+		});
+	});
+
 	it('leaves a page row to the caller, which holds its own destination', () => {
 		const page: SearchResult = { kind: 'route', id: 'habitats', title: 'Habitats' };
 

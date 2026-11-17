@@ -31,6 +31,7 @@ import { useRecentBiocontrolActions } from '../../hooks/queries/use-recent-bioco
 import { useRecentSourceReductions } from '../../hooks/queries/use-recent-source-reductions';
 import { useUnitLabels } from '../../hooks/queries/use-unit-labels';
 import { useOrganizationClock } from '../../hooks/use-organization-clock';
+import { listTreatmentLines } from '../../lib/list-treatment-lines';
 import { addDaysToDateString } from '../../lib/local-date';
 import { recordCount, recordNoun } from '../../lib/record-nouns';
 import { groupRows, type RowGroup } from '../../lib/row-groups';
@@ -304,7 +305,7 @@ function kindBreakdown(actions: readonly DailyControlAction[]): string {
 /**
  * What kind of work the row was, under the name of what it was done with.
  *
- * Only an application qualifies further, because only an application has a method
+ * Only a Treatment qualifies further, because only a Treatment has a method
  * separate from its subject: a source reduction and a biocontrol release are both
  * titled by their method already, and naming it twice reads as a stutter.
  */
@@ -315,24 +316,33 @@ function actionSecondary(action: DailyControlAction): string {
 	if (action.kind === 'biocontrol') {
 		return 'Biocontrol release';
 	}
+	const noun = recordNoun('treatment').title;
 	if (action.methodId === null) {
-		return 'Application · No method';
+		return `${noun} · No method`;
 	}
-	return `Application · ${action.methodName ?? 'Unknown method'}`;
+	return `${noun} · ${action.methodName ?? 'Unknown method'}`;
 }
 
 /** What titles the row: a Treatment's products, the method otherwise. */
 function actionSubject(action: DailyControlAction): string {
 	if (action.kind === 'application') {
-		return action.lines.map((line) => line.insecticideName ?? 'Unknown insecticide').join(', ');
+		return listTreatmentLines(
+			action.lines,
+			(line) => line.insecticideName ?? 'Unknown insecticide',
+		);
 	}
 	return action.subjectName ?? 'Unknown method';
 }
 
-/** What the row measured: each of a Treatment's products in its own unit, else the one amount. */
+/**
+ * What the row measured: each of a Treatment's products in its own unit, in the
+ * same order as the title names them, else the one amount.
+ */
 function actionMeasure(action: DailyControlAction): string {
 	if (action.kind === 'application') {
-		return action.lines.map((line) => formatMeasure(line.amount, line.unitAbbreviation)).join(', ');
+		return listTreatmentLines(action.lines, (line) =>
+			formatMeasure(line.amount, line.unitAbbreviation),
+		);
 	}
 	return action.amount === null ? '' : formatMeasure(action.amount, action.unitAbbreviation);
 }

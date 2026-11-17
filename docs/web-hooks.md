@@ -2464,6 +2464,24 @@ counts.
 A hook that re-sorts after a `toArray` does so in JavaScript, for the reason
 under `useHabitatHistory`: the joined result arrives in key order.
 
+#### useTreatmentCard
+
+The map card's read of one Treatment, by id, with the method, applicator and
+address joined and the products through `treatmentLines`. It replaced
+`useApplication` on the card (#1752), because a card per Chemical Application
+drew one product of a two-product job and opened a detail page for a line.
+
+It is a card read and not the detail read. The detail page needs the rig, the
+custom fields and the audit columns, which the card never draws, and #1753
+owns that read; folding both into one hook would open the wider query on every
+map click. The batch names stay with `useApplicationBatchNames`, one call per
+line inside the card's line row, because a batch link names a line and not the
+Treatment.
+
+`useLiveQuery` directly rather than `useRecordById`, because the include needs
+the root query builder and `useRecordById` hands its callback only the
+builder it has already pointed at the collection.
+
 #### useInspection and useHabitatSuspense
 
 The two larval detail pages' own records, read off the synced rows with their

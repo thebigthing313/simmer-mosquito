@@ -169,12 +169,7 @@ const DATED: readonly (readonly [string, RecordSet<Record<string, unknown>>, str
 	['inspections', inspectionRecordSet as never, '2026-09-10', 'No Inspections in the Last 30 Days'],
 	['samples', sampleRecordSet as never, '2026-09-10', 'No Samples in the Last 30 Days'],
 	['collections', collectionRecordSet as never, '2026-07-12', 'No Collections in the Last 90 Days'],
-	[
-		'chemical applications',
-		applicationRecordSet as never,
-		'2026-07-12',
-		'No Chemical Applications in the Last 90 Days',
-	],
+	['treatments', applicationRecordSet as never, '2026-07-12', 'No Treatments in the Last 90 Days'],
 	[
 		'biocontrol actions',
 		biocontrolRecordSet as never,
@@ -606,6 +601,15 @@ describe('the export request', () => {
 			recordType: 'inspection',
 			today: '2026-10-28',
 		});
+	});
+
+	// The chemical rail lists Treatments, and its export is one row per
+	// Chemical Application, so the file and the ceiling refusal name the line.
+	it('names the line where the export is one row per Chemical Application', () => {
+		expect(applicationRecordSet.recordType).toBe('treatment');
+		expect(recordSetExportRequest(applicationRecordSet, params, '2026-10-28')?.recordType).toBe(
+			'application',
+		);
 	});
 
 	it('waits on a Map with no viewport yet', () => {

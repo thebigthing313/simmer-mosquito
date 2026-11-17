@@ -33,7 +33,6 @@ function entry(overrides: Partial<ActivityEntry> = {}): ActivityEntry {
 		label: null,
 		placeName: null,
 		refId: null,
-		methodRefId: null,
 		amount: null,
 		unitId: null,
 		detail: null,
@@ -390,6 +389,7 @@ describe('activityRow', () => {
 			['type-1', 'Catch basin'],
 			['method-1', 'CDC light trap'],
 			['product-1', 'VectoBac 12AS'],
+			['product-2', 'Altosid XR-G'],
 			['method-2', 'Backpack sprayer'],
 			['outreach-1', 'Door hanger'],
 		]),
@@ -420,17 +420,20 @@ describe('activityRow', () => {
 		],
 		[
 			'application',
+			// One entry per Treatment: a two-product job is one row naming both, its
+			// amounts in the same order, and its method where a product used to be.
 			{
-				refId: 'product-1',
-				methodRefId: 'method-2',
-				amount: 2,
-				unitId: 'gal',
+				refId: 'method-2',
+				lines: [
+					{ insecticideId: 'product-1', amount: 2, unitId: 'gal' },
+					{ insecticideId: 'product-2', amount: 4, unitId: 'oz' },
+				],
 				placeName: 'Elm St basin',
 			},
 			{
-				title: 'VectoBac 12AS',
-				subtitle: '2 gal · Backpack sprayer · Elm St basin',
-				categoryLabel: 'Application',
+				title: 'VectoBac 12AS, Altosid XR-G',
+				subtitle: '2 gal, 4 oz · Backpack sprayer · Elm St basin',
+				categoryLabel: 'Treatment',
 			},
 		],
 		[
@@ -478,6 +481,12 @@ describe('activityRow', () => {
 			result: { isWet: false, density: null, stages: null },
 		});
 		expect(row.tags).toEqual([priority]);
+	});
+
+	it('links a Treatment to the chemical detail page by its own id', () => {
+		expect(
+			activityRow(entry({ category: 'application', id: 'treatment-9' }), lookups).link,
+		).toEqual({ to: '/control-operations/chemical/$id', params: { id: 'treatment-9' } });
 	});
 
 	it("links to the record's own detail page", () => {

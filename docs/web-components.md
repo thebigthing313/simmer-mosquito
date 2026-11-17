@@ -310,6 +310,41 @@ and the row type, its normalizer and the name lookups into
 section over the same field said Insecticide, so the filter, its chips and the
 Table column now say Insecticide, which is the `CONTEXT.md` term.
 
+#### The Chemical rail, table and map card
+
+One row and one map feature per Treatment (#1752, ADR 0020). `/map/chemical`
+answers `treatments`, each row carrying its products as `lines`, and
+`application-row-parts.ts` reads a row as `TreatmentListRow`. The rail and the
+table title a row by its products, `Altosid XR-G, VectoBac 12AS`, and measure
+it by each product's amount in the same order, `12 gal, 4 oz`, both through
+`listTreatmentLines` in `lib/list-treatment-lines.ts`. That helper is the one place the
+separator lives, so every list that names a Treatment's products, the Daily
+Control Actions rows, the habitat's Treatments tab, the activity describer and
+the map card, reads the names and amounts in line order. The batch names on
+the rail are every line's, once each.
+
+The record set's `recordType` is `treatment`, so the heading, the empty states
+and the switch name the Treatment, and its total agrees with the overview
+number that links to it. The export is still one row per Chemical
+Application, so the set names `exportRecordType: 'application'` and the file
+and the ceiling refusal count lines. The Insecticide filter is the server's
+`exists` over live lines, so it returns Treatments with any line naming the
+product.
+
+`ApplicationMapCard` titles the card by the products and draws one detail line
+per product. A one-product Treatment draws the bare amount, since the title
+already names the product; a two-product one names the product on each line,
+because the title alone does not say which amount is whose.
+
+#### LinkedControlActionsCard
+
+The inspection's linked control actions, moved out of the inspection route
+module when its rows learned to link (#1752). Each entry's date opens the
+record it names, a Treatment at `/control-operations/chemical/$id`, and a
+Treatment is one entry naming every product with its amount. The rows had no
+link before, so a crew reading the inspection could see that a basin was
+treated and could not reach the Treatment.
+
 #### HabitatPicker (control-pickers)
 
 A habitat the picker did not pick still has to say its name, through a subset
