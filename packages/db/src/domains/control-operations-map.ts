@@ -150,11 +150,18 @@ const treatmentDisplayColumns: MapDisplayColumns<SafeTreatmentDisplayRow> = {
  * applicator (`ap`). The visit columns repeat on every product row, and the
  * Treatment ID says which rows are one visit. The amount is the line's own, in
  * the line's own unit, and never summed: gallons and ounces of one product are
- * two rows.
+ * two rows. Under an Insecticide filter only the lines naming a filtered
+ * product are rows, so a two-product Treatment filtered to one product is one
+ * row; the map and the page still draw the Treatment with all its lines.
  */
-const treatmentExport: MapSurfaceExport = {
+const treatmentExport: MapSurfaceExport<TreatmentMapFilters> = {
 	rows: {
-		join: sql`join applications l on l.treatment_id = t.id and l.deleted_at is null`,
+		join: (filters) => {
+			const insecticide = lineInsecticideClause(filters);
+			return sql`join applications l on l.treatment_id = t.id and l.deleted_at is null${
+				insecticide === undefined ? sql`` : sql` and ${insecticide}`
+			}`;
+		},
 		orderBy: sql`l.created_at, l.id`,
 	},
 	joins: sql`
@@ -242,15 +249,26 @@ export function treatmentSurface(
 	});
 }
 
+/**
+ * The Insecticide filter as a predicate on a line aliased `l`, or nothing when
+ * no product is filtered. One predicate serves the Treatment's `exists` and
+ * the export's line join, so the rows a file writes are the lines that
+ * matched.
+ */
+function lineInsecticideClause(
+	filters: TreatmentMapFilters | undefined,
+): RawBuilder<boolean> | undefined {
+	const insecticideIds = [...(filters?.insecticideIds ?? [])];
+	return insecticideIds.length === 0
+		? undefined
+		: sql<boolean>`l.insecticide_id = any(${insecticideIds}::uuid[])`;
+}
+
 function treatmentFilterWhere(filters: TreatmentMapFilters | undefined): RawBuilder<boolean>[] {
 	const clauses: RawBuilder<boolean>[] = [];
-	if (filters?.insecticideIds !== undefined && filters.insecticideIds.length > 0) {
-		clauses.push(
-			sql<boolean>`exists (
-				select 1 from ${LIVE_LINES}
-					and l.insecticide_id = any(${[...filters.insecticideIds]}::uuid[])
-			)`,
-		);
+	const insecticide = lineInsecticideClause(filters);
+	if (insecticide !== undefined) {
+		clauses.push(sql<boolean>`exists (select 1 from ${LIVE_LINES} and ${insecticide})`);
 	}
 	if (filters?.applicationMethodIds !== undefined && filters.applicationMethodIds.length > 0) {
 		clauses.push(

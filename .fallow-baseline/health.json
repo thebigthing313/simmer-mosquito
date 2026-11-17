@@ -72,11 +72,6 @@
         "count": 1
       }
     },
-    "apps/server/src/table-commands/applications.ts": {
-      "crap_high": {
-        "count": 1
-      }
-    },
     "apps/server/src/table-commands/collection-species.ts": {
       "crap_moderate": {
         "count": 1
@@ -117,11 +112,6 @@
     },
     "apps/server/src/writers/control-methods.ts": {
       "complexity_moderate": {
-        "count": 1
-      }
-    },
-    "apps/server/src/writers/control-operations/chemical-applications.ts": {
-      "complexity_high": {
         "count": 1
       }
     },
@@ -449,10 +439,10 @@
     },
     "packages/db/src/domains/control-operations-map.ts": {
       "crap_high": {
-        "count": 2
+        "count": 1
       },
       "crap_moderate": {
-        "count": 2
+        "count": 3
       }
     },
     "packages/db/src/domains/foundation-geography.ts": {
@@ -482,11 +472,6 @@
     },
     "packages/db/src/seed-role-ladder.ts": {
       "crap_moderate": {
-        "count": 1
-      }
-    },
-    "packages/domain/src/control-operations/products.ts": {
-      "crap_high": {
         "count": 1
       }
     },
@@ -654,7 +639,6 @@
     "apps/web/src/components/map/map-canvas.tsx:complexity",
     "apps/web/src/components/comments-section.tsx:complexity",
     "apps/web/src/components/map/record-location-card.tsx:complexity",
-    "apps/web/src/lib/search-filters.ts:high impact",
     "apps/web/src/routes/gis/regions/import.tsx:complexity",
     "apps/web/src/components/key-entry/key-entry-dialog.tsx:complexity",
     "apps/web/src/routes/operations/assignments/$id_.edit.tsx:complexity",

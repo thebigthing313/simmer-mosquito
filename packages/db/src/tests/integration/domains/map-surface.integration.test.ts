@@ -2303,6 +2303,55 @@ describeDbIntegration('chemical summary against Postgres', () => {
 			}
 		});
 	});
+
+	// Filtered to one product, the file holds that product's lines and no
+	// other: the two-product Treatment is one row naming the filtered product.
+	// The page still counts the Treatment once, with both lines on its row.
+	it('exports only the lines naming a filtered insecticide', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = await seedTreatmentVariety(db);
+			const input = (filters: TreatmentMapFilters) => ({
+				organizationId: mapSurfaceOrganizationIds.own,
+				timeZone: mapSurfaceTimeZone,
+				bounds: mapSurfacePlace.bounds,
+				filters,
+			});
+			const twoProductRows = async (filters: TreatmentMapFilters) => {
+				const exported = await MAP_SURFACES.chemical.exportByBounds(db, input(filters));
+				if (exported.kind !== 'rows') {
+					throw new Error('expected rows');
+				}
+				const treatment = exported.headers.indexOf('Treatment ID');
+				const insecticide = exported.headers.indexOf('Insecticide');
+				return {
+					all: exported.rows,
+					products: exported.rows
+						.filter((cells) => cells[treatment] === ids.twoProductTreatmentId)
+						.map((cells) => cells[insecticide]),
+				};
+			};
+
+			const adulticide = await twoProductRows({ insecticideIds: [ids.adulticideId] });
+			expect(adulticide.products).toEqual(['Adulticide B']);
+			// The adulticide lines in the box: the two-product one and the one
+			// beside a deleted larvicide line.
+			expect(adulticide.all).toHaveLength(2);
+
+			const larvicide = await twoProductRows({ insecticideIds: [ids.larvicideId] });
+			expect(larvicide.products).toEqual(['Larvicide A']);
+
+			const unfiltered = await twoProductRows({});
+			expect([...unfiltered.products].sort()).toEqual(['Adulticide B', 'Larvicide A']);
+
+			const row = await MAP_SURFACES.chemical.getById(db, {
+				organizationId: mapSurfaceOrganizationIds.own,
+				timeZone: mapSurfaceTimeZone,
+				id: ids.twoProductTreatmentId,
+			});
+			expect(row?.lines).toHaveLength(2);
+		});
+	});
 });
 
 /**
