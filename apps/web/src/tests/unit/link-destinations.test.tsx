@@ -70,6 +70,7 @@ import { requested_control_actions } from '../../lib/collections/requested_contr
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 import { source_reductions } from '../../lib/collections/source_reductions';
+import { treatments } from '../../lib/collections/treatments';
 import { createOrganizationClock } from '../../lib/organization-clock';
 import { searchValidator } from '../../lib/search-filters';
 import { dayOverview, monthOverview, yearOverview } from './components/overview/overview-fixtures';
@@ -163,14 +164,20 @@ describe('the habitat History card', () => {
 				larvae_count: 12,
 			},
 		]);
-		seedRows(applications, [
+		seedRows(treatments, [
 			{
 				id: 'application-1',
 				habitat_id: HABITAT,
 				application_date: '2026-08-02',
 				applicator_profile_id: 'applicator-profile-1',
-				insecticide_id: 'insecticide-1',
 				application_method_id: 'application-method-1',
+			},
+		]);
+		seedRows(applications, [
+			{
+				id: 'application-line-1',
+				treatment_id: 'application-1',
+				insecticide_id: 'insecticide-1',
 				amount_applied: 3,
 				application_unit_id: 'unit-1',
 			},
@@ -232,7 +239,7 @@ describe('the habitat History card', () => {
 
 	it('opens the application a row names, not the insecticide it applied', async () => {
 		await openCard();
-		openTab(/^Applications \(1\)$/);
+		openTab(/^Treatments \(1\)$/);
 
 		expect(linkHrefs()).toEqual(['/control-operations/chemical/application-1']);
 	});
@@ -1089,7 +1096,7 @@ describe('the Today page', () => {
 		expect(rowHrefs('Collections')[0]).toBe(
 			'/adult-surveillance/collections?from=2026-09-15&to=2026-09-15',
 		);
-		expect(rowHrefs('Chemical Applications')[0]).toBe(
+		expect(rowHrefs('Treatments')[0]).toBe(
 			'/control-operations/chemical?from=2026-09-15&to=2026-09-15',
 		);
 		expect(rowHrefs('Source Reductions')[0]).toBe(
@@ -1145,7 +1152,7 @@ describe('the Monthly page', () => {
 	it('sends each count to its explorer over the whole month, not the cut', () => {
 		openMonthly();
 
-		expect(rowHrefs('Chemical Applications')).toEqual([
+		expect(rowHrefs('Treatments')).toEqual([
 			'/control-operations/chemical?from=2026-09-01&to=2026-09-30',
 			'/control-operations/chemical?from=2026-08-01&to=2026-08-31',
 			'/control-operations/chemical?from=2025-09-01&to=2025-09-30',

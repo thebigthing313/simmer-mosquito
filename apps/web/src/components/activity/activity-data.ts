@@ -25,6 +25,13 @@ import type { InspectionResult, LifecycleStatus, RecordBadgeFacts } from '../rec
 /** The rung of the place ladder a `placeName` came from. `packages/db` declares the server half. */
 export type PlaceSource = 'habitat' | 'trap' | 'address';
 
+/** One product a Treatment put out. `packages/db` declares the server half. */
+export interface ActivityTreatmentLine {
+	readonly insecticideId: string;
+	readonly amount: number;
+	readonly unitId: string;
+}
+
 export interface ActivityEntry {
 	readonly category: ActivityCategory;
 	readonly family: ActivityFamily;
@@ -52,6 +59,11 @@ export interface ActivityEntry {
 	readonly amount: number | null;
 	/** The unit `amount` is in; null where the quantity is a bare count. */
 	readonly unitId: string | null;
+	/**
+	 * A Treatment's products, one per Chemical Application, oldest first. Null
+	 * on every other category, and absent from a response that predates them.
+	 */
+	readonly lines?: readonly ActivityTreatmentLine[] | null;
 	/** One short, category-specific extra, a density, a status, a reach description. */
 	readonly detail: string | null;
 	/** The life stages an inspection found, as the `E1234P` codes the strip draws. */

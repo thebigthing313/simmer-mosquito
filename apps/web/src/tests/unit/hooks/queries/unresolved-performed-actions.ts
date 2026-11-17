@@ -15,6 +15,7 @@ import { applications } from '../../../../lib/collections/applications';
 import { biocontrol_actions } from '../../../../lib/collections/biocontrol_actions';
 import { outreach_actions } from '../../../../lib/collections/outreach_actions';
 import { source_reductions } from '../../../../lib/collections/source_reductions';
+import { treatments } from '../../../../lib/collections/treatments';
 import { seedRows } from '../../lib/collections/memory-collections';
 
 /** Ids the rows name and no collection holds. */
@@ -23,6 +24,7 @@ export const GONE_METHOD = '55555555-5555-4555-8555-555555555555';
 export const GONE_PRODUCT = '44444444-4444-4444-8444-444444444444';
 export const GONE_VEHICLE = '77777777-7777-4777-8777-777777777777';
 export const GONE_EQUIPMENT = '88888888-8888-4888-8888-888888888888';
+const GONE_UNIT = '66666666-6666-4666-8666-666666666666';
 
 /** The day every row was performed on, and the window bound that takes it in. */
 export const DAY = '2026-08-04';
@@ -31,22 +33,29 @@ const CREATED_AT = new Date('2026-08-04T12:00:00Z');
 
 /**
  * One row per performed action type, `a1`, `s1`, `b1` and `o1`, each naming a
- * performer and a method the client does not hold. The application names an
- * absent insecticide, vehicle and equipment as well. Call after
- * `installMemoryCollections`.
+ * performer and a method the client does not hold. The Treatment `a1` names an
+ * absent vehicle and equipment as well, and its one line, `a1-line`, an absent
+ * insecticide and unit. Call after `installMemoryCollections`.
  */
 export function seedUnresolvedActions(): void {
-	seedRows(applications, [
+	seedRows(treatments, [
 		{
 			id: 'a1',
 			application_date: DAY,
-			insecticide_id: GONE_PRODUCT,
 			application_method_id: GONE_METHOD,
 			applicator_profile_id: GONE_PROFILE,
-			amount_applied: 12,
-			application_unit_id: null,
 			vehicle_id: GONE_VEHICLE,
 			equipment_id: GONE_EQUIPMENT,
+			created_at: CREATED_AT,
+		},
+	]);
+	seedRows(applications, [
+		{
+			id: 'a1-line',
+			treatment_id: 'a1',
+			insecticide_id: GONE_PRODUCT,
+			amount_applied: 12,
+			application_unit_id: GONE_UNIT,
 			created_at: CREATED_AT,
 		},
 	]);

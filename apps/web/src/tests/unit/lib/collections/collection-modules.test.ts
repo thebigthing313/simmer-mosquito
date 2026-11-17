@@ -143,6 +143,7 @@ describe('every collection, built', () => {
 			collection_species: 'collection_id',
 			route_items: 'route_id',
 			memberships: 'profile_id',
+			applications: 'treatment_id',
 		};
 		const missing = Object.entries(expected).filter(([table, column]) => {
 			const module = modules.find((candidate) => candidate.table === table);

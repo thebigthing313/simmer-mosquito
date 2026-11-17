@@ -4,9 +4,14 @@ import { formatAmount } from '../control-display';
 import { insecticideName } from './application-row-parts';
 
 /**
- * The Chemical Applications summary's amount applied, out of the breakdown
+ * The chemical summary's amount applied, out of the breakdown
  * `/map/chemical/summary` answers, drawn as text one line per insecticide and
  * unit after the declared Insecticide, Method and Applicator groupings.
+ *
+ * The breakdown is summed line by line, so a Treatment that put out two
+ * products adds to two lines here and its `count` is Chemical Applications,
+ * while the summary's total and its Method and Applicator groupings count the
+ * Treatment once (ADR 0020).
  */
 export function applicationSummaryFigures(
 	summary: MapSummary,
@@ -35,5 +40,5 @@ export function applicationSummaryFigures(
 		},
 	);
 
-	return [{ key: 'amount', title: 'Amount Applied', groups: amounts }];
+	return [{ key: 'amount', title: 'Amount Applied', groups: amounts, recordType: 'application' }];
 }

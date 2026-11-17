@@ -565,8 +565,14 @@ function LinkedActionSummary({ action }: { readonly action: LinkedControlAction 
 		case 'application':
 			return (
 				<>
-					Treated with {action.insecticideName ?? 'Unknown insecticide'} ·{' '}
-					<UnitAmount amount={action.amount} abbreviation={action.unitAbbreviation} />
+					Treated with{' '}
+					{action.lines.map((line, index) => (
+						<span key={line.id}>
+							{index > 0 ? ', ' : ''}
+							{line.insecticideName ?? 'Unknown insecticide'} ·{' '}
+							<UnitAmount amount={line.amount} abbreviation={line.unitAbbreviation} />
+						</span>
+					))}
 				</>
 			);
 		case 'sourceReduction':

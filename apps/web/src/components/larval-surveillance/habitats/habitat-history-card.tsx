@@ -70,7 +70,7 @@ export function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }
 								</TabStripTab>
 								<TabStripTab value="samples">Samples ({formatCount(samples.length)})</TabStripTab>
 								<TabStripTab value="applications">
-									Applications ({formatCount(applications.length)})
+									Treatments ({formatCount(applications.length)})
 								</TabStripTab>
 								<TabStripTab value="source-reductions">
 									Source Reductions ({formatCount(sourceReductions.length)})

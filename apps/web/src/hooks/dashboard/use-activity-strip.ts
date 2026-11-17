@@ -18,7 +18,6 @@
 import { OVERVIEW_RECORD_TYPES, type OverviewRecordType } from '@simmer-mosquito/domain';
 import { eq, gte, toArray, useLiveQuery } from '@tanstack/react-db';
 import type { ActivityCount, DateWindow } from '../../components/dashboard/dashboard-data';
-import { applications } from '../../lib/collections/applications';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
 import { collections } from '../../lib/collections/collections';
 import { inspections } from '../../lib/collections/inspections';
@@ -26,6 +25,7 @@ import { outreach_actions } from '../../lib/collections/outreach_actions';
 import { samples } from '../../lib/collections/samples';
 import { service_requests } from '../../lib/collections/service_requests';
 import { source_reductions } from '../../lib/collections/source_reductions';
+import { treatments } from '../../lib/collections/treatments';
 import { addCalendarDays } from '../../lib/local-date';
 import { ACTIVITY_DATES } from '../queries/activity-dates';
 import { liveQueryGcTimeMs } from '../queries/shared';
@@ -93,15 +93,17 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 				})),
 	});
 
-	const applicationRows = useLiveQuery({
+	// The chemical cell counts Treatments, so a two-product visit counts once.
+	// Its lines name products, which no cell counts, so none are loaded.
+	const treatmentRows = useLiveQuery({
 		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
-				.from({ application: applications() })
-				.where(({ application }) => gte(ACTIVITY_DATES.applications.column(application), since))
-				.select(({ application }) => ({
-					id: application.id,
-					date: ACTIVITY_DATES.applications.column(application),
+				.from({ treatment: treatments() })
+				.where(({ treatment }) => gte(ACTIVITY_DATES.applications.column(treatment), since))
+				.select(({ treatment }) => ({
+					id: treatment.id,
+					date: ACTIVITY_DATES.applications.column(treatment),
 				})),
 	});
 
@@ -156,7 +158,7 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 	const reads = [
 		inspectionRows,
 		collectionRows,
-		applicationRows,
+		treatmentRows,
 		sourceReductionRows,
 		releaseRows,
 		serviceRequestRows,
@@ -177,7 +179,7 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 		inspections: inspectionDates,
 		samples: sampleDates,
 		collections: collectionDates,
-		applications: applicationRows.data.map(one),
+		applications: treatmentRows.data.map(one),
 		sourceReductions: sourceReductionRows.data.map(one),
 		releases: releaseRows.data.map(one),
 		serviceRequests: serviceRequestRows.data.map(one),

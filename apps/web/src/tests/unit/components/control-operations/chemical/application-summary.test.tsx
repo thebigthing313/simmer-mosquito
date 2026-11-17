@@ -9,6 +9,10 @@
  * back out when clicked (#1374). The summary holds no filter state of its own,
  * so the whole assertion is what `setFilters` was handed. The amounts are text,
  * one per insecticide and unit, because an amount is never added across units.
+ *
+ * The summary counts Treatments, so the Method and Applicator groups name
+ * `treatments`, while the Insecticide group counts the Chemical Applications
+ * naming each product: a two-product Treatment is one under each (ADR 0020).
  */
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
@@ -113,7 +117,7 @@ function renderSummary(filters: Partial<ApplicationFilters> = {}, summary = SUMM
 				})
 			}
 			order={['insecticides', 'methods', 'people']}
-			recordType="application"
+			recordType="treatment"
 			state={{ data: summary, isError: false, retry: () => undefined }}
 		/>,
 	);
@@ -163,13 +167,13 @@ describe('the chemical application summary', () => {
 	it('adds an application method to the filter, and takes a selected one back out', () => {
 		const setFilters = renderSummary({ methods: new Set([BACKPACK]) });
 
-		// An application recorded with no method has no filter to set, so it is not drawn.
+		// A Treatment recorded with no method has no filter to set, so it is not drawn.
 		expect(buttonTexts(section('Method'))).toEqual(['Truck ULV300', 'Backpack100']);
-		fireEvent.click(group('Truck ULV, 300 chemical applications'));
+		fireEvent.click(group('Truck ULV, 300 treatments'));
 		expect(setFilters).toHaveBeenLastCalledWith({ methods: new Set([BACKPACK, TRUCK]) });
 
-		expect(group('Backpack, 100 chemical applications').getAttribute('aria-pressed')).toBe('true');
-		fireEvent.click(group('Backpack, 100 chemical applications'));
+		expect(group('Backpack, 100 treatments').getAttribute('aria-pressed')).toBe('true');
+		fireEvent.click(group('Backpack, 100 treatments'));
 		expect(setFilters).toHaveBeenLastCalledWith({ methods: new Set() });
 	});
 
@@ -177,11 +181,11 @@ describe('the chemical application summary', () => {
 		const setFilters = renderSummary({ people: new Set([BEN]) });
 
 		expect(buttonTexts(section('Applicator'))).toEqual(['Ana Ortiz250', 'Ben Hale150']);
-		fireEvent.click(group('Ana Ortiz, 250 chemical applications'));
+		fireEvent.click(group('Ana Ortiz, 250 treatments'));
 		expect(setFilters).toHaveBeenLastCalledWith({ people: new Set([BEN, ANA]) });
 
-		expect(group('Ben Hale, 150 chemical applications').getAttribute('aria-pressed')).toBe('true');
-		fireEvent.click(group('Ben Hale, 150 chemical applications'));
+		expect(group('Ben Hale, 150 treatments').getAttribute('aria-pressed')).toBe('true');
+		fireEvent.click(group('Ben Hale, 150 treatments'));
 		expect(setFilters).toHaveBeenLastCalledWith({ people: new Set() });
 	});
 

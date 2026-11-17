@@ -10,8 +10,17 @@ import { countPhrase } from './format-count';
  * registration. They are widened in here rather than pushed into the domain,
  * because nothing in the domain wants them as comment targets and a vocabulary
  * that grows to suit a label is no longer the domain's.
+ *
+ * The fourth is a Chemical Application, the line under a Treatment. Comments
+ * hang on the Treatment (ADR 0020), so the domain dropped it as a target, but
+ * a count of products still names it: a Treatment that put out two products
+ * is one `treatment` and two `chemical applications`.
  */
-type ExtraRecordType = 'weatherStation' | 'missionItem' | 'notificationRegistration';
+type ExtraRecordType =
+	| 'weatherStation'
+	| 'missionItem'
+	| 'notificationRegistration'
+	| 'application';
 
 /**
  * Every record type this app names on screen, in the camelCase domain
@@ -147,6 +156,12 @@ const RECORD_NOUNS: Record<RecordType, RecordNoun> = {
 		titleMany: 'Source Reductions',
 	},
 	trap: { one: 'trap', many: 'traps', title: 'Trap', titleMany: 'Traps' },
+	treatment: {
+		one: 'treatment',
+		many: 'treatments',
+		title: 'Treatment',
+		titleMany: 'Treatments',
+	},
 	weatherStation: {
 		one: 'weather station',
 		many: 'weather stations',

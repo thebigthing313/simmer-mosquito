@@ -12,6 +12,7 @@
  * which is what a `left` join gives and an `inner` one would not.
  */
 
+import { waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useLinkedControlActions } from '../../../../hooks/queries/use-linked-control-actions';
 import { applications } from '../../../../lib/collections/applications';
@@ -24,6 +25,7 @@ import { profiles } from '../../../../lib/collections/profiles';
 import { requested_control_actions } from '../../../../lib/collections/requested_control_actions';
 import { source_reduction_methods } from '../../../../lib/collections/source_reduction_methods';
 import { source_reductions } from '../../../../lib/collections/source_reductions';
+import { treatments } from '../../../../lib/collections/treatments';
 import { units } from '../../../../lib/collections/units';
 import {
 	installMemoryCollections,
@@ -55,30 +57,82 @@ async function readActions() {
 	return result.current.actions;
 }
 
+/** Wait for the Treatment to arrive with `lineCount` lines, which load through an include. */
+async function readActionsWithLines(lineCount = 1) {
+	const { result } = await renderRead(() => useLinkedControlActions(INSPECTION));
+	await waitFor(() => {
+		const [first] = result.current.actions;
+		expect(first?.kind === 'application' ? first.lines.length : 0).toBe(lineCount);
+	});
+	return result.current.actions;
+}
+
 describe('useLinkedControlActions', () => {
-	it('names the insecticide, the unit and the applicator on an application', async () => {
-		seedRows(applications, [
+	it('names the applicator on a Treatment, and the insecticide and unit on each line', async () => {
+		seedRows(treatments, [
 			{
-				id: 'a1',
+				id: 't1',
 				inspection_id: INSPECTION,
 				application_date: '2026-08-12',
 				applicator_profile_id: PROFILE,
+			},
+		]);
+		seedRows(applications, [
+			{
+				id: 'l1',
+				treatment_id: 't1',
 				insecticide_id: INSECTICIDE,
 				amount_applied: 6,
 				application_unit_id: UNIT,
 			},
 		]);
 
-		const [action] = await readActions();
+		const actions = await readActionsWithLines();
 
-		expect(action).toMatchObject({
+		expect(actions[0]).toMatchObject({
 			kind: 'application',
-			insecticideName: 'VectoBac 12AS',
-			amount: 6,
-			unitAbbreviation: 'fl oz',
 			actorProfileId: PROFILE,
 			actorName: 'Rosa Lam',
+			lines: [
+				expect.objectContaining({
+					insecticideName: 'VectoBac 12AS',
+					amount: 6,
+					unitAbbreviation: 'fl oz',
+				}),
+			],
 		});
+	});
+
+	it('lists a two-product Treatment once, so the badge counts the visit', async () => {
+		seedRows(treatments, [
+			{
+				id: 't1',
+				inspection_id: INSPECTION,
+				application_date: '2026-08-12',
+				applicator_profile_id: PROFILE,
+			},
+		]);
+		seedRows(applications, [
+			{
+				id: 'l1',
+				treatment_id: 't1',
+				insecticide_id: INSECTICIDE,
+				amount_applied: 6,
+				application_unit_id: UNIT,
+			},
+			{
+				id: 'l2',
+				treatment_id: 't1',
+				insecticide_id: MISSING,
+				amount_applied: 2,
+				application_unit_id: UNIT,
+			},
+		]);
+
+		const actions = await readActionsWithLines(2);
+
+		expect(actions).toHaveLength(1);
+		expect(actions[0]?.kind === 'application' && actions[0].lines).toHaveLength(2);
 	});
 
 	it('names the method of a source reduction, an outreach action and a biocontrol release', async () => {
@@ -146,33 +200,39 @@ describe('useLinkedControlActions', () => {
 	});
 
 	it('keeps a row whose catalog entry is not in the client, with null names', async () => {
-		seedRows(applications, [
+		seedRows(treatments, [
 			{
-				id: 'a1',
+				id: 't1',
 				inspection_id: INSPECTION,
 				application_date: '2026-08-12',
 				applicator_profile_id: MISSING,
+			},
+		]);
+		seedRows(applications, [
+			{
+				id: 'l1',
+				treatment_id: 't1',
 				insecticide_id: MISSING,
 				amount_applied: 6,
 				application_unit_id: MISSING,
 			},
 		]);
 
-		const [action] = await readActions();
+		const actions = await readActionsWithLines();
 
-		expect(action).toMatchObject({
+		expect(actions[0]).toMatchObject({
 			kind: 'application',
-			insecticideName: null,
-			unitAbbreviation: null,
 			actorProfileId: MISSING,
 			actorName: null,
+			lines: [expect.objectContaining({ insecticideName: null, unitAbbreviation: null })],
 		});
 	});
 
 	/**
 	 * The trap a label join can spring: a join that took over the cursor or the
 	 * predicate would leave the action table loading whole. Each table must still
-	 * ask Electric for exactly the rows citing this inspection.
+	 * ask Electric for exactly the rows citing this inspection, and the lines
+	 * table for the lines of the Treatments that matched, by `treatment_id` alone.
 	 */
 	it('still asks each action table for this inspection alone', async () => {
 		installMemoryCollections({ recordSubsets: true });
@@ -180,11 +240,14 @@ describe('useLinkedControlActions', () => {
 		await renderRead(() => useLinkedControlActions(INSPECTION));
 
 		const asked = `inspection_id = ${INSPECTION}`;
-		expect(subsetRequests(applications).map(subsetPredicate)).toEqual([asked]);
+		expect(subsetRequests(treatments).map(subsetPredicate)).toEqual([asked]);
 		expect(subsetRequests(source_reductions).map(subsetPredicate)).toEqual([asked]);
 		expect(subsetRequests(outreach_actions).map(subsetPredicate)).toEqual([asked]);
 		expect(subsetRequests(biocontrol_actions).map(subsetPredicate)).toEqual([asked]);
 		expect(subsetRequests(requested_control_actions).map(subsetPredicate)).toEqual([asked]);
+		for (const predicate of subsetRequests(applications).map(subsetPredicate)) {
+			expect(predicate).toMatch(/^treatment_id /);
+		}
 	});
 
 	it('reads an action nobody was recorded against as unassigned, not as unknown', async () => {

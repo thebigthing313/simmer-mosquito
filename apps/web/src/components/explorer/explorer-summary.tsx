@@ -40,6 +40,11 @@ export interface SummaryGrouping {
 	readonly key: string;
 	readonly title: string;
 	readonly groups: readonly SummaryGroup[];
+	/**
+	 * What this grouping's counts count, where it differs from the summary's:
+	 * a product grouping under a summary that counts Treatments counts lines.
+	 */
+	readonly recordType?: RecordType;
 }
 
 /** The summary request as this component reads it. */
@@ -89,7 +94,11 @@ function SummaryBody({ recordType, groupings, state }: SummaryContent) {
 			{groupings
 				.filter((grouping) => grouping.groups.length > 0)
 				.map((grouping) => (
-					<SummarySection grouping={grouping} key={grouping.key} recordType={recordType} />
+					<SummarySection
+						grouping={grouping}
+						key={grouping.key}
+						recordType={grouping.recordType ?? recordType}
+					/>
 				))}
 		</>
 	);

@@ -32,7 +32,6 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { activityRow } from '../../../../components/activity/activity-data';
 import type { DayActivityEntry } from '../../../../components/activity/activity-entries';
 import type { ActivityLayerConfig } from '../../../../hooks/map/use-activity-layer';
-import { applications } from '../../../../lib/collections/applications';
 import { habitats } from '../../../../lib/collections/habitats';
 import { organizations } from '../../../../lib/collections/organizations';
 import { profiles } from '../../../../lib/collections/profiles';
@@ -40,6 +39,7 @@ import { service_requests } from '../../../../lib/collections/service_requests';
 import { tag_items } from '../../../../lib/collections/tag_items';
 import { tags } from '../../../../lib/collections/tags';
 import { traps } from '../../../../lib/collections/traps';
+import { treatments } from '../../../../lib/collections/treatments';
 import type { MinimumRole } from '../../../../lib/write-access';
 import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
 import { preloadRouteComponent, renderExplorer, stubPanelLayout } from '../explorer-route-harness';
@@ -94,7 +94,7 @@ function seedMixedDay(): void {
 			created_at: noonOn(DAY),
 		},
 	]);
-	seedRows(applications, [
+	seedRows(treatments, [
 		{
 			id: 'application-1',
 			lat: 35.7,
@@ -102,10 +102,7 @@ function seedMixedDay(): void {
 			application_date: DAY,
 			habitat_id: 'habitat-1',
 			address_id: null,
-			insecticide_id: null,
 			application_method_id: null,
-			amount_applied: null,
-			application_unit_id: null,
 			applicator_profile_id: PROFILE_ID,
 			created_at: noonOn(DAY),
 		},

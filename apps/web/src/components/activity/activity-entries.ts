@@ -30,7 +30,6 @@ import type {
 } from '@simmer-mosquito/domain';
 import type {
 	AdultCollection,
-	Application,
 	BiocontrolAction,
 	Habitat,
 	Inspection,
@@ -38,11 +37,13 @@ import type {
 	ServiceRequest,
 	SourceReduction,
 	Trap,
+	Treatment,
 } from '@simmer-mosquito/sync';
 import { collectionLabel } from '../../hooks/queries/trap-view';
+import type { TreatmentLine } from '../../hooks/queries/treatment-lines';
 import { habitatLabel } from '../../lib/coordinate-label';
 import { localCalendarDay } from '../../lib/local-date';
-import type { ActivityEntry } from './activity-data';
+import type { ActivityEntry, ActivityTreatmentLine } from './activity-data';
 
 /** One entry with the two columns a day-wide read carries and a one-Profile log does not. */
 export interface DayActivityEntry extends ActivityEntry {
@@ -91,6 +92,7 @@ interface RecordHalf {
 	readonly methodRefId?: string | null;
 	readonly amount?: number | null;
 	readonly unitId?: string | null;
+	readonly lines?: readonly ActivityTreatmentLine[] | null;
 	readonly detail?: string | null;
 	readonly stages?: string | null;
 	readonly context?: string | null;
@@ -113,6 +115,7 @@ const NO_RECORD_COLUMNS = {
 	methodRefId: null,
 	amount: null,
 	unitId: null,
+	lines: null,
 	detail: null,
 	stages: null,
 	context: null,
@@ -498,42 +501,49 @@ export function collectionEntries(
 	return entries;
 }
 
-export function applicationEntries(
-	application: Row<
-		Application,
+/**
+ * A Treatment is one entry per person however many products it put out
+ * (ADR 0020), shaped as the server's activity rows shape it: `refId` is the
+ * method, as on every other control action, and the products are `lines`.
+ */
+export function treatmentEntries(
+	treatment: Row<
+		Treatment,
 		| 'id'
 		| 'lat'
 		| 'lng'
 		| 'application_date'
-		| 'insecticide_id'
 		| 'application_method_id'
-		| 'amount_applied'
-		| 'application_unit_id'
 		| 'applicator_profile_id'
 		| 'created_at'
 	> &
-		PlaceNames & { readonly assisting: readonly AssistingLink[] },
+		PlaceNames & {
+			readonly lines: readonly TreatmentLine[];
+			readonly assisting: readonly AssistingLink[];
+		},
 	scope: DayScope,
 ): DayActivityEntry[] {
-	if (application.application_date !== scope.day) {
+	if (treatment.application_date !== scope.day) {
 		return [];
 	}
 	return attributed(
 		{
 			category: 'application',
 			family: 'control',
-			id: application.id,
-			lat: application.lat,
-			lng: application.lng,
-			placeName: placeNameOf(application),
-			refId: application.insecticide_id,
-			methodRefId: application.application_method_id,
-			amount: application.amount_applied,
-			unitId: application.application_unit_id,
+			id: treatment.id,
+			lat: treatment.lat,
+			lng: treatment.lng,
+			placeName: placeNameOf(treatment),
+			refId: treatment.application_method_id,
+			lines: treatment.lines.map((line) => ({
+				insecticideId: line.insecticideId,
+				amount: line.amount,
+				unitId: line.unitId,
+			})),
 		},
-		{ date: scope.day, occurredAt: null, createdAt: application.created_at },
-		{ profileId: application.applicator_profile_id, role: 'applied' },
-		application.assisting,
+		{ date: scope.day, occurredAt: null, createdAt: treatment.created_at },
+		{ profileId: treatment.applicator_profile_id, role: 'applied' },
+		treatment.assisting,
 	);
 }
 

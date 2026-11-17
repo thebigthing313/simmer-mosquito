@@ -12,13 +12,14 @@
  * unmatched join yields.
  */
 
-import { useLiveQuery } from '@tanstack/react-db';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
 	controlActionBaseSelect,
 	PERFORMED_ACTIONS,
 } from '../../../../hooks/queries/performed-action-reads';
+import { linesOf, treatmentLines } from '../../../../hooks/queries/treatment-lines';
 import { application_methods } from '../../../../lib/collections/application_methods';
 import { applications } from '../../../../lib/collections/applications';
 import { biocontrol_actions } from '../../../../lib/collections/biocontrol_actions';
@@ -29,14 +30,22 @@ import { outreach_methods } from '../../../../lib/collections/outreach_methods';
 import { profiles } from '../../../../lib/collections/profiles';
 import { source_reduction_methods } from '../../../../lib/collections/source_reduction_methods';
 import { source_reductions } from '../../../../lib/collections/source_reductions';
+import { treatments } from '../../../../lib/collections/treatments';
 import { units } from '../../../../lib/collections/units';
-import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
+import {
+	installMemoryCollections,
+	seedRows,
+	subsetPredicate,
+	subsetRequests,
+} from '../../lib/collections/memory-collections';
 import { plain, renderRead } from './read-harness';
 
 const PROFILE = '22222222-2222-4222-8222-222222222222';
 const UNIT = '33333333-3333-4333-8333-333333333333';
 const PRODUCT = '44444444-4444-4444-8444-444444444444';
 const METHOD = '55555555-5555-4555-8555-555555555555';
+/** An id no collection holds. */
+const GONE = '99999999-9999-4999-8999-999999999999';
 const DAY = '2026-08-04';
 
 beforeEach(() => {
@@ -101,75 +110,170 @@ function expectedRows(options: {
 }
 
 describe('PERFORMED_ACTIONS', () => {
-	it('joins and measures a chemical application, product included', async () => {
-		const reads = PERFORMED_ACTIONS.applications;
-		seedRows(applications, [
+	it('joins and measures a Treatment, which names no product', async () => {
+		const reads = PERFORMED_ACTIONS.treatments;
+		seedRows(treatments, [
 			{
-				id: 'a1',
+				id: 't1',
 				application_date: DAY,
-				insecticide_id: PRODUCT,
 				application_method_id: METHOD,
 				applicator_profile_id: PROFILE,
-				amount_applied: 12,
-				application_unit_id: UNIT,
 			},
 			{
-				id: 'a2',
+				id: 't2',
 				application_date: DAY,
-				insecticide_id: null,
 				application_method_id: null,
 				applicator_profile_id: null,
-				amount_applied: 3,
-				application_unit_id: null,
 			},
 		]);
 
 		const rows = await readRows(() =>
 			useLiveQuery((query) =>
 				query
-					.from({ application: applications() })
-					.join(
-						{ product: insecticides() },
-						({ application, product }) => reads.joinProduct(application, product),
-						'left',
-					)
+					.from({ treatment: treatments() })
 					.join(
 						{ method: application_methods() },
-						({ application, method }) => reads.joinMethod(application, method),
-						'left',
-					)
-					.join(
-						{ unit: units() },
-						({ application, unit }) => reads.joinUnit(application, unit),
+						({ treatment, method }) => reads.joinMethod(treatment, method),
 						'left',
 					)
 					.join(
 						{ applicator: profiles() },
-						({ application, applicator }) => reads.joinPerformer(application, applicator),
+						({ treatment, applicator }) => reads.joinPerformer(treatment, applicator),
 						'left',
 					)
-					.select(({ application, product, method, unit, applicator }) => ({
-						id: application.id,
-						date: reads.date(application),
-						...reads.measured(application),
-						productName: product.trade_name,
+					.select(({ treatment, method, applicator }) => ({
+						id: treatment.id,
+						date: reads.date(treatment),
+						...reads.measured(treatment),
 						methodName: method.name,
-						unitAbbreviation: unit.abbreviation,
 						performerName: applicator.display_name,
 					})),
 			),
 		);
 
-		expect(rows).toEqual(
-			expectedRows({
-				prefix: 'a',
-				amounts: [12, 3],
-				extra: [
-					{ productId: PRODUCT, productName: 'VectoBac 12AS' },
-					{ productId: null, productName: undefined },
-				],
-			}),
+		expect(rows).toEqual([
+			{
+				id: 't1',
+				date: DAY,
+				methodId: METHOD,
+				performerProfileId: PROFILE,
+				methodName: 'Method',
+				performerName: 'Rosa Lam',
+			},
+			{
+				id: 't2',
+				date: DAY,
+				methodId: null,
+				performerProfileId: null,
+				methodName: undefined,
+				performerName: undefined,
+			},
+		]);
+	});
+
+	it('reads each Treatment its own lines through the include, product and unit joined', async () => {
+		seedRows(treatments, [
+			{ id: 't1', application_date: DAY },
+			{ id: 't2', application_date: DAY },
+		]);
+		seedRows(applications, [
+			{
+				id: 'l1',
+				treatment_id: 't1',
+				insecticide_id: PRODUCT,
+				amount_applied: 12,
+				application_unit_id: UNIT,
+				created_at: new Date('2026-08-04T12:00:00Z'),
+			},
+			{
+				id: 'l2',
+				treatment_id: 't1',
+				insecticide_id: GONE,
+				amount_applied: 3,
+				application_unit_id: GONE,
+				created_at: new Date('2026-08-04T12:01:00Z'),
+			},
+			{
+				id: 'l3',
+				treatment_id: 't2',
+				insecticide_id: PRODUCT,
+				amount_applied: 5,
+				application_unit_id: UNIT,
+				created_at: new Date('2026-08-04T12:02:00Z'),
+			},
+		]);
+
+		const rows = await readRows(() =>
+			useLiveQuery((query) =>
+				query.from({ treatment: treatments() }).select(({ treatment }) => ({
+					id: treatment.id,
+					lines: treatmentLines(query, treatment),
+				})),
+			),
 		);
+
+		expect(rows.map((row) => ({ id: row.id, lines: linesOf(row.lines).map(plain) }))).toEqual([
+			{
+				id: 't1',
+				lines: [
+					{
+						id: 'l1',
+						insecticideId: PRODUCT,
+						insecticideName: 'VectoBac 12AS',
+						amount: 12,
+						unitId: UNIT,
+						unitAbbreviation: 'gal',
+					},
+					{
+						id: 'l2',
+						insecticideId: GONE,
+						insecticideName: null,
+						amount: 3,
+						unitId: GONE,
+						unitAbbreviation: null,
+					},
+				],
+			},
+			{
+				id: 't2',
+				lines: [
+					{
+						id: 'l3',
+						insecticideId: PRODUCT,
+						insecticideName: 'VectoBac 12AS',
+						amount: 5,
+						unitId: UNIT,
+						unitAbbreviation: 'gal',
+					},
+				],
+			},
+		]);
+	});
+
+	it('asks for lines by their Treatment alone', async () => {
+		installMemoryCollections({ recordSubsets: true });
+		seedRows(treatments, [{ id: 't1', application_date: DAY }]);
+
+		await readRows(() =>
+			useLiveQuery((query) =>
+				query
+					.from({ treatment: treatments() })
+					.where(({ treatment }) => eq(PERFORMED_ACTIONS.treatments.date(treatment), DAY))
+					.select(({ treatment }) => ({
+						id: treatment.id,
+						lines: treatmentLines(query, treatment),
+					})),
+			),
+		);
+
+		// The window is the Treatment's. The line subset names `treatment_id` and
+		// nothing of the Treatment's, which is what keeps the pushdown.
+		expect(subsetRequests(treatments).map(subsetPredicate)).toEqual([`application_date = ${DAY}`]);
+		const linePredicates = subsetRequests(applications).map(subsetPredicate);
+		expect(linePredicates.length).toBeGreaterThan(0);
+		for (const predicate of linePredicates) {
+			expect(predicate).toMatch(/^treatment_id /);
+		}
 	});
 
 	it('joins and measures a source reduction', async () => {

@@ -24,7 +24,6 @@
 import type { InitialQueryBuilder } from '@tanstack/db';
 import { and, eq, gte, lt, or, toArray, useLiveQuery } from '@tanstack/react-db';
 import {
-	applicationEntries,
 	biocontrolEntries,
 	collectionEntries,
 	type DayActivityEntry,
@@ -35,10 +34,10 @@ import {
 	serviceRequestEntries,
 	sourceReductionEntries,
 	trapEntries,
+	treatmentEntries,
 } from '../../components/activity/activity-entries';
 import { additional_personnel } from '../../lib/collections/additional_personnel';
 import { addresses } from '../../lib/collections/addresses';
-import { applications } from '../../lib/collections/applications';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
 import { collections } from '../../lib/collections/collections';
 import { habitats } from '../../lib/collections/habitats';
@@ -48,10 +47,12 @@ import { service_requests } from '../../lib/collections/service_requests';
 import { source_reductions } from '../../lib/collections/source_reductions';
 import { tag_items } from '../../lib/collections/tag_items';
 import { traps } from '../../lib/collections/traps';
+import { treatments } from '../../lib/collections/treatments';
 import { addCalendarDays, localDayStartAsInstant } from '../../lib/local-date';
 import { ACTIVITY_DATES } from '../queries/activity-dates';
 import { collectedOn } from '../queries/collection-day';
 import { liveQueryGcTimeMs } from '../queries/shared';
+import { linesOf, treatmentLines } from '../queries/treatment-lines';
 
 export interface DayActivityRead {
 	readonly entries: readonly DayActivityEntry[];
@@ -64,7 +65,7 @@ const ENTITY = {
 	habitat: 'habitat',
 	inspection: 'inspection',
 	collection: 'collection',
-	application: 'application',
+	treatment: 'treatment',
 	sourceReduction: 'source_reduction',
 	biocontrol: 'biocontrol_action',
 	outreach: 'outreach_action',
@@ -186,11 +187,13 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 				})),
 	});
 
-	const applicationRows = useLiveQuery({
+	// The day's Treatments, then each one's lines: one entry per visit however
+	// many products it put out, and the crew hang on the Treatment.
+	const treatmentRows = useLiveQuery({
 		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
-				.from({ r: applications() })
+				.from({ r: treatments() })
 				.where(({ r }) => eq(ACTIVITY_DATES.applications.column(r), day))
 				.join({ h: habitats() }, ({ r, h }) => eq(r.habitat_id, h.id), 'left')
 				.join({ ad: addresses() }, ({ r, ad }) => eq(r.address_id, ad.id), 'left')
@@ -199,15 +202,13 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 					lat: r.lat,
 					lng: r.lng,
 					application_date: r.application_date,
-					insecticide_id: r.insecticide_id,
 					application_method_id: r.application_method_id,
-					amount_applied: r.amount_applied,
-					application_unit_id: r.application_unit_id,
 					applicator_profile_id: r.applicator_profile_id,
 					created_at: r.created_at,
 					habitatName: h.habitat_name,
 					addressName: ad.display_name,
-					assisting: assistingOn(query, r.id, ENTITY.application),
+					lines: treatmentLines(query, r),
+					assisting: assistingOn(query, r.id, ENTITY.treatment),
 				})),
 	});
 
@@ -322,7 +323,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 		inspectionRows,
 		trapRows,
 		collectionRows,
-		applicationRows,
+		treatmentRows,
 		sourceReductionRows,
 		biocontrolRows,
 		outreachRows,
@@ -342,8 +343,11 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 		...collectionRows.data.flatMap((row) =>
 			collectionEntries({ ...row, assisting: links(row.assisting) }, scope),
 		),
-		...applicationRows.data.flatMap((row) =>
-			applicationEntries({ ...row, assisting: links(row.assisting) }, scope),
+		...treatmentRows.data.flatMap((row) =>
+			treatmentEntries(
+				{ ...row, lines: linesOf(row.lines), assisting: links(row.assisting) },
+				scope,
+			),
 		),
 		...sourceReductionRows.data.flatMap((row) =>
 			sourceReductionEntries({ ...row, assisting: links(row.assisting) }, scope),

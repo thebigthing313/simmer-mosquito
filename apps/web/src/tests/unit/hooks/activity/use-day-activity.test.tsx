@@ -25,6 +25,7 @@ import { inspections } from '../../../../lib/collections/inspections';
 import { service_requests } from '../../../../lib/collections/service_requests';
 import { tag_items } from '../../../../lib/collections/tag_items';
 import { traps } from '../../../../lib/collections/traps';
+import { treatments } from '../../../../lib/collections/treatments';
 import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
 import { renderRead } from '../queries/read-harness';
 
@@ -204,7 +205,7 @@ describe('useDayActivity', () => {
 				created_at: new Date('2026-09-15T13:00:00Z'),
 			},
 		]);
-		seedRows(applications, [
+		seedRows(treatments, [
 			{
 				id: 'app-1',
 				lat: 40.5,
@@ -212,10 +213,7 @@ describe('useDayActivity', () => {
 				application_date: DAY,
 				applicator_profile_id: null,
 				created_by_profile_id: TYPIST,
-				insecticide_id: 'ins-1',
 				application_method_id: 'am-1',
-				amount_applied: 2.5,
-				application_unit_id: 'u-1',
 				created_at: new Date('2026-09-15T13:00:00Z'),
 			},
 		]);
@@ -223,5 +221,69 @@ describe('useDayActivity', () => {
 		const read = await readDay();
 		expect(summary(read)).toEqual([`${DANA} created habitat`]);
 		expect(read.entries[0]).toMatchObject({ label: 'Ditch 7', detail: 'inaccessible', tagIds: [] });
+	});
+
+	it('makes one entry per person for a two-product Treatment, the products on its lines', async () => {
+		seedRows(treatments, [
+			{
+				id: 't-basins',
+				lat: 40.5,
+				lng: -74.5,
+				habitat_id: null,
+				address_id: null,
+				application_date: DAY,
+				applicator_profile_id: DANA,
+				application_method_id: 'am-1',
+				created_at: new Date('2026-09-15T13:00:00Z'),
+			},
+		]);
+		seedRows(applications, [
+			{
+				id: 'l-bti',
+				treatment_id: 't-basins',
+				insecticide_id: 'ins-bti',
+				amount_applied: 2.5,
+				application_unit_id: 'u-gal',
+				created_at: new Date('2026-09-15T13:00:00Z'),
+			},
+			{
+				id: 'l-mets',
+				treatment_id: 't-basins',
+				insecticide_id: 'ins-mets',
+				amount_applied: 1,
+				application_unit_id: 'u-gal',
+				created_at: new Date('2026-09-15T13:00:01Z'),
+			},
+		]);
+		// The crew hangs on the Treatment, not on a line.
+		seedRows(additional_personnel, [
+			{
+				id: 'ap-1',
+				entity_type: 'treatment',
+				entity_id: 't-basins',
+				personnel_profile_id: MIGUEL,
+			},
+		]);
+
+		const rendered = await renderRead(() => useDayActivity(DAY, ZONE));
+		await waitFor(() => {
+			expect(rendered.result.current.isReady).toBe(true);
+			expect(rendered.result.current.entries[0]?.lines).toHaveLength(2);
+			expect(rendered.result.current.entries).toHaveLength(2);
+		});
+		const read = rendered.result.current;
+
+		// One entry for the applicator and one for the assist: the visit counts once
+		// per person, which is what people-today and daily work count.
+		expect(summary(read)).toEqual([
+			`${DANA} applied application`,
+			`${MIGUEL} assisted application`,
+		]);
+		const applied = read.entries.find((entry) => entry.role === 'applied');
+		expect(applied).toMatchObject({ id: 't-basins', refId: 'am-1', amount: null });
+		expect(applied?.lines).toEqual([
+			{ insecticideId: 'ins-bti', amount: 2.5, unitId: 'u-gal' },
+			{ insecticideId: 'ins-mets', amount: 1, unitId: 'u-gal' },
+		]);
 	});
 });

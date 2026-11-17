@@ -9,8 +9,9 @@
  *
  * ## Why the shape is a discriminated union
  *
- * The actions do not describe themselves the same way: an application names a
- * product and an amount, a source reduction names a method and a count of
+ * The actions do not describe themselves the same way: a Treatment names its
+ * products and amounts, one line each, through the include in
+ * `treatment-lines.ts`, a source reduction names a method and a count of
  * sources, an outreach action names how many people it reached, and a requested
  * action has not happened yet and names a summary instead. Flattening them into
  * one row shape would mean a pile of nullable columns and a renderer that has to
@@ -38,22 +39,22 @@
 
 import type { ControlType } from '@simmer-mosquito/domain';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { applications } from '../../lib/collections/applications';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
 import { biocontrol_methods } from '../../lib/collections/biocontrol_methods';
-import { insecticides } from '../../lib/collections/insecticides';
 import { outreach_actions } from '../../lib/collections/outreach_actions';
 import { outreach_methods } from '../../lib/collections/outreach_methods';
 import { profiles } from '../../lib/collections/profiles';
 import { requested_control_actions } from '../../lib/collections/requested_control_actions';
 import { source_reduction_methods } from '../../lib/collections/source_reduction_methods';
 import { source_reductions } from '../../lib/collections/source_reductions';
+import { treatments } from '../../lib/collections/treatments';
 import { units } from '../../lib/collections/units';
 import { PERFORMED_ACTIONS } from './performed-action-reads';
 import { joinedOrNull, liveQueryGcTimeMs } from './shared';
+import { linesOf, type TreatmentLine, treatmentLines } from './treatment-lines';
 
 const {
-	applications: applicationReads,
+	treatments: treatmentReads,
 	sourceReductions: reductionReads,
 	releases: releaseReads,
 	outreachActions: outreachReads,
@@ -78,10 +79,9 @@ type JoinedName = string | null;
 
 export type LinkedControlAction =
 	| (LinkedActionBase & {
+			/** A Treatment, which names its products and amounts on its lines. */
 			readonly kind: 'application';
-			readonly insecticideName: JoinedName;
-			readonly amount: number;
-			readonly unitAbbreviation: JoinedName;
+			readonly lines: readonly TreatmentLine[];
 	  })
 	| (LinkedActionBase & {
 			readonly kind: 'sourceReduction';
@@ -112,37 +112,27 @@ export function useLinkedControlActions(inspectionId: string): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const applicationResult = useLiveQuery({
+	// The Treatments citing this inspection, then each one's lines: one linked
+	// action per visit however many products it put out (ADR 0020).
+	const treatmentResult = useLiveQuery({
 		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
-				.from({ application: applications() })
-				.where(({ application }) => eq(application.inspection_id, inspectionId))
-				.join(
-					{ insecticide: insecticides() },
-					({ application, insecticide }) => applicationReads.joinProduct(application, insecticide),
-					'left',
-				)
-				.join(
-					{ unit: units() },
-					({ application, unit }) => applicationReads.joinUnit(application, unit),
-					'left',
-				)
+				.from({ treatment: treatments() })
+				.where(({ treatment }) => eq(treatment.inspection_id, inspectionId))
 				.join(
 					{ actor: profiles() },
-					({ application, actor }) => applicationReads.joinPerformer(application, actor),
+					({ treatment, actor }) => treatmentReads.joinPerformer(treatment, actor),
 					'left',
 				)
-				.select(({ application, insecticide, unit, actor }) => {
-					const measured = applicationReads.measured(application);
+				.select(({ treatment, actor }) => {
+					const measured = treatmentReads.measured(treatment);
 					return {
-						id: application.id,
-						date: applicationReads.date(application),
+						id: treatment.id,
+						date: treatmentReads.date(treatment),
 						actorProfileId: measured.performerProfileId,
 						actorName: joinedOrNull(actor.display_name),
-						insecticideName: joinedOrNull(insecticide.trade_name),
-						amount: measured.amount,
-						unitAbbreviation: joinedOrNull(unit.abbreviation),
+						lines: treatmentLines(query, treatment),
 					};
 				}),
 	});
@@ -272,14 +262,14 @@ export function useLinkedControlActions(inspectionId: string): {
 	});
 
 	const results = [
-		applicationResult,
+		treatmentResult,
 		sourceReductionResult,
 		outreachResult,
 		biocontrolResult,
 		requestedResult,
 	];
 
-	const applicationRows = applicationResult.data;
+	const applicationRows = treatmentResult.data;
 	const sourceReductionRows = sourceReductionResult.data;
 	const outreachRows = outreachResult.data;
 	const biocontrolRows = biocontrolResult.data;
@@ -312,7 +302,7 @@ function interleaved(subsets: {
 }): readonly LinkedControlAction[] {
 	const list: LinkedControlAction[] = [];
 	for (const row of subsets.applicationRows ?? []) {
-		list.push({ kind: 'application', ...row } as LinkedControlAction);
+		list.push({ kind: 'application', ...row, lines: linesOf(row.lines) } as LinkedControlAction);
 	}
 	for (const row of subsets.sourceReductionRows ?? []) {
 		list.push({ kind: 'sourceReduction', ...row } as LinkedControlAction);

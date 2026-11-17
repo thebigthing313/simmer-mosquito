@@ -119,7 +119,7 @@ export const OVERVIEW_LABELS: Readonly<Record<OverviewRecordType, string>> = {
 	inspections: recordNoun('inspection').titleMany,
 	samples: recordNoun('sample').titleMany,
 	collections: recordNoun('collection').titleMany,
-	applications: recordNoun('application').titleMany,
+	applications: recordNoun('treatment').titleMany,
 	sourceReductions: recordNoun('sourceReduction').titleMany,
 	releases: recordNoun('biocontrolAction').titleMany,
 	serviceRequests: `${recordNoun('serviceRequest').titleMany} received`,

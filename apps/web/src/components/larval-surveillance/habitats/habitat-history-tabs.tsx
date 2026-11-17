@@ -8,13 +8,13 @@ import { Link } from '@tanstack/react-router';
 import { useLarvalEntryMode } from '../../../hooks/larval-surveillance/use-larval-entry-mode';
 import { controlTypeLabel, requestStatus } from '../../../hooks/queries/operations-view';
 import type {
-	HabitatHistoryApplication,
 	HabitatHistoryInspection,
 	HabitatHistoryRequest,
 	HabitatHistorySample,
 	HabitatHistorySampleRow,
 	HabitatHistorySourceReduction,
 	HabitatHistorySpecies,
+	HabitatHistoryTreatment,
 } from '../../../hooks/queries/use-habitat-history';
 import { useOrganizationClock } from '../../../hooks/use-organization-clock';
 import { formatCount } from '../../../lib/format-count';
@@ -170,7 +170,7 @@ export function ApplicationHistory({
 	habitatId,
 	isError,
 }: {
-	readonly applications: readonly HabitatHistoryApplication[];
+	readonly applications: readonly HabitatHistoryTreatment[];
 	readonly habitatId: string;
 	readonly isError: boolean;
 }) {
@@ -192,7 +192,7 @@ export function ApplicationHistory({
 			}
 			icon={<ApplicationIcon aria-hidden="true" />}
 			isError={isError}
-			noun={recordNoun('application')}
+			noun={recordNoun('treatment')}
 			rows={applications}
 			unavailable={{
 				description: 'Application history could not be loaded.',
@@ -217,7 +217,11 @@ export function ApplicationHistory({
 							(application.applicatorName ?? 'Unknown')
 						)}
 					</TableCell>
-					<TableCell>{application.insecticideName ?? 'Unknown insecticide'}</TableCell>
+					<TableCell>
+						{application.lines
+							.map((line) => line.insecticideName ?? 'Unknown insecticide')
+							.join(', ')}
+					</TableCell>
 					<TableCell>
 						{application.applicationMethodId === null ? (
 							<AbsentValue />
@@ -226,7 +230,9 @@ export function ApplicationHistory({
 						)}
 					</TableCell>
 					<TableCell className="text-right tabular-nums">
-						{amountWithUnit(application.amountApplied, application.unitAbbreviation)}
+						{application.lines
+							.map((line) => amountWithUnit(line.amount, line.unitAbbreviation))
+							.join(', ')}
 					</TableCell>
 				</TableRow>
 			)}

@@ -6,9 +6,11 @@
  * Four queries rather than one, because they hang off the Habitat in different
  * ways. Inspections nest — a sample belongs to an inspection and a species count
  * belongs to a sample — so they load as correlated includes, and the `eq()`s in
- * those subqueries are what drive Electric's on-demand subsets. Applications,
+ * those subqueries are what drive Electric's on-demand subsets. Treatments,
  * source reductions and requested control actions name the Habitat directly, so
- * a nested include would be a lie about the shape of the data.
+ * a nested include would be a lie about the shape of the data. A Treatment's
+ * lines are the one include on that side: a line names its Treatment, never
+ * the Habitat, so it is read through `treatment-lines.ts` (ADR 0020).
  *
  * Requests are here rather than on a card of their own because the question a
  * crew lead asks at a site is one question: what has been done here, and what is
@@ -55,8 +57,6 @@
 import type { ControlType, LarvalDensity } from '@simmer-mosquito/domain';
 import { eq, toArray, useLiveQuery } from '@tanstack/react-db';
 import { application_methods } from '../../lib/collections/application_methods';
-import { applications } from '../../lib/collections/applications';
-import { insecticides } from '../../lib/collections/insecticides';
 import { inspections } from '../../lib/collections/inspections';
 import { profiles } from '../../lib/collections/profiles';
 import { requested_control_actions } from '../../lib/collections/requested_control_actions';
@@ -65,11 +65,13 @@ import { samples } from '../../lib/collections/samples';
 import { source_reduction_methods } from '../../lib/collections/source_reduction_methods';
 import { source_reductions } from '../../lib/collections/source_reductions';
 import { species as speciesCatalog } from '../../lib/collections/species';
+import { treatments } from '../../lib/collections/treatments';
 import { units } from '../../lib/collections/units';
 import { PERFORMED_ACTIONS } from './performed-action-reads';
 import { joinedOrNull, liveQueryGcTimeMs } from './shared';
+import { linesOf, type TreatmentLine, treatmentLines } from './treatment-lines';
 
-const { applications: applicationReads, sourceReductions: reductionReads } = PERFORMED_ACTIONS;
+const { treatments: treatmentReads, sourceReductions: reductionReads } = PERFORMED_ACTIONS;
 
 /** One species count under a sample. */
 export interface HabitatHistorySpecies {
@@ -117,20 +119,20 @@ export interface HabitatHistorySampleRow extends HabitatHistorySample {
 	readonly inspectionDate: string;
 }
 
-/** One chemical application made at this habitat. */
-export interface HabitatHistoryApplication {
+/**
+ * One Treatment made at this habitat, with the products it put out. The tab
+ * counts these, so a two-product visit counts once (ADR 0020).
+ */
+export interface HabitatHistoryTreatment {
 	readonly id: string;
 	/** `YYYY-MM-DD` — the operational date, not a timestamp. */
 	readonly applicationDate: string;
 	readonly applicatorProfileId: string | null;
 	readonly applicatorName: string | null;
-	readonly insecticideId: string;
-	readonly insecticideName: string | null;
 	readonly applicationMethodId: string | null;
 	readonly applicationMethodName: string | null;
-	readonly amountApplied: number;
-	readonly applicationUnitId: string;
-	readonly unitAbbreviation: string | null;
+	/** Its Chemical Applications, oldest first. */
+	readonly lines: readonly TreatmentLine[];
 }
 
 /**
@@ -177,7 +179,8 @@ export interface HabitatHistory {
 	readonly inspections: readonly HabitatHistoryInspection[];
 	/** Every sample across every inspection, most recent first. */
 	readonly samples: readonly HabitatHistorySampleRow[];
-	readonly applications: readonly HabitatHistoryApplication[];
+	/** Every Treatment at this habitat, most recent first. */
+	readonly applications: readonly HabitatHistoryTreatment[];
 	/** Every source reduction at this habitat, most recent first. */
 	readonly sourceReductions: readonly HabitatHistorySourceReduction[];
 	/** Open and resolved alike, most recently raised first. */
@@ -258,43 +261,29 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
-				.from({ application: applications() })
-				.where(({ application }) => eq(application.habitat_id, habitatId))
+				.from({ treatment: treatments() })
+				.where(({ treatment }) => eq(treatment.habitat_id, habitatId))
 				.join(
 					{ applicator: profiles() },
-					({ application, applicator }) => applicationReads.joinPerformer(application, applicator),
-					'left',
-				)
-				.join(
-					{ insecticide: insecticides() },
-					({ application, insecticide }) => applicationReads.joinProduct(application, insecticide),
+					({ treatment, applicator }) => treatmentReads.joinPerformer(treatment, applicator),
 					'left',
 				)
 				.join(
 					{ method: application_methods() },
-					({ application, method }) => applicationReads.joinMethod(application, method),
+					({ treatment, method }) => treatmentReads.joinMethod(treatment, method),
 					'left',
 				)
-				.join(
-					{ unit: units() },
-					({ application, unit }) => applicationReads.joinUnit(application, unit),
-					'left',
-				)
-				.orderBy(({ application }) => applicationReads.date(application), 'desc')
-				.select(({ application, applicator, insecticide, method, unit }) => {
-					const measured = applicationReads.measured(application);
+				.orderBy(({ treatment }) => treatmentReads.date(treatment), 'desc')
+				.select(({ treatment, applicator, method }) => {
+					const measured = treatmentReads.measured(treatment);
 					return {
-						id: application.id,
-						applicationDate: applicationReads.date(application),
+						id: treatment.id,
+						applicationDate: treatmentReads.date(treatment),
 						applicatorProfileId: measured.performerProfileId,
 						applicatorName: joinedOrNull(applicator.display_name),
-						insecticideId: measured.productId,
-						insecticideName: joinedOrNull(insecticide.trade_name),
 						applicationMethodId: measured.methodId,
 						applicationMethodName: joinedOrNull(method.name),
-						amountApplied: measured.amount,
-						applicationUnitId: measured.unitId,
-						unitAbbreviation: joinedOrNull(unit.abbreviation),
+						lines: treatmentLines(query, treatment),
 					};
 				}),
 	});
@@ -373,7 +362,7 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 	return {
 		inspections: historyInspections,
 		samples: historySamples,
-		applications: (applicationResult.data ?? []) as unknown as readonly HabitatHistoryApplication[],
+		applications: treatmentsNewestFirst(applicationResult.data),
 		sourceReductions: (sourceReductionResult.data ??
 			[]) as unknown as readonly HabitatHistorySourceReduction[],
 		requests: (requestResult.data ?? []) as unknown as readonly HabitatHistoryRequest[],
@@ -395,4 +384,17 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 function newestFirst(inspectionRows: unknown): readonly HabitatHistoryInspection[] {
 	const rows = (inspectionRows ?? []) as unknown as readonly HabitatHistoryInspection[];
 	return [...rows].sort((a, b) => (a.inspectionDate < b.inspectionDate ? 1 : -1));
+}
+
+/**
+ * The habitat's Treatments, newest first, each with its lines narrowed. The
+ * lines include is a correlated `toArray`, so the order is re-established here
+ * for the same reason the inspections' is.
+ */
+function treatmentsNewestFirst(
+	treatmentRows: readonly (Omit<HabitatHistoryTreatment, 'lines'> & { readonly lines: unknown })[],
+): readonly HabitatHistoryTreatment[] {
+	return treatmentRows
+		.map((row) => ({ ...row, lines: linesOf(row.lines) }))
+		.sort((a, b) => (a.applicationDate < b.applicationDate ? 1 : -1));
 }

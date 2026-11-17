@@ -13,32 +13,43 @@
  * rows rather than a rolling window — three small subsets instead of three large
  * ones.
  *
- * Each carries its own names, joined: the product or method that titles the row,
- * the method that qualifies it, the unit its amount is measured in, and whoever
- * performed it. The overview used to build six lookup maps over six whole tables
- * to answer the same questions.
+ * Each carries its own names, joined: the method that titles or qualifies the
+ * row, the unit its amount is measured in, and whoever performed it. The
+ * overview used to build six lookup maps over six whole tables to answer the
+ * same questions.
+ *
+ * ## One row per Treatment
+ *
+ * The chemical kind reads the day's Treatments and each one's lines through
+ * the include in `treatment-lines.ts`, so a visit that put out two products is
+ * one action with two lines, and a person's count and kind breakdown count the
+ * visit once (ADR 0020). A Treatment has no one subject or amount, so those are
+ * `null` on it and its products are in `lines`.
  */
 
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { application_methods } from '../../lib/collections/application_methods';
-import { applications } from '../../lib/collections/applications';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
 import { biocontrol_methods } from '../../lib/collections/biocontrol_methods';
-import { insecticides } from '../../lib/collections/insecticides';
 import { profiles } from '../../lib/collections/profiles';
 import { source_reduction_methods } from '../../lib/collections/source_reduction_methods';
 import { source_reductions } from '../../lib/collections/source_reductions';
+import { treatments } from '../../lib/collections/treatments';
 import { units } from '../../lib/collections/units';
 import { PERFORMED_ACTIONS } from './performed-action-reads';
 import { joinedOrNull, liveQueryGcTimeMs } from './shared';
+import { linesOf, type TreatmentLine, treatmentLines } from './treatment-lines';
 
 const {
-	applications: applicationReads,
+	treatments: treatmentReads,
 	sourceReductions: reductionReads,
 	releases: releaseReads,
 } = PERFORMED_ACTIONS;
 
-/** What kind of control action a row is — the icon and detail link follow from it. */
+/**
+ * What kind of control action a row is — the icon and detail link follow from
+ * it. `application` is a Treatment.
+ */
 export type ControlActionKind = 'application' | 'sourceReduction' | 'biocontrol';
 
 export interface DailyControlAction {
@@ -49,21 +60,25 @@ export interface DailyControlAction {
 	readonly performedByProfileId: string | null;
 	readonly performedByName: string | null;
 	/**
-	 * The product (applications) or the control method (the other two). `null`
+	 * The control method of a source reduction or a biocontrol release. `null`
 	 * while that record is not in the client; the surface draws its own stand-in.
+	 * Always `null` on a Treatment, whose products are in `lines`.
 	 */
 	readonly subjectName: string | null;
 	/**
-	 * How it was done, where that is a separate fact from the subject. Only
-	 * applications have one — for the other two the method *is* the subject, so
+	 * How it was done, where that is a separate fact from the subject. Only a
+	 * Treatment has one; for the other two the method *is* the subject, so
 	 * repeating it in the secondary line would say the same thing twice, and both
-	 * fields are `null` there. On an application, a `null` id is no method
-	 * recorded and a `null` name beside a set id is a method not in the client.
+	 * fields are `null` there. On a Treatment, a `null` id is no method recorded
+	 * and a `null` name beside a set id is a method not in the client.
 	 */
 	readonly methodId: string | null;
 	readonly methodName: string | null;
-	readonly amount: number;
+	/** `null` on a Treatment, whose amounts are per product, in `lines`. */
+	readonly amount: number | null;
 	readonly unitAbbreviation: string | null;
+	/** A Treatment's products, oldest first. Empty on the other two kinds. */
+	readonly lines: readonly TreatmentLine[];
 	readonly createdAt: Date;
 }
 
@@ -72,46 +87,34 @@ export function useControlActionsForDay(date: string): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const applicationResult = useLiveQuery({
+	const treatmentResult = useLiveQuery({
 		gcTime: liveQueryGcTimeMs,
 		query: (query) =>
 			query
-				.from({ application: applications() })
-				.where(({ application }) => eq(applicationReads.date(application), date))
-				.join(
-					{ product: insecticides() },
-					({ application, product }) => applicationReads.joinProduct(application, product),
-					'left',
-				)
+				.from({ treatment: treatments() })
+				.where(({ treatment }) => eq(treatmentReads.date(treatment), date))
 				.join(
 					{ method: application_methods() },
-					({ application, method }) => applicationReads.joinMethod(application, method),
-					'left',
-				)
-				.join(
-					{ unit: units() },
-					({ application, unit }) => applicationReads.joinUnit(application, unit),
+					({ treatment, method }) => treatmentReads.joinMethod(treatment, method),
 					'left',
 				)
 				.join(
 					{ performer: profiles() },
-					({ application, performer }) => applicationReads.joinPerformer(application, performer),
+					({ treatment, performer }) => treatmentReads.joinPerformer(treatment, performer),
 					'left',
 				)
-				.orderBy(({ application }) => application.created_at, 'asc')
-				.select(({ application, product, method, unit, performer }) => {
-					const measured = applicationReads.measured(application);
+				.orderBy(({ treatment }) => treatment.created_at, 'asc')
+				.select(({ treatment, method, performer }) => {
+					const measured = treatmentReads.measured(treatment);
 					return {
-						id: application.id,
-						actionDate: applicationReads.date(application),
+						id: treatment.id,
+						actionDate: treatmentReads.date(treatment),
 						performedByProfileId: measured.performerProfileId,
 						performedByName: joinedOrNull(performer.display_name),
-						subjectName: joinedOrNull(product.trade_name),
 						methodId: measured.methodId,
 						methodName: joinedOrNull(method.name),
-						amount: measured.amount,
-						unitAbbreviation: joinedOrNull(unit.abbreviation),
-						createdAt: application.created_at,
+						createdAt: treatment.created_at,
+						lines: treatmentLines(query, treatment),
 					};
 				}),
 	});
@@ -186,23 +189,40 @@ export function useControlActionsForDay(date: string): {
 				}),
 	});
 
-	const applicationRows = applicationResult.data;
+	const treatmentRows = treatmentResult.data;
 	const sourceReductionRows = sourceReductionResult.data;
 	const biocontrolRows = biocontrolResult.data;
 
 	const actions: readonly DailyControlAction[] = [
-		...applicationRows.map((row) => ({ ...row, kind: 'application' as const })),
+		...treatmentRows.map(
+			(row): DailyControlAction => ({
+				kind: 'application',
+				id: row.id,
+				actionDate: row.actionDate,
+				performedByProfileId: row.performedByProfileId,
+				performedByName: row.performedByName,
+				subjectName: null,
+				methodId: row.methodId,
+				methodName: row.methodName,
+				amount: null,
+				unitAbbreviation: null,
+				lines: linesOf(row.lines),
+				createdAt: row.createdAt,
+			}),
+		),
 		...sourceReductionRows.map((row) => ({
 			...row,
 			kind: 'sourceReduction' as const,
 			methodId: null,
 			methodName: null,
+			lines: NO_LINES,
 		})),
 		...biocontrolRows.map((row) => ({
 			...row,
 			kind: 'biocontrol' as const,
 			methodId: null,
 			methodName: null,
+			lines: NO_LINES,
 		})),
 		// Recording order, which is the order the crew worked in — the three
 		// subsets each arrive sorted, and this is what interleaves them.
@@ -212,7 +232,10 @@ export function useControlActionsForDay(date: string): {
 		actions,
 		// One panel over three shapes: it is only trustworthy once all three have
 		// landed, and any one failing means the day shown would be short some work.
-		isReady: applicationResult.isReady && sourceReductionResult.isReady && biocontrolResult.isReady,
-		isError: applicationResult.isError || sourceReductionResult.isError || biocontrolResult.isError,
+		isReady: treatmentResult.isReady && sourceReductionResult.isReady && biocontrolResult.isReady,
+		isError: treatmentResult.isError || sourceReductionResult.isError || biocontrolResult.isError,
 	};
 }
+
+/** The lines a source reduction or a biocontrol release carries: none. */
+const NO_LINES: readonly TreatmentLine[] = [];

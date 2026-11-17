@@ -26,6 +26,14 @@ describe('recordCount', () => {
 		expect(recordCount('application', 0)).toBe('0 chemical applications');
 	});
 
+	// The noun follows the thing counted: work counts Treatments, a product
+	// counts its Chemical Applications (ADR 0020).
+	it('counts a visit as a treatment and its products as chemical applications', () => {
+		expect(recordCount('treatment', 1)).toBe('1 treatment');
+		expect(recordCount('application', 2)).toBe('2 chemical applications');
+		expect(recordNoun('treatment').titleMany).toBe('Treatments');
+	});
+
 	it('separates thousands', () => {
 		expect(recordCount('habitat', 14245)).toBe('14,245 habitats');
 	});
